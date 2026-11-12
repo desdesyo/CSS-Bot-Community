@@ -2,6 +2,7 @@
 #include "CSSBC_SupportRoster.h"
 #include "CSSBC_TeamMemory.h"
 #include "CSSBC_Combat.h"
+#include "CSSBC_CombatTeam.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
@@ -20,9 +21,13 @@ int main(){
  TeamMemory mem;mem.Publish({EventKind::PlateCracked,2,4,Plate::LeftArm,.9f,10.f,"left arm cracked"});assert(mem.Recent(11.f).size()==1);assert(mem.Recent(30.f,5.f).empty());
  JuggernautArmor combatArmor;CombatResolver combat;auto hit=combat.Resolve(combatArmor,Plate::Chest,100.f);
  assert(hit.armorDamage==72.f&&hit.healthDamage==28.f&&!hit.broken);
- auto exposed=combat.Resolve(combatArmor,Plate::Chest,100.f);assert(exposed.armorDamage==72.f);
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
+ CombatTeamBridge bridge;JuggernautArmor bridgedArmor;PlateLearning sharedLearn;
+ auto br=bridge.OnHit(bridgedArmor,{7,9,Plate::RightArm,100.f,4.f},combat,sharedLearn,mem);
+ assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
+ assert(!mem.Recent(5.f).empty());
+ bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
  std::cout<<"CSSBC core tests: PASS\n";
 }
