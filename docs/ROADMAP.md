@@ -1,0 +1,12 @@
+# Development roadmap (current state)
+- [x] Engine-independent support price/eligibility rules.
+- [x] Six Juggernaut armor plate states.
+- [x] Bot callout trust and evidence-weighted plate choice.
+- [x] MVP event scoring, retreat estimate and cover reward.
+- [x] Support roster composition model (4-unit squad and Juggernaut).
+- [x] Shared team event memory with bounded history.
+- [ ] Validate CI result and add deterministic unit tests.
+- [ ] Select and pin a CS:S SDK fork; compile a game DLL.
+- [ ] Register support NPCs, custom weapon and armor hitgroups in Source.
+- [ ] Hook economy, round events, bot perception, nav and HUD.
+- [ ] Create rigged model/animations and test in an actual server.
