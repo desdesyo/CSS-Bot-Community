@@ -12,12 +12,12 @@ MenuModel MenuController::Build(MenuPage page,bool connected,bool hasLastSetup) 
   add("cssbc","CSS BOT COMMUNITY",MenuAction::OpenCSSBC);add("settings","НАСТРОЙКИ",MenuAction::OpenSettings);
   add("extras","ДОПОЛНИТЕЛЬНО",MenuAction::OpenExtras);add("servers","СПИСОК СЕРВЕРОВ",MenuAction::OpenServerBrowser);
   if(connected)add("disconnect","ОТКЛЮЧИТЬСЯ",MenuAction::Disconnect);break;
- case MenuPage::Play:add("new_match","NEW MATCH",MenuAction::OpenNewMatch);add("servers","SERVER BROWSER",MenuAction::OpenServerBrowser);add("back","НАЗАД",MenuAction::Back);break;
- case MenuPage::NewMatch:add("start","НАЧАТЬ",MenuAction::OpenNewMatch);add("back","BACK",MenuAction::Back);break;
+ case MenuPage::Play:add("new_match","НАЧАТЬ МАТЧ",MenuAction::OpenNewMatch);add("servers","СПИСОК СЕРВЕРОВ",MenuAction::OpenServerBrowser);add("back","НАЗАД",MenuAction::Back);break;
+ case MenuPage::NewMatch:add("start","НАЧАТЬ",MenuAction::OpenNewMatch);add("back","НАЗАД",MenuAction::Back);break;
  case MenuPage::CSSBC:add("back","BACK",MenuAction::Back);break;
  case MenuPage::Settings:add("back","BACK",MenuAction::Back);break;
  case MenuPage::Extras:add("back","BACK",MenuAction::Back);break;
- case MenuPage::ServerBrowser:add("connect","CONNECT",MenuAction::Connect);add("back","BACK",MenuAction::Back);break;
+ case MenuPage::ServerBrowser:add("connect","ПОДКЛЮЧИТЬСЯ",MenuAction::Connect);add("back","BACK",MenuAction::Back);break;
  }
  return m;
 }
@@ -29,7 +29,7 @@ MenuPage MenuController::Navigate(MenuPage current,MenuAction a) const {
 }
 HudView BuildHud(const HudSnapshot&s,const HudConfig&c){
  HudView v; auto clamp=[](int x){return std::max(0,x);};
- if(c.showHealth)v.health="ЗДР "+std::to_string(clamp(s.health));
+ if(c.showHealth)v.health="ЗДОРОВЬЕ "+std::to_string(clamp(s.health));
  if(c.showArmor)v.armor="БРОНЯ "+std::to_string(clamp(s.armor));
  if(c.showAmmo)v.ammo=std::to_string(clamp(s.clip))+" / "+std::to_string(clamp(s.reserve));
  if(c.showMoney)v.money="$"+std::to_string(clamp(s.money));
