@@ -1,0 +1,4 @@
+#include "CSSBC_System.h"
+#include <cassert>
+#include <iostream>
+using namespace cssbc;int main(){CSSBCSystem s;SupportOrder o{};assert(!s.RequestSupport(SupportTier::Juggernaut16000,1,16000,2,o));assert(s.RequestSupport(SupportTier::Juggernaut16000,1,16000,3,o));assert(s.CanPurchase(SupportTier::Squad9000,9000,0));JuggernautArmor a;assert(!a.ApplyHit(Plate::Chest,.4f));assert(a.ApplyHit(Plate::Chest,.7f));assert(a.Get(Plate::Chest).broken);s.MVP().Add(3,EventKind::Rescue,5);assert(s.MVP().Get(3)==5);assert(s.RetreatProbability(Traits{},1,3,0)<s.RetreatProbability(Traits{},.2,0,1));assert(s.CoverReward(4,2)==16);std::cout<<"CSSBC tests PASS\\n";}
