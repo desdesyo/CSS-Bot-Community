@@ -4,7 +4,7 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 
 > **Status:** early development. This repository currently contains an engine-independent gameplay core, not a playable CS:S DLL. Game integration requires a compatible community CS:S SDK/fork.
 
-## Русский язык\n\nПолная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик (`CSSBC_Localization.h/.cpp`). Важно: игровые панели Source, стандартные надписи движка и озвучка пока требуют подключения адаптера к CS:S SDK; текущий репозиторий ещё не является готовой DLL-модификацией.\n\n## Core systems
+## Русский язык\n\nПолная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик (`CSSBC_Localization.h/.cpp`). Важно: игровые панели Source, стандартные надписи движка и озвучка пока требуют подключения адаптера к CS:S SDK; текущий репозиторий ещё не является готовой DLL-модификацией.\n\n## Серверный запуск (SourceMod)\n\nДобавлен устанавливаемый bridge: [инструкция](sourcemod/README.md), исходник [cssbc.sp](sourcemod/scripting/cssbc.sp). Он подключает русские серверные команды, покупку поддержки и базовый Джаггернаут к CS:S. NPC-отряд, бронепластины, полноценный HUD и замена AI пока не реализованы.\n\n## Core systems
 - Support tiers: $1k / $3k / $9k squad / $16k Juggernaut.
 - Juggernaut purchase: $16,000 and at least 3 dead allies.
 - Six individually damageable armor plates.
