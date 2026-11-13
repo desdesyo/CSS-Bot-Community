@@ -1,6 +1,6 @@
 # CSSBC MapBridge — procedural VMF authoring (0.2)
 
-MapBridge is a local MCP server for generating Source-engine VMF geometry. It is **not** a BSP compiler and does not make ChatGPT web connect to your PC by itself.
+MapBridge is an assistant-facing local MCP server and procedural VMF authoring tool for Source-engine maps. It exposes map-generation and geometry tools over MCP stdio. It is **not** a BSP compiler. A desktop assistant/client must launch the MCP server; a normal browser chat cannot attach to a process on your PC by itself.
 
 ## Install / launch (Windows)
 
@@ -17,7 +17,11 @@ MapBridge is a local MCP server for generating Source-engine VMF geometry. It is
 
 All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alphanumeric, underscore and dash only.
 
-## One-command generator (new)\n\nFrom the repository root in PowerShell:\n\n```powershell\ncd tools/mapbridge\nnpm install\nnpm run generate -- CSSBC_District\n```\n\nThis starts MapBridge itself, creates/overwrites a district VMF, prints its exact path, and exits. No MCP desktop setup is needed for this generation command. The output is a graybox VMF; compiling/playtesting still requires legitimate CS:S game content and Hammer/Source compilers.\n\n## Tool reference
+## One-command generator (new)\n\nFrom the repository root in PowerShell:\n\n```powershell\ncd tools/mapbridge\nnpm install\nnpm run generate -- CSSBC_District\n```\n\nThis starts MapBridge itself, creates/overwrites a district VMF, prints its exact path, and exits. No MCP desktop setup is needed for this generation command. The output is a graybox VMF; compiling/playtesting still requires legitimate CS:S game content and Hammer/Source compilers.\n\n## CI / smoke test
+
+GitHub Actions runs JavaScript syntax checks and an end-to-end MCP stdio smoke test. The smoke test launches the server in a temporary directory, initializes MCP, lists tools, generates a district, adds a spawn, and verifies VMF structure, root-level spawn entities and unique IDs. Run it locally with `npm test`.
+
+## Tool reference
 
 | Tool | Inputs | Result |
 |---|---|---|
