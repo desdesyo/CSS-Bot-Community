@@ -1,0 +1,8 @@
+{
+ "schema":1,"profile":"default_balanced",
+ "mode":"classic","bot_difficulty":0.55,
+ "bot_traits":{"courage":0.55,"trust":0.65,"teamwork":0.8,"discipline":0.7,"independence":0.45,"adaptability":0.75},
+ "hud":{"health":true,"armor":true,"ammo":true,"money":true,"team":true,"mvp":true,"crosshair":{"size":3,"gap":2,"thickness":1,"rgb":"00FF00","dot":false}},
+ "gameplay":{"friendly_fire":false,"adaptive_economy":true,"mvp_enabled":true},
+ "performance":{"dynamic_shadows":"low","effects":"low","prop_lod":"on","static_lighting":"preferred"}
+}
