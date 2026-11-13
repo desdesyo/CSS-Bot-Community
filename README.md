@@ -1,14 +1,30 @@
 # CSS Bot Community
 
-Community tactical AI and support systems for a Counter-Strike: Source-compatible Source engine project.
+Community tactical AI and support systems for a Counter-Strike: Source v34-compatible game project.
 
-> **Status:** early development. A Win32 native server-plugin bootstrap now builds against the AlliedModders CS:S SDK headers, embeds the portable C++ gameplay core, and records MVP events from the Source game-event manager. This is **not yet the complete playable mod**: bot decision hooks, support NPC spawning, armor hit-region integration, client HUD/VGUI and custom assets remain unfinished.
+> **Status:** active development. The portable C++ gameplay core is tested on Windows and Linux. A native VSP bridge also builds. The primary target is now the actual CS:S v34 game server DLL: the build pipeline downloads the community v34 game-source tree locally, patches bot update and round-event hooks, and compiles the server DLL with CSSBC systems embedded.
 
-## Build on Windows
+## Main Windows workflow
 
-Install Visual Studio 2022 with **Desktop development with C++** and CMake tools, then double-click [`BUILD_CSSBC.bat`](BUILD_CSSBC.bat). The script builds the portable core, runs tests, builds the native Win32 DLL, and places the result in `dist/CSSBC_VSP.dll`. It uses `C:\SDK\hl2sdk-css` if present; otherwise it downloads the AlliedModders `hl2sdk` `css` branch itself. Git is not required.
+1. Double-click [`BUILD_CSSBC.bat`](BUILD_CSSBC.bat) to build and test the core, download the pinned CS:S v34 source, apply the CSSBC adapter, and compile `dist/Server.dll`.
+2. Double-click [`INSTALL_CSSBC.bat`](INSTALL_CSSBC.bat) to install it into `C:\Games\Counter-Strike Source v34\cstrike\bin`. The installer keeps the original DLL as `server.dll.cssbc-backup`.
+3. If the test build causes problems, run [`RESTORE_STOCK_SERVER.bat`](RESTORE_STOCK_SERVER.bat).
 
-The same process runs in [GitHub Actions](.github/workflows/build-vsp.yml); successful builds publish a `CSSBC-VSP-Win32` artifact. The SDK branch provides compile-time interfaces; runtime compatibility with the user's exact CS:S v34 build still needs an in-game test.
+The optional Source server-plugin bootstrap can still be built with [`BUILD_CSSBC_VSP.bat`](BUILD_CSSBC_VSP.bat).
+
+## CS:S v34 source integration
+
+The build script pins [`rusherr-c/cssv34-sdk`](https://github.com/rusherr-c/cssv34-sdk) to commit `a410d4f10a1bc914b7789da476f32e9d7c36b75d`, downloads it into the ignored local `external/cssv34-sdk` folder, and patches it without adding upstream game source to this repository.
+
+The first game-code adapter:
+- Runs the CSSBC `BotBrain` during `CCSBot::Update`, using each bot's skill/aggression, health, armor, nearby allies/enemies and recognized threat.
+- Can influence retreat and cover-seeking behavior.
+- Exposes `cssbc_ai_enable 0/1` to disable/enable the adapter at runtime.
+- Scores kills, headshots, assists, bomb plants/defuses and hostage rescues for round MVP.
+
+The exact v34 server build is validated by [GitHub Actions](.github/workflows/build-cssbc-v34.yml). The workflow compiles but does not publish the upstream-derived game DLL as a public artifact.
+
+**Upstream licensing note:** `rusherr-c/cssv34-sdk` currently has no LICENSE file. The build downloads it locally and does not mirror its source or publish the compiled game DLL. Check upstream rights before redistributing any derivative.
 
 ## AI diagnostics and repair
 
@@ -17,22 +33,11 @@ The same process runs in [GitHub Actions](.github/workflows/build-vsp.yml); succ
 
 ## Русский язык
 
-Полная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик (`CSSBC_Localization.h/.cpp`). Реальные игровые панели Source, стандартные надписи движка и озвучка пока требуют клиентского адаптера и ресурсов.
+Полная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик. Подключение к настоящим игровым панелям Source и клиентскому HUD остаётся отдельной задачей.
 
-## Серверный запуск (SourceMod)
+## Optional SourceMod prototype
 
-Отдельный необязательный bridge: [инструкция](sourcemod/README.md), исходник [cssbc.sp](sourcemod/scripting/cssbc.sp). Он подключает серверные команды, покупку поддержки и базовый режим Джаггернаута. Это не целевая архитектура и не замена native VSP.
-
-## Native SDK integration
-
-Архитектура SDK-first: [план интеграции](docs/SDK_INTEGRATION.md). Текущий native VSP:
-- Loads as an `IServerPluginCallbacks` server plugin.
-- Connects to `IGameEventManager2`.
-- Scores kills, headshots, assists, bomb plants/defuses and hostage rescues.
-- Emits the top three round MVP user IDs to the server log.
-- Embeds the engine-independent C++ core.
-
-It does **not** yet replace stock bot AI or spawn support NPCs.
+The [SourceMod bridge](sourcemod/README.md) is an optional server-side experiment. It is not the target architecture and is not a replacement for the native v34 game DLL.
 
 ## Core systems
 
@@ -44,25 +49,22 @@ It does **not** yet replace stock bot AI or spawn support NPCs.
 - Retreat probability, cover reward, per-weapon recoil and MVP scoring.
 - Melee mode selection and authoritative trace-result validation.
 
-## Project scope
+## Full project scope
 
-CSSBC is intended as a broad gameplay and presentation overhaul:
 - Bot AI, tactics, personality, memory, morale, communication and teamwork.
 - Support units, Juggernaut, armor learning, MVP and tactical systems.
 - New weapons and optimized weapon/player models.
 - Lighting and flashlight improvements.
 - Modern minimal HUD and tactical main menu.
 - Preserve stock maps and bomb/hostage/round scenarios.
-- Low-spec-first asset and effects budget; compact crosshair.
+- Low-spec-first asset and effects budget.
 
 The visual decisions are recorded in [docs/UI_VISUAL_SPEC.md](docs/UI_VISUAL_SPEC.md). This is a target specification, not a claim that all assets/UI are already implemented.
 
-## Portable core: build and test
+## Portable core
 
 ```sh
 cmake -S . -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the remaining engine integration requirements.
