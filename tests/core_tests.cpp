@@ -38,5 +38,6 @@ int main(){
  assert(brain.SquadOrder(ti,SquadRole::Support)==BotOrder::Cover);
  ti.bombPlanted=true;ti.secondsLeft=8.f;assert(brain.Decide(ti).order==BotOrder::Push);
  ti.bombPlanted=false;ti.hasEnemySight=false;ti.lowAmmo=true;ti.health=20;assert(brain.Decide(ti).goal==BotGoal::Retreat);
- TacticalRuntime runtime;runtime.AddBot({11,bt,SquadRole::Entry,true});runtime.AddBot({12,bt,SquadRole::Support,true});FakeAdapter adapter;runtime.Tick(adapter);assert(adapter.applied==2);\n std::cout<<"CSSBC core tests: PASS\n";
+ TacticalRuntime runtime;runtime.AddBot({11,bt,SquadRole::Entry,true});runtime.AddBot({12,bt,SquadRole::Support,true});FakeAdapter adapter;runtime.Tick(adapter);assert(adapter.applied==2);
+ std::cout<<"CSSBC core tests: PASS\n";
 }
