@@ -12,9 +12,7 @@ $items = $project.SelectNodes("//*[local-name()='ClCompile' and @Include]")
 foreach ($item in $items) {
     $include = $item.GetAttribute("Include").Replace("/", "\")
     $isCssbc = $include -match '^cssbc\\.*\.cpp$'
-    $isBotUpdate = $include -ieq 'cstrike\bot\cs_bot_update.cpp'
-
-    if ($isCssbc -or $isBotUpdate) {
+    if ($isCssbc) {
         $language = $item.SelectSingleNode("./*[local-name()='LanguageStandard']")
         if (!$language) {
             $language = $project.CreateElement("LanguageStandard", $ns)
@@ -33,4 +31,4 @@ foreach ($item in $items) {
     }
 }
 $project.Save($resolved)
-Write-Host "C++17 enabled for CSSBC and cs_bot_update.cpp; PCH disabled for CSSBC core."
+Write-Host "C++17 enabled for CSSBC sources; PCH disabled for CSSBC core. The bot update hook header remains PCH-compatible."
