@@ -33,7 +33,7 @@ try{
  assert(vmf.includes('"classname" "worldspawn"'));
  assert(vmf.includes('"classname" "info_player_counterterrorist"'));
  assert(vmf.includes('"classname" "info_player_terrorist"'));
- assert.equal((vmf.match(/\n\s*solid\s*\{/g)||[]).length,23);
+ assert.equal((vmf.match(/\n\s*solid\s*\{/g)||[]).length,24);
  assert.equal((vmf.match(/\n\s*entity\s*\{/g)||[]).length,2);
- console.log("PASS: MCP initialize/list/call; district VMF; 23 solids; 2 spawns");
+ console.log("PASS: MCP initialize/list/call; district VMF; 24 solids; 2 spawns");
 }finally{proc.kill();await rm(tmp,{recursive:true,force:true});}
