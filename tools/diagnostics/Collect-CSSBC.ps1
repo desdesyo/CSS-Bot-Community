@@ -28,18 +28,20 @@ foreach ($dir in $logDirs) {
       ForEach-Object { Copy-Item $_.FullName (Join-Path $work ("game_" + $_.Name)) -Force }
   }
 }
-Copy-IfExists (Join-Path $GameDir "cstrike\addons\CSSBotCommunity\cssbc.log") "cssbc.log"
+Copy-IfExists (Join-Path $GameDir "cstrike\addons\cssbc\bin\cssbc.log") "cssbc.log"
+Copy-IfExists (Join-Path $GameDir "cstrike\addons\cssbc\cssbc.log") "cssbc.log"
+Copy-IfExists (Join-Path $GameDir "cstrike\addons\CSSBotCommunity\cssbc.log") "cssbc_legacy.log"
 Copy-IfExists (Join-Path $GameDir "cstrike\cssbc.log") "cssbc.log"
 Copy-IfExists (Join-Path $GameDir "cstrike\plugin_print.txt") "plugin_print.txt"
 
 # Runtime/system facts (no usernames, machine serials, IPs or process command lines)
 $gameExe = Join-Path $GameDir "hl2.exe"
 $gameVersion = if (Test-Path $gameExe) { (Get-Item $gameExe).VersionInfo.FileVersion } else { "not-found" }
-$dll = Join-Path $GameDir "cstrike\addons\CSSBotCommunity\CSSBC_VSP.dll"
+$dll = Join-Path $GameDir "cstrike\addons\cssbc\bin\CSSBC_VSP.dll"
 $dllVersion = if (Test-Path $dll) { (Get-Item $dll).VersionInfo.FileVersion } else { "not-found" }
 $summary = [ordered]@{
   schema = 1; created_utc = (Get-Date).ToUniversalTime().ToString("o")
-  collector_version = "0.1.0"; game_dir_exists = (Test-Path $GameDir)
+  collector_version = "0.1.1"; game_dir_exists = (Test-Path $GameDir)
   game_exe_version = $gameVersion; cssbc_dll_present = (Test-Path $dll)
   cssbc_dll_version = $dllVersion; powershell = $PSVersionTable.PSVersion.ToString()
   os = [Environment]::OSVersion.Version.ToString()
