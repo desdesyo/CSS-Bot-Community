@@ -263,17 +263,11 @@ jobs:
 
   build-installer:
     runs-on: windows-2022
-    needs: [build-vsp, build-v34-gamedll]
+    needs: [build-vsp]
     steps:
       - uses: actions/checkout@v4
         with:
           ref: sdk-foundation
-
-      - name: Download compiled GameDLL into installer payload
-        uses: actions/download-artifact@v4
-        with:
-          name: CSSBC-v34-GameDLL-Win32
-          path: installer
 
       - name: Download compiled VSP
         uses: actions/download-artifact@v4
@@ -311,7 +305,6 @@ jobs:
           $ver = Get-Content installer/version.txt -Raw
           New-Item -ItemType Directory -Force release-payload | Out-Null
           Copy-Item sdk/dll/bin/CSSBC_VSP.dll release-payload/CSSBC_VSP.dll
-          Copy-Item installer/server-v34-win32.dll release-payload/server-v34-win32.dll
           Set-Content release-payload/version.txt $ver -NoNewline
           Compress-Archive release-payload/* CSSBC-Update.zip -Force
 
