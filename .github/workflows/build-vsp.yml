@@ -93,3 +93,27 @@ jobs:
           name: CSSBC-VPC-Help
           path: vpc-help.txt
           if-no-files-found: error
+      - name: Generate v34 GameDLL Visual Studio solution (no Python)
+        shell: pwsh
+        run: |
+          Set-Location cssv34-source/src
+          New-Item -ItemType Directory -Force utils\dx_proxy | Out-Null
+          Set-Content utils\dx_proxy\dx_proxy_all.vgc "// CSSBC does not build the optional DirectX proxy tools."
+          & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +gamedlls /mksln CSSBC_GameDLL.sln /f
+          if ($LASTEXITCODE -ne 0) { throw "VPC failed to generate the GameDLL solution" }
+          if (!(Test-Path CSSBC_GameDLL.sln)) { throw "VPC did not create CSSBC_GameDLL.sln" }
+          $projects = Get-ChildItem -Recurse -Filter *.vcxproj | Select-Object -ExpandProperty FullName
+          $projects | Set-Content "$env:GITHUB_WORKSPACE\gamedll-projects.txt"
+          Write-Host "Generated projects:"
+          $projects
+
+      - name: Upload generated GameDLL projects
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-v34-GameDLL-Projects
+          path: |
+            cssv34-source/src/CSSBC_GameDLL.sln
+            gamedll-projects.txt
+            cssv34-source/src/game/server/*.vcxproj
+            cssv34-source/src/game/server/*.vcxproj.filters
+          if-no-files-found: warn
