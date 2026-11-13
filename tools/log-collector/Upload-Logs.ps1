@@ -9,16 +9,17 @@ $root=Join-Path $env:LOCALAPPDATA "CSSBC"
 New-Item -ItemType Directory -Force $root,$WatchPath | Out-Null
 function Get-Token {
  if(Test-Path $TokenFile){try{return (Get-Content $TokenFile -Raw | ConvertTo-SecureString | ConvertFrom-SecureString -AsPlainText -Force)}catch{}}
- Write-Host "GitHub token needed (Contents: Read/write for $AnalysisRepo). Create: https://github.com/settings/personal-access-tokens/new"
- $secure=Read-Host "Paste token (hidden)" -AsSecureString
+ Write-Host "GitHub token required. Create private repo $AnalysisRepo and PAT with Contents read/write."
+ $secure=Read-Host "Paste GitHub token (hidden)" -AsSecureString
  if($secure.Length -lt 20){throw "Token too short"}
  $secure | ConvertFrom-SecureString | Set-Content $TokenFile
  return ($secure | ConvertFrom-SecureString -AsPlainText -Force)
 }
 $token=Get-Token
 $headers=@{Authorization="Bearer $token";"X-GitHub-Api-Version"="2022-11-28";Accept="application/vnd.github+json"}
+Invoke-RestMethod -Uri "https://api.github.com/repos/$AnalysisRepo" -Headers $headers | Out-Null
 $processed=@{}
-Write-Host "Uploader active; logs: $WatchPath"
+Write-Host "Uploader active; logs: $WatchPath; repository: $AnalysisRepo"
 while($true){
  foreach($f in (Get-ChildItem $WatchPath -File -Filter "*.log")){
   try{
