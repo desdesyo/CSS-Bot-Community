@@ -9,6 +9,7 @@ on:
       - "tools/**"
       - "docs/START_HERE_V34.md"
       - "README.md"
+      - "installer/**"
       - ".github/workflows/build-vsp.yml"
   pull_request:
     paths:
