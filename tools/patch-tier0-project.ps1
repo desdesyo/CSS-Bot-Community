@@ -17,7 +17,7 @@ foreach ($setting in $settings) {
         $defs = $project.CreateElement("PreprocessorDefinitions", $ns)
         [void]$setting.AppendChild($defs)
     }
-    $defs.InnerText = 'MSVC=1;COMPILER_MSVC=1;COMPILER_MSVC32=1;WAF_CFLAGS=\"\";WAF_LDFLAGS=\"\";' + $defs.InnerText
+    $defs.InnerText = 'MSVC=1;COMPILER_MSVC=1;COMPILER_MSVC32=1;' + $defs.InnerText
 }
 
 # Two tier0 translation units in this snapshot do not include pch_tier0.h.
@@ -33,5 +33,9 @@ foreach ($item in $items) {
         $pch.InnerText = "NotUsing"
     }
 }
+$dbgPath = Join-Path (Split-Path $resolved) 'dbg.cpp'
+$dbgText = Get-Content -Raw $dbgPath
+$dbgText = $dbgText.Replace('WAF_CFLAGS', '""').Replace('WAF_LDFLAGS', '""')
+Set-Content -Path $dbgPath -Value $dbgText -Encoding utf8NoBOM
 $project.Save($resolved)
 Write-Host "Tier0 MSVC/WAF macros restored; PCH disabled for dbg.cpp and threadtools.cpp."
