@@ -24,6 +24,6 @@ class BotRuntime {
   SprayOutput OnWeaponShot(WeaponId weapon,float now,bool moving,bool crouching,float skill=1.f);
   void OnWeaponChanged(){ResetSpray(spray_);}
   BotBrain& Brain(){return brain_;} Mind& MindState(){return mind_;}
- private:BotBrain brain_;Mind mind_;
+ private:BotBrain brain_;Mind mind_; SprayState spray_{};
 };
 }
