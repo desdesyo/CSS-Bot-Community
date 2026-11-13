@@ -28,7 +28,7 @@ make(WeaponId::FamasG2,"FAMAS G2",.78f,.92f,10.2f,.9f,2.25f,.6f,220,stableM4),
 make(WeaponId::GalilAce,"Galil ACE",1.04f,1.12f,7.5f,1.f,2.35f,.66f,270,rifleAK),
 make(WeaponId::MP5MLI,"MP5",.72f,1.12f,11.f,.72f,1.8f,.48f,210,smg),
 make(WeaponId::APC9,"APC-9",.68f,1.25f,12.f,.68f,1.75f,.45f,190,smg),
-make(WeaponId::MAC10,"MAC-10",.84f,1.45f,9.8f,.95f,2.4f,.7f,230,smg),
+make(WeaponId::MAC10,"MAC-10",.94f,1.45f,9.8f,.95f,2.4f,.7f,230,smg),
 make(WeaponId::AWPAX,"AWP",3.2f,.25f,18.f,0.f,0.f,0.f,900,stableM4)
 }};
 }
