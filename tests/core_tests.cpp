@@ -3,6 +3,7 @@
 #include "CSSBC_TeamMemory.h"
 #include "CSSBC_Combat.h"
 #include "CSSBC_CombatTeam.h"
+#include "CSSBC_TacticalBrain.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
