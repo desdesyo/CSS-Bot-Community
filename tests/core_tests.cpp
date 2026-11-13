@@ -7,11 +7,17 @@
 #include "CSSBC_Economy.h"
 #include "CSSBC_GameModes.h"
 #include "CSSBC_Config.h"
+#include "CSSBC_Brain.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
 int main(){
  CSSBCSystem s;SupportOrder o{}; Economy eco;eco.ResetRound(1);
+ BotBrain brain(Traits{},BotRole::Entry);BrainSnapshot bs;bs.player=12;bs.round=1;bs.health=18;bs.seesThreat=true;
+ auto intent=brain.Tick(bs,eco,false);assert(intent.tactical==TacticalAction::Retreat&&intent.retreat);
+ bs.health=90;bs.seesThreat=false;bs.badDecision=true;bs.round=2;
+ auto financeIntent=brain.Tick(bs,eco,false);assert(financeIntent.moneyDelta<0&&financeIntent.cooperation<1.f);
+ 
  // Economy: positive rewards, credit floor, CT collective debt and T-side tolerance.
  auto reward=eco.Apply({5,300,MoneyEvent::Kill,1},false);assert(reward.applied&&reward.balance==300);
  auto bad=eco.Apply({5,-4000,MoneyEvent::BadDecision,1},false);assert(bad.balance==-3000&&bad.debt==3000);
