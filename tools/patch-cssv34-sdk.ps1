@@ -45,6 +45,15 @@ $manager = Add-GameEventCall $manager "void CCSBotManager::OnBombDefused" "CSSBC
 $manager = Add-GameEventCall $manager "void CCSBotManager::OnRoundStart" "CSSBCGame::OnRoundStart(event);"
 $manager = Add-GameEventCall $manager "void CCSBotManager::OnRoundEnd" "CSSBCGame::OnRoundEnd(event);"
 $manager = Add-GameEventCall $manager "void CCSBotManager::OnHostageRescuedAll" "CSSBCGame::OnHostageRescuedAll(event);"
+if (!$manager.Contains("CSSBCGame::OnBotCreated(bot);")) {
+    $botAddStart = $manager.IndexOf("bool CCSBotManager::BotAddCommand", [StringComparison]::Ordinal)
+    if ($botAddStart -lt 0) { throw "Could not find CCSBotManager::BotAddCommand." }
+    $createIndex = $manager.IndexOf("CreateBot<CCSBot>", $botAddStart, [StringComparison]::Ordinal)
+    if ($createIndex -lt 0) { throw "Could not find bot creation call in BotAddCommand." }
+    $hookIndex = $manager.IndexOf("if (isFromConsole)", $createIndex, [StringComparison]::Ordinal)
+    if ($hookIndex -lt 0) { throw "Could not find post-create BotAddCommand hook point." }
+    $manager = $manager.Insert($hookIndex, [Environment]::NewLine + [char]9 + "CSSBCGame::OnBotCreated(bot);" + [Environment]::NewLine + [char]9)
+}
 [IO.File]::WriteAllText($managerPath, $manager, [Text.UTF8Encoding]::new($false))
 
 Add-AdapterInclude $updatePath
@@ -94,6 +103,22 @@ foreach ($compile in $xml.SelectNodes("//m:ItemDefinitionGroup/m:ClCompile", $ns
 
 foreach ($output in $xml.SelectNodes("//m:ItemDefinitionGroup/m:Link/m:OutputFile", $ns)) {
     $output.InnerText = '$(SolutionDir)game\cstrike\bin\server.dll'
+}
+foreach ($group in $xml.SelectNodes("//m:PropertyGroup[m:OutDir]", $ns)) {
+    $outDir = $group.SelectSingleNode("m:OutDir", $ns)
+    $outDir.InnerText = '$(SolutionDir)game\cstrike\bin\'
+    $targetName = $group.SelectSingleNode("m:TargetName", $ns)
+    if (!$targetName) {
+        $targetName = $xml.CreateElement("TargetName", $nsUri)
+        $group.AppendChild($targetName) | Out-Null
+    }
+    $targetName.InnerText = "server"
+    $targetExt = $group.SelectSingleNode("m:TargetExt", $ns)
+    if (!$targetExt) {
+        $targetExt = $xml.CreateElement("TargetExt", $nsUri)
+        $group.AppendChild($targetExt) | Out-Null
+    }
+    $targetExt.InnerText = ".dll"
 }
 
 $sourceGroup = $xml.SelectSingleNode("//m:ItemGroup[m:ClCompile]", $ns)
