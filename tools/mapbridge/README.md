@@ -26,10 +26,13 @@ All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alp
 | `map_add_room` | `name,origin,width,depth,height,thickness,floor,ceiling,material` | Floor/ceiling + four walls |
 | `map_add_building` | `name,origin,width,depth,floors,floorHeight,wall,slabs,material` | Hollow multi-floor shell and floor slabs |
 | `map_add_street` | `name,origin,length,roadWidth,sidewalk,axis,roadZ,materials` | Road + two sidewalks |
+| `map_add_stairs` | `name,origin,steps,run,rise,width,axis,direction,material` | Solid step staircase |
+| `map_add_window_wall` | `name,origin,length,height,windowWidth,windowBottom,windowHeight,axis,material` | Wall with rectangular opening |
+| `map_add_roof` | `name,origin,width,depth,thickness,parapet,material` | Roof slab and optional parapet |
 | `map_add_spawn` | `name,origin,team,angles` | CS:S CT/T spawn entity |
 | `map_inspect` | `name` | Byte count, solids, entities |
 
-Coordinates and dimensions are Source units (1 inch in Hammer units). Vector values are `[x,y,z]`. Geometry tools validate positive bounds and allocate unique VMF IDs. Brush geometry is axis-aligned; openings, stairs, detailed props, texture alignment, nav mesh and compile are not automated yet.
+Coordinates and dimensions are Source units (1 inch in Hammer units). Vector values are `[x,y,z]`. Geometry tools validate positive bounds and allocate unique VMF IDs. Brush geometry is axis-aligned; complex angled geometry, detailed props, texture alignment, nav mesh and compile are not automated yet.
 
 ## Practical workflow
 
