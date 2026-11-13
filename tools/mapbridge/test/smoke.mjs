@@ -15,6 +15,7 @@ proc.stdout.on("data",chunk=>{
  for(;;){const n=stdout.indexOf("\n");if(n<0)break;const line=stdout.slice(0,n);stdout=stdout.slice(n+1);if(!line.trim())continue;
  try{const msg=JSON.parse(line);if(msg.id!=null&&pending.has(msg.id)){const p=pending.get(msg.id);pending.delete(msg.id);clearTimeout(p.timer);msg.error?p.reject(Error(JSON.stringify(msg.error))):p.resolve(msg.result);}}catch(e){stderr+="\nInvalid stdout JSON: "+line;}
   }
+});
 proc.stderr.on("data",b=>stderr+=b.toString());
 proc.on("exit",(code,signal)=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error("MapBridge exited "+code+"/"+signal+"; "+stderr));}pending.clear();});
 function rpc(method,params={}){
