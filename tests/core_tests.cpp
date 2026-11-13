@@ -4,9 +4,11 @@
 #include "CSSBC_Combat.h"
 #include "CSSBC_CombatTeam.h"
 #include "CSSBC_TacticalBrain.h"
+#include "CSSBC_TacticalRuntime.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
+struct FakeAdapter:IBotGameAdapter{int applied=0;bool ReadTacticalInput(int,TacticalInput&o)override{o.teammatesAlive=2;o.enemiesAlive=2;o.hasEnemySight=true;return true;}void ApplyBotGoal(int,BotGoal g,BotOrder o,float)override{assert(g==BotGoal::Attack);assert(o==BotOrder::Push||o==BotOrder::Cover);++applied;}};
 int main(){
  CSSBCSystem s;SupportOrder o{};
  assert(!s.RequestSupport(SupportTier::Juggernaut16000,1,16000,2,o));
@@ -36,5 +38,5 @@ int main(){
  assert(brain.SquadOrder(ti,SquadRole::Support)==BotOrder::Cover);
  ti.bombPlanted=true;ti.secondsLeft=8.f;assert(brain.Decide(ti).order==BotOrder::Push);
  ti.bombPlanted=false;ti.hasEnemySight=false;ti.lowAmmo=true;ti.health=20;assert(brain.Decide(ti).goal==BotGoal::Retreat);
- std::cout<<"CSSBC core tests: PASS\n";
+ TacticalRuntime runtime;runtime.AddBot({11,bt,SquadRole::Entry,true});runtime.AddBot({12,bt,SquadRole::Support,true});FakeAdapter adapter;runtime.Tick(adapter);assert(adapter.applied==2);\n std::cout<<"CSSBC core tests: PASS\n";
 }
