@@ -2,7 +2,10 @@
 #include "CSSBC_Localization.h"
 #include <cassert>
 using namespace cssbc;
-int main(){\n assert(Ru(LocaleKey::MenuPlay)=="Играть");\n auto ct=VoiceLines(Faction::CounterTerrorists,VoiceContext::RookieTease); assert(ct.size()>=3&&ct[0].text.find("Новенький")!=std::string_view::npos);\n auto t=VoiceLines(Faction::Terrorists,VoiceContext::Ideology); assert(t.size()>=3);
+int main(){
+ assert(Ru(LocaleKey::MenuPlay)=="Играть");
+ auto ct=VoiceLines(Faction::CounterTerrorists,VoiceContext::RookieTease); assert(ct.size()>=3&&ct[0].text.find("Новенький")!=std::string_view::npos);
+ auto t=VoiceLines(Faction::Terrorists,VoiceContext::Ideology); assert(t.size()>=3);
  MenuController menu;auto main=menu.Build(MenuPage::Main,false,true);
  assert(main.items.size()==7&&main.items[0].label=="ИГРАТЬ");
  assert(menu.Navigate(MenuPage::Main,MenuAction::OpenCSSBC)==MenuPage::CSSBC);
