@@ -1,12 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createServer as createHttpServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(process.env.CSSBC_MAP_ROOT || ".");
 const mapsDir = path.join(root, "maps", "ModernDistrict");
-const server = new McpServer({ name: "CSSBC MapBridge", version: "0.2.0" });
+function createMapBridgeServer(){
+const server = new McpServer({ name: "CSSBC MapBridge", version: "0.3.0" });
 const safeName = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const vec = z.tuple([z.number().finite(),z.number().finite(),z.number().finite()]);
 const material = z.string().min(1).max(128).default("TOOLS/TOOLSNODRAW");
@@ -178,5 +182,44 @@ server.tool("map_add_roof","Add a flat roof slab or raised parapet around a buil
  await save(f,append(s,sol));return {content:[{type:"text",text:`Roof created; parapet ${p? "enabled":"off"}`}]};
 });
 
-const transport=new StdioServerTransport();
-await server.connect(transport);
+return server;
+}
+
+async function start(){
+ const mode=process.env.CSSBC_MAPBRIDGE_TRANSPORT||"stdio";
+ const server=createMapBridgeServer();
+ if(mode==="stdio"){
+  const transport=new StdioServerTransport();
+  await server.connect(transport);
+  return;
+ }
+ if(mode!=="http")throw new Error("CSSBC_MAPBRIDGE_TRANSPORT must be stdio or http");
+ const token=process.env.CSSBC_MAPBRIDGE_TOKEN||"";
+ if(token.length<32)throw new Error("HTTP mode requires CSSBC_MAPBRIDGE_TOKEN with at least 32 characters");
+ const host=process.env.CSSBC_MAPBRIDGE_HOST||"127.0.0.1";
+ const port=Number(process.env.CSSBC_MAPBRIDGE_PORT||8787);
+ if(!Number.isInteger(port)||port<1||port>65535)throw new Error("Invalid CSSBC_MAPBRIDGE_PORT");
+ const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined});
+ await server.connect(transport);
+ const http=createHttpServer(async(req,res)=>{
+  if(req.url==="/health"&&req.method==="GET"){
+   res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});
+   res.end(JSON.stringify({service:"CSSBC MapBridge",version:"0.3.0",transport:"streamable-http"}));
+   return;
+  }
+  if(req.url?.split("?")[0]!=="/mcp"){res.writeHead(404);res.end("Not found");return;}
+  const header=req.headers.authorization||"";
+  const supplied=Buffer.from(header.startsWith("Bearer ")?header.slice(7):"");
+  const expected=Buffer.from(token);
+  if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected)){
+   res.writeHead(401,{"www-authenticate":"Bearer","cache-control":"no-store"});
+   res.end("Unauthorized");return;
+  }
+  try{await transport.handleRequest(req,res);}
+  catch(error){if(!res.headersSent){res.writeHead(500,{"content-type":"application/json"});res.end(JSON.stringify({error:"Internal MCP transport error"}));}process.stderr.write("MapBridge HTTP error: "+error.message+"\\n");}
+ });
+ http.listen(port,host,()=>process.stderr.write("MapBridge Streamable HTTP listening on http://"+host+":"+port+"/mcp\\n"));
+ const shutdown=()=>{http.close();transport.close();server.close();};
+ process.on("SIGINT",shutdown);process.on("SIGTERM",shutdown);
+}
+start().catch(error=>{process.stderr.write("MapBridge startup failed: "+error.stack+"\\n");process.exitCode=1;});
