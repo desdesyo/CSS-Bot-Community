@@ -1,0 +1,40 @@
+name: SourceMod plugin compile
+
+on:
+  push:
+    paths:
+      - "sourcemod/**/*.sp"
+      - ".github/workflows/sourcepawn.yml"
+  pull_request:
+    paths:
+      - "sourcemod/**/*.sp"
+      - ".github/workflows/sourcepawn.yml"
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download SourceMod compiler and includes
+        run: |
+          curl -fL "https://sm.alliedmods.net/smdrop/1.12/sourcemod-latest-linux" -o sourcemod.tar.gz
+          mkdir sourcemod
+          tar -xzf sourcemod.tar.gz -C sourcemod
+
+      - name: Compile CSSBC plugin
+        run: |
+          chmod +x sourcemod/addons/sourcemod/scripting/spcomp
+          sourcemod/addons/sourcemod/scripting/spcomp \
+            -i sourcemod/addons/sourcemod/scripting/include \
+            sourcemod/scripting/cssbc.sp \
+            -o cssbc.smx
+          test -s cssbc.smx
+
+      - name: Upload compiled plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: cssbc-sourcemod-plugin
+          path: cssbc.smx
