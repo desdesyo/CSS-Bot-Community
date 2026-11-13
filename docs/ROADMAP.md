@@ -1,7 +1,7 @@
 # Development roadmap (current state)
 - [x] Engine-independent support price/eligibility rules.
 - [x] Six Juggernaut armor plate states.
-- [x] Bot callout trust and evidence-weighted plate choice.
+- [x] Bot callout trust and evidence-weighted plate choice.\n- [x] First tactical decision layer: retake, trade, escort, retreat, push/rotate and role orders.
 - [x] MVP event scoring, retreat estimate and cover reward.
 - [x] Support roster composition model (4-unit squad and Juggernaut).
 - [x] Shared team event memory with bounded history.
