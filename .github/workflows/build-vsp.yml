@@ -5,10 +5,20 @@ on:
     branches: ["**"]
     paths:
       - "sdk/dll/**"
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - "tools/build-cssbc.ps1"
+      - "BUILD_CSSBC.bat"
       - ".github/workflows/build-vsp.yml"
   pull_request:
     paths:
       - "sdk/dll/**"
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - "tools/build-cssbc.ps1"
+      - "BUILD_CSSBC.bat"
       - ".github/workflows/build-vsp.yml"
   workflow_dispatch:
 
@@ -41,15 +51,14 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
-      - name: Build Win32 Release DLL
+      - name: Build core, run tests, and build native Win32 DLL
         shell: pwsh
-        run: |
-          msbuild sdk/dll/CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32 "/p:CSSBC_SOURCE_SDK=$env:CSSBC_SOURCE_SDK"
+        run: ./tools/build-cssbc.ps1
 
       - name: Verify DLL
         shell: pwsh
         run: |
-          $dll = "sdk/dll/bin/CSSBC_VSP.dll"
+          $dll = "dist/CSSBC_VSP.dll"
           if (!(Test-Path $dll)) { throw "Build succeeded but $dll is missing" }
           Get-Item $dll | Format-List FullName,Length
 
@@ -57,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CSSBC-VSP-Win32
-          path: sdk/dll/bin/CSSBC_VSP.dll
+          path: dist/CSSBC_VSP.dll
           if-no-files-found: error
