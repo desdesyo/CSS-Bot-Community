@@ -1,0 +1,48 @@
+name: Build CS:S v34 server DLL
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "integration/cssv34/**"
+      - "tools/build-cssbc-v34.ps1"
+      - "tools/patch-cssv34-sdk.ps1"
+      - "BUILD_CSSBC.bat"
+      - "CMakeLists.txt"
+      - ".github/workflows/build-cssbc-v34.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "integration/cssv34/**"
+      - "tools/build-cssbc-v34.ps1"
+      - "tools/patch-cssv34-sdk.ps1"
+      - "BUILD_CSSBC.bat"
+      - "CMakeLists.txt"
+      - ".github/workflows/build-cssbc-v34.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-v34-server:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build portable core, patch v34 source and compile server DLL
+        shell: pwsh
+        run: ./tools/build-cssbc-v34.ps1
+
+      - name: Verify local build output
+        shell: pwsh
+        run: |
+          $dll = "dist/Server.dll"
+          if (!(Test-Path $dll)) { throw "CS:S v34 server DLL was not produced." }
+          Get-Item $dll | Format-List FullName,Length
