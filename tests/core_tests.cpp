@@ -11,7 +11,8 @@
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
 #include "CSSBC_MeleeCombat.h"
-#include <cassert>\n#include <limits>
+#include <cassert>
+#include <limits>
 #include <iostream>
 using namespace cssbc;
 int main(){
@@ -61,7 +62,7 @@ int main(){
  MeleeCombatant fighter(123);auto started=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,20.f,.5f);
  assert(started.started&&fighter.IsAttacking());
  auto early=fighter.ResolveImpact({4,20.f,true,false},20.1f);assert(!early.hit&&fighter.IsAttacking());
- auto hit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(hit.hit&&hit.targetEntity==4&&hit.damage>0&&!fighter.IsAttacking());
+ auto meleeHit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(meleeHit.hit&&meleeHit.targetEntity==4&&meleeHit.damage>0&&!fighter.IsAttacking());
  auto blocked=fighter.Begin(MeleeMode::Knife,MeleeFaction::T,21.f,.5f);assert(blocked.started);
  auto friendly=fighter.ResolveImpact({8,10.f,true,true},21.3f);assert(!friendly.hit);
  fighter.Cancel();assert(!fighter.IsAttacking());
@@ -86,6 +87,5 @@ int main(){
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
- std::cout<<"CSSBC core tests: PASS
-";
+ std::cout<<"CSSBC core tests: PASS\\n";
 }
