@@ -118,6 +118,8 @@ private:
 };
 CSSBCEventBridge g_events;
 
+void InitializePersonality(int slot);
+
 bool SpawnSupportRoster(int team, SupportTier tier) {
     SupportRoster roster;
     if (!roster.Deploy(tier) || !TheCSBots()) return false;
