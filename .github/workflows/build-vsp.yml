@@ -119,6 +119,60 @@ jobs:
           Write-Host "Generated projects:"
           $projects
 
+      - name: Set C++17 and disable PCH for CSSBC translation units
+        shell: pwsh
+        run: |
+          $projectPath = "cssv34-source/src/game/server/server_cstrike.vcxproj"
+          [xml]$project = Get-Content -Raw $projectPath
+          $ns = $project.DocumentElement.NamespaceURI
+          $items = $project.SelectNodes("//*[local-name()='ClCompile' and @Include]")
+          foreach ($item in $items) {
+            $include = $item.GetAttribute("Include").Replace("/", "\")
+            $isCssbc = $include -match '^cssbc\\.*\.cpp      - name: Compile CS:S v34 server GameDLL with MSVC x86 (no Python)
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
+          if errorlevel 1 exit /b 1
+          msbuild cssv34-source\src\game\server\server_cstrike.vcxproj /m /p:Configuration=Release /p:Platform=Win32
+          if errorlevel 1 exit /b 1
+
+      - name: Verify server GameDLL output
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem cssv34-source -Recurse -Filter server.dll | Where-Object { $_.Length -gt 0 } | Select-Object -First 1
+          if (!$dll) { throw "MSBuild did not produce server.dll" }
+          Write-Host "GameDLL: $($dll.FullName)"
+          Write-Host "Bytes: $($dll.Length)"
+          Copy-Item $dll.FullName "$env:GITHUB_WORKSPACE\server-v34-win32.dll" -Force
+
+      - name: Upload compiled CS:S v34 GameDLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: CS-S-v34-GameDLL-Win32
+          path: server-v34-win32.dll
+          if-no-files-found: error
+
+            $isBotUpdate = $include -ieq 'cstrike\bot\cs_bot_update.cpp'
+            if ($isCssbc -or $isBotUpdate) {
+              $language = $item.SelectSingleNode("./*[local-name()='LanguageStandard']")
+              if (!$language) {
+                $language = $project.CreateElement("LanguageStandard", $ns)
+                [void]$item.AppendChild($language)
+              }
+              $language.InnerText = "stdcpp17"
+              if ($isCssbc) {
+                $pch = $item.SelectSingleNode("./*[local-name()='PrecompiledHeader']")
+                if (!$pch) {
+                  $pch = $project.CreateElement("PrecompiledHeader", $ns)
+                  [void]$item.AppendChild($pch)
+                }
+                $pch.InnerText = "NotUsing"
+              }
+            }
+          }
+          $project.Save((Resolve-Path $projectPath).Path)
+          Write-Host "Updated C++17 and per-file PCH settings for CSSBC GameDLL sources."
+
       - name: Upload generated GameDLL projects
         uses: actions/upload-artifact@v4
         with:
