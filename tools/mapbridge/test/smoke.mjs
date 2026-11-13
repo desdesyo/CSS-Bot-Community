@@ -56,6 +56,6 @@ try{
  assert(cliOut.includes("CI_CLI.vmf"),"CLI did not report generated VMF path");
  const cliVmf=await readFile(path.join(tmp,"maps","ModernDistrict","CI_CLI.vmf"),"utf8");
  assert(cliVmf.includes('"classname" "worldspawn"'));
- assert.equal((cliVmf.match(/\\n\\s*solid\\s*\\{/g)||[]).length,32);
+ assert.equal((cliVmf.match(/\n\s*solid\s*\{/g)||[]).length,32);
  console.log("PASS: MCP RPC, all tools, root-level entities, unique IDs and one-command CLI generation");
 }finally{proc.kill();await rm(tmp,{recursive:true,force:true});}
