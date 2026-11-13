@@ -1,0 +1,54 @@
+<!-- CSSBC Twilight lighting — Hammer entity templates -->
+<!-- Copy these entities into a map VMF and tune per map. These are templates, not a complete map. -->
+
+<!-- 1) Global dusk light. Replace skybox name with an installed dusk sky material. -->
+<entity>
+  <keyvalues>
+    classname = light_environment
+    origin = 0 0 0
+    angles = 0 35 0
+    pitch = -12
+    _light = 210 174 220 230
+    _ambient = 62 70 112 180
+    _lightHDR = -1 -1 -1 1
+    _ambientHDR = -1 -1 -1 1
+    _lightscaleHDR = 1
+    _ambientscaleHDR = 1
+    sunSpreadAngle = 5
+  </keyvalues>
+</entity>
+
+<!-- 2) Warm practical light (example window/lantern). Position it in Hammer. -->
+<entity>
+  <keyvalues>
+    classname = light
+    origin = 0 0 0
+    _light = 255 164 82 90
+    _lightHDR = -1 -1 -1 1
+    _lightscaleHDR = 1
+    style = 0
+  </keyvalues>
+</entity>
+
+<!-- 3) Narrow warm spot for a street lamp. Adjust origin/angles/brightness/radius. -->
+<entity>
+  <keyvalues>
+    classname = light_spot
+    origin = 0 0 0
+    angles = 0 0 0
+    _light = 255 190 125 180
+    _lightHDR = -1 -1 -1 1
+    _lightscaleHDR = 1
+    _cone = 55
+    _inner_cone = 35
+    _exponent = 1
+    _distance = 900
+    style = 0
+  </keyvalues>
+</entity>
+
+## Notes
+- VMF uses entity blocks with key/value pairs; this file is a readable keyvalue template, not standalone valid VMF.
+- The exact key names and HDR behavior depend on the Source branch/compiler; verify in Hammer and compile one test map first.
+- Keep brightness conservative: test player visibility and long sightlines after every lighting change.
+- A dusk skybox is a separate material asset. Without one, global light color alone won't create a sunset horizon.
