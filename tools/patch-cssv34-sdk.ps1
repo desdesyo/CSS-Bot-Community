@@ -49,16 +49,15 @@ $manager = Add-GameEventCall $manager "void CCSBotManager::OnHostageRescuedAll" 
 
 Add-AdapterInclude $updatePath
 $update = [IO.File]::ReadAllText($updatePath, [Text.Encoding]::UTF8)
-if (!$update.Contains("CSSBCGame::TickBot(this);")) {
-    $nextFunction = "void CCSBot::UpdateTravelDistanceToAllPlayers"
-    $nextIndex = $update.IndexOf($nextFunction, [StringComparison]::Ordinal)
-    if ($nextIndex -lt 0) { throw "Could not find the end marker for CCSBot::Update." }
-    $prefix = $update.Substring(0, $nextIndex)
-    $closeBrace = $prefix.LastIndexOf("}")
-    if ($closeBrace -lt 0) { throw "Could not find CCSBot::Update closing brace." }
-    $update = $prefix.Insert($closeBrace, [Environment]::NewLine + [char]9 + "CSSBCGame::TickBot(this);" + [Environment]::NewLine) + $update.Substring($nextIndex)
-    [IO.File]::WriteAllText($updatePath, $update, [Text.UTF8Encoding]::new($false))
-}
+$update = [regex]::Replace($update, '(?m)^[\t ]*CSSBCGame::TickBot\(this\);[\t ]*\r?\n', "")
+$nextFunction = "void CCSBot::DebugDisplay( void ) const"
+$nextIndex = $update.IndexOf($nextFunction, [StringComparison]::Ordinal)
+if ($nextIndex -lt 0) { throw "Could not find the end marker for CCSBot::Update." }
+$prefix = $update.Substring(0, $nextIndex)
+$closeBrace = $prefix.LastIndexOf("}")
+if ($closeBrace -lt 0) { throw "Could not find CCSBot::Update closing brace." }
+$update = $prefix.Insert($closeBrace, [Environment]::NewLine + [char]9 + "CSSBCGame::TickBot(this);" + [Environment]::NewLine) + $update.Substring($nextIndex)
+[IO.File]::WriteAllText($updatePath, $update, [Text.UTF8Encoding]::new($false))
 
 # Add the portable core directly to the native game server project.
 # Each CSSBC translation unit disables PCH and uses C++17.
