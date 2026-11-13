@@ -120,6 +120,11 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\patch-gamedll-project.ps1" -ProjectPath "cssv34-source/src/game/server/server_cstrike.vcxproj"
 
+      - name: Patch tier0 PCH for omitted source headers
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\cssbc\tools\patch-tier0-project.ps1" -ProjectPath "cssv34-source/src/tier0/tier0.vcxproj"
+
       - name: Upload generated GameDLL projects
         uses: actions/upload-artifact@v4
         with:
