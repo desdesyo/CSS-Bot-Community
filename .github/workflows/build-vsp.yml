@@ -256,3 +256,47 @@ jobs:
           name: CSSBC-v34-GameDLL-Win32
           path: server-v34-win32.dll
           if-no-files-found: error
+
+  build-installer:
+    runs-on: windows-2022
+    needs: [build-vsp, build-v34-gamedll]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sdk-foundation
+
+      - name: Download compiled GameDLL into installer payload
+        uses: actions/download-artifact@v4
+        with:
+          name: CSSBC-v34-GameDLL-Win32
+          path: installer
+
+      - name: Download compiled VSP
+        uses: actions/download-artifact@v4
+        with:
+          name: CSSBC-VSP-Win32
+          path: sdk/dll/bin
+
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe" }
+          if (!(Test-Path $iscc)) { throw "Inno Setup ISCC.exe not found after installation" }
+          "`$CSSBC_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build beginner-friendly Setup.exe
+        shell: pwsh
+        run: |
+          & "$env:CSSBC_ISCC" installer/CSSBC_Setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+          if (!(Test-Path installer/CSSBC_Setup.exe)) { throw "Setup.exe was not produced" }
+          Get-Item installer/CSSBC_Setup.exe | Format-List FullName,Length
+
+      - name: Publish installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-Setup-Win32
+          path: installer/CSSBC_Setup.exe
+          if-no-files-found: error
