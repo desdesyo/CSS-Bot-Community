@@ -19,50 +19,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # App 232330 is not anonymously installable on current SteamCMD.
-      # Source SDK Base 2013 (211) is the public compiler/runtime depot.
-      - name: Install Source SDK 2013 tools
+      - name: Download standalone Tools++ compilers
         shell: pwsh
         run: |
-          Invoke-WebRequest "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip" -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
-          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" "$env:RUNNER_TEMP\steamcmd" -Force
-          $sdk="$env:RUNNER_TEMP\sdk"
-          New-Item -ItemType Directory -Force $sdk | Out-Null
-          & "$env:RUNNER_TEMP\steamcmd\steamcmd.exe" +force_install_dir $sdk +login anonymous +app_update 211 validate +quit
-          if ($LASTEXITCODE -ne 0) { throw "SteamCMD Source SDK 2013 (app 211) install failed" }
-          $vbsp=Get-ChildItem $sdk -Filter vbsp.exe -Recurse | Select-Object -First 1
-          $vvis=Get-ChildItem $sdk -Filter vvis.exe -Recurse | Select-Object -First 1
-          $vrad=Get-ChildItem $sdk -Filter vrad.exe -Recurse | Select-Object -First 1
-          if (!$vbsp -or !$vvis -or !$vrad) { throw "SDK 2013 compilers missing; app 211 depot did not contain tools" }
+          $url="https://github.com/ficool2/misc_tools/releases/download/v1/tools++_windows.zip"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\toolspp.zip"
+          Expand-Archive "$env:RUNNER_TEMP\toolspp.zip" "$env:RUNNER_TEMP\toolspp" -Force
+          $root="$env:RUNNER_TEMP\toolspp"
+          $vbsp=Get-ChildItem $root -Filter vbspplusplus.exe -Recurse | Select-Object -First 1
+          $vvis=Get-ChildItem $root -Filter vvisplusplus.exe -Recurse | Select-Object -First 1
+          $vrad=Get-ChildItem $root -Filter vradplusplus.exe -Recurse | Select-Object -First 1
+          if (!$vbsp -or !$vvis -or !$vrad) {
+            Get-ChildItem $root -Recurse -File | Select-Object FullName
+            throw "Official Tools++ archive lacks one or more compiler executables"
+          }
           "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
           "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
           "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
-          "SDKROOT=$sdk" >> $env:GITHUB_ENV
 
-      - name: Prepare isolated gameinfo for compile
+      - name: Locate CSS game content (optional repository payload)
         shell: pwsh
         run: |
-          $game="$env:RUNNER_TEMP\cssbc_game"
-          New-Item -ItemType Directory -Force "$game\maps","$game\materials","$game\models","$game\particles" | Out-Null
-          @'
-          "GameInfo"
-          {
-            "game" "CSS Bot Community compile environment"
-            "title" "CSSBC"
-            "FileSystem"
-            {
-              "SearchPaths"
-              {
-                "Game" "|gameinfo_path|."
-                "Game" "$env:SDKROOT\hl2"
-                "Game" "$env:SDKROOT\platform"
-              }
-            }
+          $candidate=@(
+            "$env:GITHUB_WORKSPACE\cstrike",
+            "$env:GITHUB_WORKSPACE\game\cstrike",
+            "$env:GITHUB_WORKSPACE\content\cstrike"
+          ) | Where-Object { Test-Path "$_\gameinfo.txt" } | Select-Object -First 1
+          if (!$candidate) {
+            throw "CSS game files unavailable: CS:S materials/models are licensed content. Compiler download succeeded, but this repo/runner has no cstrike\gameinfo.txt. Add legitimate CS:S content as repository artifact/runner input; cannot fabricate CSS textures or claim playable BSP."
           }
-          '@ | Set-Content "$game\gameinfo.txt" -Encoding ASCII
-          "COMPILE_GAME=$game" >> $env:GITHUB_ENV
+          "CSSDIR=$candidate" >> $env:GITHUB_ENV
 
-      - name: Compile VMF (VBSP)
+      - name: Compile VMF (VBSP++)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
@@ -70,25 +58,25 @@ jobs:
           $vmf="maps/ModernDistrict/$name.vmf"
           if (!(Test-Path $vmf)) { throw "VMF missing: $vmf" }
           New-Item -ItemType Directory -Force build | Out-Null
-          & $env:VBSP -game "$env:COMPILE_GAME" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
-          if ($LASTEXITCODE -ne 0) { throw "VBSP failed: $LASTEXITCODE" }
+          & $env:VBSP -game "$env:CSSDIR" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
+          if ($LASTEXITCODE -ne 0) { throw "VBSP++ failed: $LASTEXITCODE" }
           $bsp="maps/ModernDistrict/$name.bsp"
-          if (!(Test-Path $bsp)) { throw "VBSP did not produce $bsp" }
+          if (!(Test-Path $bsp)) { throw "BSP not produced at $bsp" }
           Copy-Item $bsp "build\$name.bsp" -Force
 
-      - name: Compile visibility (VVIS)
+      - name: Compile visibility (VVIS++)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
-          & $env:VVIS -game "$env:COMPILE_GAME" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
-          if ($LASTEXITCODE -ne 0) { throw "VVIS failed: $LASTEXITCODE" }
+          & $env:VVIS -game "$env:CSSDIR" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
+          if ($LASTEXITCODE -ne 0) { throw "VVIS++ failed: $LASTEXITCODE" }
 
-      - name: Compile lighting (VRAD)
+      - name: Compile lighting (VRAD++)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
-          & $env:VRAD -game "$env:COMPILE_GAME" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
-          if ($LASTEXITCODE -ne 0) { throw "VRAD failed: $LASTEXITCODE" }
+          & $env:VRAD -game "$env:CSSDIR" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
+          if ($LASTEXITCODE -ne 0) { throw "VRAD++ failed: $LASTEXITCODE" }
 
       - name: Validate BSP output
         shell: pwsh
