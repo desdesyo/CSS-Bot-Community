@@ -48,6 +48,15 @@ function insertWorld(vmf,parts){
  const m=vmf.match(/world\s*\{[\s\S]*?\n\}/);if(!m)throw Error("VMF world block not found");
  return vmf.replace(m[0],m[0].slice(0,-1)+"\n"+parts.join("\n")+"\n}");
 }
+function insertEntities(vmf,parts){
+ if(!parts.length)return vmf;
+ const end=vmf.lastIndexOf("}");
+ if(end<0)throw Error("VMF root closing brace not found");
+ return vmf.slice(0,end)+parts.join("\n")+"\n"+vmf.slice(end);
+}
+function appendObjects(vmf,solids,entities=[]){
+ return insertEntities(insertWorld(vmf,solids),entities);
+}
 function header(){return `versioninfo
 {
  "editorversion" "400"
@@ -113,7 +122,7 @@ server.tool("map_add_street","Add a road strip and two sidewalks along X or Y ax
 });
 server.tool("map_add_spawn","Place a CSS player spawn entity.",{name:safeName,origin:vec,team:z.enum(["ct","t"]),angles:z.number().default(0)},async a=>{
  const [f,s]=await readMap(a.name),id=nextId(s),cls=a.team==="ct"?"info_player_counterterrorist":"info_player_terrorist";
- const e=entity(id,cls,{origin:fmt(a.origin),angles:`0 ${a.angles} 0`});await save(f,insertWorld(s,[e]));return {content:[{type:"text",text:`Spawn ${cls} added at ${a.origin}`}]};
+ const e=entity(id,cls,{origin:fmt(a.origin),angles:`0 ${a.angles} 0`});await save(f,insertEntities(s,[e]));return {content:[{type:"text",text:`Spawn ${cls} added at ${a.origin}`}]};
 });
 server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:safeName},async({name})=>{
  const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
@@ -122,7 +131,7 @@ server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:s
 server.tool("map_generate_district","Generate a complete small CSS test district in one call: ground, road, sidewalks, 4 accessible buildings and team spawns.",{name:safeName,overwrite:z.boolean().default(false),seed:z.number().int().default(1),blockSize:z.number().min(512).max(2048).default(1024),floors:z.number().int().min(1).max(5).default(2),material:z.string().default("DEV/DEV_MEASUREGENERIC01B")},async a=>{
  await fs.mkdir(mapsDir,{recursive:true});const f=fileFor(a.name);
  try{await fs.access(f);if(!a.overwrite)throw Error("Map exists; set overwrite=true");}catch(e){if(e.message.includes("Map exists"))throw e;}
- let vmf=header(),id=2,parts=[];const add=(lo,hi,mat=a.material)=>{parts.push(brush(id,lo,hi,mat));id+=7;};
+ let vmf=header(),id=2,parts=[],spawnEntities=[];const add=(lo,hi,mat=a.material)=>{parts.push(brush(id,lo,hi,mat));id+=7;};
  const B=a.blockSize, road=512,sw=64,base=0;
  // Flat playable ground, road and sidewalks
  add([-B*2,-B*2,-64],[B*2,B*2,0],"DEV/DEV_MEASUREGENERIC01B");
@@ -143,13 +152,11 @@ server.tool("map_generate_district","Generate a complete small CSS test district
   add([x+t,y+d-t,0],[x+w-t,y+d,h]);                   // rear wall
   add([x,y,h-t],[x+w,y+d,h]);                         // roof
  }
- parts.push(entity(id++,"info_player_counterterrorist",{origin:fmt([-128,-128,8]),angles:"0 0 0"}));
- parts.push(entity(id++,"info_player_terrorist",{origin:fmt([128,128,8]),angles:"0 180 0"}));
- vmf=append(vmf,parts);await save(f,vmf);
- return {content:[{type:"text",text:"District generated: "+f+"\\n"+parts.length+" VMF objects; "+a.floors+" floor(s) per building. Open in Hammer and compile to BSP."}]};
+ spawnEntities.push(entity(id++,"info_player_counterterrorist",{origin:fmt([-128,-128,8]),angles:"0 0 0"}));
+ spawnEntities.push(entity(id++,"info_player_terrorist",{origin:fmt([128,128,8]),angles:"0 180 0"}));
+ vmf=appendObjects(vmf,parts,spawnEntities);await save(f,vmf);
+ return {content:[{type:"text",text:"District generated: "+f+"\\n"+parts.length+" brushes and "+spawnEntities.length+" root-level spawn entities; "+a.floors+" floor(s) per building. Open in Hammer and compile to BSP."}]};
 });
-const transport=new StdioServerTransport();await server.connect(transport);
-
 server.tool("map_add_stairs","Generate a staircase from individual solid steps.",{name:safeName,origin:vec,steps:z.number().int().min(3).max(40),run:z.number().min(8).max(64).default(16),rise:z.number().min(8).max(32).default(8),width:z.number().min(64).max(512).default(128),axis:z.enum(["x","y"]).default("x"),direction:z.enum(["positive","negative"]).default("positive"),material},async a=>{
  const [f,s]=await readMap(a.name),[x,y,z]=a.origin,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
  for(let i=0;i<a.steps;i++){const h=(i+1)*a.rise,dist=(i+1)*a.run;
@@ -169,3 +176,6 @@ server.tool("map_add_roof","Add a flat roof slab or raised parapet around a buil
  add([x,y,z],[x+w,y+d,z+t]);if(p){add([x,y,z+t],[x+t,y+d,z+t+p]);add([x+w-t,y,z+t],[x+w,y+d,z+t+p]);add([x+t,y,z+t],[x+w-t,y+t,z+t+p]);add([x+t,y+d-t,z+t],[x+w-t,y+d,z+t+p]);}
  await save(f,append(s,sol));return {content:[{type:"text",text:`Roof created; parapet ${p? "enabled":"off"}`}]};
 });
+
+const transport=new StdioServerTransport();
+await server.connect(transport);
