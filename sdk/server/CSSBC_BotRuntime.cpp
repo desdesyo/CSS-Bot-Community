@@ -1,4 +1,5 @@
 #include "CSSBC_BotRuntime.h"
+namespace cssbc::sdk { SprayOutput BotRuntime::OnWeaponShot(WeaponId weapon,float now,bool moving,bool crouching,float skill){return FireSpray(weapon,spray_,now,moving,crouching,skill);} }
 namespace cssbc::sdk {
 TacticalDecision BotRuntime::Evaluate(const BotSnapshot& b,Economy& economy,bool terrorist,
  const Callout* c,float reliability,const std::array<PlateState,(size_t)Plate::Count>& armor,
