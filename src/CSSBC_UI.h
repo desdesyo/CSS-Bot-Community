@@ -8,8 +8,8 @@ enum class MenuPage { Main, Play, NewMatch, CSSBC, Settings, Extras, ServerBrows
 enum class MenuAction { OpenPlay, OpenNewMatch, ResumeLastSetup, OpenCSSBC, OpenSettings, OpenExtras, OpenServerBrowser, Connect, Disconnect, Back, OpenMVP, OpenBotSettings, OpenWeaponSettings, OpenMapSettings, ApplySettings };
 struct MenuItem { std::string id, label; MenuAction action; };
 struct MenuModel { MenuPage page{MenuPage::Main}; std::vector<MenuItem> items; };
-struct MVPEntry { int player=-1; std::string name; float score=0; };
-std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries);
+struct MVPDisplayEntry { int player=-1; std::string name; float score=0; };
+std::vector<MVPDisplayEntry> RankMVPDisplay(const std::vector<MVPDisplayEntry>& entries);
 
 // Engine-independent menu navigation model. Source VGUI panels render this model.
 class MenuController {
