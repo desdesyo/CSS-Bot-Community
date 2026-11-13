@@ -16,8 +16,8 @@ public:
  void Unload() override {if(engine_)engine_->LogPrint("[CSSBC] unloaded.\n");engine_=nullptr;}
  void Pause() override{} void UnPause() override{}
  const char* GetPluginDescription() override{return "CSS Bot Community native bootstrap";}
- void LevelInit(const char* map) override {if(engine_){char b[256];std::snprintf(b,sizeof(b),"[CSSBC] map: %s\n",map?map:"?");engine_->LogPrint(b);}}
- void ServerActivate(edict_t*,int,int) override{} void GameFrame(bool) override{}
+ void LevelInit(const char* map) override {spawned_=false;if(engine_){char b[256];std::snprintf(b,sizeof(b),"[CSSBC] map: %s\n",map?map:"?");engine_->LogPrint(b);}}
+ void ServerActivate(edict_t*,int,int) override{} void GameFrame(bool) override { if(engine_ && spawnRequested_ && !spawned_){spawnRequested_=false;SpawnBot();} }
  void LevelShutdown() override{if(engine_)engine_->LogPrint("[CSSBC] map shutdown.\n");}
  void ClientActive(edict_t*) override{} void ClientDisconnect(edict_t*) override{}
  void ClientPutInServer(edict_t*,const char*) override{} void SetCommandClient(int) override{}
@@ -25,7 +25,7 @@ public:
  PLUGIN_RESULT ClientConnect(bool*,edict_t*,const char*,const char*,char*,int) override{return PLUGIN_CONTINUE;}
  PLUGIN_RESULT ClientCommand(edict_t*) override{return PLUGIN_CONTINUE;}
  PLUGIN_RESULT NetworkIDValidated(const char*,const char*) override{return PLUGIN_CONTINUE;}
-private: IVEngineServer* engine_{};
+private: void SpawnBot(){ edict_t* e=engine_->CreateFakeClient("CSSBC_TestBot"); if(!e){engine_->LogPrint("[CSSBC] CreateFakeClient failed.\\n");return;} engine_->LogPrint("[CSSBC] Fake client allocated; GameDLL player setup/team/spawn not yet wired.\\n");spawned_=true;} IVEngineServer* engine_{}; bool spawnRequested_{false},spawned_{false};
 };
 static CSSBCServerPlugin g_cssbc;
 extern "C" __declspec(dllexport) void* CreateInterface(const char* name,int* rc){
