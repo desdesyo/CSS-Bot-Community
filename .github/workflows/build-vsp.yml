@@ -1,0 +1,41 @@
+name: Build CSSBC VSP (Win32)
+
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - "sdk/dll/**"
+      - ".github/workflows/build-vsp.yml"
+  pull_request:
+    paths:
+      - "sdk/dll/**"
+      - ".github/workflows/build-vsp.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout Source SDK 2006 headers
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/ValveSoftware/source-sdk-2006.git "$env:RUNNER_TEMP\source-sdk-2006"
+          "CSSBC_SOURCE_SDK=$env:RUNNER_TEMP\source-sdk-2006" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build Win32 Release DLL
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
+          msbuild sdk\dll\CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32
+      - name: Verify DLL
+        shell: pwsh
+        run: |
+          $dll = "sdk/dll/bin/CSSBC_VSP.dll"
+          if (!(Test-Path $dll)) { throw "Build succeeded but $dll is missing" }
+          Get-Item $dll | Format-List FullName,Length
+      - name: Upload compiled DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-VSP-Win32
+          path: sdk/dll/bin/CSSBC_VSP.dll
+          if-no-files-found: error
