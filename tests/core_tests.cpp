@@ -14,7 +14,7 @@ int main(){
  CSSBCSystem s;SupportOrder o{}; Economy eco;eco.ResetRound(1);
  // Economy: positive rewards, credit floor, CT collective debt and T-side tolerance.
  auto reward=eco.Apply({5,300,MoneyEvent::Kill,1},false);assert(reward.applied&&reward.balance==300);
- auto bad=eco.Apply({5,-2500,MoneyEvent::BadDecision,1},false);assert(bad.balance==-3000&&bad.debt==3000);
+ auto bad=eco.Apply({5,-4000,MoneyEvent::BadDecision,1},false);assert(bad.balance==-3000&&bad.debt==3000);
  std::array<int,64> teammates{},income{};teammates[1]=teammates[2]=teammates[3]=1;income[1]=income[2]=income[3]=1000;
  auto settle=eco.SettleTeamDebt(5,teammates,income,4,false);assert(settle.paid==3000&&settle.remainingDebt==0);
  assert(eco.Finance(5).balance==0&&eco.Finance(1).balance==-1000);
