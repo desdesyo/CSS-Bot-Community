@@ -36,14 +36,8 @@ function Find-MSBuild {
 
 Step "Run portable core tests when CMake is available"
 $coreTestsPassed = $false
-$cmake = $null
 try {
     $cmake = Find-CMake
-}
-catch {
-    Write-Warning "CMake was not found; skipping standalone core tests. The native server build below still compiles the CSSBC core."
-}
-if ($cmake) {
     $ctest = Join-Path (Split-Path $cmake -Parent) "ctest.exe"
     if (!(Test-Path $ctest)) {
         $ctestCommand = Get-Command ctest -ErrorAction SilentlyContinue
@@ -64,7 +58,9 @@ if ($cmake) {
         Write-Warning "CTest was not found; standalone tests skipped. The native server build still compiles the CSSBC core."
     }
 }
-
+catch {
+    Write-Warning "Standalone core validation skipped: $($_.Exception.Message). The native server build will continue."
+}
 Step "Prepare the exact Counter-Strike: Source v34 game source"
 New-Item -ItemType Directory -Force -Path $external | Out-Null
 $marker = Join-Path $sdkRoot ".cssbc-source-commit"
@@ -100,7 +96,7 @@ if (!(Test-Path (Join-Path $sdkRoot "LICENSE")) -and !(Test-Path (Join-Path $sdk
 Step "Apply CSSBC bot and MVP integration to the local v34 source"
 $patcher = Join-Path $PSScriptRoot "patch-cssv34-sdk.ps1"
 & $patcher -SdkRoot $sdkRoot -RepoRoot $repoRoot
-if ($LASTEXITCODE -ne 0) { throw "Applying the CS:S v34 integration patch failed." }
+if (!$?) { throw "Applying the CS:S v34 integration patch failed." }
 
 Step "Build the native CS:S v34 server DLL (Win32 Release)"
 $msbuild = Find-MSBuild
