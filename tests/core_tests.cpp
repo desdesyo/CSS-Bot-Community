@@ -48,7 +48,7 @@ int main(){
  assert(roundMvp.Record(4,21,EventKind::GrenadeImpact,2.f,9,37.f));
  assert(!roundMvp.Record(5,9,EventKind::Kill,1.f,12,38.f));
  auto leaders=roundMvp.Rank({9,15,21},3);
- assert(leaders.size()==3&&leaders[0].player==9&&leaders[1].player==15);
+ assert(leaders.size()==3&&leaders[0].player==9&&leaders[1].player==21&&leaders[2].player==15);
  AwardEngine awards;
  auto firstBlood=awards.Process({9,4,AwardTrigger::Kill});
  assert(firstBlood.size()==1&&awards.XP(9)==20&&awards.MapScore(9)==100);
