@@ -21,14 +21,14 @@ Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin
 Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons"; DestName: "cssbc.vdf"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 Source: "..\tools\diagnostics\Collect-CSSBC.ps1"; DestDir: "{app}\cstrike\addons\cssbc\diagnostics"; Flags: ignoreversion
-Source: "..\tools\log-collector\Upload-Logs.ps1"; DestDir: "{app}\cstrike\addons\cssbc\tools"; Flags: ignoreversion
+Source: "..\tools\log-collector\Watch-And-Push.ps1"; DestDir: "{app}\cstrike\addons\cssbc\tools"; Flags: ignoreversion
 Source: "..\tools\updater\Update-CSSBC.ps1"; DestDir: "{app}\cstrike\addons\cssbc\tools"; Flags: ignoreversion
 Source: "..\tools\log-collector\Register-LogTask.ps1"; DestDir: "{app}\cstrike\addons\cssbc\tools"; Flags: ignoreversion
 Source: "version.txt"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\CSSBC — Collect diagnostics"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\diagnostics\Collect-CSSBC.ps1"" -GameDir ""{app}"" -OpenFolder"; WorkingDir: "{app}"
-Name: "{group}\CSSBC — Configure log upload"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoExit -NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\tools\Upload-Logs.ps1"" -WatchPath ""{app}\cstrike\logs"""; WorkingDir: "{app}"
+Name: "{group}\CSSBC — Open log collector status"; Filename: "{sys}\notepad.exe"; Parameters: """{localappdata}\CSSBC\log-collector-status.txt"""
 Name: "{group}\CSSBC — Check updates"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\tools\Update-CSSBC.ps1"" -GameDir ""{app}"""; WorkingDir: "{app}"
 
 [Run]
