@@ -43,7 +43,7 @@ while($true){
    if($state.ContainsKey($key) -and $state[$key] -eq $hash){continue}
    $stamp=$f.LastWriteTimeUtc.ToString("yyyyMMdd_HHmmss");$safe=$f.BaseName -replace '[^A-Za-z0-9_-]','_';$queueName=$stamp+"_"+$safe+"_"+$hash.Substring(0,12)
    $queued=Join-Path $queue ($queueName+".log");if(-not(Test-Path $queued)){Copy-Item -LiteralPath $f.FullName -Destination $queued}
-   $manifest=[ordered]@{captured_utc=(Get-Date).ToUniversalTime().ToString("o");source_path=$f.FullName;source_name=$f.Name;bytes=$f.Length;sha256=$hash}|ConvertTo-Json -Compress
+   $manifest=[ordered]@{captured_utc=(Get-Date).ToUniversalTime().ToString("o");source_name=$f.Name;bytes=$f.Length;sha256=$hash}|ConvertTo-Json -Compress
    $manifestPath=$queued+".json";Set-Content -LiteralPath $manifestPath -Value $manifest -Encoding UTF8
    try{
     Send-QueuedFile -Path $queued -Token $token -RemotePath ("matches/"+$queueName+".log")
