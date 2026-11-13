@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <cstdio>
 #include <cstring>
+#include <cstring>
 
 namespace {
 class CSSBCServerPlugin final : public IServerPluginCallbacks {
