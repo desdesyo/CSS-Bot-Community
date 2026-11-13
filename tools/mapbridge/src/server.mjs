@@ -45,8 +45,8 @@ function entity(id,classname,kv={}){return `entity
 ${Object.entries(kv).map(([k,v])=>` "${esc(k)}" "${esc(v)}"`).join("\n")}
 }`;}
 function insertWorld(vmf,parts){
- const m=vmf.match(/world\\s*\\{[\\s\\S]*?\\n\\}/);if(!m)throw Error("VMF world block not found");
- return vmf.replace(m[0],m[0].slice(0,-1)+"\\n"+parts.join("\n")+"\\n}");
+ const m=vmf.match(/world\s*\{[\s\S]*?\n\}/);if(!m)throw Error("VMF world block not found");
+ return vmf.replace(m[0],m[0].slice(0,-1)+"\n"+parts.join("\n")+"\n}");
 }
 function header(){return `versioninfo
 {
@@ -116,6 +116,6 @@ server.tool("map_add_spawn","Place a CSS player spawn entity.",{name:safeName,or
  const e=entity(id,cls,{origin:fmt(a.origin),angles:`0 ${a.angles} 0`});await save(f,s+"\\n"+e+"\\n");return {content:[{type:"text",text:`Spawn ${cls} added at ${a.origin}`}]};
 });
 server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:safeName},async({name})=>{
- const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\\nBytes: ${Buffer.byteLength(s)}\\nSolids: ${(s.match(/\\n\\s*solid\\s*\\{/g)||[]).length}\\nEntities: ${(s.match(/\\n\\s*entity\\s*\\{/g)||[]).length}`}]};
+ const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
 });
 const transport=new StdioServerTransport();await server.connect(transport);
