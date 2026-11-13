@@ -62,3 +62,30 @@ jobs:
           name: CSSBC-VSP-Win32
           path: sdk/dll/bin/CSSBC_VSP.dll
           if-no-files-found: error
+
+  probe-v34-gamedll-vpc:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout pinned CS:S v34 source tree
+        uses: actions/checkout@v4
+        with:
+          repository: sl1mshady-cs/cssv34-client
+          ref: 55f860bf42a537ac55aaef684f6fa0effee714a8
+          path: cssv34-source
+          fetch-depth: 1
+
+      - name: Inspect native VPC generator without Python
+        shell: pwsh
+        run: |
+          Set-Location cssv34-source/src
+          $help = & .\devtools\bin\vpc.exe /? 2>&1 | Out-String
+          $help | Set-Content "$env:GITHUB_WORKSPACE\vpc-help.txt"
+          Write-Host $help
+          Write-Host "VPC exit code: $LASTEXITCODE"
+
+      - name: Upload VPC generator help
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-VPC-Help
+          path: vpc-help.txt
+          if-no-files-found: error
