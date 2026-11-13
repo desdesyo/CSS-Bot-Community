@@ -33,7 +33,7 @@
       <SDLCheck>true</SDLCheck>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>COMPILER_MSVC;COMPILER_MSVC32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(CSSBC_SOURCE_SDK)\public;$(CSSBC_SOURCE_SDK)\public\tier1;$(CSSBC_SOURCE_SDK)\public\tier0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(CSSBC_SOURCE_SDK)\public;$(CSSBC_SOURCE_SDK)\public\tier1;$(CSSBC_SOURCE_SDK)\public\tier0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -41,6 +41,30 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup><ClCompile Include="CSSBC_VSP.cpp" /></ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CSSBC_VSP.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Mind.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Juggernaut.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_MVP.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_System.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_SupportRoster.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_TeamMemory.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Combat.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Spray.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_CombatTeam.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_UI.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Localization.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Tactics.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Economy.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_GameModes.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Config.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Awards.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Brain.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_Melee.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_MeleeCombat.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_MatchCoordinator.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_GameplayEventRouter.cpp" />
+    <ClCompile Include="..\..\src\CSSBC_EscapeSearch.cpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
