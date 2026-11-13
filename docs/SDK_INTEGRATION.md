@@ -8,22 +8,25 @@ The local Windows build downloads `rusherr-c/cssv34-sdk` at commit `a410d4f10a1b
 
 ## Current integration adapter
 
-The patcher adds `CSSBC_GameAdapter.cpp/.h` to the local v34 server source and connects:
-- `CCSBot::Update` → CSSBC `BotBrain` tick, with per-bot personality derived from profile skill/aggression.
+The native Win32 server DLL build is passing in GitHub Actions. The build script downloads the pinned v34 source locally, patches the game project and compiles the CSSBC core directly into `server.dll`.
+
+### Implemented game hooks
+
+- `CCSBot::Update` → CSSBC `BotBrain` tick, using bot profile skill/aggression, health, armor, nearby allies/enemies and recognized threats.
 - Retreat and cover-seeking decisions, gated by `cssbc_ai_enable`.
 - `CCSBotManager` round, death, bomb and hostage event handlers → CSSBC MVP scoring.
-- Round-start reset and top-three round MVP logging.
+- Native bot creation hook → CSSBC support role, health, armor and follow leader.
 
-The portable C++ core is compiled into the game server DLL as source files with C++17 and no PCH. The same core is built and tested separately by CMake.
+### Native support commands
 
-## Build and install
+- `cssbc_support 1`: $1,000 recon sniper.
+- `cssbc_support 2`: $3,000 tactical assault unit.
+- `cssbc_support 3`: $9,000 squad (two snipers and two assault bots).
+- `cssbc_juggernaut`: $16,000, requires three dead teammates; spawns a 500 HP bot with 200 armor.
+- Units follow the purchasing player. Failed spawns are not charged; partial squad spawns are charged proportionally.
 
-- `BUILD_CSSBC.bat`: download pinned v34 source, patch locally, run portable tests, compile `dist/Server.dll`.
-- `INSTALL_CSSBC.bat`: copy to the configured CS:S v34 game folder and back up the original DLL.
-- `RESTORE_STOCK_SERVER.bat`: restore the backup.
-- `BUILD_CSSBC_VSP.bat`: optional standalone VSP diagnostic bridge.
+Support units currently use ordinary CS:S bot player slots. They are not yet separate NPC entities. The Juggernaut's six-plate model is not yet connected to real hitgroup damage; the current 200 armor is a basic first pass.
 
-See [WINDOWS_BUILD.md](WINDOWS_BUILD.md).
 
 ## Remaining integration work
 
