@@ -1,5 +1,6 @@
 #pragma once
 #include "CSSBC_Brain.h"
+#include "CSSBC_Spray.h"
 #include "CSSBC_Mind.h"
 #include "CSSBC_CombatTeam.h"
 #include "CSSBC_MVP.h"
@@ -20,6 +21,8 @@ class BotRuntime {
   TacticalDecision Evaluate(const BotSnapshot&,Economy&,bool terroristTeam,const Callout* callout,
     float reliability,const std::array<PlateState,(size_t)Plate::Count>& armor,
     const std::vector<MemoryEntry>& sharedMemory);
+  SprayOutput OnWeaponShot(WeaponId weapon,float now,bool moving,bool crouching,float skill=1.f);
+  void OnWeaponChanged(){ResetSpray(spray_);}
   BotBrain& Brain(){return brain_;} Mind& MindState(){return mind_;}
  private:BotBrain brain_;Mind mind_;
 };
