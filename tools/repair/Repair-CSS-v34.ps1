@@ -81,8 +81,8 @@ function Test-Game([string]$GameDir, [bool]$DoRepair) {
     $reportDir = Join-Path $env:LOCALAPPDATA 'CSSBotCommunity\Repair'
     New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
     $report = Join-Path $reportDir ("CSSBC_Repair_{0}.txt" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
-    $script:Log | Set-Content -LiteralPath $report -Encoding UTF8
     Write-Log "Отчёт: $report"
+    $script:Log | Set-Content -LiteralPath $report -Encoding UTF8
     return ($script:Log -join [Environment]::NewLine)
 }
 
