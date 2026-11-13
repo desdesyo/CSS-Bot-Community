@@ -32,7 +32,7 @@
 
 Установщик размещает GameDLL в `cstrike\bin\server.dll`, VSP в
 `cstrike\addons\cssbc\bin\CSSBC_VSP.dll`, а `plugin.vdf` — непосредственно
-в `cstrike\addons\plugin.vdf`, где Source Engine ищет VSP-манифесты.
+в `cstrike\addons\cssbc.vdf`, где Source Engine ищет VSP-манифесты.
 
 Перед заменой существующего `server.dll` создаётся резервная копия
 `server.dll.cssbc-backup`. Первый оригинал не перезаписывается при повторной
