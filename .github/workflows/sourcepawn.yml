@@ -21,14 +21,14 @@ jobs:
       - name: Download SourceMod compiler and includes
         run: |
           curl -fL "https://sm.alliedmods.net/smdrop/1.12/sourcemod-latest-linux" -o sourcemod.tar.gz
-          mkdir sourcemod
-          tar -xzf sourcemod.tar.gz -C sourcemod
+          mkdir smdist
+          tar -xzf sourcemod.tar.gz -C smdist
 
       - name: Compile CSSBC plugin
         run: |
-          chmod +x sourcemod/addons/sourcemod/scripting/spcomp
+          chmod +x smdist/addons/sourcemod/scripting/spcomp
           sourcemod/addons/sourcemod/scripting/spcomp \
-            -i sourcemod/addons/sourcemod/scripting/include \
+            -i smdist/addons/sourcemod/scripting/include \
             sourcemod/scripting/cssbc.sp \
             -o cssbc.smx
           test -s cssbc.smx
