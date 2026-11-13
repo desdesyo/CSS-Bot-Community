@@ -13,6 +13,7 @@ namespace cssbc::sdk {
 struct AnimationEngineBindings {
     std::function<bool(const char*)> sequenceExists;
     std::function<int(const char*)> lookupSequence; // -1 if absent
+    std::function<float(int)> sequenceDuration; // seconds; <=0 means unavailable
     std::function<void(int)> resetSequence;
     std::function<void(float)> setCycle;
     std::function<void(float)> setPlaybackRate;
@@ -29,7 +30,8 @@ public:
 
     // Call once per bot update. sequenceFor maps action/stance/weapon to model-specific sequence.
     bool Tick(const AnimInput& input, const char* sequence,
-              const AnimationDebugFrame& frame, bool debugEnabled) {
+              const AnimationDebugFrame& frame, bool debugEnabled,
+              float dt = 0.0f, bool looping = true) {
         const AnimState& state = machine_.Update(input);
         if (!sequence || !bindings_.lookupSequence || !bindings_.resetSequence ||
             !bindings_.setCycle || !bindings_.setPlaybackRate) return false;
@@ -47,7 +49,10 @@ public:
             if (bindings_.setWeaponGesture)
                 bindings_.setWeaponGesture(GestureFor(input.weapon, state.action));
         }
-        bindings_.setCycle(state.cycle);
+        if (dt > 0.0f && bindings_.sequenceDuration) {
+            machine_.Advance(dt, bindings_.sequenceDuration(index), looping);
+        }
+        bindings_.setCycle(machine_.State().cycle);
         bindings_.setPlaybackRate(state.playbackRate);
 
         if (debugEnabled && bindings_.debugFrame) bindings_.debugFrame(frame);
