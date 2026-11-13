@@ -8,3 +8,6 @@ This folder is the seam for integrating the portable CSSBC systems into a Source
 - Keep Source engine types out of `src/` so core CI remains portable.
 
 **Not a game DLL yet:** adapter methods intentionally have no fake implementation. To compile and run them, the matching CS:S/Source SDK game source tree must be supplied and built. This repo currently does not contain Valve's engine/game source or binary dependencies.
+
+- `CSSBC_MeleeModeHooks.h` defines the game-DLL integration contract for queued mode selection, next-round application and dedicated fists/knife/normal loadouts. Implement it against the actual CS:S GameRules/player classes; it deliberately does not fake engine behavior.
+- `src/CSSBC_MeleeCombat.*` is portable attack timing/impact logic. The server DLL must provide a hull trace at impact time and apply returned damage authoritatively.
