@@ -29,7 +29,6 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-
       - name: Download AlliedModders CS:S SDK (css branch)
         shell: pwsh
         run: |
@@ -44,7 +43,6 @@ jobs:
             if (!(Test-Path (Join-Path $root.FullName $file))) { throw "SDK file missing: $file" }
           }
           "CSSBC_SOURCE_SDK=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
       - name: Configure MSVC x86 environment
         shell: cmd
         run: |
@@ -52,7 +50,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild sdk\dll\CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32 /p:CSSBC_SOURCE_SDK="%CSSBC_SOURCE_SDK%"
           if errorlevel 1 exit /b 1
-
       - name: Verify Win32 VSP DLL
         shell: pwsh
         run: |
@@ -61,7 +58,6 @@ jobs:
           $file = Get-Item $dll
           if ($file.Length -le 0) { throw "Built DLL is empty" }
           Get-Item $dll | Format-List FullName,Length
-
       - name: Upload compiled VSP DLL
         uses: actions/upload-artifact@v4
         with:
@@ -78,7 +74,6 @@ jobs:
           ref: sdk-foundation
           path: cssbc
           fetch-depth: 1
-
       - name: Checkout pinned CS:S v34 source tree
         uses: actions/checkout@v4
         with:
@@ -86,12 +81,10 @@ jobs:
           ref: 55f860bf42a537ac55aaef684f6fa0effee714a8
           path: cssv34-source
           fetch-depth: 1
-
       - name: Apply CSSBC native GameDLL integration (PowerShell only)
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\integrate-v34-gamedll.ps1" -CssbcRoot "$env:GITHUB_WORKSPACE\cssbc" -GameSourceRoot "$env:GITHUB_WORKSPACE\cssv34-source\src"
-
       - name: Restore the omitted vstdlib OS version source from Source SDK
         shell: pwsh
         run: |
@@ -99,7 +92,6 @@ jobs:
           $target = "cssv34-source/src/vstdlib/osversion.cpp"
           Invoke-WebRequest -Uri $url -OutFile $target
           if (!(Test-Path $target)) { throw "vstdlib/osversion.cpp was not restored" }
-
       - name: Prepare and inspect native VPC generator (no Python)
         shell: pwsh
         run: |
@@ -110,7 +102,6 @@ jobs:
           $help | Set-Content "$env:GITHUB_WORKSPACE\vpc-help.txt"
           Write-Host $help
           if ($LASTEXITCODE -ne 0) { throw "VPC help probe failed" }
-
       - name: Generate v34 GameDLL Visual Studio solution (no Python)
         shell: pwsh
         run: |
@@ -122,17 +113,14 @@ jobs:
           $projects | Set-Content "$env:GITHUB_WORKSPACE\gamedll-projects.txt"
           Write-Host "Generated projects:"
           $projects
-
       - name: Set C++17 and disable PCH for CSSBC translation units
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\patch-gamedll-project.ps1" -ProjectPath "cssv34-source/src/game/server/server_cstrike.vcxproj"
-
       - name: Patch tier0 PCH for omitted source headers
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\patch-tier0-project.ps1" -ProjectPath "cssv34-source/src/tier0/tier0.vcxproj"
-
       - name: Upload generated GameDLL projects
         uses: actions/upload-artifact@v4
         with:
@@ -143,7 +131,6 @@ jobs:
             cssv34-source/src/game/server/*.vcxproj
             cssv34-source/src/game/server/*.vcxproj.filters
           if-no-files-found: warn
-
       - name: Stage the pinned x86 ftol3 linker object
         shell: pwsh
         run: |
@@ -153,7 +140,6 @@ jobs:
           New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
           Copy-Item $source $target -Force
           Write-Host "Staged $source -> $target"
-
       - name: Build the required tier0 import library
         shell: cmd
         run: |
@@ -161,7 +147,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\tier0\tier0.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required tier1 static library
         shell: cmd
         run: |
@@ -169,7 +154,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\tier1\tier1.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required tier2 static library
         shell: cmd
         run: |
@@ -177,7 +161,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\tier2\tier2.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required tier3 static library
         shell: cmd
         run: |
@@ -185,7 +168,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\tier3\tier3.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required vstdlib import library
         shell: cmd
         run: |
@@ -193,7 +175,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\vstdlib\vstdlib.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required choreoobjects static library
         shell: cmd
         run: |
@@ -201,7 +182,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\choreoobjects\choreoobjects.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required dmxloader static library
         shell: cmd
         run: |
@@ -209,7 +189,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\dmxloader\dmxloader.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required mathlib static library
         shell: cmd
         run: |
@@ -217,7 +196,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\mathlib\mathlib.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the required particles static library
         shell: cmd
         run: |
@@ -225,7 +203,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\particles\particles.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Build the repository's no-Steam compatibility library
         shell: cmd
         run: |
@@ -236,7 +213,6 @@ jobs:
           if errorlevel 1 exit /b 1
           lib /nologo /OUT:cssv34-source\src\lib\public\steam_api.lib steam_api.obj
           if errorlevel 1 exit /b 1
-
       - name: Compile CSSBC-integrated CS:S v34 GameDLL with MSVC x86 (no Python)
         shell: cmd
         run: |
@@ -244,7 +220,6 @@ jobs:
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\game\server\server_cstrike.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
-
       - name: Verify server GameDLL output
         shell: pwsh
         run: |
@@ -253,7 +228,6 @@ jobs:
           Write-Host "GameDLL: $($dll.FullName)"
           Write-Host "Bytes: $($dll.Length)"
           Copy-Item $dll.FullName "$env:GITHUB_WORKSPACE\server-v34-win32.dll" -Force
-
       - name: Upload compiled CSSBC GameDLL
         uses: actions/upload-artifact@v4
         with:
@@ -268,19 +242,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: sdk-foundation
-
       - name: Download compiled VSP
         uses: actions/download-artifact@v4
         with:
           name: CSSBC-VSP-Win32
           path: sdk/dll/bin
-
       - name: Download compiled v34 GameDLL
         uses: actions/download-artifact@v4
         with:
           name: CSSBC-v34-GameDLL-Win32
           path: installer/payload
-
       - name: Verify complete installer payload
         shell: pwsh
         run: |
@@ -290,7 +261,7 @@ jobs:
             "sdk/dll/plugin.vdf",
             "sdk/dll/README_V34_BOOTSTRAP.md",
             "tools/diagnostics/Collect-CSSBC.ps1",
-            "tools/log-collector/Upload-Logs.ps1",
+            "tools/log-collector/Watch-And-Push.ps1",
             "tools/updater/Update-CSSBC.ps1",
             "tools/log-collector/Register-LogTask.ps1",
             "installer/version.txt"
@@ -300,7 +271,6 @@ jobs:
             if ((Get-Item $file).Length -le 0) { throw "Installer input is empty: $file" }
           }
           Write-Host "All installer payload files are present."
-
       - name: Validate PowerShell log collector syntax
         shell: pwsh
         run: |
@@ -319,7 +289,6 @@ jobs:
             }
             Write-Host "PowerShell syntax OK: $file"
           }
-
       - name: Install Inno Setup compiler
         shell: pwsh
         run: |
@@ -328,7 +297,6 @@ jobs:
           if (!(Test-Path $iscc)) { $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe" }
           if (!(Test-Path $iscc)) { throw "Inno Setup ISCC.exe not found after installation" }
           "CSSBC_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append
-
       - name: Build beginner-friendly Setup.exe
         shell: pwsh
         run: |
@@ -336,30 +304,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
           if (!(Test-Path installer/CSSBC_Setup.exe)) { throw "Setup.exe was not produced" }
           Get-Item installer/CSSBC_Setup.exe | Format-List FullName,Length
-
       - name: Publish installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: CSSBC-Setup-Win32
           path: installer/CSSBC_Setup.exe
           if-no-files-found: error
-
       - name: Prepare versioned updater payload
         shell: pwsh
         run: |
           $ver = Get-Content installer/version.txt -Raw
           New-Item -ItemType Directory -Force release-payload | Out-Null
+          Copy-Item installer/payload/server-v34-win32.dll release-payload/server-v34-win32.dll
           Copy-Item sdk/dll/bin/CSSBC_VSP.dll release-payload/CSSBC_VSP.dll
           Set-Content release-payload/version.txt $ver -NoNewline
           Compress-Archive release-payload/* CSSBC-Update.zip -Force
-
       - name: Upload update bundle
         uses: actions/upload-artifact@v4
         with:
           name: CSSBC-Update-Bundle
           path: CSSBC-Update.zip
           if-no-files-found: error
-
       - name: Publish test release with Setup and updater
         if: github.ref == 'refs/heads/sdk-foundation'
         uses: softprops/action-gh-release@v2
