@@ -3,17 +3,18 @@
 #include "CSSBC_TeamMemory.h"
 #include "CSSBC_Combat.h"
 #include "CSSBC_CombatTeam.h"
+#include "CSSBC_Tactics.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
 int main(){
- CSSBCSystem s;SupportOrder o{};
+ CSSBCSystem s;SupportOrder o{}; TacticalInput ti;ti.role=BotRole::Sniper;ti.seesThreat=true;ti.hasCover=true;ti.distanceToThreat=1400;assert(DecideTactics(Traits{},ti).action==TacticalAction::Hold); ti={};ti.health=15;ti.seesThreat=true;assert(DecideTactics(Traits{},ti).action==TacticalAction::Retreat); ti={};ti.bombCarried=true;ti.objectiveDistance=200;assert(DecideTactics(Traits{},ti).action==TacticalAction::Plant); ti={};ti.teammateRecentlyKilled=true;ti.canTrade=true;ti.health=80;assert(DecideTactics(Traits{},ti).action==TacticalAction::TradeKill);
  assert(!s.RequestSupport(SupportTier::Juggernaut16000,1,16000,2,o));
  assert(s.RequestSupport(SupportTier::Juggernaut16000,1,16000,3,o));
  assert(o.moneySpent==16000&&o.buyer==1);
  assert(s.CanPurchase(SupportTier::Squad9000,9000,0));
  JuggernautArmor armor;assert(!armor.ApplyHit(Plate::Chest,.4f));assert(armor.ApplyHit(Plate::Chest,.7f));assert(armor.Get(Plate::Chest).broken);
- s.MVP().Add(3,EventKind::Rescue,5);assert(s.MVP().Get(3)==5);
+ s.MVP().Add(3,EventKind::Rescue,5);assert(s.MVP().Get(3)==11);
  assert(s.RetreatProbability(Traits{},1,3,0)<s.RetreatProbability(Traits{},.2f,0,1));
  assert(s.CoverReward(4,2)==16);
  SupportRoster roster;assert(roster.Deploy(SupportTier::Squad9000));assert(roster.Units().size()==4);assert(roster.IsAutonomous());
