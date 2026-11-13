@@ -30,7 +30,7 @@ int main(){
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
- TacticalBrain brain(Traits{.courage=.8f,.trust=.5f,.teamwork=.8f,.discipline=.7f});
+ Traits bt;bt.courage=.8f;bt.teamwork=.8f;bt.discipline=.7f;TacticalBrain brain(bt);
  TacticalInput ti{};ti.teammatesAlive=3;ti.enemiesAlive=4;ti.hasEnemySight=true;
  auto td=brain.Decide(ti);assert(td.goal==BotGoal::Attack&&td.order==BotOrder::Push);
  assert(brain.SquadOrder(ti,SquadRole::Support)==BotOrder::Cover);
