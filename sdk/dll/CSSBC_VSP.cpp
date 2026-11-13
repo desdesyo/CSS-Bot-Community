@@ -3,11 +3,13 @@
 #include "interface.h"
 #include "eiface.h"
 #include "iserverplugin.h"
+#include "CSSBC_VSPStatus.h"
 #include <windows.h>
 #include <cstdio>
 #include <cstring>
 #include <cstring>
 
+namespace cssbc::vsp { BootstrapStatus& Status(){ static BootstrapStatus s; return s; } }
 namespace {
 class CSSBCServerPlugin final : public IServerPluginCallbacks {
 public:
@@ -16,11 +18,14 @@ public:
         gameServerFactory_ = gameServerFactory;
         engine_ = static_cast<IVEngineServer*>(engineFactory_(INTERFACEVERSION_VENGINESERVER, nullptr));
         if (!engine_) return false;
+        cssbc::vsp::Status().engineInterfaceFound = true;
+        cssbc::vsp::Status().pluginLoaded = true;
         engine_->LogPrint("[CSSBC] Native v34 plugin loaded; SDK bridge online.\n");
         return true;
     }
     void Unload() override {
         if (engine_) engine_->LogPrint("[CSSBC] Plugin unloaded.\n");
+        cssbc::vsp::Status().pluginLoaded = false;
         engine_ = nullptr;
     }
     void Pause() override {}
@@ -29,6 +34,8 @@ public:
         return "CSS Bot Community - native CS:S v34 bootstrap";
     }
     void LevelInit(char const* mapName) override {
+        cssbc::vsp::Status().levelSeen = true;
+        cssbc::vsp::Status().mapName = mapName ? mapName : "";
         if (engine_) { char msg[256]; std::snprintf(msg,sizeof(msg),"[CSSBC] LevelInit: %s\n",mapName?mapName:"(unknown)"); engine_->LogPrint(msg); }
     }
     void ServerActivate(edict_t*, int, int) override {}
