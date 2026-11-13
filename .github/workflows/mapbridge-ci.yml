@@ -1,0 +1,22 @@
+name: MapBridge validation
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - "tools/mapbridge/**"
+      - ".github/workflows/mapbridge-ci.yml"
+  pull_request:
+    paths:
+      - "tools/mapbridge/**"
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: tools/mapbridge
+      - run: node --check src/server.mjs
+        working-directory: tools/mapbridge
