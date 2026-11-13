@@ -119,7 +119,7 @@ server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:s
  const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
 });
 
-server.tool("map_generate_district","Generate a complete small CSS test district in one call: ground, road, sidewalks, 4 buildings and team spawns.",{name:safeName,overwrite:z.boolean().default(false),seed:z.number().int().default(1),blockSize:z.number().min(512).max(2048).default(1024),floors:z.number().int().min(1).max(5).default(2),material:z.string().default("DEV/DEV_MEASUREGENERIC01B")},async a=>{
+server.tool("map_generate_district","Generate a complete small CSS test district in one call: ground, road, sidewalks, 4 accessible buildings and team spawns.",{name:safeName,overwrite:z.boolean().default(false),seed:z.number().int().default(1),blockSize:z.number().min(512).max(2048).default(1024),floors:z.number().int().min(1).max(5).default(2),material:z.string().default("DEV/DEV_MEASUREGENERIC01B")},async a=>{
  await fs.mkdir(mapsDir,{recursive:true});const f=fileFor(a.name);
  try{await fs.access(f);if(!a.overwrite)throw Error("Map exists; set overwrite=true");}catch(e){if(e.message.includes("Map exists"))throw e;}
  let vmf=header(),id=2,parts=[];const add=(lo,hi,mat=a.material)=>{parts.push(brush(id,lo,hi,mat));id+=7;};
@@ -131,10 +131,17 @@ server.tool("map_generate_district","Generate a complete small CSS test district
  add([-B*2,road/2,-8],[B*2,road/2+sw,0],"CONCRETE/CONCRETE_FLOOR");
  const h= a.floors*256,w=B/2,d=B/2,t=16;
  // 4 simple hollow building shells around central road
+ // Four shells with a real ground-floor entrance (96x160) and roof slab.
+ // Front wall is split around the doorway, so every shell is accessible.
  for(const [x,y] of [[-B,-B],[B/2,-B],[-B,B/2],[B/2,B/2]]){
-  add([x,y,0],[x+t,y+d,h]);add([x+w-t,y,0],[x+w,y+d,h]);
-  add([x+t,y,0],[x+w-t,y+t,h]);add([x+t,y+d-t,0],[x+w-t,y+d,h]);
-  add([x,y,h-t],[x+w,y+d,h]);
+  const door=96,doorH=160,mid=x+w/2;
+  add([x,y,0],[x+t,y+d,h]);                         // left side
+  add([x+w-t,y,0],[x+w,y+d,h]);                     // right side
+  add([x+t,y,0],[mid-door/2,y+t,doorH]);             // front left
+  add([mid+door/2,y,0],[x+w-t,y+t,doorH]);            // front right
+  add([mid-door/2,y,doorH],[mid+door/2,y+t,h]);        // lintel
+  add([x+t,y+d-t,0],[x+w-t,y+d,h]);                   // rear wall
+  add([x,y,h-t],[x+w,y+d,h]);                         // roof
  }
  parts.push(entity(id++,"info_player_counterterrorist",{origin:fmt([-128,-128,8]),angles:"0 0 0"}));
  parts.push(entity(id++,"info_player_terrorist",{origin:fmt([128,128,8]),angles:"0 180 0"}));
