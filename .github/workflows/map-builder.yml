@@ -5,7 +5,7 @@ on:
       map_name:
         description: VMF basename (maps/ModernDistrict)
         required: true
-        default: CSSBC_ModernDistrict
+        default: CSSBC_ExpandedDistrict
         type: string
   push:
     branches: [sdk-foundation]
@@ -58,7 +58,7 @@ jobs:
         if: steps.css.outputs.available == 'true'
         shell: pwsh
         run: |
-          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          $name="${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}"
           if ($name -notmatch '^[A-Za-z0-9_-]+$') { throw "Invalid map name" }
           $vmf="maps/ModernDistrict/$name.vmf"
           if (!(Test-Path $vmf)) { throw "VMF missing: $vmf" }
@@ -73,7 +73,7 @@ jobs:
         if: steps.css.outputs.available == 'true'
         shell: pwsh
         run: |
-          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          $name="${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}"
           & $env:VVIS -game "$env:CSSDIR" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
           if ($LASTEXITCODE -ne 0) { throw "VVIS++ failed: $LASTEXITCODE" }
 
@@ -81,7 +81,7 @@ jobs:
         if: steps.css.outputs.available == 'true'
         shell: pwsh
         run: |
-          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          $name="${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}"
           & $env:VRAD -game "$env:CSSDIR" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
           if ($LASTEXITCODE -ne 0) { throw "VRAD++ failed: $LASTEXITCODE" }
 
@@ -89,7 +89,7 @@ jobs:
         if: steps.css.outputs.available == 'true'
         shell: pwsh
         run: |
-          $bsp="build${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.bsp"
+          $bsp="build\${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}.bsp"
           if (!(Test-Path $bsp) -or (Get-Item $bsp).Length -lt 10000) { throw "BSP missing or suspiciously small" }
           Get-Item $bsp | Format-List FullName,Length
 
@@ -97,10 +97,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CSSBC-Map-${{ inputs.map_name || 'CSSBC_ModernDistrict' }}-${{ github.run_number }}
+          name: CSSBC-Map-${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}-${{ github.run_number }}
           path: |
             build/*.bsp
             build/*.log
-            maps/ModernDistrict/${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.vmf
+            maps/ModernDistrict/${{ inputs.map_name || 'CSSBC_ExpandedDistrict' }}.vmf
           if-no-files-found: warn
           retention-days: 30
