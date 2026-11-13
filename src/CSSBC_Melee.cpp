@@ -1,8 +1,8 @@
 #include "CSSBC_Melee.h"
-#include <algorithm>
+#include <algorithm>\n#include <cmath>
 namespace cssbc {
-bool CanMeleeAttack(const MeleeState&s,float now){return now>=s.nextAttackAt;}
-MeleeAction SelectMeleeAction(MeleeMode mode,Faction f,MeleeState&s,uint32_t seed,float now,float skill){
+bool CanMeleeAttack(const MeleeState&s,float now){return std::isfinite(now)&&std::isfinite(s.nextAttackAt)&&now>=s.nextAttackAt;}
+MeleeAction SelectMeleeAction(MeleeMode mode,MeleeFaction f,MeleeState&s,uint32_t seed,float now,float skill){\n MeleeAction invalid{}; if(!IsValidMeleeMode(mode)||mode==MeleeMode::Normal||!IsValidMeleeFaction(f)||!std::isfinite(now)||!std::isfinite(skill))return invalid;
  skill=std::clamp(skill,0.f,1.f); seed^=(++s.sequence*0x9E3779B9u); seed^=seed>>16; seed*=0x7FEB352Du; seed^=seed>>15;
  const unsigned pick=seed%4; MeleeAction a{};
  if(mode==MeleeMode::Knife){
