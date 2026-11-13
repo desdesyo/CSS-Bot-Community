@@ -9,4 +9,5 @@ $trigger=New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $principal=New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 2) -ExecutionTimeLimit ([TimeSpan]::Zero)
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'CSSBC automatic game-log collector and GitHub uploader' -Force | Out-Null
-Write-Host "Registered $taskName. It starts at your next Windows sign-in."
+Start-ScheduledTask -TaskName $taskName
+Write-Host "Registered and started $taskName. It will also start at future Windows sign-ins."
