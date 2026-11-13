@@ -11,7 +11,16 @@
 #include <iostream>
 using namespace cssbc;
 int main(){
- CSSBCSystem s;SupportOrder o{}; Economy eco;eco.ResetRound(1);auto buy=eco.Buy({2,1,800,true,true,BuyItem::Armor});assert(buy.accepted&&buy.moneyAfter==150);assert(!eco.Buy({2,1,800,true,true,BuyItem::Pistol}).accepted);assert(RulesFor(GameMode::Deathmatch).respawn);ProjectConfig pc;assert(ValidateConfig(pc));pc.botDifficulty=2;assert(!ValidateConfig(pc)); TacticalInput ti;ti.role=BotRole::Sniper;ti.seesThreat=true;ti.hasCover=true;ti.distanceToThreat=1400;assert(DecideTactics(Traits{},ti).action==TacticalAction::Hold); ti={};ti.health=15;ti.seesThreat=true;assert(DecideTactics(Traits{},ti).action==TacticalAction::Retreat); ti={};ti.bombCarried=true;ti.objectiveDistance=200;assert(DecideTactics(Traits{},ti).action==TacticalAction::Plant); ti={};ti.teammateRecentlyKilled=true;ti.canTrade=true;ti.health=80;assert(DecideTactics(Traits{},ti).action==TacticalAction::TradeKill);
+ CSSBCSystem s;SupportOrder o{}; Economy eco;eco.ResetRound(1);
+ // Economy: positive rewards, credit floor, CT collective debt and T-side tolerance.
+ auto reward=eco.Apply({5,300,MoneyEvent::Kill,1},false);assert(reward.applied&&reward.balance==300);
+ auto bad=eco.Apply({5,-2500,MoneyEvent::BadDecision,1},false);assert(bad.balance==-3000&&bad.debt==3000);
+ std::array<int,64> teammates{},income{};teammates[1]=teammates[2]=teammates[3]=1;income[1]=income[2]=income[3]=1000;
+ auto settle=eco.SettleTeamDebt(5,teammates,income,4,false);assert(settle.paid==3000&&settle.remainingDebt==0);
+ assert(eco.Finance(5).balance==0&&eco.Finance(1).balance==-1000);
+ Economy tEco; tEco.Apply({5,-200,MoneyEvent::BadDecision,1},true);
+ auto ignored=tEco.SettleTeamDebt(5,teammates,income,4,true);assert(ignored.paid==0&&ignored.remainingDebt==200);
+ auto buy=eco.Buy({2,1,800,true,true,BuyItem::Armor});assert(buy.accepted&&buy.moneyAfter==150);assert(!eco.Buy({2,1,800,true,true,BuyItem::Pistol}).accepted);assert(RulesFor(GameMode::Deathmatch).respawn);ProjectConfig pc;assert(ValidateConfig(pc));pc.botDifficulty=2;assert(!ValidateConfig(pc)); TacticalInput ti;ti.role=BotRole::Sniper;ti.seesThreat=true;ti.hasCover=true;ti.distanceToThreat=1400;assert(DecideTactics(Traits{},ti).action==TacticalAction::Hold); ti={};ti.health=15;ti.seesThreat=true;assert(DecideTactics(Traits{},ti).action==TacticalAction::Retreat); ti={};ti.bombCarried=true;ti.objectiveDistance=200;assert(DecideTactics(Traits{},ti).action==TacticalAction::Plant); ti={};ti.teammateRecentlyKilled=true;ti.canTrade=true;ti.health=80;assert(DecideTactics(Traits{},ti).action==TacticalAction::TradeKill);
  assert(!s.RequestSupport(SupportTier::Juggernaut16000,1,16000,2,o));
  assert(s.RequestSupport(SupportTier::Juggernaut16000,1,16000,3,o));
  assert(o.moneySpent==16000&&o.buyer==1);
