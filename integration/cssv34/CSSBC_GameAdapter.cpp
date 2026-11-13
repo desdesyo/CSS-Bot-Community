@@ -25,6 +25,7 @@ struct BotRuntime {
     cssbc::BotBrain brain;
 };
 BotRuntime g_botRuntime[MAX_PLAYERS + 1];
+ConVar cssbc_ai_enable("cssbc_ai_enable", "1", FCVAR_GAMEDLL, "Enable the CSSBC tactical bot brain adapter.");
 
 void AddMvpEvent(int userId, cssbc::EventKind kind, float value) {
     if (userId <= 0) return;
@@ -95,7 +96,7 @@ void OnHostageRescuedAll(IGameEvent* event) {
 }
 
 void TickBot(CCSBot* bot) {
-    if (!bot || !bot->IsAlive()) return;
+    if (!cssbc_ai_enable.GetBool() || !bot || !bot->IsAlive()) return;
 
     const int slot = bot->entindex();
     if (slot < 1 || slot > MAX_PLAYERS) return;
@@ -134,7 +135,7 @@ void TickBot(CCSBot* bot) {
     CCSPlayer* threat = bot->GetRecognizedEnemy();
     const int allies = bot->GetNearbyFriendCount();
     const int enemies = bot->GetNearbyEnemyCount();
-    float distance = bot->GetRangeToNearestRecognizedEnemy();
+    float distance = threat ? bot->GetRangeToNearestRecognizedEnemy() : 5000.f;
     if (!std::isfinite(distance) || distance < 0.f || distance > 10000.f) distance = 5000.f;
 
     cssbc::BrainSnapshot snapshot;
@@ -153,7 +154,7 @@ void TickBot(CCSBot* bot) {
     snapshot.hasCover = bot->IsHiding() || bot->IsAtHidingSpot();
     snapshot.bombPlanted = TheCSBots() && TheCSBots()->IsBombPlanted();
     snapshot.siteThreatened = snapshot.bombPlanted && bot->CanSeePlantedBomb();
-    snapshot.teammateRecentlyKilled = team < 4 &&
+    snapshot.teammateRecentlyKilled = team < 4 && g_lastTeamDeathAt[team] > 0.f &&
         (gpGlobals->curtime - g_lastTeamDeathAt[team]) < 3.0f;
     snapshot.canTrade = threat != NULL && allies > 0;
     snapshot.objectiveDistance = bot->GetPathDistanceRemaining();
