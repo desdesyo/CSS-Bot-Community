@@ -17,30 +17,45 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - name: Download Source SDK 2006 archive (public)
+
+      - name: Download AlliedModders CS:S SDK (css branch)
         shell: pwsh
         run: |
-          $url = "https://codeload.github.com/ValveSoftware/source-sdk-2006/zip/refs/heads/master"
-          $zip = Join-Path $env:RUNNER_TEMP "source-sdk-2006.zip"
-          $dest = Join-Path $env:RUNNER_TEMP "source-sdk-2006"
+          $sdkCommit = "47f0ea659bc70718f9c41a7830b6ad943a68ba09"
+          $url = "https://codeload.github.com/alliedmodders/hl2sdk/zip/$sdkCommit"
+          $zip = Join-Path $env:RUNNER_TEMP "hl2sdk-css.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "hl2sdk-css"
           Invoke-WebRequest -Uri $url -OutFile $zip
           Expand-Archive -Path $zip -DestinationPath $dest -Force
           $root = Get-ChildItem $dest -Directory | Select-Object -First 1
-          if (!(Test-Path (Join-Path $root.FullName "public\interface.h"))) {
-            throw "Downloaded archive doesn't contain expected Source SDK public headers"
+          $required = @(
+            "public\eiface.h",
+            "public\engine\iserverplugin.h",
+            "public\tier1\interface.h"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path (Join-Path $root.FullName $file))) {
+              throw "AlliedModders hl2sdk css checkout is missing $file"
+            }
           }
           "CSSBC_SOURCE_SDK=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Build Win32 Release DLL
+
+      - name: Configure MSVC x86 environment
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
-          msbuild sdk\dll\CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32
-      - name: Verify DLL
+          if errorlevel 1 exit /b 1
+          msbuild sdk\dll\CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32 /p:CSSBC_SOURCE_SDK="%CSSBC_SOURCE_SDK%"
+
+      - name: Verify Win32 DLL
         shell: pwsh
         run: |
           $dll = "sdk/dll/bin/CSSBC_VSP.dll"
           if (!(Test-Path $dll)) { throw "Build succeeded but $dll is missing" }
+          $file = Get-Item $dll
+          if ($file.Length -le 0) { throw "Built DLL is empty" }
           Get-Item $dll | Format-List FullName,Length
+
       - name: Upload compiled DLL
         uses: actions/upload-artifact@v4
         with:
