@@ -4,6 +4,7 @@ on:
     branches: [sdk-foundation]
     paths:
       - "maps/ModernDistrict/*.vmf"
+      - "maps/ModernDistrict/*.json"
       - "tools/map-validation/**"
       - ".github/workflows/map-vmf-validation.yml"
   pull_request:
