@@ -70,11 +70,12 @@ $ExeRelative = if ($Exe -eq $RootExe) { "hl2.exe" } else { "bin\hl2.exe" }
 $LauncherText = @"
 @echo off
 cd /d "$GamePath"
-start "" "$ExeRelative" -game cstrike -steam -console
+start "" "$ExeRelative" -game cstrike -steam -console -condebug
 "@
 Set-Content -LiteralPath $Launcher -Value $LauncherText -Encoding ASCII
 Write-Report "REPAIR: Created $Launcher"
-Write-Report "Launch command: $ExeRelative -game cstrike -steam -console"
+Write-Report "Launch command: $ExeRelative -game cstrike -steam -console -condebug"
+Write-Report ("Console log expected at: " + (Join-Path $GamePath "qconsole.log"))
 Write-Report "Working directory: $GamePath"
 
 Write-Host ""
@@ -82,7 +83,7 @@ Write-Host "Launcher created:" -ForegroundColor Green
 Write-Host $Launcher
 Write-Host "Starting a test launch for 8 seconds..."
 try {
-    $proc = Start-Process -FilePath $Exe -ArgumentList @("-game","cstrike","-steam","-console") -WorkingDirectory $GamePath -PassThru
+    $proc = Start-Process -FilePath $Exe -ArgumentList @("-game","cstrike","-steam","-console","-condebug") -WorkingDirectory $GamePath -PassThru
     Start-Sleep -Seconds 8
     $proc.Refresh()
     if (-not $proc.HasExited) {
@@ -96,6 +97,7 @@ try {
     Write-Report ("TEST ERROR: " + $_.Exception.Message)
     Write-Host "Could not start the game: $($_.Exception.Message)" -ForegroundColor Red
 }
+if (Test-Path -LiteralPath (Join-Path $GamePath "qconsole.log")) { Write-Report "Console log qconsole.log was created or already exists." }
 Write-Report "No original game files were deleted or overwritten."
 Write-Host ""
 Write-Host "Report saved to: $Report" -ForegroundColor Cyan
