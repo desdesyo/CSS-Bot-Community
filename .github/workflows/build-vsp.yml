@@ -308,6 +308,7 @@ jobs:
           $ver = Get-Content installer/version.txt -Raw
           New-Item -ItemType Directory -Force release-payload | Out-Null
           Copy-Item sdk/dll/bin/CSSBC_VSP.dll release-payload/CSSBC_VSP.dll
+          Copy-Item installer/server-v34-win32.dll release-payload/server-v34-win32.dll
           Set-Content release-payload/version.txt $ver -NoNewline
           Compress-Archive release-payload/* CSSBC-Update.zip -Force
 
