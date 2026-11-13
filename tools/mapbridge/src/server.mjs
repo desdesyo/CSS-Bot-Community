@@ -141,7 +141,7 @@ server.tool("map_generate_district","Generate a complete small CSS test district
  vmf=append(vmf,parts);await save(f,vmf);
  return {content:[{type:"text",text:"District generated: "+f+"\\n"+parts.length+" VMF objects; "+a.floors+" floor(s) per building. Open in Hammer and compile to BSP."}]};
 });
-\nconst transport=new StdioServerTransport();await server.connect(transport);
+const transport=new StdioServerTransport();await server.connect(transport);
 
 server.tool("map_add_stairs","Generate a staircase from individual solid steps.",{name:safeName,origin:vec,steps:z.number().int().min(3).max(40),run:z.number().min(8).max(64).default(16),rise:z.number().min(8).max(32).default(8),width:z.number().min(64).max(512).default(128),axis:z.enum(["x","y"]).default("x"),direction:z.enum(["positive","negative"]).default("positive"),material},async a=>{
  const [f,s]=await readMap(a.name),[x,y,z]=a.origin,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
