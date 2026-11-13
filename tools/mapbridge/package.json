@@ -1,9 +1,9 @@
 {
   "name": "cssbc-mapbridge",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Local MCP bridge for procedural Counter-Strike: Source VMF map authoring",
+  "description": "Authenticated local and remote MCP bridge for Counter-Strike: Source VMF map authoring",
   "scripts": {
     "start": "node src/server.mjs",
     "generate": "node generate.mjs",
