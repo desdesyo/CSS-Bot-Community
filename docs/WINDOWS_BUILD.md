@@ -1,16 +1,24 @@
-# Windows build (one double-click)
+# Windows build and install
 
-Run **`BUILD_CSSBC.bat`** from the repository root.
+## Main CS:S v34 server build
 
-The script:
-1. Finds the local CS:S SDK at `C:\SDK\hl2sdk-css` (or downloads the public AlliedModders `css` branch if absent).
-2. Configures and builds the portable C++ core for Win32 Release.
-3. Runs the automated CTest suite.
-4. Builds the native Win32 server-plugin DLL, including the portable core and MVP game-event bridge.
-5. Copies the DLL to `dist\CSSBC_VSP.dll`.
+1. Install Visual Studio 2022 with **Desktop development with C++** and CMake tools.
+2. Double-click **`BUILD_CSSBC.bat`**.
+3. The script builds/tests the portable C++ core, downloads the pinned CS:S v34 source into the ignored `external\cssv34-sdk` folder, applies the CSSBC bot/MVP adapter, and builds the native Win32 server DLL.
+4. The result is `dist\Server.dll`.
+5. Double-click **`INSTALL_CSSBC.bat`** to copy it to `C:\Games\Counter-Strike Source v34\cstrike\bin\server.dll`. The original is backed up as `server.dll.cssbc-backup`.
+6. To revert, double-click **`RESTORE_STOCK_SERVER.bat`**.
 
-Requirements: Visual Studio 2022 with **Desktop development with C++**, MSBuild, and CMake (the Visual Studio CMake component is accepted).
+The installer assumes the game path above. If the game is installed elsewhere, edit `GAME_DIR` in `INSTALL_CSSBC.bat`.
 
-The same script runs in GitHub Actions. A successful run publishes the `CSSBC-VSP-Win32` artifact. The current DLL listens for round, death, bomb and hostage events and logs the top three MVP user IDs at round end.
+## Optional VSP build
 
-**This is not yet the full playable mod.** The in-game test against the exact non-Steam CS:S v34 build is still required. Bot AI replacement, support NPC spawning, six real armor hit regions, client HUD/VGUI, models, animations and content still need their game-specific adapters and assets.
+`BUILD_CSSBC_VSP.bat` builds the standalone VSP diagnostic bridge against AlliedModders `hl2sdk` `css` headers. It is not the primary game-mod target.
+
+## GitHub Actions
+
+- `CSSBC Core CI`: portable C++ tests on Windows and Linux.
+- `Build CSSBC VSP (Win32)`: optional VSP bridge build.
+- `Build CS:S v34 server DLL`: downloads the pinned v34 game source, applies the same local patcher and compiles the actual server DLL. It does not upload the upstream-derived binary.
+
+**Upstream source note:** the pinned `rusherr-c/cssv34-sdk` repository currently has no LICENSE file. Its source is downloaded only into the local ignored build folder; the CSSBC repository does not mirror it or publish its compiled game DLL. Check upstream rights before redistributing derivatives.
