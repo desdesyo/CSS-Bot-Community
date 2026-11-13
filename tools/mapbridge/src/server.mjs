@@ -118,7 +118,30 @@ server.tool("map_add_spawn","Place a CSS player spawn entity.",{name:safeName,or
 server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:safeName},async({name})=>{
  const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
 });
-const transport=new StdioServerTransport();await server.connect(transport);
+
+server.tool("map_generate_district","Generate a complete small CSS test district in one call: ground, road, sidewalks, 4 buildings and team spawns.",{name:safeName,overwrite:z.boolean().default(false),seed:z.number().int().default(1),blockSize:z.number().min(512).max(2048).default(1024),floors:z.number().int().min(1).max(5).default(2),material:z.string().default("DEV/DEV_MEASUREGENERIC01B")},async a=>{
+ await fs.mkdir(mapsDir,{recursive:true});const f=fileFor(a.name);
+ try{await fs.access(f);if(!a.overwrite)throw Error("Map exists; set overwrite=true");}catch(e){if(e.message.includes("Map exists"))throw e;}
+ let vmf=header(),id=2,parts=[];const add=(lo,hi,mat=a.material)=>{parts.push(brush(id,lo,hi,mat));id+=7;};
+ const B=a.blockSize, road=512,sw=64,base=0;
+ // Flat playable ground, road and sidewalks
+ add([-B*2,-B*2,-64],[B*2,B*2,0],"DEV/DEV_MEASUREGENERIC01B");
+ add([-B*2,-road/2,-8],[B*2,road/2,0],"CONCRETE/CONCRETE_FLOOR");
+ add([-B*2,-road/2-sw,-8],[B*2,-road/2,0],"CONCRETE/CONCRETE_FLOOR");
+ add([-B*2,road/2,-8],[B*2,road/2+sw,0],"CONCRETE/CONCRETE_FLOOR");
+ const h= a.floors*256,w=B/2,d=B/2,t=16;
+ // 4 simple hollow building shells around central road
+ for(const [x,y] of [[-B,-B],[B/2,-B],[-B,B/2],[B/2,B/2]]){
+  add([x,y,0],[x+t,y+d,h]);add([x+w-t,y,0],[x+w,y+d,h]);
+  add([x+t,y,0],[x+w-t,y+t,h]);add([x+t,y+d-t,0],[x+w-t,y+d,h]);
+  add([x,y,h-t],[x+w,y+d,h]);
+ }
+ parts.push(entity(id++,"info_player_counterterrorist",{origin:fmt([-128,-128,8]),angles:"0 0 0"}));
+ parts.push(entity(id++,"info_player_terrorist",{origin:fmt([128,128,8]),angles:"0 180 0"}));
+ vmf=append(vmf,parts);await save(f,vmf);
+ return {content:[{type:"text",text:"District generated: "+f+"\\n"+parts.length+" VMF objects; "+a.floors+" floor(s) per building. Open in Hammer and compile to BSP."}]};
+});
+\nconst transport=new StdioServerTransport();await server.connect(transport);
 
 server.tool("map_add_stairs","Generate a staircase from individual solid steps.",{name:safeName,origin:vec,steps:z.number().int().min(3).max(40),run:z.number().min(8).max(64).default(16),rise:z.number().min(8).max(32).default(8),width:z.number().min(64).max(512).default(128),axis:z.enum(["x","y"]).default("x"),direction:z.enum(["positive","negative"]).default("positive"),material},async a=>{
  const [f,s]=await readMap(a.name),[x,y,z]=a.origin,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
