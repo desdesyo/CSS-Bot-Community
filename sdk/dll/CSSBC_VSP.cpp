@@ -16,8 +16,8 @@ public:
  void Unload() override {if(engine_)engine_->LogPrint("[CSSBC] unloaded.\n");engine_=nullptr;}
  void Pause() override{} void UnPause() override{}
  const char* GetPluginDescription() override{return "CSS Bot Community native bootstrap";}
- void LevelInit(const char* map) override {spawned_=false;spawnRequested_=true;if(engine_){char b[256];std::snprintf(b,sizeof(b),"[CSSBC] map: %s\n",map?map:"?");engine_->LogPrint(b);}}
- void ServerActivate(edict_t*,int,int) override{} void GameFrame(bool) override { if(engine_ && spawnRequested_ && !spawned_){spawnRequested_=false;SpawnBot();} }
+ void LevelInit(const char* map) override {spawned_=false;spawnRequested_=false;if(engine_){char b[256];std::snprintf(b,sizeof(b),"[CSSBC] map: %s\n",map?map:"?");engine_->LogPrint(b);}}
+ void ServerActivate(edict_t*,int,int) override{} void GameFrame(bool) override{}
  void LevelShutdown() override{if(engine_)engine_->LogPrint("[CSSBC] map shutdown.\n");}
  void ClientActive(edict_t*) override{} void ClientDisconnect(edict_t*) override{}
  void ClientPutInServer(edict_t*,const char*) override{} void SetCommandClient(int) override{}
