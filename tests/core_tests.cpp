@@ -42,8 +42,8 @@ int main(){
  SupportRoster roster;assert(roster.Deploy(SupportTier::Squad9000));assert(roster.Units().size()==4);assert(roster.IsAutonomous());
  assert(roster.Deploy(SupportTier::Juggernaut16000));assert(roster.Units().size()==1&&roster.Units()[0].role==SupportRole::Juggernaut);
  TeamMemory mem;mem.Publish({EventKind::PlateCracked,2,4,Plate::LeftArm,.9f,10.f,"left arm cracked"});assert(mem.Recent(11.f).size()==1);assert(mem.Recent(30.f,5.f).empty());
- JuggernautArmor combatArmor;CombatResolver combat;auto hit=combat.Resolve(combatArmor,Plate::Chest,100.f);
- assert(hit.armorDamage==72.f&&hit.healthDamage==28.f&&hit.broken);
+ JuggernautArmor combatArmor;CombatResolver combat;auto armorHit=combat.Resolve(combatArmor,Plate::Chest,100.f);
+ assert(armorHit.armorDamage==72.f&&armorHit.healthDamage==28.f&&armorHit.broken);
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
@@ -61,7 +61,7 @@ int main(){
  MeleeCombatant fighter(123);auto started=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,20.f,.5f);
  assert(started.started&&fighter.IsAttacking());
  auto early=fighter.ResolveImpact({4,20.f,true,false},20.1f);assert(!early.hit&&fighter.IsAttacking());
- auto hit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(hit.hit&&hit.targetEntity==4&&hit.damage>0&&!fighter.IsAttacking());
+ auto meleeHit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(meleeHit.hit&&meleeHit.targetEntity==4&&meleeHit.damage>0&&!fighter.IsAttacking());
  auto blocked=fighter.Begin(MeleeMode::Knife,MeleeFaction::T,21.f,.5f);assert(blocked.started);
  auto friendly=fighter.ResolveImpact({8,10.f,true,true},21.3f);assert(!friendly.hit);
  fighter.Cancel();assert(!fighter.IsAttacking());
@@ -86,6 +86,5 @@ int main(){
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
- std::cout<<"CSSBC core tests: PASS
-";
+ std::cout<<"CSSBC core tests: PASS\\n";
 }
