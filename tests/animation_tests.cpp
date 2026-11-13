@@ -12,7 +12,7 @@ int main() {
  in.firing=true; const auto &fire=m.Update(in); assert(fire.action==AnimAction::Fire&&fire.cycle==0.f);
  m.Advance(2.f,1.f,false); assert(m.State().cycle==1.f);
  in.alive=false; assert(m.Update(in).action==AnimAction::Death);
- AnimationSequenceSet seq; in.alive=true;in.moving=true;in.stance=AnimStance::Crouch;
+ AnimationSequenceSet seq; in.alive=true;in.firing=false;in.moving=true;in.stance=AnimStance::Crouch;
  assert(ResolveSequence(in,seq)==seq.crouchWalk);
  in.moving=false; assert(ResolveSequence(in,seq)==seq.idleCrouch);
 }
