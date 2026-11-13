@@ -16,8 +16,8 @@ assert.ok(ids.length>0,"no VMF IDs found");
 assert.equal(new Set(ids).size,ids.length,"VMF IDs must be unique");
 const solids=[...vmf.matchAll(/^\s*solid\s*\{/gm)];
 const entities=[...vmf.matchAll(/^\s*entity\s*\{/gm)];
-assert.ok(solids.length>=100, `expected >=100 world brushes, got ${solids.length}`);
-assert.ok(entities.length>=10, `expected >=10 entities, got ${entities.length}`);
+assert.ok(solids.length>=180, `expected >=180 world brushes, got ${solids.length}`);
+assert.ok(entities.length>=27, `expected >=27 entities, got ${entities.length}`);
 
 const worldStart=vmf.indexOf("\nworld");
 const worldEnd=vmf.indexOf("\n}\n",worldStart);
@@ -37,4 +37,11 @@ const ct=(vmf.match(/"classname"\s+"info_player_counterterrorist"/g)||[]).length
 assert.ok(t>=4,`expected at least four T spawns, got ${t}`);
 assert.ok(ct>=4,`expected at least four CT spawns, got ${ct}`);
 assert.match(vmf,/"classname"\s+"light_environment"/,"sunlight entity missing");
-console.log(`PASS ${file}: ${solids.length} brushes, ${entities.length} entities, ${ids.length} unique IDs, T=${t}, CT=${ct}`);
+for (const name of ["landmark_smokestack","landmark_water_tower","landmark_storefront","landmark_bridge"]) {
+ assert.ok(vmf.includes(`"targetname" "${name}"`), `landmark marker missing: ${name}`);
+}
+for (let i=1;i<=12;i++) {
+ const name=`hide_pocket_${String(i).padStart(2,"0")}`;
+ assert.ok(vmf.includes(`"targetname" "${name}"`), `hide pocket marker missing: ${name}`);
+}
+console.log(`PASS ${file}: ${solids.length} brushes, ${entities.length} entities, ${ids.length} unique IDs, T=${t}, CT=${ct}, 4 landmarks, 12 hide pockets`);
