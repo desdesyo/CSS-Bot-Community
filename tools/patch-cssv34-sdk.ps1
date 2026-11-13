@@ -57,6 +57,12 @@ $prefix = $update.Substring(0, $nextIndex)
 $closeBrace = $prefix.LastIndexOf("}")
 if ($closeBrace -lt 0) { throw "Could not find CCSBot::Update closing brace." }
 $update = $prefix.Insert($closeBrace, [Environment]::NewLine + [char]9 + "CSSBCGame::TickBot(this);" + [Environment]::NewLine) + $update.Substring($nextIndex)
+$updateStart = $update.IndexOf("void CCSBot::Update( void )", [StringComparison]::Ordinal)
+$callIndex = $update.IndexOf("CSSBCGame::TickBot(this);", [StringComparison]::Ordinal)
+$classIndex = $update.IndexOf("class DrawTravelTime", [StringComparison]::Ordinal)
+if ($updateStart -lt 0 -or $callIndex -lt $updateStart -or $callIndex -gt $classIndex) {
+    throw "CSSBC bot tick was not inserted inside CCSBot::Update."
+}
 [IO.File]::WriteAllText($updatePath, $update, [Text.UTF8Encoding]::new($false))
 
 # Add the portable core directly to the native game server project.
