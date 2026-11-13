@@ -11,21 +11,33 @@ public:
  bool Load(CreateInterfaceFn factory,CreateInterfaceFn) override {
   engine_=static_cast<IVEngineServer*>(factory(INTERFACEVERSION_VENGINESERVER,nullptr));
   if(!engine_)return false;
-  engine_->LogPrint("[CSSBC] native VSP bootstrap loaded; no SourceMod.\n");return true;
+  Log("[CSSBC] VSP loaded; native CSS v34 diagnostics enabled.\n");
+  return true;
  }
- void Unload() override {if(engine_)engine_->LogPrint("[CSSBC] unloaded.\n");engine_=nullptr;}
- void Pause() override{} void UnPause() override{}
- const char* GetPluginDescription() override{return "CSS Bot Community native bootstrap";}
- void LevelInit(const char* map) override {spawned_=false;spawnRequested_=false;if(engine_){char b[256];std::snprintf(b,sizeof(b),"[CSSBC] map: %s\n",map?map:"?");engine_->LogPrint(b);}}
- void ServerActivate(edict_t*,int,int) override{} void GameFrame(bool) override{}
- void LevelShutdown() override{if(engine_)engine_->LogPrint("[CSSBC] map shutdown.\n");}
- void ClientActive(edict_t*) override{} void ClientDisconnect(edict_t*) override{}
- void ClientPutInServer(edict_t*,const char*) override{} void SetCommandClient(int) override{}
+ void Unload() override {Log("[CSSBC] VSP unloaded.\n");engine_=nullptr;}
+ void Pause() override{Log("[CSSBC] paused.\n");}
+ void UnPause() override{Log("[CSSBC] resumed.\n");}
+ const char* GetPluginDescription() override{return "CSS Bot Community native bootstrap + diagnostics";}
+ void LevelInit(const char* map) override {map_[0]=0;if(map)std::strncpy(map_,map,sizeof(map_)-1;Logf("[CSSBC] LevelInit map=%s\n",map_);}
+ void ServerActivate(edict_t*,int edictCount,int clientMax) override {Logf("[CSSBC] ServerActivate edicts=%d maxClients=%d map=%s\n",edictCount,clientMax,map_);}
+ void GameFrame(bool simulating) override {if(simulating)++simFrames_;}
+ void LevelShutdown() override{Logf("[CSSBC] LevelShutdown map=%s simulatedFrames=%lu\n",map_,simFrames_);simFrames_=0;}
+ void ClientActive(edict_t* e) override {Logf("[CSSBC] ClientActive edict=%d\n",Index(e));}
+ void ClientDisconnect(edict_t* e) override {Logf("[CSSBC] ClientDisconnect edict=%d\n",Index(e));}
+ void ClientPutInServer(edict_t* e,const char* name) override {Logf("[CSSBC] ClientPutInServer edict=%d name=%s\n",Index(e),name?name:"");}
+ void SetCommandClient(int) override{}
  void ClientSettingsChanged(edict_t*) override{}
- PLUGIN_RESULT ClientConnect(bool*,edict_t*,const char*,const char*,char*,int) override{return PLUGIN_CONTINUE;}
+ PLUGIN_RESULT ClientConnect(bool*,edict_t* e,const char* name,const char* address,char* reject,int rejectLen) override {
+  // Do not log addresses: they are personal/network data.
+  Logf("[CSSBC] ClientConnect edict=%d name=%s\n",Index(e),name?name:"");return PLUGIN_CONTINUE;
+ }
  PLUGIN_RESULT ClientCommand(edict_t*) override{return PLUGIN_CONTINUE;}
  PLUGIN_RESULT NetworkIDValidated(const char*,const char*) override{return PLUGIN_CONTINUE;}
-private: IVEngineServer* engine_{};
+private:
+ int Index(edict_t* e) const {return engine_&&e?engine_->IndexOfEdict(e):-1;}
+ void Log(const char* s){if(engine_)engine_->LogPrint(s);}
+ template<typename... A> void Logf(const char* fmt,A... args){if(engine_){char b[512];std::snprintf(b,sizeof(b),fmt,args...);engine_->LogPrint(b);}}
+ IVEngineServer* engine_{};char map_[128]{};unsigned long simFrames_{};
 };
 static CSSBCServerPlugin g_cssbc;
 extern "C" __declspec(dllexport) void* CreateInterface(const char* name,int* rc){
