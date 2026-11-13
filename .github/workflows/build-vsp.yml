@@ -99,7 +99,7 @@ jobs:
           Set-Location cssv34-source/src
           New-Item -ItemType Directory -Force utils\dx_proxy | Out-Null
           Set-Content utils\dx_proxy\dx_proxy_all.vgc "// CSSBC does not build the optional DirectX proxy tools."
-          & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +gamedlls /mksln CSSBC_GameDLL.sln /f
+          & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +server /mksln CSSBC_GameDLL.sln /f
           if ($LASTEXITCODE -ne 0) { throw "VPC failed to generate the GameDLL solution" }
           if (!(Test-Path CSSBC_GameDLL.sln)) { throw "VPC did not create CSSBC_GameDLL.sln" }
           $projects = Get-ChildItem -Recurse -Filter *.vcxproj | Select-Object -ExpandProperty FullName
