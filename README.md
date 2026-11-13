@@ -4,7 +4,23 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 
 > **Status:** early development. This repository currently contains an engine-independent gameplay core, not a playable CS:S DLL. Game integration requires a compatible community CS:S SDK/fork.
 
-## Русский язык\n\nПолная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик (`CSSBC_Localization.h/.cpp`). Важно: игровые панели Source, стандартные надписи движка и озвучка пока требуют подключения адаптера к CS:S SDK; текущий репозиторий ещё не является готовой DLL-модификацией.\n\n## Серверный запуск (SourceMod)\n\nДобавлен устанавливаемый bridge: [инструкция](sourcemod/README.md), исходник [cssbc.sp](sourcemod/scripting/cssbc.sp). Он подключает русские серверные команды, покупку поддержки и базовый Джаггернаут к CS:S. NPC-отряд, бронепластины, полноценный HUD и замена AI пока не реализованы.\n\n## SDK integration (target)\n\nАрхитектура SDK-first: [план интеграции](docs/SDK_INTEGRATION.md). SourceMod-прототип — отдельный необязательный эксперимент и не является целевой сборкой. Для настоящего игрового бинарника нужен совместимый CS:S SDK/game source и его client/server проекты; без них собрать DLL невозможно.\n\n## Core systems
+## AI diagnostics and repair
+- [AI diagnostic → repair pipeline](docs/AI_DIAGNOSTIC_REPAIR_PIPELINE.md): GitHub Issues → OpenAI diagnosis → issue comments; setup, security boundaries and roadmap.
+- Workflow: add the `ai-repair` label to a diagnostic issue (requires Actions secret `OPENAI_API_KEY`).
+
+## Русский язык
+
+Полная концепция русской локализации меню, HUD, системных сообщений и естественных реплик двух команд: [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). В коде добавлен словарь и контекстные наборы реплик (`CSSBC_Localization.h/.cpp`). Важно: игровые панели Source, стандартные надписи движка и озвучка пока требуют подключения адаптера к CS:S SDK; текущий репозиторий ещё не является готовой DLL-модификацией.
+
+## Серверный запуск (SourceMod)
+
+Добавлен устанавливаемый bridge: [инструкция](sourcemod/README.md), исходник [cssbc.sp](sourcemod/scripting/cssbc.sp). Он подключает русские серверные команды, покупку поддержки и базовый Джаггернаут к CS:S. NPC-отряд, бронепластины, полноценный HUD и замена AI пока не реализованы.
+
+## SDK integration (target)
+
+Архитектура SDK-first: [план интеграции](docs/SDK_INTEGRATION.md). SourceMod-прототип — отдельный необязательный эксперимент и не является целевой сборкой. Для настоящего игрового бинарника нужен совместимый CS:S SDK/game source и его client/server проекты; без них собрать DLL невозможно.
+
+## Core systems
 - Support tiers: $1k / $3k / $9k squad / $16k Juggernaut.
 - Juggernaut purchase: $16,000 and at least 3 dead allies.
 - Six individually damageable armor plates.
