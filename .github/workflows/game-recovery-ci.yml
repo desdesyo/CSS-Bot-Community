@@ -1,0 +1,53 @@
+name: CSS v34 Game Recovery CI
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - 'tools/game-recovery/**'
+      - '.github/workflows/game-recovery-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse with Windows PowerShell
+        shell: powershell
+        run: |
+          $file = Join-Path $PWD 'tools/game-recovery/Repair-Game-v34.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw "PowerShell parser found $($errors.Count) syntax error(s)."
+          }
+          Write-Host 'PowerShell syntax OK.'
+      - name: Check recovery safeguards
+        shell: powershell
+        run: |
+          $s = Get-Content 'tools/game-recovery/Repair-Game-v34.ps1' -Raw
+          $checks = @(
+            @('Backup and rollback', 'cssbc-backup-'),
+            @('SHA-256 pin', 'Get-FileHash'),
+            @('PE32 validation', '0x014C'),
+            @('v34 build validation', '4044'),
+            @('Game process guard', 'Get-Process -Name hl2,cstrike'),
+            @('Recovery source', 'https://source-v34.ru/cssv34.exe')
+          )
+          foreach ($c in $checks) {
+            if ($s -notlike ('*' + $c[1] + '*')) { throw "Missing safeguard: $($c[0])" }
+          }
+          if ($s -match 'Remove-Item.+-Recurse.+GameDir') { throw 'Unsafe recursive game-folder deletion found.' }
+          Write-Host 'Recovery safeguards OK.'
+      - name: Package recovery utility
+        shell: powershell
+        run: |
+          Compress-Archive -Path 'tools/game-recovery/Repair-Game-v34.ps1','tools/game-recovery/Run-Game-Recovery.cmd','tools/game-recovery/README.md' -DestinationPath 'CSS-v34-Game-Recovery.zip' -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CSS-v34-Game-Recovery
+          path: CSS-v34-Game-Recovery.zip
+          if-no-files-found: error
