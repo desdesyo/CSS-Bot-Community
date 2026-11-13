@@ -15,7 +15,6 @@ BrainIntent BotBrain::Tick(const BrainSnapshot& s,Economy& economy,bool terroris
  out.retreat=tactical.action==TacticalAction::Retreat;
  out.seekCover=tactical.action==TacticalAction::TakeCover;
  out.callSupport=tactical.action==TacticalAction::SupportFire;
- out.cooperation=economy.Cooperation(s.player,terrorist);
  // Bad-decision penalty is applied only once per round to avoid frame-loop farming.
  if(s.badDecision&&lastBadDecisionRound_!=s.round){
   auto m=economy.Apply({s.player,0,MoneyEvent::BadDecision,s.round},terrorist);
@@ -28,6 +27,7 @@ BrainIntent BotBrain::Tick(const BrainSnapshot& s,Economy& economy,bool terroris
  if(s.suicide&&lastSuicideRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::Suicide,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastSuicideRound_=s.round;}
  if(s.teamKill&&lastTeamKillRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::TeamKill,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastTeamKillRound_=s.round;}
  if(s.eventReward>0&&lastRewardRound_!=s.round){auto m=economy.Apply({s.player,s.eventReward,MoneyEvent::Kill,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastRewardRound_=s.round;}
+ out.cooperation=economy.Cooperation(s.player,terrorist);
  lastRound_=s.round;
  return out;
 }
