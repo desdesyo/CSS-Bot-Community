@@ -7,7 +7,7 @@
 #include "CSSBC_System.h"
 namespace cssbc::sdk {
 struct BotSnapshot {
- int entityIndex=-1; int team=0; bool alive=false; float health=0,armor=0;
+ int entityIndex=-1; int team=0,round=0; bool alive=false; float health=0,armor=0;
  float distanceToThreat=0,threatPressure=0; int alliesNearby=0,enemiesKnown=0,secondsLeft=90;
  bool hasCover=false,seesThreat=false,bombCarried=false,bombPlanted=false,siteThreatened=false;
  bool teammateRecentlyKilled=false,canTrade=false;float objectiveDistance=0;
