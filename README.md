@@ -6,7 +6,7 @@ Community tactical AI and support systems for a Counter-Strike: Source v34-compa
 
 ## Main Windows workflow
 
-1. Double-click [`BUILD_CSSBC.bat`](BUILD_CSSBC.bat) to build and test the core, download the pinned CS:S v34 source, apply the CSSBC adapter, and compile `dist/Server.dll`.
+1. Double-click [`BUILD_CSSBC.bat`](BUILD_CSSBC.bat) to download the pinned CS:S v34 source, apply the CSSBC adapter, and compile `dist/Server.dll`. Standalone core tests run when CMake/CTest are available.
 2. Double-click [`INSTALL_CSSBC.bat`](INSTALL_CSSBC.bat) to install it into `C:\Games\Counter-Strike Source v34\cstrike\bin`. The installer keeps the original DLL as `server.dll.cssbc-backup`.
 3. If the test build causes problems, run [`RESTORE_STOCK_SERVER.bat`](RESTORE_STOCK_SERVER.bat).
 
