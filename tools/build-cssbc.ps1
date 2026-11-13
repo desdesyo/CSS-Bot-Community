@@ -65,7 +65,13 @@ if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed ($LASTEXITCODE)." }
 if ($LASTEXITCODE -ne 0) { throw "C++ core build failed ($LASTEXITCODE)." }
 
 Step "Run automated tests"
-& $cmake -E chdir $repoRoot ctest --test-dir $buildDir -C Release --output-on-failure
+$ctest = Join-Path (Split-Path $cmake -Parent) "ctest.exe"
+if (!(Test-Path $ctest)) {
+    $ctestCommand = Get-Command ctest -ErrorAction SilentlyContinue
+    if (!$ctestCommand) { throw "CTest was not found next to CMake or on PATH." }
+    $ctest = $ctestCommand.Source
+}
+& $ctest --test-dir $buildDir -C Release --output-on-failure
 if ($LASTEXITCODE -ne 0) { throw "Automated tests failed ($LASTEXITCODE)." }
 
 Step "Build the native CS:S server-plugin bootstrap"
