@@ -1,0 +1,46 @@
+name: CSS v34 Repair Utility CI
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - 'tools/repair/**'
+      - '.github/workflows/repair-utility-ci.yml'
+  workflow_dispatch:
+jobs:
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell 5.1 script
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'tools/repair/Repair-CSS-v34.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw "PowerShell parser reported $($errors.Count) error(s)."
+          }
+          Write-Host "PowerShell syntax OK."
+      - name: Verify safety invariants
+        shell: powershell
+        run: |
+          $s = Get-Content 'tools/repair/Repair-CSS-v34.ps1' -Raw
+          if ($s -notmatch 'Get-PeMachine') { throw 'PE validation missing' }
+          if ($s -notmatch 'cssbc-repair-.*\.bak') { throw 'Backup-before-replace missing' }
+          if ($s -notmatch 'cstrike\\addons\\cssbc\\bin\\CSSBC_VSP\.dll') { throw 'Expected VSP path missing' }
+          if ($s -match 'Remove-Item.+server\.dll') { throw 'Unsafe server.dll deletion detected' }
+          if ($s -match 'metamod\.vdf.+Set-Content') { throw 'Unexpected metamod.vdf mutation detected' }
+          Write-Host "Safety checks OK."
+      - name: Upload utility
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSS-v34-Repair-Utility
+          path: |
+            tools/repair/Repair-CSS-v34.ps1
+            tools/repair/Run-Repair.cmd
+            tools/repair/README.md
