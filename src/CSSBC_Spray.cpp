@@ -35,9 +35,9 @@ make(WeaponId::AWPAX,"AWP",3.2f,.25f,18.f,0.f,0.f,0.f,900,stableM4)
 const SprayProfile& GetSprayProfile(WeaponId w){return profiles[std::min((size_t)w,profiles.size()-1)];}
 void RecoverSpray(SprayState&s,float now,const SprayProfile&p){
  if(!s.initialized){s.lastShotTime=now;s.initialized=true;return;}
- float dt=std::clamp(now-s.lastShotTime,0.f,.25f);
- if(dt*1000.f>=p.burstResetMs){s.shot=0;s.pitch=0;s.yaw=0;}
- else {float recovery=p.recoveryPerSecond*dt;s.pitch=std::max(0.f,s.pitch-recovery);s.yaw*=std::exp(-dt*5.f);}
+ float elapsed=std::max(0.f,now-s.lastShotTime);
+ if(elapsed*1000.f>=static_cast<float>(p.burstResetMs)){s.shot=0;s.pitch=0;s.yaw=0;}
+ else {float dt=std::min(elapsed,.25f);float recovery=p.recoveryPerSecond*dt;s.pitch=std::max(0.f,s.pitch-recovery);s.yaw*=std::exp(-dt*5.f);}
  s.lastShotTime=now;
 }
 SprayOutput FireSpray(WeaponId id,SprayState&s,float now,bool moving,bool crouching,float skill){
