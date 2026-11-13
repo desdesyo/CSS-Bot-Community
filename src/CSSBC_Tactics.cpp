@@ -12,7 +12,7 @@ TacticalOutput DecideTactics(const Traits&t,const TacticalInput&i){
  // Avoid robotic instant retreat at low-but-playable HP; courage changes risk tolerance.
  if(i.health<16||(survival+danger>1.12f&&t.courage<.58f))return out(TacticalAction::Retreat,.76f,"survival instinct");
  if(i.seesThreat&&!i.hasCover&&(i.health<58||danger>.62f))return out(TacticalAction::TakeCover,.64f,"exposed; seek cover");
- if(i.role==BotRole::Sniper&&i.seesThreat&&i.hasCover&&i.distanceToThreat>1200&&t.discipline>.5f)return out(TacticalAction::Hold,.56f,"hold long lane");
+ if(i.role==BotRole::Sniper&&i.seesThreat&&i.hasCover&&i.distanceToThreat>1200&&t.discipline>=.5f)return out(TacticalAction::Hold,.56f,"hold long lane");
  if(i.role==BotRole::Anchor&&i.siteThreatened&&i.alliesNearby<1)return out(TacticalAction::Hold,.62f,"anchor site");
  if(i.role==BotRole::Support&&i.alliesNearby>0&&i.seesThreat&&t.teamwork>.4f)return out(TacticalAction::SupportFire,.55f,"support nearby teammate");
  if(i.secondsLeft<12&&!i.bombPlanted&&!i.bombCarried)return out(TacticalAction::Advance,.62f,"late-round pressure");
