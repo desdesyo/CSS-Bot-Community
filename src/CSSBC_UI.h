@@ -7,7 +7,9 @@ namespace cssbc {
 enum class MenuPage { Main, Play, NewMatch, CSSBC, Settings, Extras, ServerBrowser, MVP, BotSettings, WeaponSettings, MapSettings };
 enum class MenuAction { OpenPlay, OpenNewMatch, ResumeLastSetup, OpenCSSBC, OpenSettings, OpenExtras, OpenServerBrowser, Connect, Disconnect, Back, OpenMVP, OpenBotSettings, OpenWeaponSettings, OpenMapSettings, ApplySettings };
 struct MenuItem { std::string id, label; MenuAction action; };
-struct MenuModel { MenuPage page{MenuPage::Main}; std::vector<MenuItem> items; };\nstruct MVPEntry { int player=-1; std::string name; float score=0; };\nstd::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries);
+struct MenuModel { MenuPage page{MenuPage::Main}; std::vector<MenuItem> items; };
+struct MVPEntry { int player=-1; std::string name; float score=0; };
+std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries);
 
 // Engine-independent menu navigation model. Source VGUI panels render this model.
 class MenuController {
