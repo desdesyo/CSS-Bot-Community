@@ -36,13 +36,14 @@ function boxSolid(id, lo, hi, material) {
    "rotation" "0"
    "lightmapscale" "16"
    "smoothing_groups" "0"
-  }`).join("\\n")}
+  }`).join("\n")}
  }`;
 }
 const vmfHeader = () => `versioninfo
 {
- "editorversion" " ve"
- "editorversion" " 0"
+ "editorversion" "400"
+ "editorbuild" "0"
+ "mapversion" "1"
  "mapversion" "1"
  "formatversion" "100"
  "prefab" "0"
