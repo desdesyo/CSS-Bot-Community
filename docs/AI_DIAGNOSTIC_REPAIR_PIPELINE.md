@@ -39,3 +39,33 @@ This is the first working link between GitHub diagnostics and an AI model. It do
 - Missing API key: verify Actions secret spelling `OPENAI_API_KEY`.
 - API error: inspect workflow run logs; check API account billing/model access.
 - Never put API keys, Steam auth tickets, passwords, IPs or player personal data in issue logs.
+
+
+## AI repair PR workflow (implemented)
+
+Workflow `.github/workflows/ai-repair-pr.yml` also runs when the `ai-repair` label is added.
+
+1. It checks out `sdk-foundation` and reads the issue description plus tracked C++ source/test files.
+2. It asks the OpenAI Responses API for a minimal unified diff. Issue text and logs are explicitly treated as untrusted evidence.
+3. It applies the patch on an isolated `ai/issue-N` branch.
+4. It rejects changes outside `src/` and `tests/`.
+5. It runs CMake build and CTest.
+6. Only if the patch applies and all tests pass, it opens a pull request for human review. It never merges automatically.
+
+If no safe patch is produced, it comments on the issue and leaves source unchanged.
+
+### Required setup
+
+Add repository Actions secret `OPENAI_API_KEY`. Enable Actions and permit the repository's `GITHUB_TOKEN` to create pull requests (Settings → Actions → General → Workflow permissions).
+
+### How to use
+
+Create a GitHub issue with expected vs actual behavior, reproduction steps, game/build/commit details, and relevant sanitized `cssbc_ai.jsonl` excerpts. Add label `ai-repair`. The existing triage workflow posts a diagnosis; the repair workflow independently attempts a constrained patch and, if tests pass, opens a PR.
+
+### Safety and limits
+
+- No auto-merge; a maintainer must review the patch.
+- AI may change only `src/` and `tests/`; workflow, installer, secrets and dependencies are outside its allowlist.
+- Only tracked C++ source and test files plus the issue are sent as context; the full runtime log is not automatically fetched from the game server.
+- The SourceMod event logger currently records observable game events, not private bot decision state or full navigation reasoning.
+- A passing portable CMake/CTest run does not prove compatibility with a live CS:S server or a community SDK fork.
