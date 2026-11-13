@@ -66,6 +66,13 @@ jobs:
   probe-v34-gamedll-vpc:
     runs-on: windows-2022
     steps:
+      - name: Checkout CSSBC integration sources
+        uses: actions/checkout@v4
+        with:
+          ref: sdk-foundation
+          path: cssbc
+          fetch-depth: 1
+
       - name: Checkout pinned CS:S v34 source tree
         uses: actions/checkout@v4
         with:
@@ -73,6 +80,11 @@ jobs:
           ref: 55f860bf42a537ac55aaef684f6fa0effee714a8
           path: cssv34-source
           fetch-depth: 1
+
+      - name: Apply CSSBC native GameDLL integration (PowerShell only)
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\cssbc\tools\integrate-v34-gamedll.ps1" -CssbcRoot "$env:GITHUB_WORKSPACE\cssbc" -GameSourceRoot "$env:GITHUB_WORKSPACE\cssv34-source\src"
 
       - name: Inspect native VPC generator without Python
         shell: pwsh
