@@ -35,6 +35,14 @@ enum class MeleeMove : uint8_t { Jab, Cross, Hook, Uppercut, KnifeStab, KnifeSla
 struct MeleeProfile { float range, damage, windup, recovery; bool heavy; };
 struct MeleeAction { MeleeMove move; MeleeProfile profile; uint8_t animationVariant; };
 struct MeleeState { uint32_t sequence=0; float nextAttackAt=0; };
+
+// Strict enum validation at every public boundary; never accept casted garbage.
+inline bool IsValidMeleeMode(MeleeMode mode) {
+    return mode==MeleeMode::Normal||mode==MeleeMode::Knife||mode==MeleeMode::Fists;
+}
+inline bool IsValidMeleeFaction(MeleeFaction faction) {
+    return faction==MeleeFaction::CT||faction==MeleeFaction::T;
+}
 MeleeAction SelectMeleeAction(MeleeMode mode,MeleeFaction faction,MeleeState& state,uint32_t playerSeed,float now,float skill);
 bool CanMeleeAttack(const MeleeState& state,float now);
 }
