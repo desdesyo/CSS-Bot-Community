@@ -13440,3 +13440,87 @@ world
   "_lightHDR" "-1 -1 -1 1"
   "style" "0"
  }
+ entity
+ {
+  "id" "3010"
+  "classname" "info_target"
+  "targetname" "hide_pocket_01"
+  "origin" "-1672 980 72"
+ }
+ entity
+ {
+  "id" "3011"
+  "classname" "info_target"
+  "targetname" "hide_pocket_02"
+  "origin" "-632 1760 72"
+ }
+ entity
+ {
+  "id" "3012"
+  "classname" "info_target"
+  "targetname" "hide_pocket_03"
+  "origin" "-592 640 72"
+ }
+ entity
+ {
+  "id" "3013"
+  "classname" "info_target"
+  "targetname" "hide_pocket_04"
+  "origin" "1728 980 72"
+ }
+ entity
+ {
+  "id" "3014"
+  "classname" "info_target"
+  "targetname" "hide_pocket_05"
+  "origin" "808 1760 72"
+ }
+ entity
+ {
+  "id" "3015"
+  "classname" "info_target"
+  "targetname" "hide_pocket_06"
+  "origin" "808 600 72"
+ }
+ entity
+ {
+  "id" "3016"
+  "classname" "info_target"
+  "targetname" "hide_pocket_07"
+  "origin" "-1652 -820 72"
+ }
+ entity
+ {
+  "id" "3017"
+  "classname" "info_target"
+  "targetname" "hide_pocket_08"
+  "origin" "-632 -1740 72"
+ }
+ entity
+ {
+  "id" "3018"
+  "classname" "info_target"
+  "targetname" "hide_pocket_09"
+  "origin" "-592 -960 72"
+ }
+ entity
+ {
+  "id" "3019"
+  "classname" "info_target"
+  "targetname" "hide_pocket_10"
+  "origin" "1748 -740 72"
+ }
+ entity
+ {
+  "id" "3020"
+  "classname" "info_target"
+  "targetname" "hide_pocket_11"
+  "origin" "808 -1720 72"
+ }
+ entity
+ {
+  "id" "3021"
+  "classname" "info_target"
+  "targetname" "hide_pocket_12"
+  "origin" "808 -640 72"
+ }
