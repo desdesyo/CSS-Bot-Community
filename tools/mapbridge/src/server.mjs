@@ -113,7 +113,7 @@ server.tool("map_add_street","Add a road strip and two sidewalks along X or Y ax
 });
 server.tool("map_add_spawn","Place a CSS player spawn entity.",{name:safeName,origin:vec,team:z.enum(["ct","t"]),angles:z.number().default(0)},async a=>{
  const [f,s]=await readMap(a.name),id=nextId(s),cls=a.team==="ct"?"info_player_counterterrorist":"info_player_terrorist";
- const e=entity(id,cls,{origin:fmt(a.origin),angles:`0 ${a.angles} 0`});await save(f,s+"\\n"+e+"\\n");return {content:[{type:"text",text:`Spawn ${cls} added at ${a.origin}`}]};
+ const e=entity(id,cls,{origin:fmt(a.origin),angles:`0 ${a.angles} 0`});await save(f,insertWorld(s,[e]));return {content:[{type:"text",text:`Spawn ${cls} added at ${a.origin}`}]};
 });
 server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:safeName},async({name})=>{
  const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
