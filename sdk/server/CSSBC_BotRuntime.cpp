@@ -6,7 +6,7 @@ TacticalDecision BotRuntime::Evaluate(const BotSnapshot& b,Economy& economy,bool
  const std::vector<MemoryEntry>& shared){
  TacticalDecision d;if(c)d.trustCallout=mind_.ShouldHeed(*c,reliability);
  d.targetPlate=mind_.ChoosePlate(armor,shared);
- BrainSnapshot s;s.player=b.entityIndex;s.round=0;s.team=b.team;s.health=b.health;s.armor=b.armor;
+ BrainSnapshot s;s.player=b.entityIndex;s.round=b.round;s.team=b.team;s.health=b.health;s.armor=b.armor;
  s.distanceToThreat=b.distanceToThreat;s.threatPressure=b.threatPressure;s.alliesNearby=b.alliesNearby;
  s.enemiesKnown=b.enemiesKnown;s.secondsLeft=b.secondsLeft;s.seesThreat=b.seesThreat;s.hasCover=b.hasCover;
  s.bombCarried=b.bombCarried;s.bombPlanted=b.bombPlanted;s.siteThreatened=b.siteThreatened;
