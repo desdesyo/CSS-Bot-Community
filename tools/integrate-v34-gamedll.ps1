@@ -82,6 +82,12 @@ if ($vpcText -notmatch '\$Folder\s+"CSS Bot Community"') {
         $File "cssbc\CSSBC_Brain.cpp"
         $File "cssbc\CSSBC_Economy.cpp"
         $File "cssbc\CSSBC_Tactics.cpp"
+        $File "cssbc\CSSBC_Mind.cpp"
+        $File "cssbc\CSSBC_Juggernaut.cpp"
+        $File "cssbc\CSSBC_MVP.cpp"
+        $File "cssbc\CSSBC_System.cpp"
+        $File "cssbc\CSSBC_SupportRoster.cpp"
+        $File "cssbc\CSSBC_Awards.cpp"
         $File "cssbc\CSSBC_EngineAdapter.cpp"
     }
 
