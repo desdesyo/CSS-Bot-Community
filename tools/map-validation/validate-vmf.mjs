@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
+import path from "node:path";
 
 const file = process.argv[2] ?? "maps/ModernDistrict/CSSBC_ExpandedDistrict.vmf";
 const vmf = await readFile(file, "utf8");
+const metadataFile = path.join(path.dirname(file), "CSSBC_MapMetadata.json");
+const metadata = JSON.parse(await readFile(metadataFile, "utf8"));
 let depth=0,minDepth=0;
 for (const c of vmf) { if(c==="{") depth++; else if(c==="}") { depth--; minDepth=Math.min(minDepth,depth); } }
 assert.equal(depth,0,"VMF braces must balance");
@@ -44,4 +47,9 @@ for (let i=1;i<=12;i++) {
  const name=`hide_pocket_${String(i).padStart(2,"0")}`;
  assert.ok(vmf.includes(`"targetname" "${name}"`), `hide pocket marker missing: ${name}`);
 }
-console.log(`PASS ${file}: ${solids.length} brushes, ${entities.length} entities, ${ids.length} unique IDs, T=${t}, CT=${ct}, 4 landmarks, 12 hide pockets`);
+assert.equal(metadata.landmarks.length,4,"metadata must describe four landmarks");
+assert.equal(metadata.hide_pockets.length,12,"metadata must describe twelve hide pockets");
+for (const item of [...metadata.landmarks,...metadata.hide_pockets]) {
+ assert.ok(vmf.includes(`"targetname" "${item.targetname}"`), `metadata marker missing from VMF: ${item.targetname}`);
+}
+console.log(`PASS ${file}: ${solids.length} brushes, ${entities.length} entities, ${ids.length} unique IDs, T=${t}, CT=${ct}, 4 landmarks, 12 hide pockets; metadata markers matched`);
