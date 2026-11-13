@@ -12,7 +12,7 @@ proc.stdout.on("data",chunk=>{buffer+=chunk.toString();for(;;){const i=buffer.in
 function rpc(method,params={}){const n=++id;return new Promise((resolve,reject)=>{const t=setTimeout(()=>{pending.delete(n);reject(Error("RPC timeout: "+method))},10000);pending.set(n,{resolve,reject,t});proc.stdin.write(JSON.stringify({jsonrpc:"2.0",id:n,method,params})+"\n")})}
 try{
  await rpc("initialize",{protocolVersion:"2024-11-05",capabilities:{},clientInfo:{name:"CSSBC Map Generator",version:"1.0"}});
- proc.stdin.write(JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"})+"\n";
+ proc.stdin.write(JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"})+"\n");
  const result=await rpc("tools/call",{name:"map_generate_district",arguments:{name,overwrite:true,blockSize:1024,floors:2}});
  console.log(result.content?.map(x=>x.text).join("\n")||"District generated.");
  console.log("VMF: "+path.join(root,"maps","ModernDistrict",name+".vmf"));
