@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "preset": "balanced_low_end",
+  "target": "stable frame pacing on older PCs; validate per map",
+  "lighting": {"static_bake_preferred": true, "dynamic_shadow_distance_m": 18, "max_dynamic_shadow_lights": 2, "ambient_occlusion": "baked_only"},
+  "geometry": {"prop_lod_levels": 3, "small_prop_draw_distance_m": 35, "decorative_prop_budget_per_room": 24, "avoid_subpixel_detail": true},
+  "materials": {"unique_materials_per_map_target": 96, "reuse_trim_sheets": true, "prefer_opaque": true},
+  "effects": {"smoke_overdraw_budget": "low", "particles_per_effect_target": 48, "disable_distant_debris": true},
+  "validation": ["measure CPU and GPU separately", "check visibility/PVS", "profile smoke and firefights", "do not remove gameplay cover for optimization"]
+}
