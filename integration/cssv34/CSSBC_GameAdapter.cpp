@@ -15,7 +15,9 @@
 #endif
 #include "CSSBC_Brain.h"
 #include "CSSBC_System.h"
+#include "CSSBC_SupportRoster.h"
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <vector>
 #include "tier0/memdbgon.h"
@@ -31,9 +33,24 @@ struct BotRuntime {
     bool initialized = false;
     int team = 0;
     float nextThinkAt = 0.f;
+    bool isSupport = false;
+    bool isJuggernaut = false;
+    int ownerUserId = 0;
+    int botUserId = 0;
+    cssbc::BotRole role = cssbc::BotRole::Entry;
     cssbc::BotBrain brain;
 };
 BotRuntime g_botRuntime[MAX_PLAYERS + 1];
+
+struct PendingSupportSpawn {
+    bool active = false;
+    bool created = false;
+    int ownerUserId = 0;
+    cssbc::SupportRole role = cssbc::SupportRole::Assault;
+    int health = 100;
+    bool juggernaut = false;
+};
+PendingSupportSpawn g_pendingSupportSpawn;
 ConVar cssbc_ai_enable("cssbc_ai_enable", "1", FCVAR_GAMEDLL, "Enable the CSSBC tactical bot brain adapter.");
 
 void AddMvpEvent(int userId, cssbc::EventKind kind, float value) {
@@ -43,6 +60,67 @@ void AddMvpEvent(int userId, cssbc::EventKind kind, float value) {
         g_mvpRoster.push_back(userId);
     }
 }
+int CountDeadAllies(CCSPlayer* buyer, int team) {
+    int deadAllies = 0;
+    for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+        CBasePlayer* player = UTIL_PlayerByIndex(i);
+        if (!player || player == buyer || player->GetTeamNumber() != team) continue;
+        if (!player->IsAlive()) ++deadAllies;
+    }
+    return deadAllies;
+}
+
+bool SpawnSupportTier(CCSPlayer* buyer, cssbc::SupportTier tier) {
+    if (!buyer || !buyer->IsAlive() || !TheCSBots()) return false;
+
+    const int team = buyer->GetTeamNumber();
+    if (team != TEAM_CT && team != TEAM_TERRORIST) return false;
+
+    const int buyerUserId = engine->GetPlayerUserId(buyer->edict());
+    cssbc::SupportOrder order;
+    if (!g_cssbcSystem.RequestSupport(tier, buyerUserId, buyer->m_iAccount,
+                                      CountDeadAllies(buyer, team), order)) {
+        ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] Purchase denied: insufficient money or not enough dead teammates.");
+        return false;
+    }
+
+    cssbc::SupportRoster roster;
+    if (!roster.Deploy(tier)) return false;
+    const std::vector<cssbc::SupportUnit>& units = roster.Units();
+
+    int spawned = 0;
+    for (const cssbc::SupportUnit& unit : units) {
+        g_pendingSupportSpawn.active = true;
+        g_pendingSupportSpawn.created = false;
+        g_pendingSupportSpawn.ownerUserId = buyerUserId;
+        g_pendingSupportSpawn.role = unit.role;
+        g_pendingSupportSpawn.health = unit.health;
+        g_pendingSupportSpawn.juggernaut = unit.role == cssbc::SupportRole::Juggernaut;
+
+        CSWeaponType weaponType = WEAPONTYPE_RIFLE;
+        if (unit.role == cssbc::SupportRole::Sniper) weaponType = WEAPONTYPE_SNIPER_RIFLE;
+        else if (unit.role == cssbc::SupportRole::Juggernaut) weaponType = WEAPONTYPE_MACHINEGUN;
+
+        TheCSBots()->BotAddCommand(team, true, NULL, weaponType, BOT_EXPERT);
+        const bool created = g_pendingSupportSpawn.created;
+        g_pendingSupportSpawn.active = false;
+        if (!created) break;
+        ++spawned;
+    }
+
+    if (spawned == 0) {
+        ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] No support unit could be spawned. Check team capacity and bot profiles.");
+        return false;
+    }
+
+    const int unitCount = static_cast<int>(units.size());
+    const int unitCost = order.moneySpent / unitCount;
+    const int charge = spawned == unitCount ? order.moneySpent : unitCost * spawned;
+    buyer->AddAccount(-charge);
+    ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] Support deployed. The successfully spawned units have been charged.");
+    return true;
+}
+
 }
 
 namespace CSSBCGame {
@@ -104,6 +182,39 @@ void OnHostageRescuedAll(IGameEvent* event) {
     if (event) AddMvpEvent(event->GetInt("userid", 0), cssbc::EventKind::Rescue, 1.f);
 }
 
+void OnBotCreated(CCSBot* bot) {
+    if (!bot || !g_pendingSupportSpawn.active) return;
+    const int slot = bot->entindex();
+    if (slot < 1 || slot > MAX_PLAYERS) return;
+
+    BotRuntime& runtime = g_botRuntime[slot];
+    runtime.initialized = false;
+    runtime.team = bot->GetTeamNumber();
+    runtime.nextThinkAt = 0.f;
+    runtime.isSupport = true;
+    runtime.isJuggernaut = g_pendingSupportSpawn.juggernaut;
+    runtime.ownerUserId = g_pendingSupportSpawn.ownerUserId;
+    runtime.botUserId = engine->GetPlayerUserId(bot->edict());
+
+    switch (g_pendingSupportSpawn.role) {
+        case cssbc::SupportRole::Sniper: runtime.role = cssbc::BotRole::Sniper; break;
+        case cssbc::SupportRole::Assault: runtime.role = cssbc::BotRole::Entry; break;
+        case cssbc::SupportRole::Juggernaut: runtime.role = cssbc::BotRole::Support; break;
+    }
+
+    bot->SetHealth(g_pendingSupportSpawn.health);
+    if (runtime.isJuggernaut) bot->SetArmorValue(200);
+
+    CCSPlayer* leader = static_cast<CCSPlayer*>(UTIL_PlayerByUserId(runtime.ownerUserId));
+    if (leader) {
+        leader->AllowAutoFollow();
+        bot->Follow(leader);
+    }
+
+    g_pendingSupportSpawn.created = true;
+    g_pendingSupportSpawn.active = false;
+}
+
 void TickBot(CCSBot* bot) {
     if (!cssbc_ai_enable.GetBool() || !bot || !bot->IsAlive()) return;
 
@@ -117,12 +228,23 @@ void TickBot(CCSBot* bot) {
     if (gpGlobals->curtime < runtime.nextThinkAt) return;
     runtime.nextThinkAt = gpGlobals->curtime + 0.75f;
 
+    if (runtime.isSupport) {
+        const int currentBotUserId = engine->GetPlayerUserId(bot->edict());
+        if ((runtime.botUserId > 0 && currentBotUserId != runtime.botUserId) ||
+            (runtime.ownerUserId > 0 && UTIL_PlayerByUserId(runtime.ownerUserId) == NULL)) {
+            runtime.isSupport = false;
+            runtime.isJuggernaut = false;
+            runtime.ownerUserId = 0;
+        }
+    }
+
     const BotProfile* profile = bot->GetProfile();
     const float skill = profile ? profile->GetSkill() : 0.5f;
     const float aggression = profile ? profile->GetAggression() : 0.5f;
 
     cssbc::BotRole role = cssbc::BotRole::Entry;
-    if (bot->IsSniper()) role = cssbc::BotRole::Sniper;
+    if (runtime.isSupport) role = runtime.role;
+    else if (bot->IsSniper()) role = cssbc::BotRole::Sniper;
     else if (bot->IsHiding() || bot->IsAtHidingSpot()) role = cssbc::BotRole::Anchor;
     else if (bot->GetNearbyFriendCount() >= 2) role = cssbc::BotRole::Support;
 
@@ -134,6 +256,14 @@ void TickBot(CCSBot* bot) {
         traits.discipline = 0.20f + 0.75f * skill;
         traits.independence = 0.25f + 0.50f * aggression;
         traits.adaptability = 0.30f + 0.60f * skill;
+        if (runtime.isJuggernaut) {
+            traits.courage = 0.98f;
+            traits.trust = 0.80f;
+            traits.teamwork = 0.75f;
+            traits.discipline = 0.95f;
+            traits.independence = 0.65f;
+            traits.adaptability = 0.75f;
+        }
         runtime.brain = cssbc::BotBrain(traits, role);
         runtime.initialized = true;
         runtime.team = team;
@@ -180,3 +310,26 @@ void TickBot(CCSBot* bot) {
 }
 
 } // namespace CSSBCGame
+
+CON_COMMAND_F(cssbc_support, "Purchase CSSBC support: cssbc_support 1 (recon), 2 (tactical), 3 (four-unit squad).", FCVAR_GAMEDLL)
+{
+    CCSPlayer* buyer = static_cast<CCSPlayer*>(UTIL_GetCommandClient());
+    if (!buyer) return;
+    if (args.ArgC() < 2) {
+        ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] Usage: cssbc_support 1, 2 or 3.");
+        return;
+    }
+
+    const int tier = atoi(args.Arg(1));
+    if (tier == 1) SpawnSupportTier(buyer, cssbc::SupportTier::Recon1000);
+    else if (tier == 2) SpawnSupportTier(buyer, cssbc::SupportTier::Tactical3000);
+    else if (tier == 3) SpawnSupportTier(buyer, cssbc::SupportTier::Squad9000);
+    else ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] Unknown tier. Use 1, 2 or 3.");
+}
+
+CON_COMMAND_F(cssbc_juggernaut, "Purchase a 500 HP Juggernaut for $16000. Requires three dead teammates.", FCVAR_GAMEDLL)
+{
+    CCSPlayer* buyer = static_cast<CCSPlayer*>(UTIL_GetCommandClient());
+    if (!buyer) return;
+    SpawnSupportTier(buyer, cssbc::SupportTier::Juggernaut16000);
+}
