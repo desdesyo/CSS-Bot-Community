@@ -13,6 +13,7 @@
 #include "CSSBC_MeleeCombat.h"
 #include <cassert>
 #include <limits>
+#include <cmath>
 #include <iostream>
 using namespace cssbc;
 int main(){
@@ -44,7 +45,7 @@ int main(){
  assert(roster.Deploy(SupportTier::Juggernaut16000));assert(roster.Units().size()==1&&roster.Units()[0].role==SupportRole::Juggernaut);
  TeamMemory mem;mem.Publish({EventKind::PlateCracked,2,4,Plate::LeftArm,.9f,10.f,"left arm cracked"});assert(mem.Recent(11.f).size()==1);assert(mem.Recent(30.f,5.f).empty());
  JuggernautArmor combatArmor;CombatResolver combat;auto armorHit=combat.Resolve(combatArmor,Plate::Chest,100.f);
- assert(armorHit.armorDamage==72.f&&armorHit.healthDamage==28.f&&armorHit.broken);
+ assert(std::fabs(armorHit.armorDamage-72.f)<0.001f&&std::fabs(armorHit.healthDamage-28.f)<0.001f&&armorHit.broken);
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
