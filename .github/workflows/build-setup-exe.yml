@@ -1,0 +1,65 @@
+name: Build CSSBC Windows Setup EXE
+
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - "sourcemod/scripting/cssbc_ai_logger.sp"
+      - "installer/CSSBC-AI-Logger.iss"
+      - ".github/workflows/build-setup-exe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sdk-foundation
+      - name: Download SourceMod compiler
+        run: |
+          curl -fsSL "https://sm.alliedmods.net/smdrop/1.12/sourcemod-latest-linux" -o /tmp/sourcemod.tar.gz
+          mkdir -p /tmp/sourcemod
+          tar -xzf /tmp/sourcemod.tar.gz -C /tmp/sourcemod
+      - name: Compile SourcePawn plugin
+        run: |
+          chmod +x /tmp/sourcemod/addons/sourcemod/scripting/spcomp
+          /tmp/sourcemod/addons/sourcemod/scripting/spcomp sourcemod/scripting/cssbc_ai_logger.sp -i/tmp/sourcemod/addons/sourcemod/scripting/include -o cssbc_ai_logger.smx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiled-plugin
+          path: cssbc_ai_logger.smx
+          if-no-files-found: error
+          retention-days: 2
+
+  build-exe:
+    needs: compile-plugin
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sdk-foundation
+      - uses: actions/download-artifact@v4
+        with:
+          name: compiled-plugin
+          path: package
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc "installer\CSSBC-AI-Logger.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+          if (-not (Test-Path "dist\CSSBC-AI-Logger-Setup.exe")) { throw "Setup EXE was not created" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-AI-Logger-Setup-EXE
+          path: dist/CSSBC-AI-Logger-Setup.exe
+          if-no-files-found: error
+          retention-days: 30
