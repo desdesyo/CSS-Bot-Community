@@ -18,39 +18,51 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Install SteamCMD
+
+      # App 232330 is not anonymously installable on current SteamCMD.
+      # Source SDK Base 2013 (211) is the public compiler/runtime depot.
+      - name: Install Source SDK 2013 tools
         shell: pwsh
         run: |
           Invoke-WebRequest "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip" -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
           Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" "$env:RUNNER_TEMP\steamcmd" -Force
-          "STEAMCMD=$env:RUNNER_TEMP\steamcmd\steamcmd.exe" >> $env:GITHUB_ENV
-      - name: Install CS:S dedicated content
-        shell: pwsh
-        run: |
-          $css="$env:RUNNER_TEMP\css"
-          New-Item -ItemType Directory -Force $css | Out-Null
-          & $env:STEAMCMD +force_install_dir $css +login anonymous +app_update 232330 validate +quit
-          if ($LASTEXITCODE -ne 0) { throw "SteamCMD CS:S content install failed" }
-          if (!(Test-Path "$css\cstrike\gameinfo.txt")) { throw "CS:S gameinfo.txt missing after install" }
-          "CSSDIR=$css\cstrike" >> $env:GITHUB_ENV
-      - name: Download standalone Tools++ compiler
-        shell: pwsh
-        run: |
-          $url="https://github.com/ficool2/misc_tools/releases/download/v1/tools++_windows.zip"
-          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\toolspp.zip"
-          Expand-Archive "$env:RUNNER_TEMP\toolspp.zip" "$env:RUNNER_TEMP\toolspp" -Force
-          $root="$env:RUNNER_TEMP\toolspp"
-          $vbsp=Get-ChildItem $root -Filter vbspplusplus.exe -Recurse | Select-Object -First 1
-          $vvis=Get-ChildItem $root -Filter vvisplusplus.exe -Recurse | Select-Object -First 1
-          $vrad=Get-ChildItem $root -Filter vradplusplus.exe -Recurse | Select-Object -First 1
-          if (!$vbsp -or !$vvis -or !$vrad) {
-            Get-ChildItem $root -Recurse -File | Select-Object FullName
-            throw "Tools++ compiler executables missing from release archive"
-          }
+          $sdk="$env:RUNNER_TEMP\sdk"
+          New-Item -ItemType Directory -Force $sdk | Out-Null
+          & "$env:RUNNER_TEMP\steamcmd\steamcmd.exe" +force_install_dir $sdk +login anonymous +app_update 211 validate +quit
+          if ($LASTEXITCODE -ne 0) { throw "SteamCMD Source SDK 2013 (app 211) install failed" }
+          $vbsp=Get-ChildItem $sdk -Filter vbsp.exe -Recurse | Select-Object -First 1
+          $vvis=Get-ChildItem $sdk -Filter vvis.exe -Recurse | Select-Object -First 1
+          $vrad=Get-ChildItem $sdk -Filter vrad.exe -Recurse | Select-Object -First 1
+          if (!$vbsp -or !$vvis -or !$vrad) { throw "SDK 2013 compilers missing; app 211 depot did not contain tools" }
           "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
           "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
           "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
-      - name: Compile VMF (VBSP++)
+          "SDKROOT=$sdk" >> $env:GITHUB_ENV
+
+      - name: Prepare isolated gameinfo for compile
+        shell: pwsh
+        run: |
+          $game="$env:RUNNER_TEMP\cssbc_game"
+          New-Item -ItemType Directory -Force "$game\maps","$game\materials","$game\models","$game\particles" | Out-Null
+          @'
+          "GameInfo"
+          {
+            "game" "CSS Bot Community compile environment"
+            "title" "CSSBC"
+            "FileSystem"
+            {
+              "SearchPaths"
+              {
+                "Game" "|gameinfo_path|."
+                "Game" "$env:SDKROOT\hl2"
+                "Game" "$env:SDKROOT\platform"
+              }
+            }
+          }
+          '@ | Set-Content "$game\gameinfo.txt" -Encoding ASCII
+          "COMPILE_GAME=$game" >> $env:GITHUB_ENV
+
+      - name: Compile VMF (VBSP)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
@@ -58,30 +70,34 @@ jobs:
           $vmf="maps/ModernDistrict/$name.vmf"
           if (!(Test-Path $vmf)) { throw "VMF missing: $vmf" }
           New-Item -ItemType Directory -Force build | Out-Null
-          & $env:VBSP -game "$env:CSSDIR" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
-          if ($LASTEXITCODE -ne 0) { throw "VBSP++ failed: $LASTEXITCODE" }
+          & $env:VBSP -game "$env:COMPILE_GAME" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
+          if ($LASTEXITCODE -ne 0) { throw "VBSP failed: $LASTEXITCODE" }
           $bsp="maps/ModernDistrict/$name.bsp"
-          if (!(Test-Path $bsp)) { throw "BSP not produced at $bsp" }
+          if (!(Test-Path $bsp)) { throw "VBSP did not produce $bsp" }
           Copy-Item $bsp "build\$name.bsp" -Force
-      - name: Compile visibility (VVIS++)
+
+      - name: Compile visibility (VVIS)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
-          & $env:VVIS -game "$env:CSSDIR" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
-          if ($LASTEXITCODE -ne 0) { throw "VVIS++ failed: $LASTEXITCODE" }
-      - name: Compile lighting (VRAD++)
+          & $env:VVIS -game "$env:COMPILE_GAME" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
+          if ($LASTEXITCODE -ne 0) { throw "VVIS failed: $LASTEXITCODE" }
+
+      - name: Compile lighting (VRAD)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
-          & $env:VRAD -game "$env:CSSDIR" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
-          if ($LASTEXITCODE -ne 0) { throw "VRAD++ failed: $LASTEXITCODE" }
+          & $env:VRAD -game "$env:COMPILE_GAME" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
+          if ($LASTEXITCODE -ne 0) { throw "VRAD failed: $LASTEXITCODE" }
+
       - name: Validate BSP output
         shell: pwsh
         run: |
           $bsp="build\${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.bsp"
           if (!(Test-Path $bsp) -or (Get-Item $bsp).Length -lt 10000) { throw "BSP missing or suspiciously small" }
           Get-Item $bsp | Format-List FullName,Length
-      - name: Upload playable BSP and logs
+
+      - name: Upload BSP and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
