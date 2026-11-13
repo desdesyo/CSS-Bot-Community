@@ -10,7 +10,7 @@ static constexpr std::uint32_t kBridgeAbi = 0x00010000;
 enum class Team : std::uint8_t { Unassigned=0, Spectator=1, Terrorist=2, CounterTerrorist=3 };
 enum class BotResult : std::uint8_t {
   Ok=0, InvalidName, InvalidTeam, SlotUnavailable, EntityCreationFailed,
-  PlayerInitializationFailed, SpawnFailed, NotFound, UnsupportedAbi
+  PlayerInitializationFailed, SpawnFailed, NotFound, InvalidSkill, UnsupportedAbi
 };
 
 struct BotRequest {
