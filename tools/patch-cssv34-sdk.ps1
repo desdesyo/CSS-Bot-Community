@@ -50,7 +50,7 @@ $manager = Add-GameEventCall $manager "void CCSBotManager::OnHostageRescuedAll" 
 Add-AdapterInclude $updatePath
 $update = [IO.File]::ReadAllText($updatePath, [Text.Encoding]::UTF8)
 $update = [regex]::Replace($update, '(?m)^[\t ]*CSSBCGame::TickBot\(this\);[\t ]*\r?\n', "")
-$nextFunction = "void CCSBot::DebugDisplay( void ) const"
+$nextFunction = "class DrawTravelTime"
 $nextIndex = $update.IndexOf($nextFunction, [StringComparison]::Ordinal)
 if ($nextIndex -lt 0) { throw "Could not find the end marker for CCSBot::Update." }
 $prefix = $update.Substring(0, $nextIndex)
