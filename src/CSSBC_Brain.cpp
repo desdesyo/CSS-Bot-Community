@@ -21,11 +21,11 @@ BrainIntent BotBrain::Tick(const BrainSnapshot& s,Economy& economy,bool terroris
   auto m=economy.Apply({s.player,0,MoneyEvent::BadDecision,s.round},terrorist);
   out.moneyDelta+=m.actualDelta;lastBadDecisionRound_=s.round;
  }
- if(s.afk&&lastEventRound_!=s.round){
+ if(s.afk&&lastAfkRound_!=s.round){
   auto m=economy.Apply({s.player,0,MoneyEvent::AFK,s.round},terrorist);
-  out.moneyDelta+=m.actualDelta;lastEventRound_=s.round;
+  out.moneyDelta+=m.actualDelta;lastAfkRound_=s.round;
  }
- if(s.suicide){auto m=economy.Apply({s.player,0,MoneyEvent::Suicide,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
+ if(s.suicide&&lastSuicideRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::Suicide,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
  if(s.teamKill){auto m=economy.Apply({s.player,0,MoneyEvent::TeamKill,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
  if(s.eventReward>0){auto m=economy.Apply({s.player,s.eventReward,MoneyEvent::Kill,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
  lastRound_=s.round;
