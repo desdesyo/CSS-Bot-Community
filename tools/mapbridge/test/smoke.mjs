@@ -3,6 +3,7 @@ import {mkdtemp,readFile,rm} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {spawn} from "node:child_process";
+import {createServer} from "node:net";
 
 const tmp=await mkdtemp(path.join(os.tmpdir(),"mapbridge-"));
 const proc=spawn(process.execPath,[new URL("../src/server.mjs",import.meta.url).pathname],{
@@ -57,5 +58,23 @@ try{
  const cliVmf=await readFile(path.join(tmp,"maps","ModernDistrict","CI_CLI.vmf"),"utf8");
  assert(cliVmf.includes('"classname" "worldspawn"'));
  assert.equal((cliVmf.match(/\n\s*solid\s*\{/g)||[]).length,32);
- console.log("PASS: MCP RPC, all tools, root-level entities, unique IDs and one-command CLI generation");
+ const portServer=createServer();
+ await new Promise(resolve=>portServer.listen(0,"127.0.0.1",resolve));
+ const httpPort=portServer.address().port;
+ await new Promise(resolve=>portServer.close(resolve));
+ const secret="ci-mapbridge-token-0123456789-abcdef";
+ const httpProc=spawn(process.execPath,[new URL("../src/server.mjs",import.meta.url).pathname],{cwd:tmp,env:{...process.env,CSSBC_MAP_ROOT:tmp,CSSBC_MAPBRIDGE_TRANSPORT:"http",CSSBC_MAPBRIDGE_TOKEN:secret,CSSBC_MAPBRIDGE_HOST:"127.0.0.1",CSSBC_MAPBRIDGE_PORT:String(httpPort)},stdio:["ignore","ignore","pipe"]});
+ let httpErr="";
+ httpProc.stderr.on("data",b=>httpErr+=b.toString());
+ const base="http://127.0.0.1:"+httpPort;
+ let ready=false;
+ for(let i=0;i<60&&!ready;i++){try{const r=await fetch(base+"/health");ready=r.ok;}catch{}if(!ready)await new Promise(r=>setTimeout(r,100));}
+ assert(ready,"HTTP transport failed to start: "+httpErr);
+ const health=await fetch(base+"/health");assert.equal((await health.json()).transport,"streamable-http");
+ const denied=await fetch(base+"/mcp",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2024-11-05",capabilities:{},clientInfo:{name:"ci",version:"1"}}})});
+ assert.equal(denied.status,401,"HTTP MCP must reject missing bearer token");
+ const accepted=await fetch(base+"/mcp",{method:"POST",headers:{"content-type":"application/json","accept":"application/json, text/event-stream","authorization":"Bearer "+secret},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2024-11-05",capabilities:{},clientInfo:{name:"ci-http",version:"1"}}})});
+ assert.equal(accepted.status,200,"HTTP MCP initialize rejected: "+await accepted.text());
+ httpProc.kill();
+ console.log("PASS: MCP stdio + authenticated Streamable HTTP + CLI generator + VMF integrity");
 }finally{proc.kill();await rm(tmp,{recursive:true,force:true});}
