@@ -58,9 +58,9 @@ MenuPage MenuController::Navigate(MenuPage current,MenuAction a) const {
  default:return current;
  }
 }
-std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries){
+std::vector<MVPDisplayEntry> RankMVPDisplay(const std::vector<MVPDisplayEntry>& entries){
  auto out=entries;
- std::stable_sort(out.begin(),out.end(),[](const MVPEntry&a,const MVPEntry&b){return a.score>b.score;});
+ std::stable_sort(out.begin(),out.end(),[](const MVPDisplayEntry&a,const MVPDisplayEntry&b){return a.score>b.score;});
  return out;
 }
 HudView BuildHud(const HudSnapshot&s,const HudConfig&c){
