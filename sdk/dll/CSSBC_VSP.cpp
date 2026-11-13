@@ -5,6 +5,7 @@
 #include "iserverplugin.h"
 #include <windows.h>
 #include <cstdio>
+#include <cstring>
 
 namespace {
 class CSSBCServerPlugin final : public IServerPluginCallbacks {
@@ -38,11 +39,8 @@ public:
     void SetCommandClient(int) override {}
     void ClientSettingsChanged(edict_t*) override {}
     PLUGIN_RESULT ClientConnect(bool*, edict_t*, const char*, const char*, char*, int) override { return PLUGIN_CONTINUE; }
-    PLUGIN_RESULT ClientCommand(edict_t*, const CCommand&) override { return PLUGIN_CONTINUE; }
+    PLUGIN_RESULT ClientCommand(edict_t*) override { return PLUGIN_CONTINUE; }
     PLUGIN_RESULT NetworkIDValidated(const char*, const char*) override { return PLUGIN_CONTINUE; }
-    void OnQueryCvarValueFinished(QueryCvarCookie_t, edict_t*, EQueryCvarValueStatus, const char*, const char*) override {}
-    void OnEdictAllocated(edict_t*) override {}
-    void OnEdictFreed(const edict_t*) override {}
 private:
     CreateInterfaceFn engineFactory_{};
     CreateInterfaceFn gameServerFactory_{};
@@ -52,7 +50,7 @@ CSSBCServerPlugin g_plugin;
 }
 
 extern "C" __declspec(dllexport) void* CreateInterface(const char* name, int* returnCode) {
-    if (name && std::strcmp(name, INTERFACEVERSION_ISERVERPLUGIN)==0) {
+    if (name && std::strcmp(name, INTERFACEVERSION_ISERVERPLUGINCALLBACKS)==0) {
         if(returnCode) *returnCode=IFACE_OK;
         return static_cast<IServerPluginCallbacks*>(&g_plugin);
     }
