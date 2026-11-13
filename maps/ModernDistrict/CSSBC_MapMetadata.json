@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "map_name": "CSSBC_ExpandedDistrict",
+  "coordinate_system": "Source units; X/Y/Z",
+  "purpose": "CSSBC escape-search navigation anchors; not a compiled nav mesh",
+  "districts": [
+    {
+      "id": "industrial",
+      "label": "Industrial Yard",
+      "bounds": {
+        "min": [
+          -2048,
+          256,
+          0
+        ],
+        "max": [
+          -256,
+          2048,
+          784
+        ]
+      }
+    },
+    {
+      "id": "modern",
+      "label": "Modern Office Quarter",
+      "bounds": {
+        "min": [
+          256,
+          256,
+          0
+        ],
+        "max": [
+          2048,
+          2048,
+          768
+        ]
+      }
+    },
+    {
+      "id": "residential",
+      "label": "Residential Edge",
+      "bounds": {
+        "min": [
+          -2048,
+          -2048,
+          0
+        ],
+        "max": [
+          -256,
+          -256,
+          552
+        ]
+      }
+    },
+    {
+      "id": "greenbelt",
+      "label": "Greenbelt and Drainage",
+      "bounds": {
+        "min": [
+          256,
+          -2048,
+          0
+        ],
+        "max": [
+          2048,
+          -256,
+          304
+        ]
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "smokestack",
+      "targetname": "landmark_smokestack",
+      "district": "industrial",
+      "origin": [
+        -1540,
+        840,
+        784
+      ],
+      "role": "long_range_orientation"
+    },
+    {
+      "id": "water_tower",
+      "targetname": "landmark_water_tower",
+      "district": "residential",
+      "origin": [
+        -1452,
+        -1052,
+        552
+      ],
+      "role": "long_range_orientation"
+    },
+    {
+      "id": "storefront",
+      "targetname": "landmark_storefront",
+      "district": "residential",
+      "origin": [
+        -308,
+        -1724,
+        320
+      ],
+      "role": "local_orientation"
+    },
+    {
+      "id": "bridge",
+      "targetname": "landmark_bridge",
+      "district": "greenbelt",
+      "origin": [
+        1200,
+        -1072,
+        304
+      ],
+      "role": "route_transition"
+    }
+  ],
+  "hide_pockets": [
+    {
+      "id": "pocket_01",
+      "targetname": "hide_pocket_01",
+      "district": "industrial",
+      "origin": [
+        -1672,
+        980,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_02",
+      "targetname": "hide_pocket_02",
+      "district": "industrial",
+      "origin": [
+        -632,
+        1760,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_03",
+      "targetname": "hide_pocket_03",
+      "district": "industrial",
+      "origin": [
+        -592,
+        640,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_04",
+      "targetname": "hide_pocket_04",
+      "district": "modern",
+      "origin": [
+        1728,
+        980,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_05",
+      "targetname": "hide_pocket_05",
+      "district": "modern",
+      "origin": [
+        808,
+        1760,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_06",
+      "targetname": "hide_pocket_06",
+      "district": "modern",
+      "origin": [
+        808,
+        600,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_07",
+      "targetname": "hide_pocket_07",
+      "district": "residential",
+      "origin": [
+        -1652,
+        -820,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_08",
+      "targetname": "hide_pocket_08",
+      "district": "residential",
+      "origin": [
+        -632,
+        -1740,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_09",
+      "targetname": "hide_pocket_09",
+      "district": "residential",
+      "origin": [
+        -592,
+        -960,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_10",
+      "targetname": "hide_pocket_10",
+      "district": "greenbelt",
+      "origin": [
+        1748,
+        -740,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_11",
+      "targetname": "hide_pocket_11",
+      "district": "greenbelt",
+      "origin": [
+        808,
+        -1720,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    },
+    {
+      "id": "pocket_12",
+      "targetname": "hide_pocket_12",
+      "district": "greenbelt",
+      "origin": [
+        808,
+        -640,
+        72
+      ],
+      "cover_type": "low_L_cover",
+      "open_sides": 2,
+      "nav_validation": "pending",
+      "visibility_validation": "pending"
+    }
+  ],
+  "search_behavior_hints": {
+    "prefer_breaking_line_of_sight": true,
+    "rehide_after_contact": true,
+    "avoid_permanent_safe_spots": true,
+    "destination_scoring": "not_implemented",
+    "nav_area_links": "not_implemented"
+  },
+  "validation": {
+    "vmf_structure": "passed",
+    "landmark_entity_markers": "passed",
+    "hide_pocket_entity_markers": "passed",
+    "bsp_compile": "pending_cs_source_game_content",
+    "nav_mesh": "pending",
+    "in_game_playtest": "pending"
+  }
+}
