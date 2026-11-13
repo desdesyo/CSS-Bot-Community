@@ -1,19 +1,27 @@
-# CSSBC: Knife / Fists round mutator
+# CSSBC: режимы ножей и кулачного боя
 
-## Player-facing control
-A dedicated `sm_melee` command opens a separate context menu:
-- **Обычный раунд** — clears the queued mutator.
-- **Ножи** — queues knife-only rules.
-- **Кулаки** — queues fist-only rules.
+## Меню / назначение кнопки
+- Команда отдельного контекстного меню: `sm_melee`.
+- В консоли клиента можно назначить отдельную клавишу: `bind "F6" "sm_melee"` (клавишу можно заменить).
+- В меню три пункта: «Только ножи», «Кулачный бой», «Обычный раунд».
 
-The selection is pending, not an immediate round restart. It is applied at the next `round_start`: current round is not ended, scores and round counter are untouched. The server announces the queued mode. Selecting while a round is live only queues the next round.
+Выбор только ставится в очередь. Не вызываются `mp_restartgame`, `endround` или смена команды; текущие таймер, счет и номер раунда не сбрасываются. Очередь применяется на следующем `round_start`, в начале нового раунда. Сервер сообщает о примененном режиме.
 
-## Server plugin scope
-SourceMod can safely queue/apply the mode and force a melee loadout. It cannot provide bespoke first-person/world-model animation sequences or true bare-fist weapon animations in CS:S by itself. The current fist option uses knife as the melee input carrier; custom fist hitboxes/animation require Source SDK game-DLL integration and authored animation sequences.
+## Реализация SourceMod
+Плагин `sourcemod/scripting/cssbc.sp` реализует меню, очередь режима и выдачу ножа всем живым игрокам в начале следующего раунда:
+- Knife: оружие заменяется ножом.
+- Fists: на текущем SourceMod-слое нож используется как временный носитель атаки. Это **не настоящие кулаки**: у стандартного CS:S нет fist weapon и отдельных кулачных hitbox/анимаций в этом плагине.
+- Normal: обычный закуп/оружие следующего раунда не трогается.
 
-## Animation direction (SDK)
-`CSSBC_Melee` chooses an action per player, seeded by player identity and action sequence:
-- CT fists: short jab/cross, compact hook and uppercut; measured guard/recovery.
-- T fists: broader hook/jab/uppercut order, less disciplined timing.
-- Knife: CT favors controlled thrust/slash; T favors slash/thrust; reverse slash and lunge are mixed in.
-The returned variant is a selector for animation graph/sequence binding—not a sequence index guaranteed to exist in stock CS:S models. SDK adapter must map variants to authored/available sequences, synchronize hit frame with damage, and enforce range/recovery. Do not make all bots play one generic leap animation.
+Установка отдельной кнопки: `bind "F6" "sm_melee"` в клиентской консоли.
+
+## SDK melee core
+`src/CSSBC_Melee.h/.cpp`:
+- `MeleeModeController::Queue` хранит выбор отдельно от активного режима.
+- `OnRoundStart(roundNumber)` атомарно переключает режим только на границе раунда.
+- `SelectMeleeAction` выдаёт разные действия/варианты для CT и T, индивидуальный seed и sequence не позволяют всем игрокам синхронно повторять один жест.
+- CT: компактные jab/cross, hook/uppercut, более собранная техника.
+- T: размашистые hook/jab/uppercut и менее дисциплинированная последовательность.
+- Нож: stab/slash/reverse slash/lunge с разным распределением для CT/T.
+
+`animationVariant` — **идентификатор варианта для привязки к animation graph/sequence**, не готовый номер существующей анимации. Для настоящего визуального результата нужны SDK game-DLL, модели с подходящими sequence/gesture, связывание hit-frame с уроном и серверная проверка дальности/recovery. В SourceMod нельзя достоверно сделать отдельные динамичные анимации кулаков и разные ножевые техники только выдачей оружия.
