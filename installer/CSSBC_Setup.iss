@@ -1,7 +1,7 @@
 [Setup]
 AppId={{B1E7B7D0-ACB4-4E2A-9C5D-340000000002}
 AppName=CSS Bot Community (v34)
-AppVersion=0.1.0
+AppVersion=0.1.1
 DefaultDirName={code:GetGameDir}
 DisableDirPage=no
 DirExistsWarning=no
@@ -11,17 +11,17 @@ ArchitecturesInstallIn64BitMode=
 PrivilegesRequired=admin
 Uninstallable=no
 WizardStyle=modern
+SetupLogging=yes
 
 [Files]
+Source: "server-v34-win32.dll"; DestDir: "{app}\cstrike\bin"; DestName: "server.dll"; Flags: ignoreversion
 Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin"; Flags: ignoreversion
 Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons\cssbc"; DestName: "plugin.vdf"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
-
-[Files]
-Source: "..\\tools\\diagnostics\\Collect-CSSBC.ps1"; DestDir: "{app}\\cstrike\\addons\\cssbc\\diagnostics"; Flags: ignoreversion
+Source: "..\tools\diagnostics\Collect-CSSBC.ps1"; DestDir: "{app}\cstrike\addons\cssbc\diagnostics"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\\CSSBC — Collect diagnostics"; Filename: "{sys}\\WindowsPowerShell\\v1.0\\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\\cstrike\\addons\\cssbc\\diagnostics\\Collect-CSSBC.ps1"" -GameDir ""{app}"" -OpenFolder"; WorkingDir: "{app}"
+Name: "{group}\CSSBC — Collect diagnostics"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\diagnostics\Collect-CSSBC.ps1"" -GameDir ""{app}"" -OpenFolder"; WorkingDir: "{app}"
 
 [Code]
 function GetGameDir(Param: string): string;
@@ -35,20 +35,20 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  if not DirExists(ExpandConstant('{app}\cstrike')) then
-  begin
-    MsgBox('В выбранной папке нет cstrike. Выберите корень CS:S v34.', mbError, MB_OK);
+  if not FileExists(ExpandConstant('{src}\server-v34-win32.dll')) then begin
+    MsgBox('В комплекте отсутствует GameDLL. Установщик неполный.', mbError, MB_OK);
     Result := False;
   end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Backup: String;
+  Target, Backup: String;
 begin
   if CurStep = ssInstall then begin
-    Backup := ExpandConstant('{app}\cstrike\addons\cssbc\plugin.vdf.bak');
-    if FileExists(ExpandConstant('{app}\cstrike\addons\cssbc\plugin.vdf')) then
-      RenameFile(ExpandConstant('{app}\cstrike\addons\cssbc\plugin.vdf'), Backup);
+    Target := ExpandConstant('{app}\cstrike\bin\server.dll');
+    Backup := ExpandConstant('{app}\cstrike\bin\server.dll.cssbc-backup');
+    if FileExists(Target) and not FileExists(Backup) then
+      FileCopy(Target, Backup, False);
   end;
 end;
