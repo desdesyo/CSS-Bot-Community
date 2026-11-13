@@ -16,7 +16,7 @@ int main(){
  BotBrain brain(Traits{},BotRole::Entry);BrainSnapshot bs;bs.player=12;bs.round=1;bs.health=18;bs.seesThreat=true;
  auto intent=brain.Tick(bs,eco,false);assert(intent.tactical==TacticalAction::Retreat&&intent.retreat);
  bs.health=90;bs.seesThreat=false;bs.badDecision=true;bs.round=2;
- auto financeIntent=brain.Tick(bs,eco,false);assert(financeIntent.moneyDelta<0&&financeIntent.cooperation<1.f);
+ auto financeIntent=brain.Tick(bs,eco,false);assert(financeIntent.moneyDelta<0&&financeIntent.cooperation>.95f);\n bs.round=3;brain.Tick(bs,eco,false);bs.round=4;auto chronic=brain.Tick(bs,eco,false);assert(chronic.cooperation<financeIntent.cooperation);
  
  // Economy: positive rewards, credit floor, CT collective debt and T-side tolerance.
  auto reward=eco.Apply({5,300,MoneyEvent::Kill,1},false);assert(reward.applied&&reward.balance==300);
