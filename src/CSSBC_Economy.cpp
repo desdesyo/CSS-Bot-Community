@@ -30,7 +30,7 @@ int Economy::Penalty(MoneyEvent e){
 }
 MoneyResult Economy::Apply(const MoneyChange& e,bool terroristTeam){
  if(e.player<0||e.player>=64)return {false,0,0,0,"invalid player"};
- auto& f=finance_[e.player]; int delta=Reward(e.event)-Penalty(e.event);
+ auto& f=finance_[e.player]; int delta=e.amount!=0?e.amount:Reward(e.event)-Penalty(e.event);
  // Outstanding debt absorbs every positive award; no premium cash while indebted.
  if(delta>0&&f.debt>0){int paid=std::min(delta,f.debt);f.debt-=paid;delta-=paid;}
  const int next=std::max(kCreditFloor,f.balance+delta);
