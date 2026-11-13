@@ -18,25 +18,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download SourceMod compiler and includes
-        run: |
-          curl -fL "https://sm.alliedmods.net/smdrop/1.12/sourcemod-latest-linux" -o sourcemod.tar.gz
-          mkdir smdist
-          tar -xzf sourcemod.tar.gz -C smdist
+      - name: Install SourcePawn compiler
+        uses: rumblefrog/setup-sp@master
+        with:
+          version: "1.12.x"
 
       - name: Compile CSSBC plugin
         run: |
-          chmod +x smdist/addons/sourcemod/scripting/spcomp
-          smdist/addons/sourcemod/scripting/spcomp \
-            -i smdist/addons/sourcemod/scripting/include \
-            sourcemod/scripting/cssbc.sp -o cssbc.smx
+          spcomp sourcemod/scripting/cssbc.sp -o cssbc.smx
           test -s cssbc.smx
 
       - name: Compile Smart Bots Overhaul prototype
         run: |
-          smdist/addons/sourcemod/scripting/spcomp \
-            -i smdist/addons/sourcemod/scripting/include \
-            sourcemod/scripting/smartbots_overhaul.sp -o smartbots_overhaul.smx
+          spcomp sourcemod/scripting/smartbots_overhaul.sp -o smartbots_overhaul.smx
           test -s smartbots_overhaul.smx
 
       - name: Upload compiled plugins
