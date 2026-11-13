@@ -33,7 +33,7 @@
       <SDLCheck>true</SDLCheck>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32;_WINDOWS;COMPILER_MSVC=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(CSSBC_SOURCE_SDK);$(CSSBC_SOURCE_SDK)\public;$(CSSBC_SOURCE_SDK)\public\engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(CSSBC_SOURCE_SDK);$(CSSBC_SOURCE_SDK)\public;$(CSSBC_SOURCE_SDK)\public\engine;$(CSSBC_SOURCE_SDK)\public\tier0;$(CSSBC_SOURCE_SDK)\public\tier1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
