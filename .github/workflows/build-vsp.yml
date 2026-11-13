@@ -78,6 +78,10 @@ jobs:
         shell: pwsh
         run: |
           Set-Location cssv34-source/src
+          # This source snapshot omits the optional DirectX proxy project group.
+          # VPC parses the global project catalog even for help, so provide an empty local stub.
+          New-Item -ItemType Directory -Force utils\dx_proxy | Out-Null
+          Set-Content utils\dx_proxy\dx_proxy_all.vgc "// CSSBC does not build the optional DirectX proxy tools."
           $help = & .\devtools\bin\vpc.exe /? 2>&1 | Out-String
           $help | Set-Content "$env:GITHUB_WORKSPACE\vpc-help.txt"
           Write-Host $help
