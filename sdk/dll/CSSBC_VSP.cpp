@@ -18,7 +18,7 @@ public:
  void Pause() override{Log("[CSSBC] paused.\n");}
  void UnPause() override{Log("[CSSBC] resumed.\n");}
  const char* GetPluginDescription() override{return "CSS Bot Community native bootstrap + diagnostics";}
- void LevelInit(const char* map) override {map_[0]=0;if(map)std::strncpy(map_,map,sizeof(map_)-1;Logf("[CSSBC] LevelInit map=%s\n",map_);}
+ void LevelInit(const char* map) override {map_[0]=0;if(map)std::strncpy(map_,map,sizeof(map_)-1);Logf("[CSSBC] LevelInit map=%s\n",map_);}
  void ServerActivate(edict_t*,int edictCount,int clientMax) override {Logf("[CSSBC] ServerActivate edicts=%d maxClients=%d map=%s\n",edictCount,clientMax,map_);}
  void GameFrame(bool simulating) override {if(simulating)++simFrames_;}
  void LevelShutdown() override{Logf("[CSSBC] LevelShutdown map=%s simulatedFrames=%lu\n",map_,simFrames_);simFrames_=0;}
