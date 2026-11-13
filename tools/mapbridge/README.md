@@ -44,3 +44,4 @@ Coordinates and dimensions are Source units (1 inch in Hammer units). Vector val
 6. `map_inspect(name="test")`
 
 Open resulting VMF in Hammer, inspect it, then compile with a matching CS:S VBSP/VVIS/VRAD setup. Generated maps are not claimed playable until that compile and an in-game test succeed.
+\n\n## Map Studio (GUI)\n\nOpen `studio.html` in any modern browser (no Node.js or MCP required). Adjust the district parameters, inspect the top-down preview, then click **Скачать VMF**. The generated VMF can be opened in Hammer; compile it with the CS:S VBSP tools to produce BSP.\n\n[Download/open Map Studio HTML](studio.html)\n
