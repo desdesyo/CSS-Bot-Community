@@ -14,13 +14,24 @@ The optional Source server-plugin bootstrap can still be built with [`BUILD_CSSB
 
 ## CS:S v34 source integration
 
-The build script pins [`rusherr-c/cssv34-sdk`](https://github.com/rusherr-c/cssv34-sdk) to commit `a410d4f10a1bc914b7789da476f32e9d7c36b75d`, downloads it into the ignored local `external/cssv34-sdk` folder, and patches it without adding upstream game source to this repository.
+The native Win32 CS:S v34 server build is passing in GitHub Actions. The build script pins [`rusherr-c/cssv34-sdk`](https://github.com/rusherr-c/cssv34-sdk) to commit `a410d4f10a1bc914b7789da476f32e9d7c36b75d`, downloads it into the ignored local `external/cssv34-sdk` folder, patches it, and compiles `dist/Server.dll`. It does not require Git; PowerShell downloads the pinned archive. CMake/CTest tests run when available, but the native build itself only requires Visual Studio C++ tools.
+
+### In-game support commands
+
+- `cssbc_support 1`: $1,000 recon sniper.
+- `cssbc_support 2`: $3,000 tactical assault unit.
+- `cssbc_support 3`: $9,000 squad (2 snipers + 2 assault bots).
+- `cssbc_juggernaut`: $16,000, requires 3 dead teammates; spawns a 500 HP, 200-armor heavy bot.
+- Support units follow the purchasing player and use the CSSBC bot-brain adapter.
+- If the game cannot spawn the requested bots (for example, team capacity is full), only successfully spawned units are charged.
+
+**Current limitation:** support units are native CS:S bots and therefore consume player slots. The Juggernaut's six-plate damage model is in the portable core but is not yet wired into the game's real hitgroup/damage pipeline. The current 200 armor is a basic first integration, not six independently breakable plates.
 
 The first game-code adapter:
 - Runs the CSSBC `BotBrain` during `CCSBot::Update`, using each bot's skill/aggression, health, armor, nearby allies/enemies and recognized threat.
-- Can influence retreat and cover-seeking behavior.
-- Exposes `cssbc_ai_enable 0/1` to disable/enable the adapter at runtime.
+- Can influence retreat and cover-seeking behavior; `cssbc_ai_enable 0/1` disables/enables it at runtime.
 - Scores kills, headshots, assists, bomb plants/defuses and hostage rescues for round MVP.
+- Hooks native bot creation so purchased support bots get their CSSBC role, health, equipment class and follow leader.
 
 The exact v34 server build is validated by [GitHub Actions](.github/workflows/build-cssbc-v34.yml). The workflow compiles but does not publish the upstream-derived game DLL as a public artifact.
 
