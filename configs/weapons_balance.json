@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "units": "damage, rounds/minute, meters",
+  "note": "Initial gameplay tuning draft; not yet bound to CS:S weapon scripts.",
+  "weapons": {
+    "cssbc_ak12": {"damage": 34, "rpm": 650, "magazine": 30, "reload_s": 2.45, "range_m": 45, "role": "balanced_rifle"},
+    "cssbc_m4_sopmod": {"damage": 32, "rpm": 750, "magazine": 30, "reload_s": 2.35, "range_m": 40, "role": "stable_rifle"},
+    "cssbc_aug_a3": {"damage": 33, "rpm": 700, "magazine": 30, "reload_s": 2.55, "range_m": 48, "role": "precision_rifle"},
+    "cssbc_sg553": {"damage": 34, "rpm": 670, "magazine": 30, "reload_s": 2.6, "range_m": 50, "role": "long_range_rifle"},
+    "cssbc_famas_g2": {"damage": 30, "rpm": 900, "magazine": 25, "reload_s": 2.25, "range_m": 32, "role": "burst_rifle"},
+    "cssbc_galil_ace": {"damage": 33, "rpm": 680, "magazine": 35, "reload_s": 2.7, "range_m": 42, "role": "heavy_rifle"},
+    "cssbc_mp5_mli": {"damage": 26, "rpm": 800, "magazine": 30, "reload_s": 2.2, "range_m": 22, "role": "control_smg"},
+    "cssbc_apc9": {"damage": 24, "rpm": 900, "magazine": 30, "reload_s": 2.0, "range_m": 18, "role": "fast_smg"},
+    "cssbc_mac10": {"damage": 23, "rpm": 1000, "magazine": 30, "reload_s": 2.15, "range_m": 14, "role": "close_smg"},
+    "cssbc_awp_ax": {"damage": 115, "rpm": 42, "magazine": 5, "reload_s": 3.4, "range_m": 90, "role": "bolt_sniper"}
+  }
+}
