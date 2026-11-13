@@ -11,7 +11,7 @@
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
 #include "CSSBC_MeleeCombat.h"
-#include <cassert>
+#include <cassert>\n#include <limits>
 #include <iostream>
 using namespace cssbc;
 int main(){
@@ -65,6 +65,14 @@ int main(){
  auto blocked=fighter.Begin(MeleeMode::Knife,MeleeFaction::T,21.f,.5f);assert(blocked.started);
  auto friendly=fighter.ResolveImpact({8,10.f,true,true},21.3f);assert(!friendly.hit);
  fighter.Cancel();assert(!fighter.IsAttacking());
+ // Defensive regression cases: invalid numeric input and malformed trace cannot create damage.
+ auto badTime=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,std::numeric_limits<float>::quiet_NaN(),.5f);assert(!badTime.started);
+ auto badSkill=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,22.f,std::numeric_limits<float>::infinity());assert(!badSkill.started);
+ auto badMode=fighter.Begin(MeleeMode::Normal,MeleeFaction::CT,22.f,.5f);assert(!badMode.started);
+ auto malformed=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,22.f,.5f);assert(malformed.started);
+ auto nanTrace=fighter.ResolveImpact({4,std::numeric_limits<float>::quiet_NaN(),true,false},22.5f);assert(!nanTrace.hit&&!fighter.IsAttacking());
+ auto cannotRetry=fighter.ResolveImpact({4,10.f,true,false},22.5f);assert(!cannotRetry.hit);
+
  // Per-weapon recoil is deterministic and differs between guns; recovery resets a burst.
  SprayState akSpray{},m4Spray{};auto ak1=FireSpray(WeaponId::AK12,akSpray,1.f,false,false);
  auto ak2=FireSpray(WeaponId::AK12,akSpray,1.08f,false,false);
