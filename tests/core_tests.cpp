@@ -9,6 +9,7 @@
 #include "CSSBC_GameModes.h"
 #include "CSSBC_Config.h"
 #include "CSSBC_Brain.h"
+#include "CSSBC_Melee.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
@@ -44,6 +45,16 @@ int main(){
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
+ // Mode changes are queued, then applied only at the following round start.
+ MeleeModeController modes;assert(modes.Active()==MeleeMode::Normal);
+ modes.Queue(MeleeMode::Fists);assert(modes.Active()==MeleeMode::Normal&&modes.HasPending());
+ assert(modes.OnRoundStart(8)&&modes.Active()==MeleeMode::Fists&&!modes.HasPending());
+ modes.Queue(MeleeMode::Knife);assert(modes.Active()==MeleeMode::Fists);
+ assert(modes.OnRoundStart(9)&&modes.Active()==MeleeMode::Knife&&modes.Snapshot().appliedRound==9);
+ MeleeState ctFist{},tFist{};auto ctPunch=SelectMeleeAction(MeleeMode::Fists,MeleeFaction::CT,ctFist,42,10.f,.8f);
+ auto tPunch=SelectMeleeAction(MeleeMode::Fists,MeleeFaction::T,tFist,42,10.f,.8f);
+ assert(ctPunch.animationVariant!=tPunch.animationVariant);
+ assert(ctPunch.profile.range>0&&ctPunch.profile.recovery>0);
  // Per-weapon recoil is deterministic and differs between guns; recovery resets a burst.
  SprayState akSpray{},m4Spray{};auto ak1=FireSpray(WeaponId::AK12,akSpray,1.f,false,false);
  auto ak2=FireSpray(WeaponId::AK12,akSpray,1.08f,false,false);
