@@ -8,7 +8,7 @@ namespace cssbc::sdk {
 // Models lacking a sequence fail validation rather than silently animating incorrectly.
 struct AnimationSequenceSet {
     const char* idleStand{"idle"};
-    const char* idleCrouch{" crouch_idle"};
+    const char* idleCrouch{"crouch_idle"};
     const char* walk{"walk"};
     const char* run{"run"};
     const char* crouchWalk{"crouch_walk"};
