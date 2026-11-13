@@ -53,7 +53,7 @@ public:
         return state_;
     }
 
-    void SetCycleForDebug(float cycle) {
+    // Advance normalized sequence time. Looping locomotion wraps; one-shot actions clamp.\n    void Advance(float dt, float sequenceDuration, bool looping) {\n        if (dt <= 0.0f || sequenceDuration <= 0.0f) return;\n        state_.cycle += (dt / sequenceDuration) * state_.playbackRate;\n        if (looping) {\n            while (state_.cycle >= 1.0f) state_.cycle -= 1.0f;\n        } else if (state_.cycle > 1.0f) state_.cycle = 1.0f;\n    }\n\n    void SetCycleForDebug(float cycle) {
         if (cycle >= 0.0f && cycle <= 1.0f) state_.cycle = cycle;
     }
     void SetPlaybackRateForDebug(float rate) {
