@@ -14,7 +14,6 @@ WizardStyle=modern
 SetupLogging=yes
 
 [Files]
-Source: "server-v34-win32.dll"; DestDir: "{app}\cstrike\bin"; DestName: "server.dll"; Flags: ignoreversion
 Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin"; Flags: ignoreversion
 Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
@@ -48,14 +47,3 @@ begin
   Result := True;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  Target, Backup: String;
-begin
-  if CurStep = ssInstall then begin
-    Target := ExpandConstant('{app}\cstrike\bin\server.dll');
-    Backup := ExpandConstant('{app}\cstrike\bin\server.dll.cssbc-backup');
-    if FileExists(Target) and not FileExists(Backup) then
-      FileCopy(Target, Backup, False);
-  end;
-end;
