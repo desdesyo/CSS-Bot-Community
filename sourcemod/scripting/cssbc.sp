@@ -100,7 +100,8 @@ public Action Cmd_Juggernaut(int client, int args)
 
     int hp = g_juggernautHp.IntValue;
     SetEntProp(client, Prop_Send, "m_iAccount", money - 16000);
-    SetEntProp(client, Prop_Send, "m_iMaxHealth", hp);
+    if (HasEntProp(client, Prop_Send, "m_iMaxHealth"))
+        SetEntProp(client, Prop_Send, "m_iMaxHealth", hp);
     SetEntityHealth(client, hp);
     g_juggernaut[client] = true;
 
@@ -159,8 +160,13 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
     for (int i = 1; i <= MaxClients; i++)
     {
+        if (g_juggernaut[i] && IsClientInGame(i))
+        {
+            if (HasEntProp(i, Prop_Send, "m_iMaxHealth"))
+                SetEntProp(i, Prop_Send, "m_iMaxHealth", 100);
+            if (GetClientHealth(i) > 100)
+                SetEntityHealth(i, 100);
+        }
         g_juggernaut[i] = false;
-        if (IsClientInGame(i) && GetEntProp(i, Prop_Send, "m_iMaxHealth") > 100)
-            SetEntProp(i, Prop_Send, "m_iMaxHealth", 100);
     }
 }
