@@ -11,7 +11,8 @@
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
 #include "CSSBC_MeleeCombat.h"
-#include <cassert>\n#include <limits>
+#include <cassert>
+#include <limits>
 #include <iostream>
 using namespace cssbc;
 int main(){
@@ -86,5 +87,5 @@ int main(){
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
- std::cout<<"CSSBC core tests: PASS\\n";
+ std::cout<<"CSSBC core tests: PASS\n";
 }
