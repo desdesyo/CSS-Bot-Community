@@ -1,38 +1,39 @@
-# Source SDK integration plan (actual game mod)
+# Native CS:S v34 integration
 
-CSSBC is intended to be a **native Source SDK mod**, not a SourceMod product. The SourceMod bridge is an optional prototype and is not part of the target architecture.
+CSSBC targets the actual Counter-Strike: Source v34 game server/client code, not only SourceMod or a standalone VSP plugin.
 
-## Compile-time target
+## Pinned game source
 
-- AlliedModders `hl2sdk` `css` branch is currently used for the native server-plugin interface headers.
-- The project builds a Win32 `IServerPluginCallbacks` DLL against those headers.
-- The portable CSSBC C++ sources are compiled into that DLL.
-- This is a server-plugin integration point, not a complete client/server game-code fork.
+The local Windows build downloads `rusherr-c/cssv34-sdk` at commit `a410d4f10a1bc914b7789da476f32e9d7c36b75d` into the ignored `external/cssv34-sdk` folder. It is not copied into this repository. The upstream repository currently has no LICENSE file; the build pipeline therefore does not publish its source or the compiled game DLL as an artifact. Check upstream rights before redistribution.
 
-The selected SDK branch is a compile-time interface source. It does not prove binary compatibility with every legacy/non-Steam CS:S v34 executable. That must be verified in the exact target game.
+## Current integration adapter
 
-## Current native milestone
+The patcher adds `CSSBC_GameAdapter.cpp/.h` to the local v34 server source and connects:
+- `CCSBot::Update` → CSSBC `BotBrain` tick, with per-bot personality derived from profile skill/aggression.
+- Retreat and cover-seeking decisions, gated by `cssbc_ai_enable`.
+- `CCSBotManager` round, death, bomb and hostage event handlers → CSSBC MVP scoring.
+- Round-start reset and top-three round MVP logging.
 
-The VSP bootstrap:
-- Implements the server-plugin callbacks and obtains `IVEngineServer`.
-- Registers with `IGameEventManager2`.
-- Records MVP points for kills, headshots, assists, bomb plants, bomb defuses and hostage rescues.
-- Resets scoring at round start and logs the top three MVP user IDs at round end.
-- Embeds the engine-independent gameplay core.
+The portable C++ core is compiled into the game server DLL as source files with C++17 and no PCH. The same core is built and tested separately by CMake.
 
-The Windows build is automated by `BUILD_CSSBC.bat` and GitHub Actions. See [WINDOWS_BUILD.md](WINDOWS_BUILD.md).
+## Build and install
+
+- `BUILD_CSSBC.bat`: download pinned v34 source, patch locally, run portable tests, compile `dist/Server.dll`.
+- `INSTALL_CSSBC.bat`: copy to the configured CS:S v34 game folder and back up the original DLL.
+- `RESTORE_STOCK_SERVER.bat`: restore the backup.
+- `BUILD_CSSBC_VSP.bat`: optional standalone VSP diagnostic bridge.
+
+See [WINDOWS_BUILD.md](WINDOWS_BUILD.md).
 
 ## Remaining integration work
 
-1. Verify the VSP loads in the exact CS:S v34 client/server build and confirm the interface versions.
-2. Adapt the core to actual bot entities: perception, navigation, decision ticks, team communication and round state.
-3. Implement support NPC entities and spawning for the $9k squad and $16k Juggernaut.
-4. Connect hit groups to six armor plates, damage, break events and shared evidence.
-5. Connect economy and purchases to the game's authoritative money/team/dead-player state.
+1. Verify the new server DLL loads in the user's exact non-Steam CS:S v34 build.
+2. Connect the rest of the CSSBC tactical model to bot perception, navigation, team memory and squad communication.
+3. Implement support NPC spawning for the $9k squad and $16k Juggernaut.
+4. Connect six armor plates to real hit regions, damage, break events and shared evidence.
+5. Bind support purchases to authoritative game money and team/dead-player state.
 6. Implement client HUD and VGUI panels; load Russian localization resources.
 7. Add models, materials, animations, soundscapes/voice lines and packaging.
-8. Test the full round loop, performance and low-spec behavior.
+8. Test full round behavior, performance and low-spec operation.
 
-## Important limitation
-
-Original CS:S v34 game code is not included in the official Source SDK 2013 tree or this repository. A compatible community CS:S game-code fork is still required for deep bot AI, NPC entities, custom player logic and a native client HUD. The current VSP does not claim those features are implemented.
+The first adapter is a foundation, not a claim that every planned behavior is finished.
