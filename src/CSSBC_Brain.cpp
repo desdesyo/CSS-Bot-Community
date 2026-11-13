@@ -17,9 +17,9 @@ BrainIntent BotBrain::Tick(const BrainSnapshot& s,Economy& economy,bool terroris
  out.callSupport=tactical.action==TacticalAction::SupportFire;
  out.cooperation=economy.Cooperation(s.player,terrorist);
  // Bad-decision penalty is applied only once per round to avoid frame-loop farming.
- if(s.badDecision&&lastEventRound_!=s.round){
+ if(s.badDecision&&lastBadDecisionRound_!=s.round){
   auto m=economy.Apply({s.player,0,MoneyEvent::BadDecision,s.round},terrorist);
-  out.moneyDelta+=m.actualDelta;lastEventRound_=s.round;
+  out.moneyDelta+=m.actualDelta;lastBadDecisionRound_=s.round;
  }
  if(s.afk&&lastEventRound_!=s.round){
   auto m=economy.Apply({s.player,0,MoneyEvent::AFK,s.round},terrorist);
