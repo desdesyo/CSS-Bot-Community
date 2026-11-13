@@ -25,9 +25,9 @@ BrainIntent BotBrain::Tick(const BrainSnapshot& s,Economy& economy,bool terroris
   auto m=economy.Apply({s.player,0,MoneyEvent::AFK,s.round},terrorist);
   out.moneyDelta+=m.actualDelta;lastAfkRound_=s.round;
  }
- if(s.suicide&&lastSuicideRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::Suicide,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
- if(s.teamKill){auto m=economy.Apply({s.player,0,MoneyEvent::TeamKill,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
- if(s.eventReward>0){auto m=economy.Apply({s.player,s.eventReward,MoneyEvent::Kill,s.round},terrorist);out.moneyDelta+=m.actualDelta;}
+ if(s.suicide&&lastSuicideRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::Suicide,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastSuicideRound_=s.round;}
+ if(s.teamKill&&lastTeamKillRound_!=s.round){auto m=economy.Apply({s.player,0,MoneyEvent::TeamKill,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastTeamKillRound_=s.round;}
+ if(s.eventReward>0&&lastRewardRound_!=s.round){auto m=economy.Apply({s.player,s.eventReward,MoneyEvent::Kill,s.round},terrorist);out.moneyDelta+=m.actualDelta;lastRewardRound_=s.round;}
  lastRound_=s.round;
  return out;
 }
