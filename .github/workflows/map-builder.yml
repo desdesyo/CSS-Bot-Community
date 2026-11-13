@@ -1,83 +1,79 @@
 name: CSSBC Map Builder
-
 on:
   workflow_dispatch:
     inputs:
       map_name:
-        description: VMF basename (without extension)
+        description: VMF basename
         required: true
         default: CSSBC_ModernDistrict
         type: string
-      full_lighting:
-        description: Run VVIS and VRAD (requires Source SDK tools)
-        required: true
-        default: false
-        type: boolean
   push:
     branches: [sdk-foundation]
-    paths:
-      - "maps/ModernDistrict/*.vmf"
-      - ".github/workflows/map-builder.yml"
-
+    paths: ["maps/ModernDistrict/*.vmf", ".github/workflows/map-builder.yml"]
 permissions:
   contents: read
-
 jobs:
   compile:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
-      - name: Checkout map sources
-        uses: actions/checkout@v4
-
-      - name: Locate VMF
+      - uses: actions/checkout@v4
+      - name: Install SteamCMD
         shell: pwsh
         run: |
-          $vmf = "maps/ModernDistrict/${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.vmf"
+          Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" "$env:RUNNER_TEMP\steamcmd" -Force
+          "STEAMCMD=$env:RUNNER_TEMP\steamcmd\steamcmd.exe" >> $env:GITHUB_ENV
+      - name: Install Source SDK tools and CS:S content
+        shell: pwsh
+        run: |
+          $sdk="$env:RUNNER_TEMP\sdk"
+          $css="$env:RUNNER_TEMP\css"
+          & $env:STEAMCMD +force_install_dir $sdk +login anonymous +app_update 211 validate +quit
+          if ($LASTEXITCODE -ne 0) { throw "SteamCMD Source SDK (App 211) install failed" }
+          & $env:STEAMCMD +force_install_dir $css +login anonymous +app_update 232330 validate +quit
+          if ($LASTEXITCODE -ne 0) { throw "SteamCMD CS:S dedicated content install failed" }
+          $vbsp=Get-ChildItem $sdk -Filter vbsp.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (!$vbsp) { $vbsp=Get-ChildItem $css -Filter vbsp.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (!$vbsp) { throw "VBSP.exe absent after SDK install; SDK depot does not provide compiler on this runner." }
+          $vvis=Get-ChildItem $sdk -Filter vvis.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $vrad=Get-ChildItem $sdk -Filter vrad.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
+          "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
+          "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
+          "CSSDIR=$css" >> $env:GITHUB_ENV
+      - name: Compile VMF
+        shell: pwsh
+        run: |
+          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          $vmf="maps/ModernDistrict/$name.vmf"
           if (!(Test-Path $vmf)) { throw "VMF missing: $vmf" }
-          "VMF=$vmf" >> $env:GITHUB_ENV
-          "MAPNAME=${{ inputs.map_name || 'CSSBC_ModernDistrict' }}" >> $env:GITHUB_ENV
-
-      - name: Download and unpack Source SDK tools (Steam depot)
+          New-Item -ItemType Directory -Force build | Out-Null
+          & $env:VBSP -game "$env:CSSDIR\cstrike" "$vmf" 2>&1 | Tee-Object build\vbsp.log
+          if ($LASTEXITCODE -ne 0) { throw "VBSP failed with exit code $LASTEXITCODE" }
+          $bsp="maps/ModernDistrict/$name.bsp"
+          if (!(Test-Path $bsp)) { throw "VBSP output missing: $bsp" }
+          Copy-Item $bsp "build\$name.bsp" -Force
+      - name: Run visibility and lighting
         shell: pwsh
         run: |
-          # App  mod 4000 is CS:S; depot 4001 contains game binaries, not VBSP.
-          # Source SDK tools are distributed separately; never silently substitute incompatible binaries.
-          $sdkCandidates = @(
-            "C:\Program Files (x86)\Steam\steamapps\common\Source SDK\bin\vbsp.exe",
-            "C:\Program Files\Steam\steamapps\common\Source SDK\bin\vbsp.exe"
-          )
-          $found = $sdkCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (!$found) {
-            Write-Host "::warning::VBSP not preinstalled on hosted runner. See README for supported SDK setup."
-            throw "Source SDK VBSP is not installed on this runner. No fake BSP will be produced."
+          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          $bsp="build\$name.bsp"
+          if ($env:VVIS -and (Test-Path $env:VVIS)) {
+            & $env:VVIS $bsp 2>&1 | Tee-Object build\vvis.log
+            if ($LASTEXITCODE -ne 0) { throw "VVIS failed" }
           }
-          "VBSP=$found" >> $env:GITHUB_ENV
-          $sdkDir = Split-Path $found
-          foreach ($tool in @("vvis.exe","vrad.exe")) {
-            if (Test-Path (Join-Path $sdkDir $tool)) {
-              " ${{ '' }}" | Out-Null
-            }
+          if ($env:VRAD -and (Test-Path $env:VRAD)) {
+            & $env:VRAD -game "$env:CSSDIR\cstrike" -noextra $bsp 2>&1 | Tee-Object build\vrad.log
+            if ($LASTEXITCODE -ne 0) { throw "VRAD failed" }
           }
-
-      - name: Compile VMF to BSP
-        shell: pwsh
-        run: |
-          $out = Join-Path $env:RUNNER_TEMP "$env:MAPNAME.bsp"
-          & $env:VBSP -game "$PWD\cstrike" -o "$out" "$env:VMF"
-          if ($LASTEXITCODE -ne 0) { throw "VBSP exited $LASTEXITCODE" }
-          if (!(Test-Path $out)) { throw "VBSP did not create BSP" }
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          Copy-Item $out "build\$env:MAPNAME.bsp"
-          Get-Item "build\$env:MAPNAME.bsp" | Format-List
-
-      - name: Upload compiled map and logs
+      - name: Upload BSP and compiler logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: CSSBC-map-${{ inputs.map_name || 'CSSBC_ModernDistrict' }}
           path: |
             build/*.bsp
-            maps/ModernDistrict/*.vmf
+            build/*.log
           if-no-files-found: warn
           retention-days: 14
