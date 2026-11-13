@@ -77,10 +77,10 @@ MenuPage MenuController::Navigate(MenuPage current, MenuAction action) const {
     }
 }
 
-std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries) {
+std::vector<MVPDisplayEntry> RankMVP(const std::vector<MVPDisplayEntry>& entries) {
     auto ranked = entries;
     std::stable_sort(ranked.begin(), ranked.end(),
-        [](const MVPEntry& a, const MVPEntry& b) { return a.score > b.score; });
+        [](const MVPDisplayEntry& a, const MVPDisplayEntry& b) { return a.score > b.score; });
     return ranked;
 }
 
