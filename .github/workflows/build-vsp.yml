@@ -301,6 +301,25 @@ jobs:
           }
           Write-Host "All installer payload files are present."
 
+      - name: Validate PowerShell log collector syntax
+        shell: pwsh
+        run: |
+          $files = @(
+            "tools/log-collector/Watch-And-Push.ps1",
+            "tools/log-collector/Register-LogTask.ps1",
+            "tools/diagnostics/Collect-CSSBC.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell syntax validation failed: $file"
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
+
       - name: Install Inno Setup compiler
         shell: pwsh
         run: |
