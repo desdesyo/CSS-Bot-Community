@@ -17,6 +17,12 @@ Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin
 Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons\cssbc"; DestName: "plugin.vdf"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 
+[Files]
+Source: "..\\tools\\diagnostics\\Collect-CSSBC.ps1"; DestDir: "{app}\\cstrike\\addons\\cssbc\\diagnostics"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\\CSSBC — Collect diagnostics"; Filename: "{sys}\\WindowsPowerShell\\v1.0\\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\\cstrike\\addons\\cssbc\\diagnostics\\Collect-CSSBC.ps1"" -GameDir ""{app}"" -OpenFolder"; WorkingDir: "{app}"
+
 [Code]
 function GetGameDir(Param: string): string;
 begin
