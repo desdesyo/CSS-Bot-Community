@@ -62,11 +62,11 @@ if (!$update.Contains("CSSBCGame::TickBot(this);")) {
 
 # Patch the real CS:S server DLL project. Core .cpp files are compiled directly
 # into server_cstrike with PCH disabled for those files, avoiding CRT mismatch.
-[xml]$xml = New-Object System.Xml.XmlDocument
+$xml = New-Object System.Xml.XmlDocument
 $xml.PreserveWhitespace = $true
 $xml.Load($projectPath)
 $nsUri = "http://schemas.microsoft.com/developer/msbuild/2003"
-$ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+$ns = [System.Xml.XmlNamespaceManager]::new($xml.NameTable)
 $ns.AddNamespace("m", $nsUri)
 
 foreach ($compile in $xml.SelectNodes("//m:ItemDefinitionGroup/m:ClCompile", $ns)) {
