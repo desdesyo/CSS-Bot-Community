@@ -117,7 +117,58 @@ foreach ($path in $compilePaths) {
     $item.SetAttribute("Include", $path)
     foreach ($configuration in @("Debug CSTRIKE|Win32", "Release CSTRIKE|Win32")) {
         $pch = $xml.CreateElement("PrecompiledHeader", $nsUri)
-        $pch.SetAttribute("Condition", "'$(Configuration)|$(Platform)'=='$configuration'")
+        $condition = "'" + '
+        $pch.InnerText = "NotUsing"
+        $item.AppendChild($pch) | Out-Null
+    }
+    $sourceGroup.AppendChild($item) | Out-Null
+}
+
+$headerGroup = $xml.SelectSingleNode("//m:ItemGroup[m:ClInclude]", $ns)
+if (!$headerGroup) {
+    $headerGroup = $xml.CreateElement("ItemGroup", $nsUri)
+    $xml.DocumentElement.AppendChild($headerGroup) | Out-Null
+}
+$hasHeader = $false
+foreach ($item in $xml.SelectNodes("//m:ClInclude", $ns)) {
+    if ($item.GetAttribute("Include") -eq "cstrike\CSSBC_GameAdapter.h") { $hasHeader = $true }
+}
+if (!$hasHeader) {
+    $header = $xml.CreateElement("ClInclude", $nsUri)
+    $header.SetAttribute("Include", "cstrike\CSSBC_GameAdapter.h")
+    $headerGroup.AppendChild($header) | Out-Null
+}
+
+$xml.Save($projectPath)
+New-Item -ItemType Directory -Force -Path (Join-Path $SdkRoot "game\cstrike\bin") | Out-Null
+Write-Host "CS:S v34 source patched for CSSBC: bot brain, round events, MVP and core sources."
+ + "(Configuration)|" + '
+        $pch.InnerText = "NotUsing"
+        $item.AppendChild($pch) | Out-Null
+    }
+    $sourceGroup.AppendChild($item) | Out-Null
+}
+
+$headerGroup = $xml.SelectSingleNode("//m:ItemGroup[m:ClInclude]", $ns)
+if (!$headerGroup) {
+    $headerGroup = $xml.CreateElement("ItemGroup", $nsUri)
+    $xml.DocumentElement.AppendChild($headerGroup) | Out-Null
+}
+$hasHeader = $false
+foreach ($item in $xml.SelectNodes("//m:ClInclude", $ns)) {
+    if ($item.GetAttribute("Include") -eq "cstrike\CSSBC_GameAdapter.h") { $hasHeader = $true }
+}
+if (!$hasHeader) {
+    $header = $xml.CreateElement("ClInclude", $nsUri)
+    $header.SetAttribute("Include", "cstrike\CSSBC_GameAdapter.h")
+    $headerGroup.AppendChild($header) | Out-Null
+}
+
+$xml.Save($projectPath)
+New-Item -ItemType Directory -Force -Path (Join-Path $SdkRoot "game\cstrike\bin") | Out-Null
+Write-Host "CS:S v34 source patched for CSSBC: bot brain, round events, MVP and core sources."
+ + "(Platform)'=='" + $configuration + "'"
+        $pch.SetAttribute("Condition", $condition)
         $pch.InnerText = "NotUsing"
         $item.AppendChild($pch) | Out-Null
     }
