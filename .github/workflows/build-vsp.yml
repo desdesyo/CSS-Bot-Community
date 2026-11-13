@@ -1,19 +1,23 @@
-name: Build CSSBC VSP (Win32)
+name: Build CSSBC native modules (Win32)
 
 on:
   push:
     branches: [sdk-foundation]
     paths:
-      - "sdk/dll/**"
+      - "src/**"
+      - "sdk/**"
+      - "tools/**"
       - ".github/workflows/build-vsp.yml"
   pull_request:
     paths:
-      - "sdk/dll/**"
+      - "src/**"
+      - "sdk/**"
+      - "tools/**"
       - ".github/workflows/build-vsp.yml"
   workflow_dispatch:
 
 jobs:
-  build:
+  build-vsp:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -28,15 +32,8 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $zip
           Expand-Archive -Path $zip -DestinationPath $dest -Force
           $root = Get-ChildItem $dest -Directory | Select-Object -First 1
-          $required = @(
-            "public\eiface.h",
-            "public\engine\iserverplugin.h",
-            "public\tier1\interface.h"
-          )
-          foreach ($file in $required) {
-            if (!(Test-Path (Join-Path $root.FullName $file))) {
-              throw "AlliedModders hl2sdk css checkout is missing $file"
-            }
+          foreach ($file in @("public\eiface.h","public\engine\iserverplugin.h","public\tier1\interface.h")) {
+            if (!(Test-Path (Join-Path $root.FullName $file))) { throw "SDK file missing: $file" }
           }
           "CSSBC_SOURCE_SDK=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
@@ -46,8 +43,9 @@ jobs:
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
           if errorlevel 1 exit /b 1
           msbuild sdk\dll\CSSBC_VSP.vcxproj /m /p:Configuration=Release /p:Platform=Win32 /p:CSSBC_SOURCE_SDK="%CSSBC_SOURCE_SDK%"
+          if errorlevel 1 exit /b 1
 
-      - name: Verify Win32 DLL
+      - name: Verify Win32 VSP DLL
         shell: pwsh
         run: |
           $dll = "sdk/dll/bin/CSSBC_VSP.dll"
@@ -56,14 +54,14 @@ jobs:
           if ($file.Length -le 0) { throw "Built DLL is empty" }
           Get-Item $dll | Format-List FullName,Length
 
-      - name: Upload compiled DLL
+      - name: Upload compiled VSP DLL
         uses: actions/upload-artifact@v4
         with:
           name: CSSBC-VSP-Win32
           path: sdk/dll/bin/CSSBC_VSP.dll
           if-no-files-found: error
 
-  probe-v34-gamedll-vpc:
+  build-v34-gamedll:
     runs-on: windows-2022
     steps:
       - name: Checkout CSSBC integration sources
@@ -86,31 +84,21 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\integrate-v34-gamedll.ps1" -CssbcRoot "$env:GITHUB_WORKSPACE\cssbc" -GameSourceRoot "$env:GITHUB_WORKSPACE\cssv34-source\src"
 
-      - name: Inspect native VPC generator without Python
+      - name: Prepare and inspect native VPC generator (no Python)
         shell: pwsh
         run: |
           Set-Location cssv34-source/src
-          # This source snapshot omits the optional DirectX proxy project group.
-          # VPC parses the global project catalog even for help, so provide an empty local stub.
           New-Item -ItemType Directory -Force utils\dx_proxy | Out-Null
           Set-Content utils\dx_proxy\dx_proxy_all.vgc "// CSSBC does not build the optional DirectX proxy tools."
           $help = & .\devtools\bin\vpc.exe /? 2>&1 | Out-String
           $help | Set-Content "$env:GITHUB_WORKSPACE\vpc-help.txt"
           Write-Host $help
-          Write-Host "VPC exit code: $LASTEXITCODE"
+          if ($LASTEXITCODE -ne 0) { throw "VPC help probe failed" }
 
-      - name: Upload VPC generator help
-        uses: actions/upload-artifact@v4
-        with:
-          name: CSSBC-VPC-Help
-          path: vpc-help.txt
-          if-no-files-found: error
       - name: Generate v34 GameDLL Visual Studio solution (no Python)
         shell: pwsh
         run: |
           Set-Location cssv34-source/src
-          New-Item -ItemType Directory -Force utils\dx_proxy | Out-Null
-          Set-Content utils\dx_proxy\dx_proxy_all.vgc "// CSSBC does not build the optional DirectX proxy tools."
           & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +server /mksln CSSBC_GameDLL.sln /f
           if ($LASTEXITCODE -ne 0) { throw "VPC failed to generate the GameDLL solution" }
           if (!(Test-Path CSSBC_GameDLL.sln)) { throw "VPC did not create CSSBC_GameDLL.sln" }
@@ -122,56 +110,7 @@ jobs:
       - name: Set C++17 and disable PCH for CSSBC translation units
         shell: pwsh
         run: |
-          $projectPath = "cssv34-source/src/game/server/server_cstrike.vcxproj"
-          [xml]$project = Get-Content -Raw $projectPath
-          $ns = $project.DocumentElement.NamespaceURI
-          $items = $project.SelectNodes("//*[local-name()='ClCompile' and @Include]")
-          foreach ($item in $items) {
-            $include = $item.GetAttribute("Include").Replace("/", "\")
-            $isCssbc = $include -match '^cssbc\\.*\.cpp      - name: Compile CS:S v34 server GameDLL with MSVC x86 (no Python)
-        shell: cmd
-        run: |
-          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
-          if errorlevel 1 exit /b 1
-          msbuild cssv34-source\src\game\server\server_cstrike.vcxproj /m /p:Configuration=Release /p:Platform=Win32
-          if errorlevel 1 exit /b 1
-
-      - name: Verify server GameDLL output
-        shell: pwsh
-        run: |
-          $dll = Get-ChildItem cssv34-source -Recurse -Filter server.dll | Where-Object { $_.Length -gt 0 } | Select-Object -First 1
-          if (!$dll) { throw "MSBuild did not produce server.dll" }
-          Write-Host "GameDLL: $($dll.FullName)"
-          Write-Host "Bytes: $($dll.Length)"
-          Copy-Item $dll.FullName "$env:GITHUB_WORKSPACE\server-v34-win32.dll" -Force
-
-      - name: Upload compiled CS:S v34 GameDLL
-        uses: actions/upload-artifact@v4
-        with:
-          name: CS-S-v34-GameDLL-Win32
-          path: server-v34-win32.dll
-          if-no-files-found: error
-
-            $isBotUpdate = $include -ieq 'cstrike\bot\cs_bot_update.cpp'
-            if ($isCssbc -or $isBotUpdate) {
-              $language = $item.SelectSingleNode("./*[local-name()='LanguageStandard']")
-              if (!$language) {
-                $language = $project.CreateElement("LanguageStandard", $ns)
-                [void]$item.AppendChild($language)
-              }
-              $language.InnerText = "stdcpp17"
-              if ($isCssbc) {
-                $pch = $item.SelectSingleNode("./*[local-name()='PrecompiledHeader']")
-                if (!$pch) {
-                  $pch = $project.CreateElement("PrecompiledHeader", $ns)
-                  [void]$item.AppendChild($pch)
-                }
-                $pch.InnerText = "NotUsing"
-              }
-            }
-          }
-          $project.Save((Resolve-Path $projectPath).Path)
-          Write-Host "Updated C++17 and per-file PCH settings for CSSBC GameDLL sources."
+          & "$env:GITHUB_WORKSPACE\cssbc\tools\patch-gamedll-project.ps1" -ProjectPath "cssv34-source/src/game/server/server_cstrike.vcxproj"
 
       - name: Upload generated GameDLL projects
         uses: actions/upload-artifact@v4
@@ -183,7 +122,8 @@ jobs:
             cssv34-source/src/game/server/*.vcxproj
             cssv34-source/src/game/server/*.vcxproj.filters
           if-no-files-found: warn
-      - name: Compile CS:S v34 server GameDLL with MSVC x86 (no Python)
+
+      - name: Compile CSSBC-integrated CS:S v34 GameDLL with MSVC x86 (no Python)
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
@@ -200,9 +140,9 @@ jobs:
           Write-Host "Bytes: $($dll.Length)"
           Copy-Item $dll.FullName "$env:GITHUB_WORKSPACE\server-v34-win32.dll" -Force
 
-      - name: Upload compiled CS:S v34 GameDLL
+      - name: Upload compiled CSSBC GameDLL
         uses: actions/upload-artifact@v4
         with:
-          name: CS-S-v34-GameDLL-Win32
+          name: CSSBC-v34-GameDLL-Win32
           path: server-v34-win32.dll
           if-no-files-found: error
