@@ -25,7 +25,7 @@ required payload files before invoking Inno Setup 6.
 
 The installer places the GameDLL at `cstrike\bin\server.dll`, the VSP at
 `cstrike\addons\cssbc\bin\CSSBC_VSP.dll`, and the VSP manifest in
-`cstrike\addons\plugin.vdf`. Before replacing an existing GameDLL it creates
+`cstrike\addons\cssbc.vdf`. Before replacing an existing GameDLL it creates
 `server.dll.cssbc-backup`; it never overwrites that first backup.
 
 ## If the game does not start
