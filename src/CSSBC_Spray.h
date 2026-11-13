@@ -9,7 +9,7 @@ struct SprayProfile {
  WeaponId id{}; std::string_view name;
  float kickScale=1.f, horizontalScale=1.f, recoveryPerSecond=8.f;
  float standingSpread=1.f, movingSpread=2.f, crouchSpread=.65f;
- uint8_t burstResetMs=260;
+ uint16_t burstResetMs=260;
  std::array<RecoilPoint,30> pattern{};
 };
 struct SprayState { uint8_t shot=0; float pitch=0.f,yaw=0.f,lastShotTime=0.f; bool initialized=false; };
