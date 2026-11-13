@@ -30,13 +30,12 @@ Support units currently use ordinary CS:S bot player slots. They are not yet sep
 
 ## Remaining integration work
 
-1. Verify the new server DLL loads in the user's exact non-Steam CS:S v34 build.
-2. Connect the rest of the CSSBC tactical model to bot perception, navigation, team memory and squad communication.
-3. Implement support NPC spawning for the $9k squad and $16k Juggernaut.
-4. Connect six armor plates to real hit regions, damage, break events and shared evidence.
-5. Bind support purchases to authoritative game money and team/dead-player state.
-6. Implement client HUD and VGUI panels; load Russian localization resources.
-7. Add models, materials, animations, soundscapes/voice lines and packaging.
-8. Test full round behavior, performance and low-spec operation.
+1. Verify the new server DLL loads and the support commands work in the user's exact non-Steam CS:S v34 build.
+2. Replace player-slot support bots with separate NPC entities if the design requires them not to consume team slots.
+3. Connect six armor plates to real hit regions, damage reduction, break events and shared evidence.
+4. Connect the rest of the CSSBC tactical model to bot perception, navigation, team memory, squad communication and objective decisions.
+5. Implement client HUD and VGUI panels; load Russian localization resources.
+6. Add models, materials, animations, soundscapes/voice lines and packaging.
+7. Test full round behavior, performance, team-capacity edge cases and low-spec operation.
 
 The first adapter is a foundation, not a claim that every planned behavior is finished.
