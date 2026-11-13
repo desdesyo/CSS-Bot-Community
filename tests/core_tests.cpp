@@ -2,6 +2,7 @@
 #include "CSSBC_SupportRoster.h"
 #include "CSSBC_TeamMemory.h"
 #include "CSSBC_Combat.h"
+#include "CSSBC_Spray.h"
 #include "CSSBC_CombatTeam.h"
 #include "CSSBC_Tactics.h"
 #include "CSSBC_Economy.h"
@@ -43,6 +44,14 @@ int main(){
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
+ // Per-weapon recoil is deterministic and differs between guns; recovery resets a burst.
+ SprayState akSpray{},m4Spray{};auto ak1=FireSpray(WeaponId::AK12,akSpray,1.f,false,false);
+ auto ak2=FireSpray(WeaponId::AK12,akSpray,1.08f,false,false);
+ SprayState m4State{};auto m41=FireSpray(WeaponId::M4Sopmod,m4State,1.f,false,false);
+ assert(ak1.shotIndex==0&&ak2.shotIndex==1&&m41.shotIndex==0);
+ assert(ak2.pitch>ak1.pitch&&ak2.pitch!=m41.pitch);
+ auto resetShot=FireSpray(WeaponId::AK12,akSpray,2.f,false,false);assert(resetShot.shotIndex==0);
+ assert(GetSprayProfile(WeaponId::MAC10).kickScale>GetSprayProfile(WeaponId::M4Sopmod).kickScale);
  CombatTeamBridge bridge;JuggernautArmor bridgedArmor;PlateLearning sharedLearn;
  auto br=bridge.OnHit(bridgedArmor,{7,9,Plate::RightArm,100.f,4.f},combat,sharedLearn,mem);
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
