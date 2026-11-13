@@ -46,6 +46,24 @@ public:
             CBasePlayer* attacker = UTIL_PlayerByUserId(event->GetInt("attacker"));
             if (attacker && attacker != victim) {
                 Record(attacker, victim, EventKind::Kill, 1.0f);
+                if (attacker->IsAlive() && victim) {
+                    int livingAllies = 0;
+                    int livingEnemies = 0;
+                    for (int i = 1; gpGlobals && i <= gpGlobals->maxClients; ++i) {
+                        CBasePlayer* player = UTIL_PlayerByIndex(i);
+                        if (!player || !player->IsAlive()) continue;
+                        if (player->GetTeamNumber() == attacker->GetTeamNumber())
+                            ++livingAllies;
+                        else if (player->GetTeamNumber() == TEAM_TERRORIST ||
+                                 player->GetTeamNumber() == TEAM_CT)
+                            ++livingEnemies;
+                    }
+                    // Last survivor who eliminates the final opponent gets a clutch entry.
+                    if (livingAllies == 1 && livingEnemies == 0) {
+                        Record(attacker, victim, EventKind::LastAliveClutch, 1.0f);
+                        awards_.Process({attacker->entindex(), round_, AwardTrigger::Clutch});
+                    }
+                }
                 if (event->GetInt("headshot", 0)) {
                     Record(attacker, victim, EventKind::Headshot, 1.0f);
                     awards_.Process({attacker->entindex(), round_, AwardTrigger::Headshot});
