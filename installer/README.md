@@ -1,7 +1,15 @@
-# CSSBC setup package (Inno Setup)
+# CSSBC setup package (Inno Setup 6)
 
-This produces a beginner-friendly Setup.exe once CSSBC_VSP.dll has been built.
-It installs the native VSP, backs up an existing plugin.vdf, and writes the loader manifest.
-It does NOT overwrite the game's server.dll.
+The GitHub Actions workflow builds `CSSBC_Setup.exe` after both Win32 binaries are built:
+- CSSBC v34 GameDLL -> `cstrike/bin/server.dll`
+- CSSBC VSP -> `cstrike/addons/cssbc/bin/CSSBC_VSP.dll`
+- VSP manifest -> `cstrike/addons/plugin.vdf`
+- diagnostics, log uploader, updater and version metadata
 
-Compile this script with Inno Setup 6. The output is CSSBC_Setup.exe.
+The installer validates that the selected folder contains `cstrike/gameinfo.txt`.
+Before replacing the GameDLL, it preserves the existing file as
+`cstrike/bin/server.dll.cssbc-backup` (only the first original copy is retained).
+
+The setup is compiled in CI from the artifacts produced by `build-vsp` and
+`build-v34-gamedll`. Do not compile it from a source checkout without first
+placing both binary artifacts in the expected payload locations.
