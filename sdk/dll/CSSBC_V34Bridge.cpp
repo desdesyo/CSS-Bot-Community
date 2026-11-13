@@ -15,7 +15,7 @@ BotResult ValidateRequest(const BotRequest* request) {
   if(length==0 || length>31) return BotResult::InvalidName;
   if(request->team!=Team::Terrorist && request->team!=Team::CounterTerrorist)
     return BotResult::InvalidTeam;
-  if(request->skill>100) return BotResult::InvalidName;
+  if(request->skill>100) return BotResult::InvalidSkill;
   return BotResult::Ok;
 }
 }
