@@ -8,7 +8,11 @@ $RecoveryRoot = Join-Path $env:LOCALAPPDATA 'CSSBC\GameRecovery'
 $InstallerPath = Join-Path $RecoveryRoot 'cssv34.exe'
 $HashPinPath = Join-Path $RecoveryRoot 'source-v34-installer.sha256'
 $script:Log = New-Object 'System.Collections.Generic.List[string]'
-function Log([string]$s) { $script:Log.Add(('{0}  {1}' -f (Get-Date -Format 'HH:mm:ss'),$s)) }
+function Log([string]$s) {
+    $line = ('{0}  {1}' -f (Get-Date -Format 'HH:mm:ss'),$s)
+    $script:Log.Add($line)
+    if ($script:ProgressLog) { Add-Content -LiteralPath $script:ProgressLog -Value $line -Encoding UTF8 }
+}
 function Get-PeMachine([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'MISSING' }
     $fs = [IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
@@ -75,6 +79,9 @@ function Get-FreeBytes([string]$Path) {
 }
 function Invoke-Recovery([string]$GameDir) {
     $script:Log = New-Object 'System.Collections.Generic.List[string]'
+    $script:ProgressLog = Join-Path $RecoveryRoot 'recovery-progress.log'
+    New-Item -ItemType Directory -Force -Path $RecoveryRoot | Out-Null
+    Set-Content -LiteralPath $script:ProgressLog -Value ('Started: ' + (Get-Date)) -Encoding UTF8
     $GameDir = [IO.Path]::GetFullPath($GameDir)
     $parent = Split-Path $GameDir -Parent
     if (-not (Test-Path -LiteralPath $parent -PathType Container)) { throw ('Parent folder missing: ' + $parent) }
@@ -111,10 +118,12 @@ function Invoke-Recovery([string]$GameDir) {
         Log 'Starting the v34 installer.'
         if ($inno) {
             $setupArgs = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR="' + $GameDir + '"'
-            $proc = Start-Process -FilePath $InstallerPath -ArgumentList $setupArgs -Wait -PassThru
+            $proc = Start-Process -FilePath $InstallerPath -ArgumentList $setupArgs -PassThru
+            if (-not $proc.WaitForExit(2700000)) { try { $proc.Kill() } catch {}; throw 'Installer timeout: 45 minutes. The old game will be restored.' }
         } else {
             Log ('Installer type is not recognized; its normal setup window will open. Select this target folder: ' + $GameDir)
-            $proc = Start-Process -FilePath $InstallerPath -Wait -PassThru
+            $proc = Start-Process -FilePath $InstallerPath -PassThru
+            if (-not $proc.WaitForExit(2700000)) { try { $proc.Kill() } catch {}; throw 'Installer timeout: 45 minutes. The old game will be restored.' }
         }
         Log ('Installer exit code: ' + $proc.ExitCode)
         if ($proc.ExitCode -ne 0) { throw ('Installer returned exit code ' + $proc.ExitCode) }
@@ -141,6 +150,26 @@ function Invoke-Recovery([string]$GameDir) {
     $script:Log | Set-Content -LiteralPath $report -Encoding UTF8
     return ($script:Log -join [Environment]::NewLine) + [Environment]::NewLine + ('Report: ' + $report)
 }
+# Run recovery on a worker thread so Windows Forms remains responsive.
+$script:ProgressLog = Join-Path $RecoveryRoot 'recovery-progress.log'
+$worker = New-Object ComponentModel.BackgroundWorker
+$worker.WorkerSupportsCancellation = $false
+$worker.add_DoWork({
+    param($sender,$e)
+    $e.Result = Invoke-Recovery ([string]$e.Argument)
+})
+$worker.add_RunWorkerCompleted({
+    param($sender,$e)
+    $run.Enabled = $true
+    $timer.Stop()
+    if ($e.Error) {
+        $out.AppendText([Environment]::NewLine + 'ERROR: ' + $e.Error.Exception.Message)
+        [Windows.Forms.MessageBox]::Show($e.Error.Exception.Message,'Recovery failed','OK','Error') | Out-Null
+    } else {
+        $out.Text = [string]$e.Result
+        [Windows.Forms.MessageBox]::Show('Recovery finished. The original folder is preserved as a backup.','CSS v34','OK','Information') | Out-Null
+    }
+})
 $form = New-Object Windows.Forms.Form
 $form.Text = 'Counter-Strike: Source v34 - Game Recovery'
 $form.Size = New-Object Drawing.Size(780,540)
@@ -177,21 +206,25 @@ $run.Text = 'Download and repair game'
 $run.Location = New-Object Drawing.Point(12,455)
 $run.Size = New-Object Drawing.Size(220,34)
 $run.Anchor = 'Bottom,Left'
+$timer = New-Object Windows.Forms.Timer
+$timer.Interval = 1000
+$timer.Add_Tick({
+    if (Test-Path -LiteralPath $script:ProgressLog) {
+        try { $out.Text = Get-Content -LiteralPath $script:ProgressLog -Raw -ErrorAction Stop; $out.SelectionStart = $out.TextLength; $out.ScrollToCaret() } catch {}
+    }
+})
 $run.Add_Click({
+    if ($worker.IsBusy) { return }
     $run.Enabled = $false
-    try {
-        $out.Text = 'Downloading installer and recovering v34. Do not close this window...'
-        $form.Refresh()
-        $out.Text = Invoke-Recovery $path.Text
-        [Windows.Forms.MessageBox]::Show('Recovery finished. The original folder is preserved as a backup.','CSS v34','OK','Information') | Out-Null
-    } catch {
-        $out.Text += [Environment]::NewLine + ('ERROR: ' + $_.Exception.Message)
-        [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Recovery failed','OK','Error') | Out-Null
-    } finally { $run.Enabled = $true }
+    $browse.Enabled = $false
+    $path.Enabled = $false
+    $out.Text = 'Starting recovery in background. This window should remain responsive.'
+    $worker.RunWorkerAsync($path.Text)
+    $timer.Start()
 })
 $form.Controls.Add($run)
 $note = New-Object Windows.Forms.Label
-$note.Text = 'The old game folder is preserved; rollback runs if validation fails. Third-party v34 source.'
+$note.Text = 'Background operation; log updates every second. Installer timeout: 45 minutes. Original folder is kept for rollback.'
 $note.Location = New-Object Drawing.Point(12,500)
 $note.AutoSize = $true
 $note.Anchor = 'Bottom,Left'
