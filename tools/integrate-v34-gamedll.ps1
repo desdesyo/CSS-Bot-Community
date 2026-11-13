@@ -19,6 +19,12 @@ $coreFiles = @(
     'CSSBC_Brain.cpp','CSSBC_Brain.h',
     'CSSBC_Economy.cpp','CSSBC_Economy.h',
     'CSSBC_Tactics.cpp','CSSBC_Tactics.h',
+    'CSSBC_Mind.cpp','CSSBC_Mind.h',
+    'CSSBC_Juggernaut.cpp','CSSBC_Juggernaut.h',
+    'CSSBC_MVP.cpp','CSSBC_MVP.h',
+    'CSSBC_System.cpp','CSSBC_System.h',
+    'CSSBC_SupportRoster.cpp','CSSBC_SupportRoster.h',
+    'CSSBC_Awards.cpp','CSSBC_Awards.h',
     'CSSBC_Types.h'
 )
 foreach ($file in $coreFiles) {
@@ -97,4 +103,4 @@ Set-Content -Path $tier0Vpc -Value $tier0Text -Encoding utf8NoBOM
 Write-Host 'CSSBC GameDLL overlay applied:'
 $coreFiles | ForEach-Object { Write-Host ("  cssbc\" + $_) }
 Write-Host '  cs_bot_update.cpp: OnBotUpdate hook'
-Write-Host '  server_cstrike.vpc: 4 additional translation units + STEAM_API_NODLL'
+Write-Host '  server_cstrike.vpc: 10 CSSBC translation units + STEAM_API_NODLL'
