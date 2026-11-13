@@ -31,7 +31,7 @@ try{
   proc.stdin.write(JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"})+"\n");
  const tools=await rpc("tools/list");
  const names=tools.tools.map(t=>t.name);
- for(const name of ["map_generate_district","map_add_box","map_add_spawn","map_inspect"])assert(names.includes(name),name+" missing");
+ for(const name of ["map_generate_district","map_add_box","map_add_spawn","map_inspect","map_add_stairs","map_add_window_wall","map_add_roof"])assert(names.includes(name),name+" missing");
  await rpc("tools/call",{name:"map_generate_district",arguments:{name:"CI_District",overwrite:true,blockSize:1024,floors:2}});
  await rpc("tools/call",{name:"map_add_spawn",arguments:{name:"CI_District",origin:[300,300,8],team:"ct"}});
  const vmf=await readFile(path.join(tmp,"maps","ModernDistrict","CI_District.vmf"),"utf8");
@@ -47,5 +47,15 @@ try{
  assert(vmf.includes('"classname" "info_player_terrorist"'),"T spawn missing at VMF root");
  const ids=[...vmf.matchAll(/"id"\s+"(\d+)"/g)].map(m=>m[1]);
  assert.equal(new Set(ids).size,ids.length,"all VMF IDs must be unique");
- console.log("PASS: MCP RPC, district generation, spawn insertion, VMF counts and structure");
+ const cli=spawn(process.execPath,[new URL("../generate.mjs",import.meta.url).pathname,"CI_CLI"],{cwd:new URL("..",import.meta.url).pathname,env:{...process.env,CSSBC_MAP_ROOT:tmp},stdio:["ignore","pipe","pipe"]});
+ let cliOut="",cliErr="";
+ cli.stdout.on("data",b=>cliOut+=b.toString());
+ cli.stderr.on("data",b=>cliErr+=b.toString());
+ const cliCode=await new Promise((resolve,reject)=>{cli.on("error",reject);cli.on("exit",resolve);const timer=setTimeout(()=>{cli.kill();reject(Error("CLI generator timed out"));},15000);timer.unref();});
+ assert.equal(cliCode,0,"CLI generator failed: "+cliErr);
+ assert(cliOut.includes("CI_CLI.vmf"),"CLI did not report generated VMF path");
+ const cliVmf=await readFile(path.join(tmp,"maps","ModernDistrict","CI_CLI.vmf"),"utf8");
+ assert(cliVmf.includes('"classname" "worldspawn"'));
+ assert.equal((cliVmf.match(/\\n\\s*solid\\s*\\{/g)||[]).length,32);
+ console.log("PASS: MCP RPC, all tools, root-level entities, unique IDs and one-command CLI generation");
 }finally{proc.kill();await rm(tmp,{recursive:true,force:true});}
