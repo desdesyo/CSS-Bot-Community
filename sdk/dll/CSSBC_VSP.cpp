@@ -1,0 +1,61 @@
+// CSSBC v34 native Valve Server Plugin entry point.
+// Compile against Source SDK 2006 public headers (Win32).
+#include "interface.h"
+#include "eiface.h"
+#include "iserverplugin.h"
+#include <windows.h>
+#include <cstdio>
+
+namespace {
+class CSSBCServerPlugin final : public IServerPluginCallbacks {
+public:
+    bool Load(CreateInterfaceFn engineFactory, CreateInterfaceFn gameServerFactory) override {
+        engineFactory_ = engineFactory;
+        gameServerFactory_ = gameServerFactory;
+        engine_ = static_cast<IVEngineServer*>(engineFactory_(INTERFACEVERSION_VENGINESERVER, nullptr));
+        if (!engine_) return false;
+        engine_->LogPrint("[CSSBC] Native v34 plugin loaded; SDK bridge online.\n");
+        return true;
+    }
+    void Unload() override {
+        if (engine_) engine_->LogPrint("[CSSBC] Plugin unloaded.\n");
+        engine_ = nullptr;
+    }
+    void Pause() override {}
+    void UnPause() override {}
+    const char* GetPluginDescription() override {
+        return "CSS Bot Community - native CS:S v34 bootstrap";
+    }
+    void LevelInit(char const* mapName) override {
+        if (engine_) { char msg[256]; std::snprintf(msg,sizeof(msg),"[CSSBC] LevelInit: %s\n",mapName?mapName:"(unknown)"); engine_->LogPrint(msg); }
+    }
+    void ServerActivate(edict_t*, int, int) override {}
+    void GameFrame(bool) override {}
+    void LevelShutdown() override { if(engine_) engine_->LogPrint("[CSSBC] LevelShutdown\n"); }
+    void ClientActive(edict_t*) override {}
+    void ClientDisconnect(edict_t*) override {}
+    void ClientPutInServer(edict_t*, char const*) override {}
+    void SetCommandClient(int) override {}
+    void ClientSettingsChanged(edict_t*) override {}
+    PLUGIN_RESULT ClientConnect(bool*, edict_t*, const char*, const char*, char*, int) override { return PLUGIN_CONTINUE; }
+    PLUGIN_RESULT ClientCommand(edict_t*, const CCommand&) override { return PLUGIN_CONTINUE; }
+    PLUGIN_RESULT NetworkIDValidated(const char*, const char*) override { return PLUGIN_CONTINUE; }
+    void OnQueryCvarValueFinished(QueryCvarCookie_t, edict_t*, EQueryCvarValueStatus, const char*, const char*) override {}
+    void OnEdictAllocated(edict_t*) override {}
+    void OnEdictFreed(const edict_t*) override {}
+private:
+    CreateInterfaceFn engineFactory_{};
+    CreateInterfaceFn gameServerFactory_{};
+    IVEngineServer* engine_{};
+};
+CSSBCServerPlugin g_plugin;
+}
+
+extern "C" __declspec(dllexport) void* CreateInterface(const char* name, int* returnCode) {
+    if (name && std::strcmp(name, INTERFACEVERSION_ISERVERPLUGIN)==0) {
+        if(returnCode) *returnCode=IFACE_OK;
+        return static_cast<IServerPluginCallbacks*>(&g_plugin);
+    }
+    if(returnCode) *returnCode=IFACE_FAILED;
+    return nullptr;
+}
