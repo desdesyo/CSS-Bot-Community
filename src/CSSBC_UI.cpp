@@ -11,30 +11,67 @@ MenuModel MenuController::Build(MenuPage page,bool connected,bool hasLastSetup) 
   if(hasLastSetup)add("resume","ПРОДОЛЖИТЬ",MenuAction::ResumeLastSetup);
   add("cssbc","CSS BOT COMMUNITY",MenuAction::OpenCSSBC);add("settings","НАСТРОЙКИ",MenuAction::OpenSettings);
   add("extras","ДОПОЛНИТЕЛЬНО",MenuAction::OpenExtras);add("servers","СПИСОК СЕРВЕРОВ",MenuAction::OpenServerBrowser);
-  if(connected)add("disconnect","ОТКЛЮЧИТЬСЯ",MenuAction::Disconnect);break;
- case MenuPage::Play:add("new_match","НАЧАТЬ МАТЧ",MenuAction::OpenNewMatch);add("servers","СПИСОК СЕРВЕРОВ",MenuAction::OpenServerBrowser);add("back","НАЗАД",MenuAction::Back);break;
- case MenuPage::NewMatch:add("start","НАЧАТЬ",MenuAction::OpenNewMatch);add("back","НАЗАД",MenuAction::Back);break;
- case MenuPage::CSSBC:add("mvp","MVP / РЕЙТИНГ",MenuAction::OpenMVP);add("bots","НАСТРОЙКИ БОТОВ",MenuAction::OpenBotSettings);add("weapons","ОРУЖИЕ / БАЛАНС",MenuAction::OpenWeaponSettings);add("maps","КАРТЫ / ГРАФИКА",MenuAction::OpenMapSettings);add("back","НАЗАД",MenuAction::Back);break;\n case MenuPage::MVP:add("back","НАЗАД",MenuAction::Back);break;\n case MenuPage::BotSettings:case MenuPage::WeaponSettings:case MenuPage::MapSettings:add("apply","ПРИМЕНИТЬ",MenuAction::ApplySettings);add("back","НАЗАД",MenuAction::Back);break;
- case MenuPage::Settings:add("back","BACK",MenuAction::Back);break;
- case MenuPage::Extras:add("back","BACK",MenuAction::Back);break;
- case MenuPage::ServerBrowser:add("connect","ПОДКЛЮЧИТЬСЯ",MenuAction::Connect);add("back","BACK",MenuAction::Back);break;
+  if(connected)add("disconnect","ОТКЛЮЧИТЬСЯ",MenuAction::Disconnect);
+  break;
+ case MenuPage::Play:
+  add("new_match","НАЧАТЬ МАТЧ",MenuAction::OpenNewMatch);add("servers","СПИСОК СЕРВЕРОВ",MenuAction::OpenServerBrowser);add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::NewMatch:
+  add("start","НАЧАТЬ",MenuAction::OpenNewMatch);add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::CSSBC:
+  add("mvp","MVP / РЕЙТИНГ",MenuAction::OpenMVP);add("bots","НАСТРОЙКИ БОТОВ",MenuAction::OpenBotSettings);add("weapons","ОРУЖИЕ / БАЛАНС",MenuAction::OpenWeaponSettings);add("maps","КАРТЫ / ГРАФИКА",MenuAction::OpenMapSettings);add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::MVP:
+  add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::BotSettings:
+ case MenuPage::WeaponSettings:
+ case MenuPage::MapSettings:
+  add("apply","ПРИМЕНИТЬ",MenuAction::ApplySettings);add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::Settings:
+  add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::Extras:
+  add("back","НАЗАД",MenuAction::Back);
+  break;
+ case MenuPage::ServerBrowser:
+  add("connect","ПОДКЛЮЧИТЬСЯ",MenuAction::Connect);add("back","НАЗАД",MenuAction::Back);
+  break;
  }
  return m;
 }
 MenuPage MenuController::Navigate(MenuPage current,MenuAction a) const {
- switch(a){case MenuAction::OpenPlay:return MenuPage::Play;case MenuAction::OpenNewMatch:return MenuPage::NewMatch;
- case MenuAction::OpenCSSBC:return MenuPage::CSSBC;case MenuAction::OpenSettings:return MenuPage::Settings;
- case MenuAction::OpenExtras:return MenuPage::Extras;case MenuAction::OpenServerBrowser:return MenuPage::ServerBrowser;case MenuAction::OpenMVP:return MenuPage::MVP;case MenuAction::OpenBotSettings:return MenuPage::BotSettings;case MenuAction::OpenWeaponSettings:return MenuPage::WeaponSettings;case MenuAction::OpenMapSettings:return MenuPage::MapSettings;
- case MenuAction::Back:return MenuPage::Main;default:return current;}
+ switch(a){
+ case MenuAction::OpenPlay:return MenuPage::Play;
+ case MenuAction::OpenNewMatch:return MenuPage::NewMatch;
+ case MenuAction::OpenCSSBC:return MenuPage::CSSBC;
+ case MenuAction::OpenSettings:return MenuPage::Settings;
+ case MenuAction::OpenExtras:return MenuPage::Extras;
+ case MenuAction::OpenServerBrowser:return MenuPage::ServerBrowser;
+ case MenuAction::OpenMVP:return MenuPage::MVP;
+ case MenuAction::OpenBotSettings:return MenuPage::BotSettings;
+ case MenuAction::OpenWeaponSettings:return MenuPage::WeaponSettings;
+ case MenuAction::OpenMapSettings:return MenuPage::MapSettings;
+ case MenuAction::Back:return MenuPage::Main;
+ default:return current;
+ }
 }
-std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries){auto out=entries;std::stable_sort(out.begin(),out.end(),[](const MVPEntry&a,const MVPEntry&b){return a.score>b.score;});return out;}\nHudView BuildHud(const HudSnapshot&s,const HudConfig&c){
+std::vector<MVPEntry> RankMVP(const std::vector<MVPEntry>& entries){
+ auto out=entries;
+ std::stable_sort(out.begin(),out.end(),[](const MVPEntry&a,const MVPEntry&b){return a.score>b.score;});
+ return out;
+}
+HudView BuildHud(const HudSnapshot&s,const HudConfig&c){
  HudView v; auto clamp=[](int x){return std::max(0,x);};
  if(c.showHealth)v.health="ЗДОРОВЬЕ "+std::to_string(clamp(s.health));
  if(c.showArmor)v.armor="БРОНЯ "+std::to_string(clamp(s.armor));
  if(c.showAmmo)v.ammo=std::to_string(clamp(s.clip))+" / "+std::to_string(clamp(s.reserve));
  if(c.showMoney)v.money="$"+std::to_string(clamp(s.money));
- if(c.showTeam)v.team="В СТРОЮ "+std::to_string(clamp(s.aliveTeammates))+" · ПОГИБЛИ "+std::to_string(clamp(s.deadTeammates))+"";
+ if(c.showTeam)v.team="В СТРОЮ "+std::to_string(clamp(s.aliveTeammates))+" · ПОГИБЛИ "+std::to_string(clamp(s.deadTeammates));
  if(s.hasJuggernaut)v.juggernaut="ГРОМИЛА: ПЛАСТИНЫ "+std::to_string(std::clamp(s.juggernautPlatesIntact,0,6))+"/6";
- v.message=s.contextualMessage;return v;
+ v.message=s.contextualMessage;
+ return v;
 }
 }
