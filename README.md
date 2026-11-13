@@ -23,7 +23,7 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 - Support tiers: $1k / $3k / $9k squad / $16k Juggernaut (NPC support tiers are design targets; squad spawning is not implemented).
 - Juggernaut purchase and health configuration.
 - Six individually damageable armor plates (core/design stage; not wired to CS:S player entities).
-- Personality traits and probabilistic callout trust.
+- Tactical decision brain (bomb retake, trade, escort, retreat, objective push/rotate) with squad role orders.\n- Personality traits and probabilistic callout trust.
 - Evidence-weighted weak-plate selection (no omniscient knowledge).
 - Retreat probability, cover reward and MVP event scoring.
 
