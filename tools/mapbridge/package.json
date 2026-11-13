@@ -4,7 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Local MCP bridge for procedural Counter-Strike: Source VMF map authoring",
-  "scripts": { "start": "node src/server.mjs" },
-  "dependencies": { "@modelcontextprotocol/sdk": "^1.12.0", "zod": "^3.24.2" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "start": "node src/server.mjs",
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
