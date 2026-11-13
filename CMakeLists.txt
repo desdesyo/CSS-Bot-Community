@@ -17,6 +17,11 @@ add_test(NAME cssbc_core_tests COMMAND cssbc_tests)
 add_test(NAME cssbc_ui_tests COMMAND cssbc_ui_tests)
 
 # SDK-independent animation runtime regression tests
+add_executable(cssbc_v34_bridge_tests tests/v34_bridge_tests.cpp sdk/dll/CSSBC_V34Bridge.cpp)
+target_include_directories(cssbc_v34_bridge_tests PRIVATE sdk/dll)
+add_test(NAME cssbc_v34_bridge_tests COMMAND cssbc_v34_bridge_tests)
+
+# SDK-independent animation runtime regression tests
 add_executable(cssbc_animation_tests tests/animation_tests.cpp)
 target_include_directories(cssbc_animation_tests PRIVATE sdk/server)
 enable_testing()
