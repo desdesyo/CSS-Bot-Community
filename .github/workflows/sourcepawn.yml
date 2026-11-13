@@ -27,7 +27,7 @@ jobs:
       - name: Compile CSSBC plugin
         run: |
           chmod +x smdist/addons/sourcemod/scripting/spcomp
-          sourcemod/addons/sourcemod/scripting/spcomp \
+          smdist/addons/sourcemod/scripting/spcomp \
             -i smdist/addons/sourcemod/scripting/include \
             sourcemod/scripting/cssbc.sp \
             -o cssbc.smx
