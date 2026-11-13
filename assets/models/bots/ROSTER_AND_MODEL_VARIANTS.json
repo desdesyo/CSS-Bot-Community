@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "game": "Counter-Strike: Source v34",
+  "model_policy": "Distinct silhouettes and equipment per character; team readability must remain clear at distance; no pay-to-win hitbox variation.",
+  "counts": {
+    "base": {
+      "terrorists": 6,
+      "counter_terrorists": 6
+    },
+    "support_groups": {
+      "group1": {
+        "terrorists": 2,
+        "counter_terrorists": 2
+      },
+      "group2": {
+        "terrorists": 3,
+        "counter_terrorists": 3
+      },
+      "group3": {
+        "terrorists": 4,
+        "counter_terrorists": 4
+      }
+    },
+    "juggernaut": {
+      "count": 1,
+      "team": "configurable"
+    },
+    "totals": {
+      "terrorists": 15,
+      "counter_terrorists": 15,
+      "support_total": 12,
+      "base_total": 12,
+      "plus_juggernaut": 1
+    }
+  },
+  "team_visuals": {
+    "T": {
+      "palette": [
+        "sand",
+        "olive",
+        "dark brown"
+      ],
+      "silhouette": "irregular civilian/tactical layers, scarves, soft caps, mixed backpacks"
+    },
+    "CT": {
+      "palette": [
+        "navy",
+        "charcoal",
+        "steel blue"
+      ],
+      "silhouette": "uniform tactical armor, helmets, plate carriers, clear shoulder patches"
+    },
+    "support_marking": "Group-specific small arm patch/stripe; never rely only on color",
+    "juggernaut": "oversized armored silhouette, reinforced vest/helmet, unique readable outline; movement/health rules remain gameplay config"
+  },
+  "characters": [
+    {
+      "id": "T_base_1",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_scarf"
+    },
+    {
+      "id": "T_base_2",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_hood"
+    },
+    {
+      "id": "T_base_3",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_cap"
+    },
+    {
+      "id": "T_base_4",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_vest"
+    },
+    {
+      "id": "T_base_5",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_radio"
+    },
+    {
+      "id": "T_base_6",
+      "team": "T",
+      "role": "base",
+      "model_variant": "t_civilian_pack"
+    },
+    {
+      "id": "CT_base_1",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_helmet_a"
+    },
+    {
+      "id": "CT_base_2",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_helmet_b"
+    },
+    {
+      "id": "CT_base_3",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_goggles"
+    },
+    {
+      "id": "CT_base_4",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_heavy_vest"
+    },
+    {
+      "id": "CT_base_5",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_radio"
+    },
+    {
+      "id": "CT_base_6",
+      "team": "CT",
+      "role": "base",
+      "model_variant": "ct_operator_breacher"
+    },
+    {
+      "id": "T_support_g1_1",
+      "team": "T",
+      "role": "support",
+      "group": 1,
+      "model_variant": "t_support_g1_v1"
+    },
+    {
+      "id": "T_support_g1_2",
+      "team": "T",
+      "role": "support",
+      "group": 1,
+      "model_variant": "t_support_g1_v2"
+    },
+    {
+      "id": "T_support_g2_1",
+      "team": "T",
+      "role": "support",
+      "group": 2,
+      "model_variant": "t_support_g2_v1"
+    },
+    {
+      "id": "T_support_g2_2",
+      "team": "T",
+      "role": "support",
+      "group": 2,
+      "model_variant": "t_support_g2_v2"
+    },
+    {
+      "id": "T_support_g2_3",
+      "team": "T",
+      "role": "support",
+      "group": 2,
+      "model_variant": "t_support_g2_v3"
+    },
+    {
+      "id": "T_support_g3_1",
+      "team": "T",
+      "role": "support",
+      "group": 3,
+      "model_variant": "t_support_g3_v1"
+    },
+    {
+      "id": "T_support_g3_2",
+      "team": "T",
+      "role": "support",
+      "group": 3,
+      "model_variant": "t_support_g3_v2"
+    },
+    {
+      "id": "T_support_g3_3",
+      "team": "T",
+      "role": "support",
+      "group": 3,
+      "model_variant": "t_support_g3_v3"
+    },
+    {
+      "id": "T_support_g3_4",
+      "team": "T",
+      "role": "support",
+      "group": 3,
+      "model_variant": "t_support_g3_v4"
+    },
+    {
+      "id": "CT_support_g1_1",
+      "team": "CT",
+      "role": "support",
+      "group": 1,
+      "model_variant": "ct_support_g1_v1"
+    },
+    {
+      "id": "CT_support_g1_2",
+      "team": "CT",
+      "role": "support",
+      "group": 1,
+      "model_variant": "ct_support_g1_v2"
+    },
+    {
+      "id": "CT_support_g2_1",
+      "team": "CT",
+      "role": "support",
+      "group": 2,
+      "model_variant": "ct_support_g2_v1"
+    },
+    {
+      "id": "CT_support_g2_2",
+      "team": "CT",
+      "role": "support",
+      "group": 2,
+      "model_variant": "ct_support_g2_v2"
+    },
+    {
+      "id": "CT_support_g2_3",
+      "team": "CT",
+      "role": "support",
+      "group": 2,
+      "model_variant": "ct_support_g2_v3"
+    },
+    {
+      "id": "CT_support_g3_1",
+      "team": "CT",
+      "role": "support",
+      "group": 3,
+      "model_variant": "ct_support_g3_v1"
+    },
+    {
+      "id": "CT_support_g3_2",
+      "team": "CT",
+      "role": "support",
+      "group": 3,
+      "model_variant": "ct_support_g3_v2"
+    },
+    {
+      "id": "CT_support_g3_3",
+      "team": "CT",
+      "role": "support",
+      "group": 3,
+      "model_variant": "ct_support_g3_v3"
+    },
+    {
+      "id": "CT_support_g3_4",
+      "team": "CT",
+      "role": "support",
+      "group": 3,
+      "model_variant": "ct_support_g3_v4"
+    }
+  ],
+  "asset_requirements": {
+    "per_character": "unique model variant or a shared rig with unique bodygroup/skin + equipment combination; unique name/icon; team-safe silhouette",
+    "source": "SMD/DMX + QC; compile MDL using Source SDK studiomdl",
+    "runtime": "models/cssbc/bots/<team>/<model>.mdl",
+    "materials": "materials/models/cssbc/bots/... VTF/VMT; shared atlases where possible",
+    "validation": [
+      "all models compile",
+      "no missing materials",
+      "consistent origin/feet and collision bounds",
+      "animation sequence names match bot animation controller",
+      "LOD or low-poly distant variant",
+      "T/CT recognisable at 20-30m",
+      "no hitbox advantage from cosmetic variation"
+    ]
+  },
+  "weapons": {
+    "principle": "upgrade models and materials without changing weapon balance or attachment compatibility",
+    "common": [
+      "clean high-poly source -> game-ready low-poly mesh",
+      "baked normal/AO into texture where supported",
+      "shared 512/1024 atlases",
+      "metal roughness represented in albedo/spec workflow",
+      "muzzle, magazine, stock and hand alignment checked"
+    ],
+    "qa": [
+      "viewmodel and worldmodel alignment",
+      "weapon attachment points",
+      "reload/fire/inspect animations",
+      "silhouette and team lighting readability",
+      "VTF mipmaps and no texture shimmer",
+      "polygon budget and draw calls"
+    ]
+  }
+}
