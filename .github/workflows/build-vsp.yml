@@ -123,6 +123,16 @@ jobs:
             cssv34-source/src/game/server/*.vcxproj.filters
           if-no-files-found: warn
 
+      - name: Stage the pinned x86 ftol3 linker object
+        shell: pwsh
+        run: |
+          $source = "cssv34-source/src/lib/win32/x86/ftol3.obj"
+          $target = "cssv34-source/src/lib/public/ftol3.obj"
+          if (!(Test-Path $source)) { throw "Pinned x86 ftol3.obj is missing: $source" }
+          New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+          Copy-Item $source $target -Force
+          Write-Host "Staged $source -> $target"
+
       - name: Compile CSSBC-integrated CS:S v34 GameDLL with MSVC x86 (no Python)
         shell: cmd
         run: |
