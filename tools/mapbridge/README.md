@@ -18,6 +18,10 @@ MapBridge is an assistant-facing MCP server and procedural VMF authoring tool fo
 
 ## Remote MCP bridge (new)
 
+**Windows quick start:** double-click `Start-MapBridge-Remote.cmd`. It checks Node.js, installs dependencies if needed, generates a fresh 256-bit bearer token and starts the authenticated MCP HTTP server on localhost. Copy the token shown in that window into your trusted remote MCP client's Bearer authentication settings. Keep the window open.
+
+To make the endpoint reachable outside your PC, install `cloudflared` and double-click `Open-MapBridge-Tunnel.cmd` in a second window. It prints a temporary HTTPS URL; append `/mcp` to use it as the remote MCP endpoint. Both windows must remain open. The quick-tunnel URL changes after restart.
+
 MapBridge can expose the same tools over authenticated Streamable HTTP. It binds to localhost by default; it does not open your PC to the LAN or internet.
 
 Start it in PowerShell:
