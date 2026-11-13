@@ -22,6 +22,10 @@ A central cross boulevard, sidewalks and outer circulation loop connect the dist
 
 These markers are map anchors only; bot destination scoring, line-of-sight checks, nav-area links and flee/re-hide behavior still need implementation and in-game testing.
 
+## Bot navigation metadata
+
+Structured metadata is stored in `CSSBC_MapMetadata.json`: four landmark anchors, twelve hide-pocket anchors, district bounds, and explicit pending states for nav/visibility validation. The VMF validation workflow cross-checks every metadata targetname against the actual VMF entities. These are navigation anchors, not a generated `.nav` mesh or finished bot AI.
+
 ## Automated VMF checks
 
 Current geometry inventory:
@@ -29,7 +33,7 @@ Current geometry inventory:
 - 190 world brushes; each has six sides.
 - 27 entities, including 4 T spawns and 4 CT spawns.
 - 1,358 unique VMF IDs.
-- Four landmark markers and twelve hide-pocket markers.
+- Four landmark markers and twelve hide-pocket markers, cross-checked against `CSSBC_MapMetadata.json`.
 - Balanced VMF braces; all brushes belong to worldspawn.
 
 GitHub Actions validation workflow: [Validate Modern District VMF](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/map-vmf-validation.yml).
