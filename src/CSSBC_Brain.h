@@ -30,6 +30,6 @@ public:
  Traits& Personality(){return traits_;}
  const Traits& Personality()const{return traits_;}
 private:
- Traits traits_;BotRole role_;int lastRound_=-1;int lastBadDecisionRound_=-1,lastAfkRound_=-1;
+ Traits traits_;BotRole role_;int lastRound_=-1;int lastBadDecisionRound_=-1,lastAfkRound_=-1,lastSuicideRound_=-1,lastTeamKillRound_=-1,lastRewardRound_=-1;
 };
 }
