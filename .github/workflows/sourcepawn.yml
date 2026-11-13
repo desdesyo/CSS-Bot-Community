@@ -29,12 +29,20 @@ jobs:
           chmod +x smdist/addons/sourcemod/scripting/spcomp
           smdist/addons/sourcemod/scripting/spcomp \
             -i smdist/addons/sourcemod/scripting/include \
-            sourcemod/scripting/cssbc.sp \
-            -o cssbc.smx
+            sourcemod/scripting/cssbc.sp -o cssbc.smx
           test -s cssbc.smx
 
-      - name: Upload compiled plugin
+      - name: Compile Smart Bots Overhaul prototype
+        run: |
+          smdist/addons/sourcemod/scripting/spcomp \
+            -i smdist/addons/sourcemod/scripting/include \
+            sourcemod/scripting/smartbots_overhaul.sp -o smartbots_overhaul.smx
+          test -s smartbots_overhaul.smx
+
+      - name: Upload compiled plugins
         uses: actions/upload-artifact@v4
         with:
-          name: cssbc-sourcemod-plugin
-          path: cssbc.smx
+          name: cssbc-sourcemod-prototypes
+          path: |
+            cssbc.smx
+            smartbots_overhaul.smx
