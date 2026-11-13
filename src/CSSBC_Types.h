@@ -6,7 +6,7 @@
 namespace cssbc {
 enum class SupportTier:uint8_t{Recon1000,Tactical3000,Squad9000,Juggernaut16000};
 enum class Plate:uint8_t{Helmet,Chest,LeftArm,RightArm,LeftLeg,RightLeg,Count};
-enum class EventKind:uint8_t{Damage,PlateCracked,PlateBroken,Callout,Death,BombAction,Rescue,CoverFire,SupportBought};
+enum class EventKind:uint8_t{Damage,PlateCracked,PlateBroken,Callout,Death,BombAction,Rescue,CoverFire,SupportBought, Kill, Headshot, Assist, ObjectivePlant, ObjectiveDefuse, Trade, SaveTeammate, GrenadeImpact, LastAliveClutch};
 struct Traits{float courage=.5f,trust=.5f,teamwork=.5f,discipline=.5f,independence=.5f,adaptability=.5f;};
 struct PlateState{float integrity=1.f;bool broken=false;float exposure=0.f;};
 struct MemoryEntry{EventKind kind{};int actor=-1,target=-1;Plate plate=Plate::Chest;float confidence=.5f,time=0.f;std::string message;};
