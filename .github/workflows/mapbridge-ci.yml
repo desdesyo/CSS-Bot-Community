@@ -24,6 +24,7 @@ jobs:
       - name: Syntax checks
         run: |
           node --check src/server.mjs
+          node --check test/smoke.mjs
           node --check generate.mjs
           node --check test/smoke.mjs
         working-directory: tools/mapbridge
