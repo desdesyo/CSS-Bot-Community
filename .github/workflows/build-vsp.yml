@@ -99,7 +99,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location cssv34-source/src
-          & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +choreoobjects +dmxloader +mathlib +server /mksln CSSBC_GameDLL.sln /f
+          & .\devtools\bin\vpc.exe /cstrike /win32 /2019 +choreoobjects +dmxloader +mathlib +particles +server /mksln CSSBC_GameDLL.sln /f
           if ($LASTEXITCODE -ne 0) { throw "VPC failed to generate the GameDLL solution" }
           if (!(Test-Path CSSBC_GameDLL.sln)) { throw "VPC did not create CSSBC_GameDLL.sln" }
           $projects = Get-ChildItem -Recurse -Filter *.vcxproj | Select-Object -ExpandProperty FullName
@@ -155,6 +155,14 @@ jobs:
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
           if errorlevel 1 exit /b 1
           msbuild cssv34-source\src\mathlib\mathlib.vcxproj /m /p:Configuration=Release /p:Platform=Win32
+          if errorlevel 1 exit /b 1
+
+      - name: Build the required particles static library
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86
+          if errorlevel 1 exit /b 1
+          msbuild cssv34-source\src\particles\particles.vcxproj /m /p:Configuration=Release /p:Platform=Win32
           if errorlevel 1 exit /b 1
 
       - name: Compile CSSBC-integrated CS:S v34 GameDLL with MSVC x86 (no Python)
