@@ -1,7 +1,7 @@
 [Setup]
 AppId={{B1E7B7D0-ACB4-4E2A-9C5D-340000000002}
 AppName=CSS Bot Community (v34)
-AppVersion=0.1.1
+AppVersion=0.2.0
 DefaultDirName={code:GetGameDir}
 DisableDirPage=no
 DirExistsWarning=no
@@ -23,7 +23,7 @@ Source: "..\tools\diagnostics\Collect-CSSBC.ps1"; DestDir: "{app}\cstrike\addons
 [Icons]
 Name: "{group}\CSSBC — Collect diagnostics"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\diagnostics\Collect-CSSBC.ps1"" -GameDir ""{app}"" -OpenFolder"; WorkingDir: "{app}"
 
-[Code]
+[Icons]\nName: "{group}\\CSSBC — Configure log upload"; Filename: "{sys}\\WindowsPowerShell\\v1.0\\powershell.exe"; Parameters: "-NoExit -NoProfile -ExecutionPolicy Bypass -File ""{app}\\cstrike\\addons\\cssbc\\tools\\Upload-Logs.ps1"""; WorkingDir: "{app}"\nName: "{group}\\CSSBC — Check updates"; Filename: "{sys}\\WindowsPowerShell\\v1.0\\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\\cstrike\\addons\\cssbc\\tools\\Update-CSSBC.ps1"" -GameDir ""{app}"""; WorkingDir: "{app}"\n\n[Run]\nFilename: "{cmd}"; Parameters: "/C schtasks /Create /TN CSSBC-LogUploader /SC ONLOGON /TR ""powershell.exe -NoProfile -ExecutionPolicy Bypass -File \\ ""{app}\\cstrike\\addons\\cssbc\\tools\\Upload-Logs.ps1"" "" /F"; Flags: runhidden postinstall; StatusMsg: "Registering automatic log uploader..."\n\n[Code]
 function GetGameDir(Param: string): string;
 begin
   if DirExists('C:\Games\Counter-Strike Source v34') then
