@@ -1,0 +1,9 @@
+"LightmappedGeneric"
+{
+ "$basetexture" "cssbc/arena/stone_wall"
+ "$surfaceprop" "brick"
+ "$detail" "detail/detailsprites"
+ "$detailscale" "4"
+ "$detailblendmode" "0"
+ "$detailblendfactor" "0.06"
+}
