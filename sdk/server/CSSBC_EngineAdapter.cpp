@@ -1,11 +1,13 @@
 #include "cbase.h"
 #include "cs_gamerules.h"
 #include "cs_bot.h"
+#include "cs_bot_manager.h"
 #include "CSSBC_EngineAdapter.h"
 #include "CSSBC_Brain.h"
 #include "CSSBC_Economy.h"
 #include "CSSBC_MVP.h"
 #include "CSSBC_Awards.h"
+#include "CSSBC_SupportRoster.h"
 #include "igameevents.h"
 #include "util.h"
 #include <array>
@@ -116,6 +118,52 @@ private:
 };
 CSSBCEventBridge g_events;
 
+bool SpawnSupportRoster(int team, SupportTier tier) {
+    SupportRoster roster;
+    if (!roster.Deploy(tier) || !TheCSBots()) return false;
+    int spawnedCount = 0;
+    for (const SupportUnit& unit : roster.Units()) {
+        std::array<bool, kPlayerSlots> existed{};
+        for (int i = 1; i < kPlayerSlots; ++i)
+            existed[i] = dynamic_cast<CCSBot*>(UTIL_PlayerByIndex(i)) != nullptr;
+
+        const CSWeaponType weaponType =
+            unit.role == SupportRole::Sniper ? WEAPONTYPE_SNIPER_RIFLE : WEAPONTYPE_RIFLE;
+        if (!TheCSBots()->BotAddCommand(team, true, nullptr, weaponType, BOT_HARD))
+            break;
+
+        CCSBot* created = nullptr;
+        for (int i = 1; i < kPlayerSlots; ++i) {
+            CCSBot* candidate = dynamic_cast<CCSBot*>(UTIL_PlayerByIndex(i));
+            if (candidate && !existed[i] && candidate->GetTeamNumber() == team) {
+                created = candidate;
+                break;
+            }
+        }
+        if (!created) break;
+
+        const int slot = created->entindex();
+        InitializePersonality(slot);
+        if (unit.role == SupportRole::Sniper) {
+            g_brains[slot].SetRole(BotRole::Sniper);
+        } else if (unit.role == SupportRole::Assault) {
+            g_brains[slot].SetRole(BotRole::Support);
+        } else {
+            g_brains[slot].SetRole(BotRole::Anchor);
+            Traits& traits = g_brains[slot].Personality();
+            traits.courage = 0.95f;
+            traits.teamwork = 0.85f;
+            traits.discipline = 0.90f;
+            created->SetMaxHealth(unit.health);
+            created->SetHealth(unit.health);
+        }
+        ++spawnedCount;
+    }
+    Msg("[CSSBC] Support deployment: %d/%d units created for team %d.\\n",
+        spawnedCount, static_cast<int>(roster.Units().size()), team);
+    return spawnedCount == static_cast<int>(roster.Units().size());
+}
+
 void InitializePersonality(int slot) {
     // Stable per-slot personality: bots do not all make identical risk decisions.
     Traits traits{};
@@ -193,4 +241,27 @@ void PrintRoundMVP() {
 CON_COMMAND_F(cssbc_mvp, "Show CSS Bot Community MVP standings for the current round.", FCVAR_GAMEDLL)
 {
     cssbc::sdk::PrintRoundMVP();
+}
+
+CON_COMMAND_F(cssbc_spawn_support, "Test-spawn CSSBC support bots: cssbc_spawn_support <tier 0-3> <t|ct>.", FCVAR_GAMEDLL)
+{
+    if (args.ArgC() < 3) {
+        Msg("Usage: cssbc_spawn_support <tier 0-3> <t|ct>\\n");
+        return;
+    }
+    const int tierValue = atoi(args.Arg(1));
+    if (tierValue < 0 || tierValue > 3) {
+        Msg("[CSSBC] Tier must be 0, 1, 2 or 3.\\n");
+        return;
+    }
+    int team = TEAM_UNASSIGNED;
+    if (!Q_stricmp(args.Arg(2), "t") || !Q_stricmp(args.Arg(2), "2"))
+        team = TEAM_TERRORIST;
+    else if (!Q_stricmp(args.Arg(2), "ct") || !Q_stricmp(args.Arg(2), "3"))
+        team = TEAM_CT;
+    if (team == TEAM_UNASSIGNED) {
+        Msg("Team must be t or ct.\\n");
+        return;
+    }
+    cssbc::sdk::SpawnSupportRoster(team, static_cast<cssbc::SupportTier>(tierValue));
 }
