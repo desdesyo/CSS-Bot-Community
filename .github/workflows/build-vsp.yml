@@ -263,7 +263,7 @@ jobs:
 
   build-installer:
     runs-on: windows-2022
-    needs: [build-vsp]
+    needs: [build-vsp, build-v34-gamedll]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -274,6 +274,32 @@ jobs:
         with:
           name: CSSBC-VSP-Win32
           path: sdk/dll/bin
+
+      - name: Download compiled v34 GameDLL
+        uses: actions/download-artifact@v4
+        with:
+          name: CSSBC-v34-GameDLL-Win32
+          path: installer/payload
+
+      - name: Verify complete installer payload
+        shell: pwsh
+        run: |
+          $required = @(
+            "installer/payload/server-v34-win32.dll",
+            "sdk/dll/bin/CSSBC_VSP.dll",
+            "sdk/dll/plugin.vdf",
+            "sdk/dll/README_V34_BOOTSTRAP.md",
+            "tools/diagnostics/Collect-CSSBC.ps1",
+            "tools/log-collector/Upload-Logs.ps1",
+            "tools/updater/Update-CSSBC.ps1",
+            "tools/log-collector/Register-LogTask.ps1",
+            "installer/version.txt"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path $file)) { throw "Installer input is missing: $file" }
+            if ((Get-Item $file).Length -le 0) { throw "Installer input is empty: $file" }
+          }
+          Write-Host "All installer payload files are present."
 
       - name: Install Inno Setup compiler
         shell: pwsh
