@@ -50,7 +50,21 @@ $vpcText = Get-Content -Raw $vpcFile
 # The no-Steam compatibility object is linked statically into server.dll.
 # Prevent Steam headers from emitting __imp__ imports for steam_api.dll.
 if ($vpcText -notmatch 'STEAM_API_NODLL') {
-    $definitionPattern = [regex]'(?m)^(\s*\$PreprocessorDefinitions\s+")([^"\r\n]*)(".*)
+    $definitionPattern = [regex]'(?m)^(\s*\$PreprocessorDefinitions\s+")([^"\r\n]*)(".*)$'
+    if (!$definitionPattern.IsMatch($vpcText)) {
+        throw 'server_cstrike.vpc preprocessor definitions anchor not found'
+    }
+    $vpcText = $definitionPattern.Replace($vpcText, {
+        param($m)
+        $definitions = $m.Groups[2].Value
+        if ($definitions -notmatch '(^|;)STEAM_API_NODLL($|;)') {
+            $definitions += ';STEAM_API_NODLL'
+        }
+        return $m.Groups[1].Value + $definitions + $m.Groups[3].Value
+    }, 1)
+}
+
+if ($vpcText -notmatch '\$Folder\s+"CSS Bot Community"') {
     $lastBrace = $vpcText.LastIndexOf('}')
     if ($lastBrace -lt 0) { throw 'Could not find final server_cstrike.vpc project brace' }
     $folder = @'
@@ -124,4 +138,4 @@ Set-Content -Path $tier0Vpc -Value $tier0Text -Encoding utf8NoBOM
 Write-Host 'CSSBC GameDLL overlay applied:'
 $coreFiles | ForEach-Object { Write-Host ("  cssbc\" + $_) }
 Write-Host '  cs_bot_update.cpp: OnBotUpdate hook'
-Write-Host '  server_cstrike.vpc: 4 additional translation units'
+Write-Host '  server_cstrike.vpc: 4 additional translation units + STEAM_API_NODLL'
