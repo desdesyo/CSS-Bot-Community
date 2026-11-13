@@ -8,15 +8,25 @@ on:
   pull_request:
     paths:
       - "tools/mapbridge/**"
+      - ".github/workflows/mapbridge-ci.yml"
+  workflow_dispatch:
 jobs:
-  syntax:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - name: Install dependencies
+        run: npm install
         working-directory: tools/mapbridge
-      - run: node --check src/server.mjs
+      - name: Syntax checks
+        run: |
+          node --check src/server.mjs
+          node --check generate.mjs
+          node --check test/smoke.mjs
+        working-directory: tools/mapbridge
+      - name: MCP end-to-end smoke test
+        run: npm test
         working-directory: tools/mapbridge
