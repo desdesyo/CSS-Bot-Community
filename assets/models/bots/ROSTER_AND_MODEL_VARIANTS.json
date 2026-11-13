@@ -285,5 +285,31 @@
       "VTF mipmaps and no texture shimmer",
       "polygon budget and draw calls"
     ]
+  },
+  "model_upgrade": {
+    "weapons": {
+      "goal": "Modern realistic models/materials without gameplay balance changes",
+      "pipeline": [
+        "low-poly game mesh",
+        "baked normal/AO",
+        "shared 512/1024 atlases",
+        "view/world model alignment",
+        "attachment and animation QA",
+        "VTF mipmaps",
+        "polygon and draw-call budget"
+      ]
+    },
+    "bot_models": {
+      "count": "15 T + 15 CT variants plus 1 Juggernaut",
+      "per_character": "distinct model or bodygroup/skin/equipment combination",
+      "source": "SMD/DMX + QC -> Source SDK studiomdl -> MDL",
+      "optimization": [
+        "shared material atlases",
+        "LOD/distance models",
+        "equal hitboxes for cosmetic variants",
+        "same feet/origin and animation skeleton",
+        "T/CT recognizable silhouette at 20–30m"
+      ]
+    }
   }
 }
