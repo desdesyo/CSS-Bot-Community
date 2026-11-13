@@ -50,9 +50,10 @@ function insertWorld(vmf,parts){
 }
 function insertEntities(vmf,parts){
  if(!parts.length)return vmf;
- const end=vmf.lastIndexOf("}");
- if(end<0)throw Error("VMF root closing brace not found");
- return vmf.slice(0,end)+parts.join("\n")+"\n"+vmf.slice(end);
+ const world=vmf.match(/world\s*\{[\s\S]*?\n\}/);
+ if(!world)throw Error("VMF world block not found");
+ const end=world.index+world[0].length;
+ return vmf.slice(0,end)+"\n"+parts.join("\n")+"\n"+vmf.slice(end);
 }
 function appendObjects(vmf,solids,entities=[]){
  return insertEntities(insertWorld(vmf,solids),entities);
