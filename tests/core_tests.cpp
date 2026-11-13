@@ -11,6 +11,8 @@
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
 #include "CSSBC_MeleeCombat.h"
+#include "CSSBC_MVP.h"
+#include "CSSBC_Awards.h"
 #include <cassert>
 #include <limits>
 #include <cmath>
@@ -39,6 +41,19 @@ int main(){
  assert(s.CanPurchase(SupportTier::Squad9000,9000,0));
  JuggernautArmor armor;assert(!armor.ApplyHit(Plate::Chest,.4f));assert(armor.ApplyHit(Plate::Chest,.7f));assert(armor.Get(Plate::Chest).broken);
  s.MVP().Add(3,EventKind::Rescue,5);assert(s.MVP().Get(3)==11);
+ // Live-match MVP ledger: event attribution remains after a player dies.
+ MVPScore roundMvp;
+ assert(roundMvp.Record(4,9,EventKind::Kill,1.f,12,35.f));
+ assert(roundMvp.Record(4,15,EventKind::Headshot,1.f,9,36.f));
+ assert(roundMvp.Record(4,21,EventKind::GrenadeImpact,2.f,9,37.f));
+ assert(!roundMvp.Record(5,9,EventKind::Kill,1.f,12,38.f));
+ auto leaders=roundMvp.Rank({9,15,21},3);
+ assert(leaders.size()==3&&leaders[0].player==9&&leaders[1].player==15);
+ AwardEngine awards;
+ auto firstBlood=awards.Process({9,4,AwardTrigger::Kill});
+ assert(firstBlood.size()==1&&awards.XP(9)==20&&awards.MapScore(9)==100);
+ auto penalty=awards.Process({9,4,AwardTrigger::TeamKill});
+ assert(penalty.size()==1&&penalty[0].money==-300&&awards.MapScore(9)==-200);
  assert(s.RetreatProbability(Traits{},1,3,0)<s.RetreatProbability(Traits{},.2f,0,1));
  assert(s.CoverReward(4,2)==16);
  SupportRoster roster;assert(roster.Deploy(SupportTier::Squad9000));assert(roster.Units().size()==4);assert(roster.IsAutonomous());
