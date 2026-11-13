@@ -101,6 +101,6 @@ jobs:
           path: |
             build/*.bsp
             build/*.log
-            maps/ModernDistrict/\${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.vmf
+            maps/ModernDistrict/${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.vmf
           if-no-files-found: warn
           retention-days: 30
