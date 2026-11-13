@@ -84,6 +84,14 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\cssbc\tools\integrate-v34-gamedll.ps1" -CssbcRoot "$env:GITHUB_WORKSPACE\cssbc" -GameSourceRoot "$env:GITHUB_WORKSPACE\cssv34-source\src"
 
+      - name: Restore the omitted vstdlib OS version source from Source SDK
+        shell: pwsh
+        run: |
+          $url = "https://raw.githubusercontent.com/SourceSDK2013Ports/csgo-src/4b7aae3911442e6fe2c647ec014168b11825cc02/src/vstdlib/osversion.cpp"
+          $target = "cssv34-source/src/vstdlib/osversion.cpp"
+          Invoke-WebRequest -Uri $url -OutFile $target
+          if (!(Test-Path $target)) { throw "vstdlib/osversion.cpp was not restored" }
+
       - name: Prepare and inspect native VPC generator (no Python)
         shell: pwsh
         run: |
