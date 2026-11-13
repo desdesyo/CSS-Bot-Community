@@ -30,5 +30,11 @@ int main(){
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
+ TacticalBrain brain(Traits{.courage=.8f,.trust=.5f,.teamwork=.8f,.discipline=.7f});
+ TacticalInput ti{};ti.teammatesAlive=3;ti.enemiesAlive=4;ti.hasEnemySight=true;
+ auto td=brain.Decide(ti);assert(td.goal==BotGoal::Attack&&td.order==BotOrder::Push);
+ assert(brain.SquadOrder(ti,SquadRole::Support)==BotOrder::Cover);
+ ti.bombPlanted=true;ti.secondsLeft=8.f;assert(brain.Decide(ti).order==BotOrder::Push);
+ ti.bombPlanted=false;ti.hasEnemySight=false;ti.lowAmmo=true;ti.health=20;assert(brain.Decide(ti).goal==BotGoal::Retreat);
  std::cout<<"CSSBC core tests: PASS\n";
 }
