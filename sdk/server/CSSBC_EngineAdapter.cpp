@@ -4,7 +4,12 @@
 #include "CSSBC_EngineAdapter.h"
 #include "CSSBC_Brain.h"
 #include "CSSBC_Economy.h"
+#include "CSSBC_MVP.h"
+#include "CSSBC_Awards.h"
+#include "igameevents.h"
+#include "util.h"
 #include <array>
+#include <vector>
 
 namespace cssbc::sdk {
 namespace {
@@ -12,6 +17,86 @@ constexpr int kPlayerSlots = 65;
 std::array<BotBrain, kPlayerSlots> g_brains{};
 std::array<bool, kPlayerSlots> g_initialized{};
 Economy g_economy{};
+
+class CSSBCEventBridge final : public IGameEventListener2 {
+public:
+    void EnsureRegistered() {
+        if (registered_ || !gameeventmanager) return;
+        static const char* events[] = {
+            "round_start", "player_death", "bomb_planted",
+            "bomb_defused", "hostage_rescued"
+        };
+        bool any = false;
+        for (const char* name : events)
+            any = gameeventmanager->AddListener(this, name, true) || any;
+        registered_ = any;
+    }
+
+    void FireGameEvent(IGameEvent* event) override {
+        if (!event) return;
+        const char* name = event->GetName();
+        if (!name) return;
+        if (!Q_stricmp(name, "round_start")) {
+            ++round_;
+            mvp_.Reset();
+            return;
+        }
+        if (!Q_stricmp(name, "player_death")) {
+            CBasePlayer* victim = UTIL_PlayerByUserId(event->GetInt("userid"));
+            CBasePlayer* attacker = UTIL_PlayerByUserId(event->GetInt("attacker"));
+            if (attacker && attacker != victim) {
+                Record(attacker, victim, EventKind::Kill, 1.0f);
+                if (event->GetInt("headshot", 0)) {
+                    Record(attacker, victim, EventKind::Headshot, 1.0f);
+                    awards_.Process({attacker->entindex(), round_, AwardTrigger::Headshot});
+                }
+                awards_.Process({attacker->entindex(), round_, AwardTrigger::Kill});
+            }
+            CBasePlayer* assister = UTIL_PlayerByUserId(event->GetInt("assister"));
+            if (assister && assister != attacker && assister != victim) {
+                Record(assister, victim, EventKind::Assist, 1.0f);
+                awards_.Process({assister->entindex(), round_, AwardTrigger::Assist});
+            }
+            return;
+        }
+        if (!Q_stricmp(name, "bomb_planted")) {
+            AwardObjective(event, AwardTrigger::BombPlant, EventKind::ObjectivePlant);
+        } else if (!Q_stricmp(name, "bomb_defused")) {
+            AwardObjective(event, AwardTrigger::BombDefuse, EventKind::ObjectiveDefuse);
+        } else if (!Q_stricmp(name, "hostage_rescued")) {
+            AwardObjective(event, AwardTrigger::Rescue, EventKind::Rescue);
+        }
+    }
+
+    std::vector<MVPEntry> Rank() const {
+        std::vector<int> roster;
+        if (!gpGlobals) return {};
+        for (int i = 1; i <= gpGlobals->maxClients; ++i)
+            if (UTIL_PlayerByIndex(i)) roster.push_back(i);
+        return mvp_.Rank(roster, 5);
+    }
+
+private:
+    void Record(CBasePlayer* actor, CBasePlayer* target, EventKind kind, float value) {
+        if (!actor) return;
+        mvp_.Record(round_, actor->entindex(), kind, value,
+                    target ? target->entindex() : -1,
+                    gpGlobals ? gpGlobals->curtime : 0.0f);
+    }
+
+    void AwardObjective(IGameEvent* event, AwardTrigger trigger, EventKind kind) {
+        CBasePlayer* actor = UTIL_PlayerByUserId(event->GetInt("userid"));
+        if (!actor) return;
+        Record(actor, nullptr, kind, 1.0f);
+        awards_.Process({actor->entindex(), round_, trigger});
+    }
+
+    bool registered_ = false;
+    int round_ = 0;
+    MVPScore mvp_{};
+    AwardEngine awards_{};
+};
+CSSBCEventBridge g_events;
 
 void InitializePersonality(int slot) {
     // Stable per-slot personality: bots do not all make identical risk decisions.
@@ -35,6 +120,7 @@ float g_nextTacticalTick[kPlayerSlots]{};
 }
 
 void OnBotUpdate(CCSBot* bot) {
+    g_events.EnsureRegistered();
     if (!bot || !bot->IsAlive() || !gpGlobals) return;
 
     const int slot = bot->entindex();
@@ -76,4 +162,17 @@ void OnBotUpdate(CCSBot* bot) {
         bot->TryToHide(bot->GetLastKnownArea(), 1.0f, 600.0f, false);
     }
 }
+void PrintRoundMVP() {
+    const auto leaders = g_events.Rank();
+    Msg("[CSSBC] Current round MVP standings:\\n");
+    for (std::size_t i = 0; i < leaders.size(); ++i)
+        Msg("  #%d player %d - %.2f points\\n",
+            static_cast<int>(i + 1), leaders[i].player, leaders[i].score);
+}
+
+}
+
+CON_COMMAND_F(cssbc_mvp, "Show CSS Bot Community MVP standings for the current round.", FCVAR_GAMEDLL)
+{
+    cssbc::sdk::PrintRoundMVP();
 }
