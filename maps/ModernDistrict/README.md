@@ -1,43 +1,49 @@
 # CSSBC Modern District (CS:S v34)
 
-## Generated graybox
+## Current graybox
 
 **File:** `CSSBC_ExpandedDistrict.vmf`
 
-The expanded VMF blockout covers a 4096×4096 Source-unit play area and contains:
+The expanded map covers a 4096×4096 Source-unit play area with four connected sectors:
 
-- Four connected sectors: industrial yard, residential blocks, modern office blocks, and greenbelt/drainage.
-- A central cross boulevard, sidewalks, and an outer circulation loop.
-- Hollow building shells with ground-floor door openings.
-- Warehouse/loading-yard cover, courtyard garages, crates, bridge/drainage structures, and a central combat plaza.
-- Four T spawns on the west side and four CT spawns on the east side.
-- Basic sunlight and distance fog entities.
+- Industrial yard with warehouse/loading area and a smokestack landmark.
+- Residential blocks and courtyards with an elevated water tower landmark.
+- Modern office blocks and a lit storefront landmark.
+- Greenbelt/drainage area with a bridge landmark.
 
-## Automated checks
+A central cross boulevard, sidewalks and outer circulation loop connect the districts. The map includes hollow building shells, loading-yard cover, courtyard garages, crates, a central combat plaza and four T / four CT spawn points.
 
-- 128 world brushes, 10 entities and 907 unique VMF IDs.
-- Every brush has six sides; all brushes are contained in worldspawn.
-- Four T spawns, four CT spawns and a sunlight entity are present.
-- Braces and block structure validated.
-- GitHub Actions VMF validation passed: [run #43485173283](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/43485173283).
+## Search / escape spaces
 
-The map-builder workflow now defaults to `CSSBC_ExpandedDistrict`. If legitimate CS:S game content is not supplied to the runner, BSP compilation is skipped rather than failing on a missing `cstrike/gameinfo.txt`; the source VMF is still uploaded as an artifact. Latest source artifact: [CSSBC-Map-CSSBC_ExpandedDistrict-12](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/43485332522).
+- 12 L-shaped hide/search pockets distributed across all four districts.
+- Each pocket is open on two sides to avoid a sealed safe room.
+- Every pocket has a named `info_target` marker (`hide_pocket_01` … `hide_pocket_12`) for later CSSBC bot metadata integration.
+- Four named landmark targets (`landmark_smokestack`, `landmark_water_tower`, `landmark_storefront`, `landmark_bridge`) provide navigation references.
 
-## Build and playtest status
+These markers are map anchors only; bot destination scoring, line-of-sight checks, nav-area links and flee/re-hide behavior still need implementation and in-game testing.
 
-**Not yet a compiled or playable BSP.** The VMF structural checks passed, but VBSP/VVIS/VRAD and in-game testing have not run because the GitHub runner does not have licensed CS:S game content. A source VMF artifact is available from the latest map-builder run.
+## Automated VMF checks
 
-Remaining checks once game content is available:
+Current geometry inventory:
 
-- Hammer load and VBSP leak/solid validation.
-- VVIS and VRAD compilation.
-- Spawn collision and doorway clearance checks.
-- Nav mesh generation and bot route verification.
-- Ten-minute hunt/search playtest across all four districts.
+- 190 world brushes; each has six sides.
+- 27 entities, including 4 T spawns and 4 CT spawns.
+- 1,358 unique VMF IDs.
+- Four landmark markers and twelve hide-pocket markers.
+- Balanced VMF braces; all brushes belong to worldspawn.
 
-## Next geometry pass
+GitHub Actions validation workflow: [Validate Modern District VMF](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/map-vmf-validation.yml).
 
-- Add the four navigation landmarks: smokestack, water tower, lit storefront and bridge landmark.
-- Add 12–16 reachable hide/search pockets with multiple exits or meaningful risk.
-- Check the loop A↔B↔D↔C↔A and the two central cross-links.
-- Replace temporary brush cover with final props and themed materials.
+## Compile / playtest status
+
+**Not yet a compiled or playable BSP.** VMF structure and map anchors are validated, but Hammer loading, VBSP leak checks, VVIS/VRAD, nav mesh generation and in-game testing are not yet verified.
+
+The map-builder workflow defaults to `CSSBC_ExpandedDistrict`. If legitimate CS:S game content is unavailable on the runner, BSP compilation is skipped and the source VMF is still uploaded as an artifact. A successful source-artifact upload is not a BSP compile.
+
+## Next implementation steps
+
+1. Open/compile the VMF with matching CS:S v34 tools and resolve any invalid materials, solids or leaks.
+2. Build and connect a nav mesh through all districts, entrances and hide pockets.
+3. Add CSSBC map metadata for cover, landmarks, search zones and regroup points.
+4. Test bot escape, breaking line of sight, re-hiding and regrouping.
+5. Replace temporary brush geometry with final props/materials and run a ten-minute hunt/search playtest.
