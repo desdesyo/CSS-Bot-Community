@@ -18,7 +18,7 @@ RestartApplications=no
 ; Install the GameDLL first. Preserve the original game DLL exactly once.
 Source: "payload\server-v34-win32.dll"; DestDir: "{app}\cstrike\bin"; DestName: "server.dll"; Flags: ignoreversion; BeforeInstall: BackupOriginalServer
 Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin"; Flags: ignoreversion
-Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
+Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 Source: "..\tools\diagnostics\Collect-CSSBC.ps1"; DestDir: "{app}\cstrike\addons\cssbc\diagnostics"; Flags: ignoreversion
 Source: "..\tools\log-collector\Upload-Logs.ps1"; DestDir: "{app}\cstrike\addons\cssbc\tools"; Flags: ignoreversion
