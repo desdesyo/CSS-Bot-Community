@@ -35,18 +35,18 @@ ${faces.map((f,i)=>`  side
    "rotation" "0"
    "lightmapscale" "16"
    "smoothing_groups" "0"
-  }`).join("\\n")}
+  }`).join("\n")}
  }`;
 }
 function entity(id,classname,kv={}){return `entity
 {
  "id" "${id}"
  "classname" "${esc(classname)}"
-${Object.entries(kv).map(([k,v])=>` "${esc(k)}" "${esc(v)}"`).join("\\n")}
+${Object.entries(kv).map(([k,v])=>` "${esc(k)}" "${esc(v)}"`).join("\n")}
 }`;}
 function insertWorld(vmf,parts){
  const m=vmf.match(/world\\s*\\{[\\s\\S]*?\\n\\}/);if(!m)throw Error("VMF world block not found");
- return vmf.replace(m[0],m[0].slice(0,-1)+"\\n"+parts.join("\\n")+"\\n}");
+ return vmf.replace(m[0],m[0].slice(0,-1)+"\\n"+parts.join("\n")+"\\n}");
 }
 function header(){return `versioninfo
 {
