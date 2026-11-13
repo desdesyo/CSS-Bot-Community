@@ -10,5 +10,6 @@ void OnPlayerDeath(IGameEvent* event);
 void OnBombPlanted(IGameEvent* event);
 void OnBombDefused(IGameEvent* event);
 void OnHostageRescuedAll(IGameEvent* event);
+void OnBotCreated(CCSBot* bot);
 void TickBot(CCSBot* bot);
 }
