@@ -16,7 +16,7 @@ constexpr std::array<RecoilPoint,30> smg{{
 P(.62f,0),P(.7f,-.3f),P(.78f,-.5f),P(.86f,-.25f),P(.92f,.25f),P(.98f,.55f),P(1.04f,.2f),P(1.1f,-.35f),P(1.16f,-.65f),P(1.22f,-.3f),
 P(1.28f,.35f),P(1.34f,.7f),P(1.4f,.25f),P(1.46f,-.4f),P(1.52f,-.75f),P(1.58f,-.35f),P(1.64f,.4f),P(1.7f,.8f),P(1.76f,.3f),P(1.82f,-.45f),
 P(1.88f,-.8f),P(1.94f,-.3f),P(2.f,.45f),P(2.06f,.85f),P(2.12f,.35f),P(2.18f,-.5f),P(2.24f,-.9f),P(2.3f,-.35f),P(2.36f,.5f),P(2.42f,.9f)}};
-SprayProfile make(WeaponId id,std::string_view name,float k,float h,float rec,float stand,float move,float crouch,uint8_t reset,const std::array<RecoilPoint,30>&pat){
+SprayProfile make(WeaponId id,std::string_view name,float k,float h,float rec,float stand,float move,float crouch,uint16_t reset,const std::array<RecoilPoint,30>&pat){
  SprayProfile p{id,name,k,h,rec,stand,move,crouch,reset,{}};p.pattern=pat;return p;
 }
 const std::array<SprayProfile,(size_t)WeaponId::Count> profiles{{
