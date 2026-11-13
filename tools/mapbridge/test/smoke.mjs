@@ -37,9 +37,14 @@ try{
  assert(vmf.includes('"classname" "worldspawn"'));
  assert(vmf.includes('"classname" "info_player_counterterrorist"'));
  assert(vmf.includes('"classname" "info_player_terrorist"'));
- assert.equal((vmf.match(/\n\s*solid\s*\{/g)||[]).length,24);
+ assert.equal((vmf.match(/\n\s*solid\s*\{/g)||[]).length,32);
  assert.equal((vmf.match(/\n\s*entity\s*\{/g)||[]).length,3);
  const world=vmf.match(/world\s*\{[\s\S]*?\n\}/)?.[0]||"";
- assert(world.includes('"classname" "info_player_counterterrorist"'),"spawn must be inside world block");
+ assert(!world.includes('"classname" "info_player_counterterrorist"'),"spawn entity must not be nested in worldspawn");
+ assert(!world.includes('"classname" "info_player_terrorist"'),"spawn entity must not be nested in worldspawn");
+ assert(vmf.includes('"classname" "info_player_counterterrorist"'),"CT spawn missing at VMF root");
+ assert(vmf.includes('"classname" "info_player_terrorist"'),"T spawn missing at VMF root");
+ const ids=[...vmf.matchAll(/"id"\s+"(\d+)"/g)].map(m=>m[1]);
+ assert.equal(new Set(ids).size,ids.length,"all VMF IDs must be unique");
  console.log("PASS: MCP RPC, district generation, spawn insertion, VMF counts and structure");
 }finally{proc.kill();await rm(tmp,{recursive:true,force:true});}
