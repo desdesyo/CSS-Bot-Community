@@ -1,0 +1,30 @@
+name: Validate Modern District VMF
+on:
+  push:
+    branches: [sdk-foundation]
+    paths:
+      - "maps/ModernDistrict/*.vmf"
+      - "tools/map-validation/**"
+      - ".github/workflows/map-vmf-validation.yml"
+  pull_request:
+    paths:
+      - "maps/ModernDistrict/*.vmf"
+      - "tools/map-validation/**"
+      - ".github/workflows/map-vmf-validation.yml"
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate VMF structure and gameplay essentials
+        run: node tools/map-validation/validate-vmf.mjs maps/ModernDistrict/CSSBC_ExpandedDistrict.vmf
+      - name: Preserve source VMF as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-ModernDistrict-VMF
+          path: maps/ModernDistrict/CSSBC_ExpandedDistrict.vmf
+          retention-days: 30
