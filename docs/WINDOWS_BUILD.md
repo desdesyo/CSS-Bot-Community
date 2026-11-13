@@ -2,14 +2,15 @@
 
 ## Main CS:S v34 server build
 
-1. Install Visual Studio 2022 with **Desktop development with C++** and CMake tools.
+1. Install Visual Studio 2022 with **Desktop development with C++**.
 2. Double-click **`BUILD_CSSBC.bat`**.
-3. The script builds/tests the portable C++ core, downloads the pinned CS:S v34 source into the ignored `external\cssv34-sdk` folder, applies the CSSBC bot/MVP adapter, and builds the native Win32 server DLL.
+3. The script runs the portable CMake tests if CMake/CTest are installed, downloads the pinned CS:S v34 source into the ignored `external\cssv34-sdk` folder, applies the CSSBC bot/support/MVP adapter, and builds the native Win32 server DLL.
 4. The result is `dist\Server.dll`.
 5. Double-click **`INSTALL_CSSBC.bat`** to copy it to `C:\Games\Counter-Strike Source v34\cstrike\bin\server.dll`. The original is backed up as `server.dll.cssbc-backup`.
 6. To revert, double-click **`RESTORE_STOCK_SERVER.bat`**.
 
-The installer assumes the game path above. If the game is installed elsewhere, edit `GAME_DIR` in `INSTALL_CSSBC.bat`.
+Git is not required. The batch file uses PowerShell to download the pinned upstream archive. CMake is optional for the local build because the native server project compiles the CSSBC sources directly. If the game is installed elsewhere, edit `GAME_DIR` in `INSTALL_CSSBC.bat`.
+
 
 ## Optional VSP build
 
