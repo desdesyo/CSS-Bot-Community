@@ -41,4 +41,8 @@ struct GameDllApi {
 // CreateInterface registry. VSP must resolve it from the server GameDLL,
 // validate ABI/size, and never call engine CreateFakeClient as a substitute.
 static constexpr const char* kInterfaceName = "CSSBC_V34_GAME_DLL_001";
+
+// ABI and request validation shared by the VSP adapter and tests.
+BotResult ValidateApi(const GameDllApi* api);
+BotResult ValidateRequest(const BotRequest* request);
 }
