@@ -7,13 +7,16 @@ DisableDirPage=no
 DirExistsWarning=no
 OutputDir=.
 OutputBaseFilename=CSSBC_Setup
-ArchitecturesInstallIn64BitMode=
 PrivilegesRequired=admin
 Uninstallable=no
 WizardStyle=modern
 SetupLogging=yes
+CloseApplications=yes
+RestartApplications=no
 
 [Files]
+; Install the GameDLL first. Preserve the original game DLL exactly once.
+Source: "payload\server-v34-win32.dll"; DestDir: "{app}\cstrike\bin"; DestName: "server.dll"; Flags: ignoreversion; BeforeInstall: BackupOriginalServer
 Source: "..\sdk\dll\bin\CSSBC_VSP.dll"; DestDir: "{app}\cstrike\addons\cssbc\bin"; Flags: ignoreversion
 Source: "..\sdk\dll\plugin.vdf"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
 Source: "..\sdk\dll\README_V34_BOOTSTRAP.md"; DestDir: "{app}\cstrike\addons\cssbc"; Flags: ignoreversion
@@ -33,17 +36,40 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile
 
 [Code]
 function GetGameDir(Param: string): string;
+var
+  Candidate: string;
 begin
-  if DirExists('C:\Games\Counter-Strike Source v34') then
-    Result := 'C:\Games\Counter-Strike Source v34'
+  Candidate := 'C:\Games\Counter-Strike Source v34';
+  if FileExists(Candidate + '\cstrike\gameinfo.txt') then
+    Result := Candidate
   else
     Result := ExpandConstant('{autopf}\Counter-Strike Source v34');
 end;
 
-function InitializeSetup(): Boolean;
+procedure BackupOriginalServer;
+var
+  ServerDll: string;
+  BackupDll: string;
 begin
-  // GameDLL is compiled into Setup.exe by Inno Setup [Files].
-  // {src} is the Setup.exe folder, not the embedded payload location.
-  Result := True;
+  ServerDll := ExpandConstant('{app}\cstrike\bin\server.dll');
+  BackupDll := ServerDll + '.cssbc-backup';
+
+  if FileExists(ServerDll) and not FileExists(BackupDll) then
+  begin
+    if not FileCopy(ServerDll, BackupDll, False) then
+      RaiseException('Could not back up the original server.dll. Installation was stopped to protect the game.');
+  end;
 end;
 
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not FileExists(ExpandConstant('{app}\cstrike\gameinfo.txt')) then
+    Result := 'The selected folder is not a Counter-Strike: Source v34 game folder.' + #13#10 +
+      'Select the folder that contains the cstrike subfolder.';
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+end;
