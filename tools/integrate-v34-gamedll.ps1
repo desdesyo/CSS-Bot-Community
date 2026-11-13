@@ -63,6 +63,16 @@ if ($vpcText -notmatch '\$Folder\s+"CSS Bot Community"') {
 }
 Set-Content -Path $vpcFile -Value $vpcText -Encoding utf8NoBOM
 
+# The VPC tier0 project omits logging.cpp although the server references its API.
+$tier0Vpc = Join-Path $GameSourceRoot 'tier0\tier0.vpc'
+$tier0Text = Get-Content -Raw $tier0Vpc
+if ($tier0Text -notmatch 'logging\.cpp') {
+    $dbgAnchor = '$File' + [char]9 + '"dbg.cpp"'
+    if (!$tier0Text.Contains($dbgAnchor)) { throw 'tier0 dbg.cpp project anchor not found' }
+    $tier0Text = $tier0Text.Replace($dbgAnchor, $dbgAnchor + $newline + [char]9 + [char]9 + '$File' + [char]9 + '"logging.cpp"')
+}
+Set-Content -Path $tier0Vpc -Value $tier0Text -Encoding utf8NoBOM
+
 Write-Host 'CSSBC GameDLL overlay applied:'
 $coreFiles | ForEach-Object { Write-Host ("  cssbc\" + $_) }
 Write-Host '  cs_bot_update.cpp: OnBotUpdate hook'
