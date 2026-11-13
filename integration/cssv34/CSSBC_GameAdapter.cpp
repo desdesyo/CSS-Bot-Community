@@ -311,8 +311,7 @@ void TickBot(CCSBot* bot) {
 
 } // namespace CSSBCGame
 
-CON_COMMAND_F(cssbc_support, "Purchase CSSBC support: cssbc_support 1 (recon), 2 (tactical), 3 (four-unit squad).", FCVAR_GAMEDLL)
-{
+static void CSSBCSupportCommand(const CCommand& args) {
     CCSPlayer* buyer = static_cast<CCSPlayer*>(UTIL_GetCommandClient());
     if (!buyer) return;
     if (args.ArgC() < 2) {
@@ -320,16 +319,22 @@ CON_COMMAND_F(cssbc_support, "Purchase CSSBC support: cssbc_support 1 (recon), 2
         return;
     }
 
-    const int tier = atoi(args.Arg(1));
+    const int tier = std::atoi(args.Arg(1));
     if (tier == 1) SpawnSupportTier(buyer, cssbc::SupportTier::Recon1000);
     else if (tier == 2) SpawnSupportTier(buyer, cssbc::SupportTier::Tactical3000);
     else if (tier == 3) SpawnSupportTier(buyer, cssbc::SupportTier::Squad9000);
     else ClientPrint(buyer, HUD_PRINTTALK, "[CSSBC] Unknown tier. Use 1, 2 or 3.");
 }
+static ConCommand cssbc_support_command(
+    "cssbc_support", CSSBCSupportCommand,
+    "Purchase CSSBC support: 1 (recon), 2 (tactical), 3 (four-unit squad).", FCVAR_GAMEDLL);
 
-CON_COMMAND_F(cssbc_juggernaut, "Purchase a 500 HP Juggernaut for $16000. Requires three dead teammates.", FCVAR_GAMEDLL)
-{
+static void CSSBCJuggernautCommand(const CCommand& args) {
+    (void)args;
     CCSPlayer* buyer = static_cast<CCSPlayer*>(UTIL_GetCommandClient());
     if (!buyer) return;
     SpawnSupportTier(buyer, cssbc::SupportTier::Juggernaut16000);
 }
+static ConCommand cssbc_juggernaut_command(
+    "cssbc_juggernaut", CSSBCJuggernautCommand,
+    "Purchase a 500 HP Juggernaut for $16000. Requires three dead teammates.", FCVAR_GAMEDLL);
