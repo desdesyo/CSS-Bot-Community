@@ -82,7 +82,7 @@ int main(){
  assert(ak1.shotIndex==0&&ak2.shotIndex==1&&m41.shotIndex==0);
  assert(ak2.pitch>ak1.pitch&&ak2.pitch!=m41.pitch);
  auto resetShot=FireSpray(WeaponId::AK12,akSpray,2.f,false,false);assert(resetShot.shotIndex==0);
- assert(GetSprayProfile(WeaponId::MAC10).kickScale>GetSprayProfile(WeaponId::M4Sopmod).kickScale);
+ assert(GetSprayProfile(WeaponId::MAC10).horizontalScale>GetSprayProfile(WeaponId::M4Sopmod).horizontalScale);
  CombatTeamBridge bridge;JuggernautArmor bridgedArmor;PlateLearning sharedLearn;
  auto br=bridge.OnHit(bridgedArmor,{7,9,Plate::RightArm,100.f,4.f},combat,sharedLearn,mem);
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
