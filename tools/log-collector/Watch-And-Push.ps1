@@ -25,6 +25,17 @@ if(Test-Path $stateFile){try{$loaded=Get-Content $stateFile -Raw|ConvertFrom-Jso
 $watchPaths=@((Join-Path $GameDir "console.log"),(Join-Path $GameDir "cstrike\console.log"),(Join-Path $GameDir "cstrike\logs"),(Join-Path $GameDir "cstrike"),(Join-Path $GameDir "cstrike\addons\cssbc"))
 Write-Status "Watching console.log, cstrike logs and CSSBC logs. Quiet threshold=$QuietSeconds seconds."
 while($true){
+ # Retry all previously queued uploads, even if the original game log has rotated or disappeared.
+ foreach($pending in (Get-ChildItem -LiteralPath $queue -File -Filter "*.log" -ErrorAction SilentlyContinue)){
+  try{
+   $base=[IO.Path]::GetFileNameWithoutExtension($pending.Name)
+   $pendingManifest=$pending.FullName+".json"
+   Send-QueuedFile -Path $pending.FullName -Token $token -RemotePath ("matches/"+$base+".log")
+   if(Test-Path $pendingManifest){Send-QueuedFile -Path $pendingManifest -Token $token -RemotePath ("matches/"+$base+".json");Remove-Item $pendingManifest -Force}
+   Remove-Item $pending.FullName -Force
+   Write-Status "RETRY UPLOADED $base"
+  }catch{Write-Status "RETRY FAILED $($pending.Name): $_"}
+ }
  $files=@()
  foreach($p in $watchPaths){if(Test-Path -LiteralPath $p -PathType Leaf){$files+=Get-Item -LiteralPath $p}elseif(Test-Path -LiteralPath $p -PathType Container){$files+=Get-ChildItem -LiteralPath $p -File -Filter "*.log" -ErrorAction SilentlyContinue}}
  foreach($f in ($files|Sort-Object FullName -Unique)){
