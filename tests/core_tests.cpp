@@ -10,6 +10,7 @@
 #include "CSSBC_Config.h"
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
+#include "CSSBC_MeleeCombat.h"
 #include <cassert>
 #include <iostream>
 using namespace cssbc;
@@ -56,6 +57,14 @@ int main(){
  auto tPunch=SelectMeleeAction(MeleeMode::Fists,MeleeFaction::T,tFist,42,10.f,.8f);
  assert(ctPunch.animationVariant!=tPunch.animationVariant);
  assert(ctPunch.profile.range>0&&ctPunch.profile.recovery>0);
+ // Melee combat: cooldown -> windup -> server trace impact, friendly blocked.
+ MeleeCombatant fighter(123);auto started=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,20.f,.5f);
+ assert(started.started&&fighter.IsAttacking());
+ auto early=fighter.ResolveImpact({4,20.f,true,false},20.1f);assert(!early.hit&&fighter.IsAttacking());
+ auto hit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(hit.hit&&hit.targetEntity==4&&hit.damage>0&&!fighter.IsAttacking());
+ auto blocked=fighter.Begin(MeleeMode::Knife,MeleeFaction::T,21.f,.5f);assert(blocked.started);
+ auto friendly=fighter.ResolveImpact({8,10.f,true,true},21.3f);assert(!friendly.hit);
+ fighter.Cancel();assert(!fighter.IsAttacking());
  // Per-weapon recoil is deterministic and differs between guns; recovery resets a burst.
  SprayState akSpray{},m4Spray{};auto ak1=FireSpray(WeaponId::AK12,akSpray,1.f,false,false);
  auto ak2=FireSpray(WeaponId::AK12,akSpray,1.08f,false,false);
