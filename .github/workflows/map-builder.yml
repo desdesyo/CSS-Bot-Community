@@ -19,24 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download standalone Tools++ compilers
-        shell: pwsh
-        run: |
-          $url="https://github.com/ficool2/misc_tools/releases/download/v1/tools++_windows.zip"
-          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\toolspp.zip"
-          Expand-Archive "$env:RUNNER_TEMP\toolspp.zip" "$env:RUNNER_TEMP\toolspp" -Force
-          $root="$env:RUNNER_TEMP\toolspp"
-          $vbsp=Get-ChildItem $root -Filter vbspplusplus.exe -Recurse | Select-Object -First 1
-          $vvis=Get-ChildItem $root -Filter vvisplusplus.exe -Recurse | Select-Object -First 1
-          $vrad=Get-ChildItem $root -Filter vradplusplus.exe -Recurse | Select-Object -First 1
-          if (!$vbsp -or !$vvis -or !$vrad) {
-            Get-ChildItem $root -Recurse -File | Select-Object FullName
-            throw "Official Tools++ archive lacks one or more compiler executables"
-          }
-          "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
-          "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
-          "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
-
       - name: Locate CSS game content (optional repository payload)
         id: css
         shell: pwsh
@@ -53,6 +35,26 @@ jobs:
             "available=true" >> $env:GITHUB_OUTPUT
             "CSSDIR=$candidate" >> $env:GITHUB_ENV
           }
+
+
+      - name: Download standalone Tools++ compilers
+        if: steps.css.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          $url="https://github.com/ficool2/misc_tools/releases/download/v1/tools++_windows.zip"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\toolspp.zip"
+          Expand-Archive "$env:RUNNER_TEMP\toolspp.zip" "$env:RUNNER_TEMP\toolspp" -Force
+          $root="$env:RUNNER_TEMP\toolspp"
+          $vbsp=Get-ChildItem $root -Filter vbspplusplus.exe -Recurse | Select-Object -First 1
+          $vvis=Get-ChildItem $root -Filter vvisplusplus.exe -Recurse | Select-Object -First 1
+          $vrad=Get-ChildItem $root -Filter vradplusplus.exe -Recurse | Select-Object -First 1
+          if (!$vbsp -or !$vvis -or !$vrad) {
+            Get-ChildItem $root -Recurse -File | Select-Object FullName
+            throw "Official Tools++ archive lacks one or more compiler executables"
+          }
+          "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
+          "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
+          "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
 
       - name: Compile VMF (VBSP++)
         if: steps.css.outputs.available == 'true'
