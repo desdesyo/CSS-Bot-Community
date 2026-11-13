@@ -17,7 +17,7 @@ MapBridge is a local MCP server for generating Source-engine VMF geometry. It is
 
 All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alphanumeric, underscore and dash only.
 
-## Tool reference
+## One-command generator (new)\n\nFrom the repository root in PowerShell:\n\n```powershell\ncd tools/mapbridge\nnpm install\nnpm run generate -- CSSBC_District\n```\n\nThis starts MapBridge itself, creates/overwrites a district VMF, prints its exact path, and exits. No MCP desktop setup is needed for this generation command. The output is a graybox VMF; compiling/playtesting still requires legitimate CS:S game content and Hammer/Source compilers.\n\n## Tool reference
 
 | Tool | Inputs | Result |
 |---|---|---|
