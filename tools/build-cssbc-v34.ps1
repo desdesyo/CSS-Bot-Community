@@ -34,20 +34,36 @@ function Find-MSBuild {
     return $path
 }
 
-Step "Build and test the portable CSSBC core"
-$cmake = Find-CMake
-$ctest = Join-Path (Split-Path $cmake -Parent) "ctest.exe"
-if (!(Test-Path $ctest)) {
-    $ctestCommand = Get-Command ctest -ErrorAction SilentlyContinue
-    if (!$ctestCommand) { throw "CTest was not found next to CMake or on PATH." }
-    $ctest = $ctestCommand.Source
+Step "Run portable core tests when CMake is available"
+$coreTestsPassed = $false
+$cmake = $null
+try {
+    $cmake = Find-CMake
 }
-& $cmake -S $repoRoot -B $buildDir -A Win32
-if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed ($LASTEXITCODE)." }
-& $cmake --build $buildDir --config Release --parallel
-if ($LASTEXITCODE -ne 0) { throw "Portable C++ core build failed ($LASTEXITCODE)." }
-& $ctest --test-dir $buildDir -C Release --output-on-failure
-if ($LASTEXITCODE -ne 0) { throw "Portable core tests failed ($LASTEXITCODE)." }
+catch {
+    Write-Warning "CMake was not found; skipping standalone core tests. The native server build below still compiles the CSSBC core."
+}
+if ($cmake) {
+    $ctest = Join-Path (Split-Path $cmake -Parent) "ctest.exe"
+    if (!(Test-Path $ctest)) {
+        $ctestCommand = Get-Command ctest -ErrorAction SilentlyContinue
+        if ($ctestCommand) { $ctest = $ctestCommand.Source }
+        else { $ctest = $null }
+    }
+
+    & $cmake -S $repoRoot -B $buildDir -A Win32
+    if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed ($LASTEXITCODE)." }
+    & $cmake --build $buildDir --config Release --parallel
+    if ($LASTEXITCODE -ne 0) { throw "Portable C++ core build failed ($LASTEXITCODE)." }
+    if ($ctest) {
+        & $ctest --test-dir $buildDir -C Release --output-on-failure
+        if ($LASTEXITCODE -ne 0) { throw "Portable core tests failed ($LASTEXITCODE)." }
+        $coreTestsPassed = $true
+    }
+    else {
+        Write-Warning "CTest was not found; standalone tests skipped. The native server build still compiles the CSSBC core."
+    }
+}
 
 Step "Prepare the exact Counter-Strike: Source v34 game source"
 New-Item -ItemType Directory -Force -Path $external | Out-Null
@@ -107,7 +123,7 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 Copy-Item $serverOutput (Join-Path $distDir "Server.dll") -Force
 
 Step "Build complete"
-Write-Host "Portable core tests: PASSED" -ForegroundColor Green
+if ($coreTestsPassed) { Write-Host "Portable core tests: PASSED" -ForegroundColor Green } else { Write-Host "Portable core tests: SKIPPED (CMake/CTest unavailable)" -ForegroundColor Yellow }
 Write-Host "Native CS:S v34 server DLL: $(Join-Path $distDir 'Server.dll')" -ForegroundColor Green
 Write-Host "Install it with INSTALL_CSSBC.bat. The installer keeps a backup of the original server.dll."
 Write-Host "Upstream source was downloaded locally; it was not added to the CSSBC repository."
