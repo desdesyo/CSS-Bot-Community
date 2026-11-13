@@ -21,7 +21,7 @@ All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alp
 
 | Tool | Inputs | Result |
 |---|---|---|
-| `map_create` | `name`, optional `overwrite` | New VMF with standard header |
+| `map_generate_district` | `name,overwrite,blockSize,floors,seed` | One-call four-building test district, road, sidewalks and CT/T spawns (fastest first map) |\n| `map_create` | `name`, optional `overwrite` | New VMF with standard header |
 | `map_add_box` | `name,min,max,material` | One rectangular brush |
 | `map_add_room` | `name,origin,width,depth,height,thickness,floor,ceiling,material` | Floor/ceiling + four walls |
 | `map_add_building` | `name,origin,width,depth,floors,floorHeight,wall,slabs,material` | Hollow multi-floor shell and floor slabs |
@@ -34,7 +34,7 @@ All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alp
 
 Coordinates and dimensions are Source units (1 inch in Hammer units). Vector values are `[x,y,z]`. Geometry tools validate positive bounds and allocate unique VMF IDs. Brush geometry is axis-aligned; complex angled geometry, detailed props, texture alignment, nav mesh and compile are not automated yet.
 
-## Practical workflow
+## One-call starter map\n\nUse `map_generate_district(name=\"District01\",overwrite=true,blockSize=1024,floors=2)` to produce a compact graybox layout without issuing individual brush calls. It creates a broad ground plane, a road with sidewalks, four hollow building shells and CT/T spawn entities. The `seed` parameter is reserved for reproducible layout variation (currently geometry is deterministic).\n\n## Practical workflow
 
 1. `map_create(name="test",overwrite=true)`
 2. `map_add_street(name="test",origin=[-1024,0,0],length=2048,roadWidth=512,sidewalk=64,axis="x")`
