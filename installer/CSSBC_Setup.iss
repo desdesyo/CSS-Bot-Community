@@ -43,11 +43,9 @@ end;
 
 function InitializeSetup(): Boolean;
 begin
+  // GameDLL is compiled into Setup.exe by Inno Setup [Files].
+  // {src} is the Setup.exe folder, not the embedded payload location.
   Result := True;
-  if not FileExists(ExpandConstant('{src}\server-v34-win32.dll')) then begin
-    MsgBox('В комплекте отсутствует GameDLL. Установщик неполный.', mbError, MB_OK);
-    Result := False;
-  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
