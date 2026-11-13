@@ -3,15 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       map_name:
-        description: VMF basename (in maps/ModernDistrict)
+        description: VMF basename (maps/ModernDistrict)
         required: true
         default: CSSBC_ModernDistrict
         type: string
-      compile_lighting:
-        description: Run VVIS/VRAD when available
-        required: true
-        default: true
-        type: boolean
   push:
     branches: [sdk-foundation]
     paths: ["maps/ModernDistrict/*.vmf", ".github/workflows/map-builder.yml"]
@@ -26,60 +21,71 @@ jobs:
       - name: Install SteamCMD
         shell: pwsh
         run: |
-          Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Invoke-WebRequest "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip" -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
           Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" "$env:RUNNER_TEMP\steamcmd" -Force
           "STEAMCMD=$env:RUNNER_TEMP\steamcmd\steamcmd.exe" >> $env:GITHUB_ENV
-      - name: Download SDK and CS:S runtime
+      - name: Install CS:S dedicated content
         shell: pwsh
         run: |
-          $sdk="$env:RUNNER_TEMP\sdk"
           $css="$env:RUNNER_TEMP\css"
-          New-Item -ItemType Directory -Force $sdk,$css | Out-Null
-          & $env:STEAMCMD +force_install_dir $sdk +login anonymous +app_update 211 validate +quit
-          if ($LASTEXITCODE -ne 0) { throw "SteamCMD failed installing Source SDK App 211" }
+          New-Item -ItemType Directory -Force $css | Out-Null
           & $env:STEAMCMD +force_install_dir $css +login anonymous +app_update 232330 validate +quit
-          if ($LASTEXITCODE -ne 0) { throw "SteamCMD failed installing CS:S App 232330" }
-          $vbsp=Get-ChildItem $sdk,$css -Filter vbsp.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          $vvis=Get-ChildItem $sdk,$css -Filter vvis.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          $vrad=Get-ChildItem $sdk,$css -Filter vrad.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (!$vbsp) {
-            Get-ChildItem $sdk,$css -Recurse -File | Select-Object -First 100 | ForEach-Object FullName
-            throw "VBSP not present in downloaded depots; refusing to fake a BSP."
+          if ($LASTEXITCODE -ne 0) { throw "SteamCMD CS:S content install failed" }
+          if (!(Test-Path "$css\cstrike\gameinfo.txt")) { throw "CS:S gameinfo.txt missing after install" }
+          "CSSDIR=$css\cstrike" >> $env:GITHUB_ENV
+      - name: Download standalone Tools++ compiler
+        shell: pwsh
+        run: |
+          $url="https://github.com/ficool2/misc_tools/releases/download/v1/tools++_windows.zip"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\toolspp.zip"
+          Expand-Archive "$env:RUNNER_TEMP\toolspp.zip" "$env:RUNNER_TEMP\toolspp" -Force
+          $root="$env:RUNNER_TEMP\toolspp"
+          $vbsp=Get-ChildItem $root -Filter vbspplusplus.exe -Recurse | Select-Object -First 1
+          $vvis=Get-ChildItem $root -Filter vvisplusplus.exe -Recurse | Select-Object -First 1
+          $vrad=Get-ChildItem $root -Filter vradplusplus.exe -Recurse | Select-Object -First 1
+          if (!$vbsp -or !$vvis -or !$vrad) {
+            Get-ChildItem $root -Recurse -File | Select-Object FullName
+            throw "Tools++ compiler executables missing from release archive"
           }
           "VBSP=$($vbsp.FullName)" >> $env:GITHUB_ENV
-          if ($vvis) { "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV }
-          if ($vrad) { "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV }
-          "CSSDIR=$css" >> $env:GITHUB_ENV
-      - name: Compile VMF to BSP
+          "VVIS=$($vvis.FullName)" >> $env:GITHUB_ENV
+          "VRAD=$($vrad.FullName)" >> $env:GITHUB_ENV
+      - name: Compile VMF (VBSP++)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
           if ($name -notmatch '^[A-Za-z0-9_-]+$') { throw "Invalid map name" }
           $vmf="maps/ModernDistrict/$name.vmf"
-          if (!(Test-Path $vmf)) { throw "Missing VMF: $vmf" }
+          if (!(Test-Path $vmf)) { throw "VMF missing: $vmf" }
           New-Item -ItemType Directory -Force build | Out-Null
-          & $env:VBSP -game "$env:CSSDIR\cstrike" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
-          if ($LASTEXITCODE -ne 0) { throw "VBSP exited $LASTEXITCODE" }
+          & $env:VBSP -game "$env:CSSDIR" -verbose "$vmf" 2>&1 | Tee-Object build\vbsp.log
+          if ($LASTEXITCODE -ne 0) { throw "VBSP++ failed: $LASTEXITCODE" }
           $bsp="maps/ModernDistrict/$name.bsp"
-          if (!(Test-Path $bsp)) { throw "Expected BSP missing: $bsp" }
+          if (!(Test-Path $bsp)) { throw "BSP not produced at $bsp" }
           Copy-Item $bsp "build\$name.bsp" -Force
-      - name: Visibility and lighting
-        if: inputs.compile_lighting
+      - name: Compile visibility (VVIS++)
         shell: pwsh
         run: |
           $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
-          $bsp="build\$name.bsp"
-          if (!$env:VVIS -or !(Test-Path $env:VVIS)) { throw "VVIS missing: BSP is not fully compiled" }
-          & $env:VVIS -game "$env:CSSDIR\cstrike" $bsp 2>&1 | Tee-Object build\vvis.log
-          if ($LASTEXITCODE -ne 0) { throw "VVIS failed" }
-          if (!$env:VRAD -or !(Test-Path $env:VRAD)) { throw "VRAD missing: lighting cannot be baked" }
-          & $env:VRAD -game "$env:CSSDIR\cstrike" -noextra $bsp 2>&1 | Tee-Object build\vrad.log
-          if ($LASTEXITCODE -ne 0) { throw "VRAD failed" }
-      - name: Upload BSP and logs
+          & $env:VVIS -game "$env:CSSDIR" -fast "build\$name.bsp" 2>&1 | Tee-Object build\vvis.log
+          if ($LASTEXITCODE -ne 0) { throw "VVIS++ failed: $LASTEXITCODE" }
+      - name: Compile lighting (VRAD++)
+        shell: pwsh
+        run: |
+          $name="${{ inputs.map_name || 'CSSBC_ModernDistrict' }}"
+          & $env:VRAD -game "$env:CSSDIR" -noextra -fast "build\$name.bsp" 2>&1 | Tee-Object build\vrad.log
+          if ($LASTEXITCODE -ne 0) { throw "VRAD++ failed: $LASTEXITCODE" }
+      - name: Validate BSP output
+        shell: pwsh
+        run: |
+          $bsp="build\${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.bsp"
+          if (!(Test-Path $bsp) -or (Get-Item $bsp).Length -lt 10000) { throw "BSP missing or suspiciously small" }
+          Get-Item $bsp | Format-List FullName,Length
+      - name: Upload playable BSP and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CSSBC-${{ inputs.map_name || 'CSSBC_ModernDistrict' }}-${{ github.run_number }}
+          name: CSSBC-Map-${{ inputs.map_name || 'CSSBC_ModernDistrict' }}-${{ github.run_number }}
           path: |
             build/*.bsp
             build/*.log
