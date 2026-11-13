@@ -32,7 +32,7 @@ Name: "{group}\CSSBC — Open log collector status"; Filename: "{sys}\notepad.ex
 Name: "{group}\CSSBC — Check updates"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\tools\Update-CSSBC.ps1"" -GameDir ""{app}"""; WorkingDir: "{app}"
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\tools\Register-LogTask.ps1"" -GameDir ""{app}"""; Flags: runhidden postinstall; StatusMsg: "Registering automatic log uploader..."
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\cstrike\addons\cssbc\tools\Register-LogTask.ps1"" -GameDir ""{app}"""; Flags: runhidden postinstall runasoriginaluser; StatusMsg: "Registering automatic log uploader..."
 
 [Code]
 function GetGameDir(Param: string): string;
