@@ -2,7 +2,7 @@
 #include <sdktools>
 #include <sdkhooks>
 
-#define PLUGIN_VERSION "0.2.0"
+#define PLUGIN_VERSION "0.1.0"
 
 public Plugin myinfo =
 {
@@ -16,10 +16,6 @@ public Plugin myinfo =
 ConVar g_enabled, g_juggernautHp, g_supportEnabled;
 int g_deadAllies[MAXPLAYERS + 1];
 bool g_juggernaut[MAXPLAYERS + 1];
-int g_activeMeleeMode = 0;
-int g_pendingMeleeMode = 0;
-bool g_hasPendingMeleeMode = false;
-int g_roundIndex = 0;
 
 public void OnPluginStart()
 {
@@ -30,7 +26,6 @@ public void OnPluginStart()
     RegConsoleCmd("sm_cssbc", Cmd_Status, "Статус CSSBC");
     RegConsoleCmd("sm_support", Cmd_Support, "CSSBC: купить поддержку");
     RegConsoleCmd("sm_juggernaut", Cmd_Juggernaut, "CSSBC: купить Джаггернаута");
-    RegConsoleCmd("sm_melee", Cmd_MeleeMenu, "CSSBC: режим следующего раунда");
     HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
     HookEvent("round_start", Event_RoundStart, EventHookMode_Post);
     HookEvent("round_end", Event_RoundEnd, EventHookMode_Post);
@@ -41,32 +36,6 @@ public void OnClientPutInServer(int client)
 {
     g_deadAllies[client] = 0;
     g_juggernaut[client] = false;
-}
-
-
-public Action Cmd_MeleeMenu(int client, int args) {
-    if (client <= 0 || !IsClientInGame(client)) return Plugin_Handled;
-    Menu menu = new Menu(MeleeMenuHandler);
-    menu.SetTitle("CSSBC • режим следующего раунда");
-    menu.AddItem("1", "Только ножи"); menu.AddItem("2", "Кулачный бой"); menu.AddItem("0", "Обычный раунд");
-    menu.ExitButton = true; menu.Display(client, MENU_TIME_FOREVER); return Plugin_Handled;
-}
-public int MeleeMenuHandler(Menu menu, MenuAction action, int client, int item) {
-    if (action == MenuAction_Select) {
-        char info[8]; menu.GetItem(item, info, sizeof(info)); int mode=StringToInt(info);
-        g_pendingMeleeMode=mode; g_hasPendingMeleeMode=true;
-        char label[24]; if(mode==1) strcopy(label,sizeof(label),"НОЖИ"); else if(mode==2) strcopy(label,sizeof(label),"КУЛАКИ"); else strcopy(label,sizeof(label),"ОБЫЧНЫЙ");
-        PrintToChatAll("\\x04[CSSBC]\\x01 %N выбрал %s на следующий раунд. Текущий раунд и счёт не меняются.",client,label);
-    } else if(action==MenuAction_End) delete menu;
-    return 0;
-}
-void ApplyMeleeModeToClient(int client) {
-    if(!IsClientInGame(client)||!IsPlayerAlive(client)) return;
-    for(int slot=0;slot<5;slot++) {
-        int weapon=GetPlayerWeaponSlot(client,slot);
-        if(weapon!=-1) { RemovePlayerItem(client,weapon); AcceptEntityInput(weapon,"Kill"); }
-    }
-    GivePlayerItem(client,"weapon_knife");
 }
 
 public Action Cmd_Status(int client, int args)
@@ -134,14 +103,9 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
     if (attacker > 0 && g_juggernaut[attacker]) PrintToChat(attacker, "[CSSBC] Цель устранена. Держи позицию.");
 }
 
-public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast) {
-    g_roundIndex++;
-    for(int i=1;i<=MaxClients;i++){g_deadAllies[i]=0;g_juggernaut[i]=false;}
-    if(g_hasPendingMeleeMode){g_activeMeleeMode=g_pendingMeleeMode;g_hasPendingMeleeMode=false;
-        char label[24];if(g_activeMeleeMode==1)strcopy(label,sizeof(label),"НОЖИ");else if(g_activeMeleeMode==2)strcopy(label,sizeof(label),"КУЛАКИ");else strcopy(label,sizeof(label),"ОБЫЧНЫЙ");
-        PrintToChatAll("\\x04[CSSBC]\\x01 Раунд #%d: режим %s.",g_roundIndex,label);}
-    if(g_activeMeleeMode!=0){for(int client=1;client<=MaxClients;client++)ApplyMeleeModeToClient(client);
-        if(g_activeMeleeMode==2)PrintToChatAll("[CSSBC] Кулаки: нож пока является кнопкой удара; собственные анимации/хитбоксы требуют SDK DLL.");}
+public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
+{
+    for (int i = 1; i <= MaxClients; i++) { g_deadAllies[i] = 0; g_juggernaut[i] = false; }
 }
 public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
