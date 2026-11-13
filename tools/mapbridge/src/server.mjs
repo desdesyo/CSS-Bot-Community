@@ -119,3 +119,23 @@ server.tool("map_inspect","Inspect VMF: byte size, solids and entities.",{name:s
  const [f,s]=await readMap(name);return {content:[{type:"text",text:`${f}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
 });
 const transport=new StdioServerTransport();await server.connect(transport);
+
+server.tool("map_add_stairs","Generate a staircase from individual solid steps.",{name:safeName,origin:vec,steps:z.number().int().min(3).max(40),run:z.number().min(8).max(64).default(16),rise:z.number().min(8).max(32).default(8),width:z.number().min(64).max(512).default(128),axis:z.enum(["x","y"]).default("x"),direction:z.enum(["positive","negative"]).default("positive"),material},async a=>{
+ const [f,s]=await readMap(a.name),[x,y,z]=a.origin,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
+ for(let i=0;i<a.steps;i++){const h=(i+1)*a.rise,dist=(i+1)*a.run;
+ if(a.axis==="x"){const xa=a.direction==="positive"?x+i*a.run:x-(i+1)*a.run;add([xa,y,z],[xa+a.run,y+a.width,z+h]);}
+ else{const ya=a.direction==="positive"?y+i*a.run:y-(i+1)*a.run;add([x,ya,z],[x+a.width,ya+a.run,z+h]);}}
+ await save(f,append(s,sol));return {content:[{type:"text",text:`Staircase: ${a.steps} steps, total rise ${a.steps*a.rise}, run ${a.steps*a.run}`}]};
+});
+server.tool("map_add_window_wall","Create a wall segment with one rectangular window opening (three brushes).",{name:safeName,origin:vec,length:z.number().min(128).max(2048),height:z.number().min(96).max(512),thickness:z.number().min(8).max(128).default(16),windowWidth:z.number().min(32).max(512),windowBottom:z.number().min(16).max(256).default(64),windowHeight:z.number().min(32).max(256).default(96),axis:z.enum(["x","y"]).default("x"),material},async a=>{
+ const [f,s]=await readMap(a.name),[x,y,z]=a.origin,L=a.length,H=a.height,t=a.thickness,ww=a.windowWidth,wb=a.windowBottom,wh=a.windowHeight;
+ if(ww>=L||wb+wh>=H)throw Error("Window must fit inside wall");const left=(L-ww)/2,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
+ if(a.axis==="x"){add([x,y,z],[x+left,y+t,z+H]);add([x+left+ww,y,z],[x+L,y+t,z+H]);add([x+left,y,z+wb+wh],[x+left+ww,y+t,z+H]);add([x+left,y,z],[x+left+ww,y+t,z+wb]);}
+ else{add([x,y,z],[x+t,y+left,z+H]);add([x,y+left+ww,z],[x+t,y+L,z+H]);add([x,y+left,z+wb+wh],[x+t,y+left+ww,z+H]);add([x,y+left,z],[x+t,y+left+ww,z+wb]);}
+ await save(f,append(s,sol));return {content:[{type:"text",text:`Window wall generated with opening ${ww}×${wh}; 4 brushes`}]};
+});
+server.tool("map_add_roof","Add a flat roof slab or raised parapet around a building.",{name:safeName,origin:vec,width:z.number().min(128).max(4096),depth:z.number().min(128).max(4096),thickness:z.number().min(8).max(128).default(16),parapet:z.number().min(0).max(128).default(0),material},async a=>{
+ const [f,s]=await readMap(a.name),[x,y,z]=a.origin,w=a.width,d=a.depth,t=a.thickness,p=a.parapet,sol=[];let id=nextId(s);const add=(lo,hi)=>{sol.push(brush(id,lo,hi,a.material));id+=7;};
+ add([x,y,z],[x+w,y+d,z+t]);if(p){add([x,y,z+t],[x+t,y+d,z+t+p]);add([x+w-t,y,z+t],[x+w,y+d,z+t+p]);add([x+t,y,z+t],[x+w-t,y+t,z+t+p]);add([x+t,y+d-t,z+t],[x+w-t,y+d,z+t+p]);}
+ await save(f,append(s,sol));return {content:[{type:"text",text:`Roof created; parapet ${p? "enabled":"off"}`}]};
+});
