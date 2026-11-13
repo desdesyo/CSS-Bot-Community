@@ -6,7 +6,8 @@
   "description": "Local MCP bridge for procedural Counter-Strike: Source VMF map authoring",
   "scripts": {
     "start": "node src/server.mjs",
-    "generate": "node generate.mjs"
+    "generate": "node generate.mjs",
+    "test": "node test/smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
