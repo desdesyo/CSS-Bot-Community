@@ -25,7 +25,7 @@ public:
  PLUGIN_RESULT ClientConnect(bool*,edict_t*,const char*,const char*,char*,int) override{return PLUGIN_CONTINUE;}
  PLUGIN_RESULT ClientCommand(edict_t*) override{return PLUGIN_CONTINUE;}
  PLUGIN_RESULT NetworkIDValidated(const char*,const char*) override{return PLUGIN_CONTINUE;}
-private: void SpawnBot(){ edict_t* e=engine_->CreateFakeClient("CSSBC_TestBot"); if(!e){engine_->LogPrint("[CSSBC] CreateFakeClient failed.\\n");return;} engine_->LogPrint("[CSSBC] Fake client allocated; GameDLL player setup/team/spawn not yet wired.\\n");spawned_=true;} IVEngineServer* engine_{}; bool spawnRequested_{false},spawned_{false};
+private: IVEngineServer* engine_{};
 };
 static CSSBCServerPlugin g_cssbc;
 extern "C" __declspec(dllexport) void* CreateInterface(const char* name,int* rc){
