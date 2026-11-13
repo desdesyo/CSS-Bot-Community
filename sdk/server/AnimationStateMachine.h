@@ -35,7 +35,6 @@ class AnimationStateMachine {
 public:
     const AnimState& Update(const AnimInput& in) {
         AnimAction next = AnimAction::Idle;
-        // Interrupt priority: death > hit > objective > reload/fire > locomotion.
         if (!in.alive) next = AnimAction::Death;
         else if (in.hitReact) next = AnimAction::Flinch;
         else if (in.objectiveAction) next = in.objective;
@@ -47,14 +46,23 @@ public:
             state_.action = next;
             state_.stance = in.stance;
             state_.weapon = in.weapon;
-            state_.cycle = 0.0f; // interrupted actions cannot retain stale cycle
+            state_.cycle = 0.0f;
             ++state_.transitionSerial;
         }
         return state_;
     }
 
-    // Advance normalized sequence time. Looping locomotion wraps; one-shot actions clamp. 
-    void Advance(float dt, float sequenceDuration, bool looping) {\n        if (dt <= 0.0f || sequenceDuration <= 0.0f) return;\n        state_.cycle += (dt / sequenceDuration) * state_.playbackRate;\n        if (looping) {\n            while (state_.cycle >= 1.0f) state_.cycle -= 1.0f;\n        } else if (state_.cycle > 1.0f) state_.cycle = 1.0f;\n    }\n\n    void SetCycleForDebug(float cycle) {
+    void Advance(float dt, float sequenceDuration, bool looping) {
+        if (dt <= 0.0f || sequenceDuration <= 0.0f) return;
+        state_.cycle += (dt / sequenceDuration) * state_.playbackRate;
+        if (looping) {
+            while (state_.cycle >= 1.0f) state_.cycle -= 1.0f;
+        } else if (state_.cycle > 1.0f) {
+            state_.cycle = 1.0f;
+        }
+    }
+
+    void SetCycleForDebug(float cycle) {
         if (cycle >= 0.0f && cycle <= 1.0f) state_.cycle = cycle;
     }
     void SetPlaybackRateForDebug(float rate) {
