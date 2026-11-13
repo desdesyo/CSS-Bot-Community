@@ -1,5 +1,5 @@
 # Counter-Terrorist player/bot body mesh blockout v1
-# OBJ static pose; X depth, Y width, Z up. Not Source MDL yet.`,mtllib cssbc_bot.mtl
+# OBJ static pose; X depth, Y width, Z up. Not Source MDL yet.mtllib cssbc_bot.mtl
 o Boot_L
 usemtl rubber
 v -0.08 -0.18 0.05
