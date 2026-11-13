@@ -1,4 +1,5 @@
 # Galil ACE Gen 2 — CSSBC mesh blockout v1
+mtllib cssbc_weapons.mtl
 # X forward, Y width, Z up; OBJ source mesh, not compiled Source MDL
 o Receiver
 usemtl receiver
