@@ -16,8 +16,8 @@ constexpr std::array<RecoilPoint,30> smg{{
 P(.62f,0),P(.7f,-.3f),P(.78f,-.5f),P(.86f,-.25f),P(.92f,.25f),P(.98f,.55f),P(1.04f,.2f),P(1.1f,-.35f),P(1.16f,-.65f),P(1.22f,-.3f),
 P(1.28f,.35f),P(1.34f,.7f),P(1.4f,.25f),P(1.46f,-.4f),P(1.52f,-.75f),P(1.58f,-.35f),P(1.64f,.4f),P(1.7f,.8f),P(1.76f,.3f),P(1.82f,-.45f),
 P(1.88f,-.8f),P(1.94f,-.3f),P(2.f,.45f),P(2.06f,.85f),P(2.12f,.35f),P(2.18f,-.5f),P(2.24f,-.9f),P(2.3f,-.35f),P(2.36f,.5f),P(2.42f,.9f)}};
-SprayProfile make(WeaponId id,std::string_view name,float k,float h,float rec,float stand,float move,float crouch,uint8_t reset,const std::array<RecoilPoint,30>&pat){
- SprayProfile p{id,name,k,h,rec,stand,move,crouch,reset,{}};p.pattern=pat;return p;
+SprayProfile make(WeaponId id,std::string_view name,float k,float h,float rec,float stand,float move,float crouch,uint16_t reset,const std::array<RecoilPoint,30>&pat){
+ SprayProfile profile{id,name,k,h,rec,stand,move,crouch,reset,{}};profile.pattern=pat;return profile;
 }
 const std::array<SprayProfile,(size_t)WeaponId::Count> profiles{{
 make(WeaponId::AK12,"AK-12",1.12f,1.15f,7.2f,1.05f,2.4f,.68f,280,rifleAK),
@@ -32,23 +32,23 @@ make(WeaponId::MAC10,"MAC-10",.84f,1.45f,9.8f,.95f,2.4f,.7f,230,smg),
 make(WeaponId::AWPAX,"AWP",3.2f,.25f,18.f,0.f,0.f,0.f,900,stableM4)
 }};
 }
-const SprayProfile& GetSprayProfile(WeaponId w){return profiles[std::min((size_t)w,profiles.size()-1)];}
-void RecoverSpray(SprayState&s,float now,const SprayProfile&p){
- if(!s.initialized){s.lastShotTime=now;s.initialized=true;return;}
- float dt=std::clamp(now-s.lastShotTime,0.f,.25f);
- if(dt*1000.f>=p.burstResetMs){s.shot=0;s.pitch=0;s.yaw=0;}
- else {float recovery=p.recoveryPerSecond*dt;s.pitch=std::max(0.f,s.pitch-recovery);s.yaw*=std::exp(-dt*5.f);}
- s.lastShotTime=now;
+const SprayProfile& GetSprayProfile(WeaponId weapon){return profiles[std::min((size_t)weapon,profiles.size()-1)];}
+void RecoverSpray(SprayState& state,float now,const SprayProfile& profile){
+ if(!state.initialized){state.lastShotTime=now;state.initialized=true;return;}
+ float elapsed=std::max(0.f,now-state.lastShotTime);
+ if(elapsed*1000.f>=profile.burstResetMs){state.shot=0;state.pitch=0;state.yaw=0;}
+ else {float dt=std::min(elapsed,.25f);float recovery=profile.recoveryPerSecond*dt;state.pitch=std::max(0.f,state.pitch-recovery);state.yaw*=std::exp(-dt*5.f);}
+ state.lastShotTime=now;
 }
-SprayOutput FireSpray(WeaponId id,SprayState&s,float now,bool moving,bool crouching,float skill){
- const auto&p=GetSprayProfile(id);RecoverSpray(s,now,p);
- const uint8_t idx=std::min<uint8_t>(s.shot,29);const auto pt=p.pattern[idx];
- float scale=p.kickScale*std::clamp(skill,.65f,1.35f);
- s.pitch+=pt.pitch*scale;s.yaw+=pt.yaw*p.horizontalScale*scale;
- ++s.shot;s.lastShotTime=now;
- float spread=crouching?p.crouchSpread:(moving?p.movingSpread:p.standingSpread);
- spread*=1.f+.035f*std::min<int>(s.shot,20);
- return {s.pitch,s.yaw,spread,idx};
+SprayOutput FireSpray(WeaponId id,SprayState& state,float now,bool moving,bool crouching,float skill){
+ const auto& profile=GetSprayProfile(id);RecoverSpray(state,now,profile);
+ const uint8_t index=std::min<uint8_t>(state.shot,29);const auto point=profile.pattern[index];
+ float scale=profile.kickScale*std::clamp(skill,.65f,1.35f);
+ state.pitch+=point.pitch*scale;state.yaw+=point.yaw*profile.horizontalScale*scale;
+ ++state.shot;state.lastShotTime=now;
+ float spread=crouching?profile.crouchSpread:(moving?profile.movingSpread:profile.standingSpread);
+ spread*=1.f+.035f*std::min<int>(state.shot,20);
+ return {state.pitch,state.yaw,spread,index};
 }
-void ResetSpray(SprayState&s){s={};}
+void ResetSpray(SprayState& state){state={};}
 }

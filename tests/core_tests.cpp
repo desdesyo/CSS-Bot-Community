@@ -11,7 +11,9 @@
 #include "CSSBC_Brain.h"
 #include "CSSBC_Melee.h"
 #include "CSSBC_MeleeCombat.h"
-#include <cassert>\n#include <limits>
+#include <cassert>
+#include <limits>
+#include <cmath>
 #include <iostream>
 using namespace cssbc;
 int main(){
@@ -30,7 +32,7 @@ int main(){
  assert(eco.Finance(5).balance==0&&eco.Finance(1).balance==-1000);
  Economy tEco; tEco.Apply({5,-200,MoneyEvent::BadDecision,1},true);
  auto ignored=tEco.SettleTeamDebt(5,teammates,income,4,true);assert(ignored.paid==0&&ignored.remainingDebt==200);
- auto buy=eco.Buy({2,1,800,true,true,BuyItem::Armor});assert(buy.accepted&&buy.moneyAfter==150);assert(!eco.Buy({2,1,800,true,true,BuyItem::Pistol}).accepted);assert(RulesFor(GameMode::Deathmatch).respawn);ProjectConfig pc;assert(ValidateConfig(pc));pc.botDifficulty=2;assert(!ValidateConfig(pc)); TacticalInput ti;ti.role=BotRole::Sniper;ti.seesThreat=true;ti.hasCover=true;ti.distanceToThreat=1400;assert(DecideTactics(Traits{},ti).action==TacticalAction::Hold); ti={};ti.health=15;ti.seesThreat=true;assert(DecideTactics(Traits{},ti).action==TacticalAction::Retreat); ti={};ti.bombCarried=true;ti.objectiveDistance=200;assert(DecideTactics(Traits{},ti).action==TacticalAction::Plant); ti={};ti.teammateRecentlyKilled=true;ti.canTrade=true;ti.health=80;assert(DecideTactics(Traits{},ti).action==TacticalAction::TradeKill);
+ auto buy=eco.Buy({2,1,800,true,true,BuyItem::Armor});assert(buy.accepted&&buy.moneyAfter==150);assert(!eco.Buy({2,1,800,true,true,BuyItem::Pistol}).accepted);assert(RulesFor(GameMode::Deathmatch).respawn);ProjectConfig pc;assert(ValidateConfig(pc));pc.botDifficulty=2;assert(!ValidateConfig(pc)); Traits sniperTraits;sniperTraits.discipline=.8f; TacticalInput ti;ti.role=BotRole::Sniper;ti.seesThreat=true;ti.hasCover=true;ti.distanceToThreat=1400;assert(DecideTactics(sniperTraits,ti).action==TacticalAction::Hold); ti={};ti.health=15;ti.seesThreat=true;assert(DecideTactics(Traits{},ti).action==TacticalAction::Retreat); ti={};ti.bombCarried=true;ti.objectiveDistance=200;assert(DecideTactics(Traits{},ti).action==TacticalAction::Plant); ti={};ti.teammateRecentlyKilled=true;ti.canTrade=true;ti.health=80;assert(DecideTactics(Traits{},ti).action==TacticalAction::TradeKill);
  assert(!s.RequestSupport(SupportTier::Juggernaut16000,1,16000,2,o));
  assert(s.RequestSupport(SupportTier::Juggernaut16000,1,16000,3,o));
  assert(o.moneySpent==16000&&o.buyer==1);
@@ -42,8 +44,8 @@ int main(){
  SupportRoster roster;assert(roster.Deploy(SupportTier::Squad9000));assert(roster.Units().size()==4);assert(roster.IsAutonomous());
  assert(roster.Deploy(SupportTier::Juggernaut16000));assert(roster.Units().size()==1&&roster.Units()[0].role==SupportRole::Juggernaut);
  TeamMemory mem;mem.Publish({EventKind::PlateCracked,2,4,Plate::LeftArm,.9f,10.f,"left arm cracked"});assert(mem.Recent(11.f).size()==1);assert(mem.Recent(30.f,5.f).empty());
- JuggernautArmor combatArmor;CombatResolver combat;auto hit=combat.Resolve(combatArmor,Plate::Chest,100.f);
- assert(hit.armorDamage==72.f&&hit.healthDamage==28.f&&hit.broken);
+ JuggernautArmor combatArmor;CombatResolver combat;auto armorHit=combat.Resolve(combatArmor,Plate::Chest,100.f);
+ assert(std::fabs(armorHit.armorDamage-72.f)<0.001f&&std::fabs(armorHit.healthDamage-28.f)<0.001f&&armorHit.broken);
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
@@ -61,7 +63,7 @@ int main(){
  MeleeCombatant fighter(123);auto started=fighter.Begin(MeleeMode::Fists,MeleeFaction::CT,20.f,.5f);
  assert(started.started&&fighter.IsAttacking());
  auto early=fighter.ResolveImpact({4,20.f,true,false},20.1f);assert(!early.hit&&fighter.IsAttacking());
- auto hit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(hit.hit&&hit.targetEntity==4&&hit.damage>0&&!fighter.IsAttacking());
+ auto meleeHit=fighter.ResolveImpact({4,30.f,true,false},20.5f);assert(meleeHit.hit&&meleeHit.targetEntity==4&&meleeHit.damage>0&&!fighter.IsAttacking());
  auto blocked=fighter.Begin(MeleeMode::Knife,MeleeFaction::T,21.f,.5f);assert(blocked.started);
  auto friendly=fighter.ResolveImpact({8,10.f,true,true},21.3f);assert(!friendly.hit);
  fighter.Cancel();assert(!fighter.IsAttacking());
@@ -80,12 +82,11 @@ int main(){
  assert(ak1.shotIndex==0&&ak2.shotIndex==1&&m41.shotIndex==0);
  assert(ak2.pitch>ak1.pitch&&ak2.pitch!=m41.pitch);
  auto resetShot=FireSpray(WeaponId::AK12,akSpray,2.f,false,false);assert(resetShot.shotIndex==0);
- assert(GetSprayProfile(WeaponId::MAC10).kickScale>GetSprayProfile(WeaponId::M4Sopmod).kickScale);
+ assert(GetSprayProfile(WeaponId::MAC10).horizontalScale>GetSprayProfile(WeaponId::M4Sopmod).horizontalScale);
  CombatTeamBridge bridge;JuggernautArmor bridgedArmor;PlateLearning sharedLearn;
  auto br=bridge.OnHit(bridgedArmor,{7,9,Plate::RightArm,100.f,4.f},combat,sharedLearn,mem);
  assert(br.healthDamage>0&&sharedLearn.Confidence(Plate::RightArm,5.f)>0);
  assert(!mem.Recent(5.f).empty());
  bridge.OnCallout(7,9,Plate::RightArm,.8f,5.f,mem);
- std::cout<<"CSSBC core tests: PASS
-";
+ std::cout<<"CSSBC core tests: PASS\n";
 }

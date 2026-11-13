@@ -1,27 +1,39 @@
-# Source SDK integration plan (actual game mod)
+# Native CS:S v34 integration
 
-CSSBC is intended to be a **Source SDK mod**, not a SourceMod product. SourceMod bridge is optional and is not part of the SDK build.
+CSSBC targets the actual Counter-Strike: Source v34 game server/client code, not only SourceMod or a standalone VSP plugin.
 
-## Correct target
+## Pinned game source
 
-- Source SDK 2013 Multiplayer-compatible codebase, with a CS:S-compatible game branch/fork.
-- Build game client and server binaries against that SDK.
-- Integrate CSSBC C++ systems into server bot/player logic and client HUD/menu.
-- Ship game content (models/materials/sounds) separately in the mod's `materials/`, `models/`, `sound/` trees.
+The local Windows build downloads `rusherr-c/cssv34-sdk` at commit `a410d4f10a1bc914b7789da476f32e9d7c36b75d` into the ignored `external/cssv34-sdk` folder. It is not copied into this repository. The upstream repository currently has no LICENSE file; the build pipeline therefore does not publish its source or the compiled game DLL as an artifact. Check upstream rights before redistribution.
 
-## Why this repository cannot produce a playable mod yet
+## Current integration adapter
 
-The repository currently contains engine-independent C++ systems and tests only. It has no SDK checkout, engine headers/libraries, game client/server projects, bot implementation source, or content assets. A DLL cannot be honestly built from this repository alone.
+The patcher adds `CSSBC_GameAdapter.cpp/.h` to the local v34 server source and connects:
+- `CCSBot::Update` → CSSBC `BotBrain` tick, with per-bot personality derived from profile skill/aggression.
+- Retreat and cover-seeking decisions, gated by `cssbc_ai_enable`.
+- `CCSBotManager` round, death, bomb and hostage event handlers → CSSBC MVP scoring.
+- Round-start reset and top-three round MVP logging.
 
-## Integration sequence
+The portable C++ core is compiled into the game server DLL as source files with C++17 and no PCH. The same core is built and tested separately by CMake.
 
-1. Acquire the exact compatible SDK/game source tree and establish its build (client + server).
-2. Port CSSBC core into server game code; adapt bot decision, perception, navigation and round events.
-3. Implement support NPC entities, armor plate entities/damage, Juggernaut, and economy in server code.
-4. Implement HUD and VGUI panels in client code; use localization resource files for all strings.
-5. Add models, materials, animations, soundscapes/voice lines and packaging.
-6. Build, run local dedicated server/client, verify round loop, bot behavior, HUD and performance.
+## Build and install
 
-## Current repo state
+- `BUILD_CSSBC.bat`: download pinned v34 source, patch locally, run portable tests, compile `dist/Server.dll`.
+- `INSTALL_CSSBC.bat`: copy to the configured CS:S v34 game folder and back up the original DLL.
+- `RESTORE_STOCK_SERVER.bat`: restore the backup.
+- `BUILD_CSSBC_VSP.bat`: optional standalone VSP diagnostic bridge.
 
-The branch `sdk-foundation` records this SDK-first architecture. It does not claim SDK integration or a playable binary before the SDK source and assets are present. The `sourcemod/` folder is a separate optional prototype and must not be mistaken for the target mod.
+See [WINDOWS_BUILD.md](WINDOWS_BUILD.md).
+
+## Remaining integration work
+
+1. Verify the new server DLL loads in the user's exact non-Steam CS:S v34 build.
+2. Connect the rest of the CSSBC tactical model to bot perception, navigation, team memory and squad communication.
+3. Implement support NPC spawning for the $9k squad and $16k Juggernaut.
+4. Connect six armor plates to real hit regions, damage, break events and shared evidence.
+5. Bind support purchases to authoritative game money and team/dead-player state.
+6. Implement client HUD and VGUI panels; load Russian localization resources.
+7. Add models, materials, animations, soundscapes/voice lines and packaging.
+8. Test full round behavior, performance and low-spec operation.
+
+The first adapter is a foundation, not a claim that every planned behavior is finished.

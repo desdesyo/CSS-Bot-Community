@@ -1,3 +1,8 @@
 build/
 out/
 *.log
+external/
+dist/
+sdk/dll/bin/
+sdk/dll/obj/
+build-v34/
