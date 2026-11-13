@@ -44,7 +44,6 @@ const vmfHeader = () => `versioninfo
  "editorversion" "400"
  "editorbuild" "0"
  "mapversion" "1"
- "mapversion" "1"
  "formatversion" "100"
  "prefab" "0"
  "visgroups" "0"
@@ -85,7 +84,7 @@ server.tool("map_add_box", "Append an axis-aligned brush box to an existing VMF 
 });
 server.tool("map_inspect", "Read VMF summary and entity/solid counts.", {name:safeName}, async ({name})=>{
  const file=path.join(mapsDir,name+".vmf"), s=await fs.readFile(file,"utf8");
- return {content:[{type:"text",text:`${file}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\\n\s*solid\\n/g)||[]).length}\nEntities: ${(s.match(/\\nentity\\n/g)||[]).length}`}]};
+ return {content:[{type:"text",text:`${file}\nBytes: ${Buffer.byteLength(s)}\nSolids: ${(s.match(/\n\s*solid\s*\{/g)||[]).length}\nEntities: ${(s.match(/\n\s*entity\s*\{/g)||[]).length}`}]};
 });
 const transport=new StdioServerTransport();
 await server.connect(transport);
