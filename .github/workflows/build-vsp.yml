@@ -301,3 +301,32 @@ jobs:
           name: CSSBC-Setup-Win32
           path: installer/CSSBC_Setup.exe
           if-no-files-found: error
+
+      - name: Prepare versioned updater payload
+        shell: pwsh
+        run: |
+          $ver = Get-Content installer/version.txt -Raw
+          New-Item -ItemType Directory -Force release-payload | Out-Null
+          Copy-Item sdk/dll/bin/CSSBC_VSP.dll release-payload/CSSBC_VSP.dll
+          Set-Content release-payload/version.txt $ver -NoNewline
+          Compress-Archive release-payload/* CSSBC-Update.zip -Force
+
+      - name: Upload update bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: CSSBC-Update-Bundle
+          path: CSSBC-Update.zip
+          if-no-files-found: error
+
+      - name: Publish test release with Setup and updater
+        if: github.ref == 'refs/heads/sdk-foundation'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cssbc-build-${{ github.run_number }}
+          name: CSSBC build ${{ github.run_number }}
+          prerelease: true
+          files: |
+            installer/CSSBC_Setup.exe
+            CSSBC-Update.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
