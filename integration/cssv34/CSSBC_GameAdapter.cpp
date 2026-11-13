@@ -4,6 +4,15 @@
 #include "cs_bot.h"
 #include "cs_bot_manager.h"
 #include "CSSBC_GameAdapter.h"
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+#ifdef clamp
+#undef clamp
+#endif
 #include "CSSBC_Brain.h"
 #include "CSSBC_System.h"
 #include <algorithm>
