@@ -89,7 +89,7 @@ jobs:
         if: steps.css.outputs.available == 'true'
         shell: pwsh
         run: |
-          $bsp="build\${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.bsp"
+          $bsp="build${{ inputs.map_name || 'CSSBC_ModernDistrict' }}.bsp"
           if (!(Test-Path $bsp) -or (Get-Item $bsp).Length -lt 10000) { throw "BSP missing or suspiciously small" }
           Get-Item $bsp | Format-List FullName,Length
 
