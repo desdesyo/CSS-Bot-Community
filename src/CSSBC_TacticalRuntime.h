@@ -15,7 +15,9 @@ public:
  void AddBot(BotRuntimeSlot bot){bots_.push_back(bot);}
  void Clear(){bots_.clear();}
  size_t Count()const{return bots_.size();}
- void Tick(IBotGameAdapter& adapter)const;
-private: std::vector<BotRuntimeSlot> bots_;
+ void Tick(IBotGameAdapter& adapter);
+ // Decisions refresh every 6 engine ticks; first tick initializes all bots.
+ static constexpr unsigned DecisionIntervalTicks=6;
+private: std::vector<BotRuntimeSlot> bots_; unsigned tick_=0;
 };
 }
