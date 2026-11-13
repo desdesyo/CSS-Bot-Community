@@ -42,12 +42,11 @@ jobs:
           }
           if ($s -match 'Remove-Item.+-Recurse.+GameDir') { throw 'Unsafe recursive game-folder deletion found.' }
           Write-Host 'Recovery safeguards OK.'
-      - name: Package recovery utility
-        shell: powershell
-        run: |
-          Compress-Archive -Path 'tools/game-recovery/Repair-Game-v34.ps1','tools/game-recovery/Run-Game-Recovery.cmd','tools/game-recovery/README.md' -DestinationPath 'CSS-v34-Game-Recovery.zip' -Force
       - uses: actions/upload-artifact@v4
         with:
           name: CSS-v34-Game-Recovery
-          path: CSS-v34-Game-Recovery.zip
+          path: |
+            tools/game-recovery/Repair-Game-v34.ps1
+            tools/game-recovery/Run-Game-Recovery.cmd
+            tools/game-recovery/README.md
           if-no-files-found: error
