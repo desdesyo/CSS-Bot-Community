@@ -1,21 +1,53 @@
 # CSSBC MapBridge — procedural VMF authoring (0.2)
 
-MapBridge is an assistant-facing local MCP server and procedural VMF authoring tool for Source-engine maps. It exposes map-generation and geometry tools over MCP stdio. It is **not** a BSP compiler. A desktop assistant/client must launch the MCP server; a normal browser chat cannot attach to a process on your PC by itself.
+MapBridge is an assistant-facing MCP server and procedural VMF authoring tool for Source-engine maps. It supports local MCP over stdio and authenticated remote MCP over Streamable HTTP. It is **not** a BSP compiler.
 
-## Install / launch (Windows)
+## Install / launch locally (Windows)
 
 1. Install Node.js 20 or newer.
-2. Open PowerShell in the repository root:
+2. In PowerShell, from the repository root:
+
    ```powershell
    cd tools/mapbridge
    npm install
    $env:CSSBC_MAP_ROOT = (Resolve-Path ..\..).Path
    npm start
    ```
-   The process stays running and speaks MCP over stdio; don't use this terminal for other commands.
-3. Configure an MCP-capable desktop client to launch `node` with the absolute path to `tools/mapbridge/src/server.mjs`, repository root as working directory, and `CSSBC_MAP_ROOT` set to the repo root. Restart that client. ChatGPT in a normal browser session cannot attach to a random local MCP server.
 
-All output is constrained to `maps/ModernDistrict/<name>.vmf`; map names are alphanumeric, underscore and dash only.
+3. For a local MCP-capable desktop client, configure command `node`, argument `<repo>\tools\mapbridge\src\server.mjs`, working directory `<repo>`, and environment variable `CSSBC_MAP_ROOT=<repo>`. The server speaks MCP over stdio.
+
+## Remote MCP bridge (new)
+
+MapBridge can expose the same tools over authenticated Streamable HTTP. It binds to localhost by default; it does not open your PC to the LAN or internet.
+
+Start it in PowerShell:
+
+```powershell
+cd tools/mapbridge
+npm install
+$env:CSSBC_MAP_ROOT = (Resolve-Path ..\..).Path
+$env:CSSBC_MAPBRIDGE_TRANSPORT = "http"
+$env:CSSBC_MAPBRIDGE_HOST = "127.0.0.1"
+$env:CSSBC_MAPBRIDGE_PORT = "8787"
+$env:CSSBC_MAPBRIDGE_TOKEN = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+node src/server.mjs
+```
+
+The authenticated MCP endpoint is `http://127.0.0.1:8787/mcp`. Health check: `http://127.0.0.1:8787/health`. Every MCP request must include `Authorization: Bearer <the same token>`. HTTP mode refuses to start without a token of at least 32 characters. The bearer token is never printed by MapBridge. Keep the terminal open while the assistant is connected.
+
+### Expose it remotely over HTTPS
+
+If the assistant service cannot reach your PC directly, create an HTTPS tunnel to the local endpoint. For a temporary Cloudflare quick tunnel, install `cloudflared` and run this in a second terminal:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:8787
+```
+
+Cloudflare prints a temporary `https://…trycloudflare.com` address. The remote MCP URL is that address plus `/mcp`. Configure the remote MCP client to use Bearer authentication with the token generated above. Keep both terminals open. The temporary URL changes when the tunnel restarts. For long-term use, configure a persistent tunnel and access policy instead of a quick tunnel.
+
+**Security:** do not change the bind address to `0.0.0.0` just to make remote access work. Use an HTTPS tunnel or TLS reverse proxy. Treat the bearer token like a password; never commit it, paste it into GitHub, or share it in screenshots. The unauthenticated `/health` route exposes only service/version information; all map-editing MCP operations require the bearer token. This bridge gives a remote MCP client access to files under `CSSBC_MAP_ROOT`, so only connect a client you trust.
+
+The HTTP endpoint implements MCP Streamable HTTP, not a custom REST API. A compatible remote MCP client must support Streamable HTTP and the configured bearer-token authentication method. ChatGPT browser chats do not automatically connect to a local process; use a supported remote MCP connector/client and configure the endpoint and authentication there.
 
 ## One-command generator (new)\n\nFrom the repository root in PowerShell:\n\n```powershell\ncd tools/mapbridge\nnpm install\nnpm run generate -- CSSBC_District\n```\n\nThis starts MapBridge itself, creates/overwrites a district VMF, prints its exact path, and exits. No MCP desktop setup is needed for this generation command. The output is a graybox VMF; compiling/playtesting still requires legitimate CS:S game content and Hammer/Source compilers.\n\n## CI / smoke test
 
