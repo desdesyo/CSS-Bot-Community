@@ -32,7 +32,7 @@ Priority is functional tool execution and finished artifacts over cosmetic featu
 - **M4 Agent orchestration**: model tool-calling loop, task plan/state, retries, idempotency, progress persistence, verification, fallback paths.
 - **M5 Reliability and privacy**: per-user identity and ownership, private storage, backups, limits, audit trail, integration tests, production monitoring.
 
-External dependencies must be named in setup instructions: R2-compatible private storage, Workers AI and Worker Loader bindings, GitHub token permissions, web-search provider credentials, and the isolated JavaScript execution backend. Never ship fake buttons to imply these dependencies are already configured.
+External dependencies must be named in setup instructions: R2-compatible private storage, Workers AI and Worker Loader bindings, GitHub token permissions, web-search provider credentials, and the isolated JavaScript execution backend. Expert escalation additionally requires the server-side OPENAI_API_KEY secret (optional EXPERT_MODEL, default gpt-4.1). The expert API call is a separate provider inference, not a direct bridge to a ChatGPT subscription or this conversation. Learned procedures are versioned GitHub Markdown records, not weight updates; they must be independently verified before reuse. Never ship fake buttons to imply these dependencies are already configured.
 
 ## Feature inventory and implementation status
 
@@ -60,6 +60,7 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Custom assistants | User-created instruction profiles and knowledge files | Planned |
 | Connectors | MCP and OAuth-based integrations, least-privilege permissions, revoke access | Partial: persistent MCPClientManager, exact hostname allowlist, discovery and readOnlyHint-only tool calls; OAuth UI, authenticated connector configuration, write-tool approval and revoke UI pending |
 | Tasks/automation | Scheduled or conditional background tasks, status and cancellation | Partial: Pi Durable long-running sessions with idempotent submissions and recovery after eviction; separate scheduled jobs, progress UI and cancellation pending |
+| Expert escalation and learned skills | Ask an external expert when blocked; preserve verified reusable procedures and apply them on future tasks | Partial: OpenAI Responses API consultation tool, persistent GitHub skill candidates, explicit load/save tools and verification policy; requires OPENAI_API_KEY/EXPERT_MODEL; not a live handoff to this ChatGPT account and does not train model weights |
 | Search in history | Full-text search across user's conversations and files | Planned |
 | Export/import | Export chat as JSON/Markdown; import supported formats | Planned |
 | Local computer connection | Pair the user's Windows computer and safely inspect selected files/system state | Partial: one-time pairing code, hashed device token and outbound HTTPS polling; system info, directory listing and text-file reads only; no shell, screen, keyboard, mouse or writes |
