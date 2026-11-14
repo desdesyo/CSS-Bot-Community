@@ -3,16 +3,115 @@
   "title": "Local CSS Bridge result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "taskId", "status", "startedUtc", "completedUtc", "root", "summary", "files", "errors"],
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "status",
+    "startedUtc",
+    "completedUtc",
+    "root",
+    "summary",
+    "files",
+    "errors"
+  ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "taskId": { "type": "string" },
-    "status": { "enum": ["reported", "partial", "failed"] },
-    "startedUtc": { "type": "string", "format": "date-time" },
-    "completedUtc": { "type": "string", "format": "date-time" },
-    "root": { "type": "string" },
-    "summary": { "type": "object" },
-    "files": { "type": "array", "items": { "$ref": "file-record.schema.json" } },
-    "errors": { "type": "array", "items": { "type": "string", "maxLength": 1000 } }
+    "schemaVersion": {
+      "const": 1
+    },
+    "taskId": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "reported",
+        "partial",
+        "failed"
+      ]
+    },
+    "startedUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "root": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "file-record.schema.json"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "manifestComparison": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "addedCount",
+        "removedCount",
+        "changedCount",
+        "added",
+        "removed",
+        "changed"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "addedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxItems": 100
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxItems": 100
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "maxItems": 100
+        }
+      }
+    }
   }
 }
