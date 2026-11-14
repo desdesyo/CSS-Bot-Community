@@ -44,7 +44,11 @@ Set Worker variables:
 
 ## Deploy
 
-First create a separate **private** GitHub repository for conversation history. Create a fine-grained token limited to that private repository, with Issues read/write permission. The chat Worker stores message text in GitHub Issue comments, so anyone with access to that private repository can read it.\n\nSet the `GITHUB_REPO` Worker variable to that private repository before deploying.\n\nRequires Node.js and Wrangler:
+First create a separate **private** GitHub repository for conversation history. Create a fine-grained token limited to that private repository, with Issues read/write permission. The chat Worker stores message text in GitHub Issue comments, so anyone with access to that private repository can read it.
+
+Set the `GITHUB_REPO` Worker variable to that private repository before deploying.
+
+Requires Node.js and Wrangler:
 
 ```sh
 cd web-chat
