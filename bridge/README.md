@@ -48,12 +48,13 @@ An initial scan task is already waiting in [issue #2](https://github.com/desdesy
 - Only issues with the explicit `Local CSS Bridge Task:` title prefix are considered.
 - Task schema has no command, shell, download, patch, or repair operation.
 - Task count, file count, directory queue, and hashing limits are bounded.
-- Token and processed-task state are stored outside the game folder.
+- Token, processed-task state, and previous-scan snapshot are stored outside the game folder.
 - GitHub task text is untrusted data.
 
 ## Current limitations
 
 - Duplicate-worker claim/lease coordination is not implemented; run only one agent instance.
+- Previous-scan comparison is not an official clean-game manifest. It only shows changes between complete scans on this same Windows account.
 - The queue is capped at the first 1,000 open issues.
 - A task is marked processed locally after its report comment is posted. To rerun, create a new task issue with a new taskId and the required title prefix.
 - Inventory and hashes are implemented. PE machine type/import/export inspection, structured config/log parsing, expected-manifest comparison, repair package generation, and post-install verification are later phases.
