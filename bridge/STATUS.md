@@ -6,6 +6,8 @@
 - GitHub Issues polling over outbound HTTPS; scans up to 1,000 open issues and only accepts the explicit `Local CSS Bridge Task:` title prefix.
 - Fine-grained GitHub token stored with Windows DPAPI CurrentUser.
 - Read-only recursive inventory with SHA-256 hashes, file sizes, timestamps, and EXE/DLL file version metadata.
+- PE inspection: machine architecture, subsystem, DLL flag, imported library names, export count, and up to 256 exported symbol names.
+- Bounded config/log text analysis (maximum 1 MiB read per candidate file); reports line count and generic error-term matches only, never uploads text contents.
 - Bounded file count, hash size, pending directory queue, and streamed directory enumeration.
 - JSON scan report posted as a comment on the originating task issue; no game file contents uploaded.
 - Windows x64 self-contained single-file publish and ZIP packaging in GitHub Actions.
@@ -22,7 +24,7 @@
 
 - First real scan of the user's Windows installation. Task is waiting in issue #2.
 - Duplicate-worker claim/lease coordination.
-- PE machine type/import/export inspection and structured config/log parsing.
+- Validate PE and text analyzers in the latest Windows CI run; extend text parsers for specific Source engine formats after inspecting actual sample files.
 - Expected-manifest comparison and evidence-based repair package generation.
 - Post-install comparison and verification against the original scan.
 - Real-game launch testing after a repair is prepared and manually installed.
