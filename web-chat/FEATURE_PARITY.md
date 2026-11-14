@@ -45,13 +45,14 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Model routing/failover | Primary + independent compatible fallback, retries, server-side routing | Partial: optional fallback exists; no provider health/circuit-breaker |
 | Streaming responses | Token streaming, cancel generation, reconnect without duplicate turns | Planned |
 | Message actions | Edit/resend, regenerate, copy, delete, retry failed turn | Planned |
-| Rich text | Safe Markdown, headings, lists, tables, links, inline code, syntax-highlighted code blocks | Planned |
-| Attachments | Upload, download, remove, attach multiple files, size/type validation | Planned; requires private object storage (e.g. R2) |
-| Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Planned; requires extraction pipeline and storage |
-| Image understanding | Attach images and ask questions about them | Planned; model/provider dependent |
+| Rich text | Safe Markdown, headings, lists, links, inline code, fenced code, copy/save actions | Partial: safe basic Markdown and code blocks; tables and syntax highlighting remain |
+| File creation | Assistant creates real downloadable artifacts from instructions | Partial: server-side create-file tool and save-answer-as-Markdown; format templates/large artifact workflow remain |
+| Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: private R2 upload/download/delete, multi-file attach, 15 MB cap; no full file manager yet |
+| Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Partial: text/CSV/JSON/source files plus PDF input to primary model; DOCX/XLSX/OCR pipeline pending |
+| Image understanding | Attach images and ask questions about them | Partial: image input to primary Responses API model; no image editing/generation |
 | Image generation/editing | Generate and edit images, persist outputs in conversation | Planned; image provider + object storage required |
-| Web search | Server-side search tool, citations, source links, recency controls | Planned; search provider or model web-search tool required |
-| Data analysis | Sandboxed execution, CSV/XLSX analysis, charts, downloadable artifacts | Planned; isolated execution service required |
+| Web search | Server-side search tool, citations, source links, recency controls | Partial: Brave Search server tool + opt-in UI toggle; requires API key and source verification tests |
+| Data analysis | Sandboxed execution, CSV/XLSX analysis, charts, downloadable artifacts | Partial: deterministic CSV row/column and numeric summaries; isolated runtime, XLSX, charts pending |
 | Voice input/output | Speech-to-text, spoken responses, interruption and playback controls | Planned; speech provider/browser support required |
 | Memory | User-controlled durable facts, inspect/update/delete, source and scope controls | Planned; private memory store required |
 | Projects | Group chats/files/instructions by project | Planned |
@@ -60,7 +61,7 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Tasks/automation | Scheduled or conditional background tasks, status and cancellation | Planned; scheduler/queue required |
 | Search in history | Full-text search across user's conversations and files | Planned |
 | Export/import | Export chat as JSON/Markdown; import supported formats | Planned |
-| Account/security | Individual identity, sessions, password reset, rate limits, audit trail | Partial: shared password only; not suitable for multi-user public use |
+| Account/security | Individual identity, sessions, password reset, rate limits, audit trail | Partial: shared password gate; not suitable for multi-user public use; ownership/rate limits pending |
 | Accessibility/mobile | Keyboard navigation, responsive layout, screen-reader labels | Partial: basic responsive layout only |
 | Localization | Russian and English interface, per-user language setting | Planned |
 | Reliability/observability | Health checks, retries, idempotency, queue, backups, error telemetry without leaking content | Partial |
