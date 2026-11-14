@@ -24,7 +24,7 @@ async function gh(env,path,options={}) {
   if(!r.ok) throw new Error("GitHub API "+r.status+": "+(data.message||"request failed"));
   return data;
 }
-function repo(env){return encodeURIComponent(env.GITHUB_REPO||"desdesyo/CSS-Bot-Community").replace("%2F","/")}
+function repo(env){if(!env.GITHUB_REPO || !env.GITHUB_REPO.includes("/")) throw new Error("GITHUB_REPO must point to a separate private repository for chat history"); return encodeURIComponent(env.GITHUB_REPO).replace("%2F","/")}
 function roleFromComment(c){return c.body.startsWith("<!-- role:assistant -->")?"assistant":"user"}
 function cleanComment(c){return c.body.replace(/^<!-- role:(?:assistant|user) -->\s*/,"").trim()}
 async function getComments(env,n){return gh("/repos/"+repo(env)+"/issues/"+n+"/comments?per_page=100")}
@@ -37,14 +37,14 @@ async function handle(request,env){
   try {
     await requireAuth(request,env);
     const url=new URL(request.url);
-    if(url.pathname==="/api/health"&&request.method==="GET") return json({ok:true,repo:env.GITHUB_REPO||"desdesyo/CSS-Bot-Community"},200,env);
+    if(url.pathname==="/api/health"&&request.method==="GET") return json({ok:true,repo:env.GITHUB_REPO},200,env);
     if(url.pathname==="/api/threads"&&request.method==="GET"){
       const issues=await gh("/repos/"+repo(env)+"/issues?state=all&per_page=50&sort=updated&direction=desc");
-      return json({threads:issues.filter(x=>!x.pull_request&&x.labels.some(l=>l.name==="github-chat")).map(x=>({number:x.number,title:x.title,updated_at:x.updated_at}))},200,env);
+      return json({threads:issues.filter(x=>!x.pull_request&&(x.body||"").includes("<!-- github-chat -->")).map(x=>({number:x.number,title:x.title,updated_at:x.updated_at}))},200,env);
     }
     if(url.pathname==="/api/messages"&&request.method==="GET"){
       const n=Number(url.searchParams.get("thread"));if(!Number.isSafeInteger(n)||n<1) return json({error:"Invalid thread id"},400,env);
-      const issue=await gh("/repos/"+repo(env)+"/issues/"+n);if(!issue.labels.some(l=>l.name==="github-chat")) return json({error:"Conversation not found"},404,env);
+      const issue=await gh("/repos/"+repo(env)+"/issues/"+n);if(!(issue.body||"").includes("<!-- github-chat -->")) return json({error:"Conversation not found"},404,env);
       const comments=await getComments(env,n);
       return json({title:issue.title,messages:comments.map(c=>({role:roleFromComment(c),content:cleanComment(c)}))},200,env);
     }
