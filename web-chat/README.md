@@ -122,3 +122,8 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 ## Security notes
 
 Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The public API is password-protected and does not expose arbitrary shell execution. The opt-in local companion can only inspect configured folders and selected text files; it cannot modify the PC. Uploaded and retrieved content is untrusted data, not executable instructions.
+
+
+## Deployment automation
+
+Cloudflare deployment is triggered by pushes to `github-chat-prototype` that modify `web-chat/**`; see `.github/workflows/deploy-github-chat.yml`.
