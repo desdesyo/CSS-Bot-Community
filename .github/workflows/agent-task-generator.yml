@@ -27,6 +27,10 @@ jobs:
               return {key:p[0], title:p[1], objective:p[2], criteria:p[3]};
             }).filter(t=>t.key && t.title && t.objective && t.criteria);
             const {owner,repo} = context.repo;
+            for(const name of ['agent-task','agent-generated','status:queued','status:in-progress','status:review','status:done','agent-review-needed']){
+              try{await github.rest.issues.getLabel({owner,repo,name});}
+              catch(e){if(e.status===404) await github.rest.issues.createLabel({owner,repo,name,color:'1d76db'});else throw e;}
+            }
             const open = await github.paginate(github.rest.issues.listForRepo,{owner,repo,state:'open',per_page:100});
             const existing = new Set(open.filter(i=>!i.pull_request).map(i=>i.body||'').flatMap(b=>[...b.matchAll(/Task-Key: ([A-Z0-9-]+)/g)].map(m=>m[1])));
             const task = tasks.find(t=>!existing.has(t.key));
