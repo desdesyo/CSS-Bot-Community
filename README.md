@@ -44,7 +44,7 @@ The visual decisions are recorded in [docs/UI_VISUAL_SPEC.md](docs/UI_VISUAL_SPE
 
 ## Local Chat Bridge
 
-The implementation specification for the Windows-side agent that connects this ChatGPT conversation to the local CS:S v34 installation through a GitHub task queue is in [docs/LOCAL_CHAT_BRIDGE_SPEC.md](docs/LOCAL_CHAT_BRIDGE_SPEC.md). This is a separate local diagnostic/repair agent, not the experimental SourceMod gameplay bridge. The specification defines staged delivery from a read-only scanner to verified, rollback-capable repairs; it does not claim those capabilities are already implemented.
+The implementation specification for the Windows-side read-only agent that scans the local CS:S v34 installation and sends diagnostic evidence to GitHub is in [docs/LOCAL_CHAT_BRIDGE_SPEC.md](docs/LOCAL_CHAT_BRIDGE_SPEC.md). ChatGPT develops and packages fixes in GitHub; the user downloads and installs them manually. The scanner never modifies the game folder. This is separate from the experimental SourceMod gameplay bridge, and the specification does not claim the scanner is already implemented.
 
 ## Build and test
 
