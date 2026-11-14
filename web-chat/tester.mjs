@@ -10,7 +10,7 @@ const checks = [
  ["GitHub-backed thread/comment storage", /issues/.test(worker) && /comments/.test(worker)],
  ["Password gate exists", /id="password"/.test(html) && /async function unlock\(/.test(html)],
  ["Stale session reset on Unauthorized", /sessionStorage\.removeItem\("ghchat_password"\)/.test(html)],
- ["Composer focus/editability restored", /prompt\.readOnly=true/.test(html) && /prompt\.readOnly=false/.test(html) && /prompt\.focus\(\)/.test(html)],
+ ["Composer focus/editability restored", /\$\("prompt"\)\.readOnly=true/.test(html) && /\$\("prompt"\)\.readOnly=false/.test(html) && /\$\("prompt"\)\.focus\(\)/.test(html)],
  ["Auth error is shown to user", /Сессия не авторизована/.test(html)],
  ["Durable Agent runtime has chat entrypoint", /class .*Agent|async .*chat|onMessage/.test(runtime)]
 ];
