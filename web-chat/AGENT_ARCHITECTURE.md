@@ -96,10 +96,10 @@ Primary technical references:
 
 ### Stage C — broad tool surface
 - [x] MCP client manager with persistent connections, exact-host allowlist, tool discovery, and read-only invocation.
-- [x] Heuristic static source scan; submitted code is never executed by the scanner.
+- [x] Heuristic static source scan; submitted code is never executed by the scanner. A separate isolated JavaScript runtime can execute project tests without outbound network access.
 - [x] Local Windows computer companion with one-time pairing and read-only system/file inspection.
 - [ ] Human approval UI for MCP tools that change external state.
-- [ ] Sandboxed code/data workspace.
+- [x] Persistent Cloudflare Computer workspace with isolated JavaScript execution and network egress disabled.
 - [ ] Browser/computer agent for graphical remote application control.
 - [ ] DOCX/XLSX/OCR and media ingestion.
 - [ ] Image and 3D generation adapters.
