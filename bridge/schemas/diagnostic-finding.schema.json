@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Diagnostic finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "severity", "confidence", "status", "message"],
+  "properties": {
+    "id": { "type": "string" },
+    "severity": { "enum": ["info", "warning", "error", "critical"] },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "status": { "enum": ["confirmed", "probable", "hypothesis"] },
+    "relativePath": { "type": ["string", "null"] },
+    "message": { "type": "string", "maxLength": 2000 },
+    "observed": {},
+    "expected": {}
+  }
+}
