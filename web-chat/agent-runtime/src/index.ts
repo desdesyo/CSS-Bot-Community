@@ -370,7 +370,7 @@ export class AgentSession extends DurableObject<Env> {
     await this.ctx.storage.put("computer:devices", [...new Set(devices)]);
     return json({ paired: true, deviceId: id, deviceToken: token });
   }
-  async fetch(req: Request) {
+  async onRequest(req: Request) {
     const url = new URL(req.url);
     try {
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
