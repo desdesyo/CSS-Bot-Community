@@ -52,12 +52,13 @@ npm install -g wrangler
 wrangler login
 wrangler secret put APP_PASSWORD
 wrangler secret put GITHUB_TOKEN
+wrangler secret put GITHUB_REPO
 wrangler secret put OPENAI_API_KEY
 wrangler secret put BRAVE_SEARCH_API_KEY
 wrangler deploy
 ```
 
-Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep all three secrets out of GitHub files and browser code.
+Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep all secrets out of GitHub files and browser code.
 
 ## Current scope / limitations
 
@@ -73,7 +74,7 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
 - No local PCBridge execution is wired into this prototype yet. That is a separate authenticated, allowlisted integration stage.
-- Add rate limiting, individual user identity, per-user file ownership, streaming, PDF/DOCX/XLSX/image ingestion, sandboxed data analysis, task queues, per-thread access controls, and automated integration tests before broad/public use.
+- Add rate limiting, individual user identity, per-user file ownership, streaming, DOCX/XLSX ingestion, OCR, sandboxed general-purpose data analysis, task queues, per-thread access controls, and automated integration tests before broad/public use.
 
 ## Security notes
 
