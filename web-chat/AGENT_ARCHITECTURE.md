@@ -82,20 +82,25 @@ Primary technical references:
 - [x] Add GitHub workspace list/read/write tools with a configured repository and path root.
 - [x] Make repository writes auditable Git commits.
 - [x] Expand the per-request tool loop from 6 to 12 rounds.
-- [ ] Add automated tests for path traversal, UTF-8/base64 round-trips, create/update behavior, and API failures.
+- [ ] Add dedicated automated tests for path traversal, UTF-8/base64 round-trips, create/update behavior, and API failures.
 - [ ] Verify CI and a real GitHub workspace write/read round-trip.
 
 ### Stage B — durable agent runtime
-- [ ] Add Agents SDK + Durable Object conversation/session.
-- [ ] Migrate transcript persistence from GitHub Issues to Durable SQL; retain export/backup.
-- [ ] Add streaming and resumable turns.
-- [ ] Add durable task queue/fibers and progress events.
-- [ ] Add model adapter registry and circuit-breaker/failover.
+- [x] Add Agents SDK + SQLite Durable Object + Pi Durable session harness.
+- [x] Route compatible text-only chat turns through durable per-thread Pi sessions; PDF/image turns retain the existing multimodal fallback.
+- [x] Use durable, idempotent Pi submissions so interrupted runs can resume after object eviction.
+- [x] Persist Pi transcripts and session mapping in Durable Object SQLite.
+- [ ] Migrate legacy transcript history from GitHub Issues to Durable SQL; retain export/backup.
+- [ ] Add streaming UI, visible progress and cancellation.
+- [ ] Add multi-provider model routing, health checks and circuit-breaker/failover.
 
 ### Stage C — broad tool surface
-- [ ] MCP client manager and curated connector registry.
+- [x] MCP client manager with persistent connections, exact-host allowlist, tool discovery, and read-only invocation.
+- [x] Heuristic static source scan; submitted code is never executed by the scanner.
+- [x] Local Windows computer companion with one-time pairing and read-only system/file inspection.
+- [ ] Human approval UI for MCP tools that change external state.
 - [ ] Sandboxed code/data workspace.
-- [ ] Browser/computer agent.
+- [ ] Browser/computer agent for graphical remote application control.
 - [ ] DOCX/XLSX/OCR and media ingestion.
 - [ ] Image and 3D generation adapters.
 - [ ] Project memory, history search, scheduled automation.
@@ -109,4 +114,4 @@ Primary technical references:
 
 ## Current verified implementation status
 
-The current deployed status is **not verified**. Source integration has been committed but has not yet passed a dependency install, TypeScript build, Cloudflare deployment, or live device/MCP end-to-end test. Source changes in this branch do not mean Cloudflare deployment has occurred. The new GitHub workspace tools are implemented in source but remain disabled until `GITHUB_WORK_REPO` and token permissions are configured. CI has not yet reported a passing run for these changes.
+The current deployed status is **not verified**. The source integration is committed, but deployment and live device/MCP end-to-end tests remain outstanding. GitHub Actions is checking dependency installation and TypeScript compilation; a passing result is required before calling this release ready. Source changes in this branch do not mean Cloudflare deployment has occurred. The new GitHub workspace tools are implemented in source but remain disabled until `GITHUB_WORK_REPO` and token permissions are configured. CI has not yet reported a passing run for these changes.
