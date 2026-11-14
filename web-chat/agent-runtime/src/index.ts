@@ -15,6 +15,7 @@ interface Env {
   GITHUB_WORK_BRANCH?: string;
   GITHUB_WORK_ROOT?: string;
   MCP_ALLOWED_HOSTS?: string;
+  BRAVE_SEARCH_API_KEY?: string;
 }
 interface ComputerTask {
   id: string;
@@ -119,6 +120,8 @@ export class AgentSession extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    const mcp = this.mcp;
+    const storage = this.ctx.storage;
     this.registry.install({
       name: "workspace-and-connectors",
       sections: [{
@@ -196,9 +199,9 @@ export class AgentSession extends DurableObject<Env> {
             const parsed = new URL(url);
             const allowed = (env.MCP_ALLOWED_HOSTS || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
             if (parsed.protocol !== "https:" || !allowed.includes(parsed.hostname.toLowerCase())) throw new Error("MCP host is not allowlisted");
-            await this.mcp.addMcpServer(name, parsed.toString());
-            await this.mcp.waitForConnections();
-            return textOutput({ connected: true, name, tools: this.mcp.listTools().filter(t => t.serverName === name).map(t => t.name) });
+            await mcp.addMcpServer(name, parsed.toString());
+            await mcp.waitForConnections();
+            return textOutput({ connected: true, name, tools: mcp.listTools().filter(t => t.serverName === name).map(t => t.name) });
           }
         },
         {
@@ -207,8 +210,8 @@ export class AgentSession extends DurableObject<Env> {
           parameters: obj({}),
           replay: "safe",
           async execute() {
-            await this.mcp.waitForConnections();
-            return textOutput(this.mcp.listTools().map(t => ({
+            await mcp.waitForConnections();
+            return textOutput(mcp.listTools().map(t => ({
               serverId: t.serverId, serverName: t.serverName, name: t.name,
               description: t.description, inputSchema: t.inputSchema,
               readOnlyHint: t.annotations?.readOnlyHint === true
@@ -221,12 +224,28 @@ export class AgentSession extends DurableObject<Env> {
           parameters: obj({ serverId: str(), name: str(), argumentsJson: str() }),
           replay: "safe",
           async execute({ serverId, name, argumentsJson }: { serverId: string; name: string; argumentsJson: string }) {
-            await this.mcp.waitForConnections();
-            const tool = this.mcp.listTools().find(t => t.serverId === serverId && t.name === name);
+            await mcp.waitForConnections();
+            const tool = mcp.listTools().find(t => t.serverId === serverId && t.name === name);
             if (!tool) throw new Error("MCP tool not found");
             if (tool.annotations?.readOnlyHint !== true) throw new Error("This MCP tool can change external state and requires a separate human approval flow");
-            const result = await this.mcp.callTool({ serverId, name, arguments: JSON.parse(argumentsJson || "{}") });
+            const result = await mcp.callTool({ serverId, name, arguments: JSON.parse(argumentsJson || "{}") });
             return textOutput(result);
+          }
+        },
+        {
+          name: "web_search",
+          description: "Search the public web using Brave Search and return source URLs for research.",
+          parameters: obj({ query: str() }),
+          replay: "safe",
+          async execute({ query }: { query: string }) {
+            if (!env.BRAVE_SEARCH_API_KEY) throw new Error("Web search is not configured");
+            const url = new URL("https://api.search.brave.com/res/v1/web/search");
+            url.searchParams.set("q", query.slice(0, 500));
+            url.searchParams.set("count", "8");
+            const response = await fetch(url, { headers: { Accept: "application/json", "X-Subscription-Token": env.BRAVE_SEARCH_API_KEY } });
+            if (!response.ok) throw new Error("Search provider returned " + response.status);
+            const data = await response.json() as any;
+            return textOutput((data.web?.results || []).map((x: any) => ({ title: x.title, url: x.url, description: x.description, age: x.age || x.page_age || null })).slice(0, 8));
           }
         },
         {
@@ -236,14 +255,14 @@ export class AgentSession extends DurableObject<Env> {
           replay: "safe",
           async execute({ action, path }: { action: string; path: string }) {
             if (!["system_info", "list_directory", "read_text_file"].includes(action)) throw new Error("Unsupported or write-capable computer action");
-            const devices = await this.ctx.storage.get<string[]>("computer:devices") || [];
+            const devices = await storage.get<string[]>("computer:devices") || [];
             const deviceId = devices[0];
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to create a pairing code.");
             const task: ComputerTask = { id: crypto.randomUUID(), action: action as ComputerTask["action"], path: path || "", createdAt: Date.now() };
             const key = "computer:queue:" + deviceId;
-            const queue = await this.ctx.storage.get<ComputerTask[]>(key) || [];
+            const queue = await storage.get<ComputerTask[]>(key) || [];
             queue.push(task);
-            await this.ctx.storage.put(key, queue);
+            await storage.put(key, queue);
             return textOutput({ queued: true, deviceId, taskId: task.id, action, status: "waiting for local agent" });
           }
         }
@@ -251,6 +270,17 @@ export class AgentSession extends DurableObject<Env> {
     });
   }
 
+  private async runChat(threadKey: string, prompt: string) {
+    const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+    let sessionId = await this.ctx.storage.get<string>(key);
+    if (!sessionId) {
+      const session = await this.harness.sessions.create();
+      sessionId = session.id;
+      await this.ctx.storage.put(key, sessionId);
+    }
+    const result = await this.harness.session(sessionId).prompt(prompt);
+    return { reply: result.text || "", status: result.status, sessionId };
+  }
   private requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
     if (!this.env.APP_PASSWORD || auth !== "Bearer " + this.env.APP_PASSWORD) throw new Error("Unauthorized");
@@ -324,9 +354,8 @@ export class AgentSession extends DurableObject<Env> {
         const body = await req.json() as any;
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
-        const receipt = await this.harness.submit(prompt, { operationId: String(body.operationId || crypto.randomUUID()) });
-        const result = await this.harness.wait(receipt.operationId);
-        return json({ reply: result.text || "", operationId: receipt.operationId, status: result.status, reason: result.reason || null });
+        const result = await this.runChat(String(body.threadKey || "default"), prompt);
+        return json(result);
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
         this.requirePassword(req);
