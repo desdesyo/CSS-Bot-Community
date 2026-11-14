@@ -249,6 +249,16 @@ export class AgentSession extends DurableObject<Env> {
           }
         },
         {
+          name: "computer_task_result",
+          description: "Check the result of a previously queued read-only computer task.",
+          parameters: obj({ taskId: str() }),
+          replay: "safe",
+          async execute({ taskId }: { taskId: string }) {
+            const result = await storage.get<any>("computer:result:" + taskId);
+            return textOutput(result || { pending: true, taskId });
+          }
+        },
+        {
           name: "computer_request",
           description: "Queue a read-only task for the paired local computer agent. Actions: system_info, list_directory, read_text_file.",
           parameters: obj({ action: str(), path: str() }),
