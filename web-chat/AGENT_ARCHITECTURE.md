@@ -36,7 +36,7 @@ Primary technical references:
 2. **Files and repositories**
    - Private upload library with ownership checks.
    - GitHub repository browse/read/write, branches, commits, diffs, PRs, workflow results.
-   - Current prototype has a restricted GitHub Contents API toolset: list/read/create/update UTF-8 files under `GITHUB_WORK_ROOT`, with commit evidence.
+   - The Pi Durable agent now exposes restricted GitHub Contents API tools: list/read/create/update UTF-8 files under `GITHUB_WORK_ROOT`, with commit evidence.
    - Extend to Git Trees API for binary assets and large changesets; never commit credentials.
 
 3. **Research and browsing**
@@ -52,7 +52,7 @@ Primary technical references:
 5. **Software engineering**
    - Project inspection, planning, code editing, tests, builds, logs, diffs, release artifacts.
    - CI evidence required before describing a build as passing.
-   - Separate local PCBridge with read-only inspection by default, allowlisted operations, and explicit approval for game-file modifications.
+   - Separate local PCBridge is now implemented as a read-only Node.js companion: pairing code, hashed device token, outbound polling, system info, allowlisted directory listing and text-file reading. No shell or file mutation.
 
 6. **3D and media**
    - Image generation/editing through a configured image provider.
@@ -109,4 +109,4 @@ Primary technical references:
 
 ## Current verified implementation status
 
-The current deployed status is **not verified**. Source changes in this branch do not mean Cloudflare deployment has occurred. The new GitHub workspace tools are implemented in source but remain disabled until `GITHUB_WORK_REPO` and token permissions are configured. CI has not yet reported a passing run for these changes.
+The current deployed status is **not verified**. Source integration has been committed but has not yet passed a dependency install, TypeScript build, Cloudflare deployment, or live device/MCP end-to-end test. Source changes in this branch do not mean Cloudflare deployment has occurred. The new GitHub workspace tools are implemented in source but remain disabled until `GITHUB_WORK_REPO` and token permissions are configured. CI has not yet reported a passing run for these changes.
