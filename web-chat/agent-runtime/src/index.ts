@@ -41,7 +41,8 @@ function safeEqual(a: string, b: string) {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
-}\nfunction textOutput(value: unknown) {
+}
+function textOutput(value: unknown) {
   return { output: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] };
 }
 function safePath(env: Env, value: string) {
