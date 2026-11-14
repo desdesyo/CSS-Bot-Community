@@ -32,7 +32,7 @@ Priority is functional tool execution and finished artifacts over cosmetic featu
 - **M4 Agent orchestration**: model tool-calling loop, task plan/state, retries, idempotency, progress persistence, verification, fallback paths.
 - **M5 Reliability and privacy**: per-user identity and ownership, private storage, backups, limits, audit trail, integration tests, production monitoring.
 
-External dependencies must be named in setup instructions: R2-compatible private storage, web-search provider credentials, and an isolated analysis runtime for arbitrary code. Never ship fake buttons to imply these dependencies are already configured.
+External dependencies must be named in setup instructions: R2-compatible private storage, Workers AI and Worker Loader bindings, GitHub token permissions, web-search provider credentials, and the isolated JavaScript execution backend. Never ship fake buttons to imply these dependencies are already configured.
 
 ## Feature inventory and implementation status
 
@@ -47,21 +47,22 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Message actions | Edit/resend, regenerate, copy, delete, retry failed turn | Planned |
 | Rich text | Safe Markdown, headings, lists, links, inline code, fenced code, copy/save actions | Partial: safe basic Markdown and code blocks; tables and syntax highlighting remain |
 | File creation | Assistant creates real downloadable artifacts from instructions | Partial: server-side create-file tool and save-answer-as-Markdown; format templates/large artifact workflow remain |
-| GitHub workspace | Agent lists, reads, creates, and updates repository files with auditable commits | Partial: optional configured repo + path-root restriction; UTF-8 text only, 900 KB write cap; requires token Contents permissions; no binary Git data API or branch creation yet |
+| GitHub workspace | Agent lists, reads, creates, and updates repository files with auditable commits | Partial: durable Pi agent has list/read/write tools across the configured repository and development branch; UTF-8 text only, 900 KB Contents API write cap; requires token Contents permission; binary Git API and branch creation pending |
 | Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: private R2 upload/download/delete, multi-file attach, 15 MB cap; library pagination added; no full file manager yet |
 | Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Partial: text/CSV/JSON/source files plus PDF input to primary model; DOCX/XLSX/OCR pipeline pending |
 | Image understanding | Attach images and ask questions about them | Partial: image input to primary Responses API model; no image editing/generation |
 | Image generation/editing | Generate and edit images, persist outputs in conversation | Planned; image provider + object storage required |
 | Web search | Server-side search tool, citations, source links, recency controls | Partial: Brave Search server tool + opt-in UI toggle; requires API key and source verification tests |
-| Data analysis | Sandboxed execution, CSV/XLSX analysis, charts, downloadable artifacts | Partial: deterministic CSV row/column and numeric summaries; isolated runtime, XLSX, charts pending |
+| Data analysis | Sandboxed execution, CSV/XLSX analysis, charts, downloadable artifacts | Partial: persistent Cloudflare Computer workspace with isolated JavaScript Codemode backend and network egress disabled; heuristic static source scan and deterministic CSV summaries; XLSX/charts pending |
 | Voice input/output | Speech-to-text, spoken responses, interruption and playback controls | Planned; speech provider/browser support required |
 | Memory | User-controlled durable facts, inspect/update/delete, source and scope controls | Planned; private memory store required |
 | Projects | Group chats/files/instructions by project | Planned |
 | Custom assistants | User-created instruction profiles and knowledge files | Planned |
-| Connectors | OAuth-based integrations, least-privilege permissions, revoke access | Planned; each integration requires its own API and authorization |
-| Tasks/automation | Scheduled or conditional background tasks, status and cancellation | Planned; scheduler/queue required |
+| Connectors | MCP and OAuth-based integrations, least-privilege permissions, revoke access | Partial: persistent MCPClientManager, exact hostname allowlist, discovery and readOnlyHint-only tool calls; OAuth UI, authenticated connector configuration, write-tool approval and revoke UI pending |
+| Tasks/automation | Scheduled or conditional background tasks, status and cancellation | Partial: Pi Durable long-running sessions with idempotent submissions and recovery after eviction; separate scheduled jobs, progress UI and cancellation pending |
 | Search in history | Full-text search across user's conversations and files | Planned |
 | Export/import | Export chat as JSON/Markdown; import supported formats | Planned |
+| Local computer connection | Pair the user's Windows computer and safely inspect selected files/system state | Partial: one-time pairing code, hashed device token and outbound HTTPS polling; system info, directory listing and text-file reads only; no shell, screen, keyboard, mouse or writes |
 | Account/security | Individual identity, sessions, password reset, rate limits, audit trail | Partial: shared password gate; not suitable for multi-user public use; ownership/rate limits pending |
 | Accessibility/mobile | Keyboard navigation, responsive layout, screen-reader labels | Partial: basic responsive layout only |
 | Localization | Russian and English interface, per-user language setting | Planned |
