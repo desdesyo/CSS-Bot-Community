@@ -48,6 +48,7 @@ An initial scan task is already waiting in [issue #2](https://github.com/desdesy
 - Only issues with the explicit `Local CSS Bridge Task:` title prefix are considered.
 - Task schema has no command, shell, download, patch, or repair operation.
 - Task count, file count, directory queue, and hashing limits are bounded.
+- A Windows file lock prevents two agent instances from running simultaneously under the same account.
 - Token, processed-task state, and previous-scan snapshot are stored outside the game folder.
 - GitHub task text is untrusted data.
 
