@@ -11,6 +11,14 @@ A small browser chat UI with conversation history stored in GitHub Issues and AI
 
 The public CSS Bot Community repository stores the application source only. Conversation records must go to a separate **private** GitHub repository. Cloudflare Workers serves the site and keeps API credentials server-side. A static GitHub Pages-only site is deliberately not used for API calls because it would expose secrets in browser code.
 
+## Region-independent access requirement
+
+The browser client must work as a normal HTTPS website without requiring the user to install or enable a VPN, proxy, or location-spoofing tool. The application must not request browser geolocation, inspect the user's country to choose a model, or change chat behavior based on the user's IP/location. User location is not part of the chat protocol or conversation identity.
+
+The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Workers (preferably on a stable custom domain), with all model-provider credentials and routing kept server-side. Provider selection and failover happen on the server and must not require any action from the user. Do not add client-side provider URLs, region selectors, VPN instructions, or geo-based UI branches.
+
+**Honest availability boundary:** no application can guarantee access from literally every network or country. A government/network may block the domain or Cloudflare, GitHub may be unreachable, or a model provider may restrict API access from the server's egress region. These are upstream/network restrictions, not a reason to ask the user to use a VPN. For resilience, deploy the app on a stable domain and configure at least one independent, legally available server-side model provider endpoint; test the complete path from the intended hosting environment. Never claim worldwide availability until tested from multiple networks.
+
 ## Required Worker secrets
 
 Set these with `wrangler secret put NAME`:
@@ -23,7 +31,7 @@ Set Worker variables:
 
 - `GITHUB_REPO` — required; set to a separate private repository such as `your-account/private-chat-history`. Do not point this at the public CSS Bot Community repository.
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
-- `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment.
+- `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
 ## Deploy
 
