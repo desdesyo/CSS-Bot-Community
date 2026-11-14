@@ -19,14 +19,14 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1p
 <main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">New conversation</span></div><div class="status" id="status">Private workspace</div></header><section class="messages" id="messages"><div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved to GitHub so the conversation can be reopened later.</div></div></section><div class="composer-wrap"><div class="composer"><textarea id="prompt" rows="1" placeholder="Message GitHub Chat…"></textarea><button class="send" id="send">Send</button></div><div class="hint">A continuous conversation. Your history stays with you.</div></div></main>
 </div>
 <script>
-const $=id=>document.getElementById(id);let token=sessionStorage.getItem("ghchat_password")||"",thread=null,busy=false;
+const $=id=>document.getElementById(id);let token=sessionStorage.getItem("ghchat_password")||"",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false;
 async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+token,...opts.headers}});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
 function setStatus(s){$("status").textContent=s}
 function addMessage(role,text){const empty=$("messages").querySelector(".welcome");if(empty)empty.remove();const row=document.createElement("article");row.className="msg "+role;const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?"YOU":"AI";const body=document.createElement("div");body.className="body";body.textContent=text;row.append(av,body);$("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight}
 function showWelcome(){ $("messages").innerHTML='<div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved to GitHub so the conversation can be reopened later.</div></div>'; }
 async function loadThreads(){const d=await api("/api/threads");$("threads").innerHTML="";for(const t of d.threads){const b=document.createElement("button");b.className="thread"+(t.number===thread?" active":"");b.textContent=t.title;b.title=t.title;b.onclick=()=>openThread(t.number);$("threads").append(b)}$("connection").textContent="Connected · "+d.threads.length+" conversations"}
-async function openThread(n){thread=n;setStatus("Loading history…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=d.title||("Conversation #"+n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content);await loadThreads();setStatus("Saved in GitHub · #"+n)}
-function newChat(){thread=null;$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("New conversation")}
+async function openThread(n){thread=n;localStorage.setItem("ghchat_thread",String(n));setStatus("Loading history…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=d.title||("Conversation #"+n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content);await loadThreads();setStatus("Saved in GitHub · #"+n)}
+function newChat(){thread=null;localStorage.removeItem("ghchat_thread");$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("New conversation")}
 async function send(){
  const message=$("prompt").value.trim();if(!message||busy)return;
  busy=true;$("send").disabled=true;$("prompt").disabled=true;$("prompt").value="";
@@ -37,11 +37,11 @@ async function send(){
    try{d=await api("/api/chat",{method:"POST",body:JSON.stringify({thread,message})});completed=true;break}
    catch(e){last=e;if(e.message==="Unauthorized")break;await new Promise(r=>setTimeout(r,700*Math.pow(2,attempt)))}
   }
-  if(completed){thread=d.thread;$("chatTitle").textContent=d.title;addMessage("assistant",d.reply);try{await loadThreads()}catch(_){}}
+  if(completed){thread=d.thread;localStorage.setItem("ghchat_thread",String(thread));$("chatTitle").textContent=d.title;addMessage("assistant",d.reply);try{await loadThreads()}catch(_){}}
   else{bubble.remove();$("prompt").value=message}
  }finally{busy=false;$("send").disabled=false;$("prompt").disabled=false;$("prompt").focus()}
 }
-async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads()}catch(e){$("gateError").textContent=e.message;token=""}}
+async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
 $("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
 if(token){$("password").value=token;unlock()}
 </script>
