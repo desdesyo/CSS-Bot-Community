@@ -193,6 +193,9 @@ internal sealed class FileRecord
     public string? TextKind { get; set; }
     public int? TextLines { get; set; }
     public int? TextErrorMatches { get; set; }
+    public int? TextWarningMatches { get; set; }
+    public int? TextKeyValueLines { get; set; }
+    public int? TextSyntaxIssues { get; set; }
     public bool? TextTruncated { get; set; }
     public string? TextAnalysisStatus { get; set; }
 }
