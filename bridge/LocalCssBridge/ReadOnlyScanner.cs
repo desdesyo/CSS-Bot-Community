@@ -78,7 +78,9 @@ internal static class ReadOnlyScanner
                         if (record.Extension is ".exe" or ".dll")
                         {
                             try { record.FileVersion = FileVersionInfo.GetVersionInfo(full).FileVersion; } catch { }
+                            PeAnalyzer.Analyze(full, record);
                         }
+                        TextFileAnalyzer.Analyze(full, record);
                         report.Files.Add(record);
                         if (seen >= maxFiles) break;
                     }
