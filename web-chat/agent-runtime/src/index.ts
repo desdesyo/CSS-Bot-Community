@@ -252,7 +252,7 @@ export class AgentSession extends DurableObject<Env> {
           name: "computer_request",
           description: "Queue a read-only task for the paired local computer agent. Actions: system_info, list_directory, read_text_file.",
           parameters: obj({ action: str(), path: str() }),
-          replay: "safe",
+          replay: "unsafe",
           async execute({ action, path }: { action: string; path: string }) {
             if (!["system_info", "list_directory", "read_text_file"].includes(action)) throw new Error("Unsupported or write-capable computer action");
             const devices = await storage.get<string[]>("computer:devices") || [];
@@ -261,6 +261,7 @@ export class AgentSession extends DurableObject<Env> {
             const task: ComputerTask = { id: crypto.randomUUID(), action: action as ComputerTask["action"], path: path || "", createdAt: Date.now() };
             const key = "computer:queue:" + deviceId;
             const queue = await storage.get<ComputerTask[]>(key) || [];
+            if (queue.length >= 20) throw new Error("Computer task queue is full");
             queue.push(task);
             await storage.put(key, queue);
             return textOutput({ queued: true, deviceId, taskId: task.id, action, status: "waiting for local agent" });
@@ -270,7 +271,7 @@ export class AgentSession extends DurableObject<Env> {
     });
   }
 
-  private async runChat(threadKey: string, prompt: string) {
+  private async runChat(threadKey: string, prompt: string, operationId: string) {
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key);
     if (!sessionId) {
@@ -278,8 +279,10 @@ export class AgentSession extends DurableObject<Env> {
       sessionId = session.id;
       await this.ctx.storage.put(key, sessionId);
     }
-    const result = await this.harness.session(sessionId).prompt(prompt);
-    return { reply: result.text || "", status: result.status, sessionId };
+    const session = this.harness.session(sessionId);
+    const receipt = await session.submit(prompt, { operationId });
+    const result = await this.harness.wait(receipt.operationId);
+    return { reply: result.text || "", status: result.status, operationId: receipt.operationId, sessionId };
   }
   private requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
@@ -295,6 +298,12 @@ export class AgentSession extends DurableObject<Env> {
   private async pairDevice(req: Request) {
     const body = await req.json() as any;
     const code = String(body.code || "");
+    const attemptKey = "computer:pair-attempts";
+    const attempts = await this.ctx.storage.get<{ count: number; resetAt: number }>(attemptKey);
+    const current = !attempts || attempts.resetAt < Date.now() ? { count: 0, resetAt: Date.now() + 5 * 60 * 1000 } : attempts;
+    current.count++;
+    await this.ctx.storage.put(attemptKey, current);
+    if (current.count > 8) throw new Error("Too many pairing attempts; wait five minutes");
     const record = await this.ctx.storage.get<{ expiresAt: number }>("computer:pair:" + code);
     if (!record || record.expiresAt < Date.now()) throw new Error("Pairing code is invalid or expired");
     await this.ctx.storage.delete("computer:pair:" + code);
@@ -354,7 +363,7 @@ export class AgentSession extends DurableObject<Env> {
         const body = await req.json() as any;
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
-        const result = await this.runChat(String(body.threadKey || "default"), prompt);
+        const result = await this.runChat(String(body.threadKey || "default"), prompt, String(body.operationId || crypto.randomUUID()));
         return json(result);
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
