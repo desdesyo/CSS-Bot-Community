@@ -32,6 +32,16 @@ jobs:
         working-directory: web-chat
         run: npm run check
 
+      - name: Ensure chat R2 bucket
+        working-directory: web-chat
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler r2 bucket list | grep -q '"name": "cssbc-chat-files"'; then
+            npx wrangler r2 bucket create cssbc-chat-files
+          fi
+
       - name: Deploy Worker
         working-directory: web-chat
         env:
