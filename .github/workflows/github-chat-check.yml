@@ -28,6 +28,9 @@ jobs:
       - name: Type-check durable agent runtime
         working-directory: web-chat
         run: npm run check
+      - name: Bundle Worker without deploying
+        working-directory: web-chat
+        run: npx wrangler deploy --dry-run --outdir /tmp/cssbc-worker-dry-run
       - name: Check local computer companion syntax
         run: node --check computer-bridge/agent.mjs
       - name: Validate local bridge config example
