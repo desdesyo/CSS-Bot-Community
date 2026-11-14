@@ -8,6 +8,7 @@ A small browser chat UI with conversation history stored in GitHub Issues and AI
 - API and authentication: Cloudflare Worker in `worker.js`
 - Conversation persistence: GitHub Issues with the `github-chat` label; each user/assistant turn is a comment.
 - Model: OpenAI Responses API. Default is `gpt-4.1-mini`; override with `OPENAI_MODEL`.
+- Agent workspace: optional GitHub Contents API integration for listing, reading, creating, and updating real repository files with auditable commits. It is restricted to a configured workspace root.
 
 The public CSS Bot Community repository stores the application source only. Conversation records must go to a separate **private** GitHub repository. Cloudflare Workers serves the site and keeps API credentials server-side. A static GitHub Pages-only site is deliberately not used for API calls because it would expose secrets in browser code.
 
@@ -24,7 +25,7 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 Set these with `wrangler secret put NAME`:
 
 - `APP_PASSWORD` — a long, unique password for access to this private chat.
-- `GITHUB_TOKEN` — fine-grained GitHub token for this repository with Issues read/write permission.
+- `GITHUB_TOKEN` — fine-grained GitHub token with Issues read/write permission on the private chat-history repository and Contents read/write permission on the configured workspace repository.
 - `OPENAI_API_KEY` — API key for model responses and Responses API tool calling.
 - `BRAVE_SEARCH_API_KEY` — Brave Search API key for live web research. Without it, web search tools are unavailable.
 
@@ -39,6 +40,9 @@ The `FILES` R2 binding stores private uploads and generated artifacts. Do not ma
 Set Worker variables:
 
 - `GITHUB_REPO` — required; set to a separate private repository such as `your-account/private-chat-history`. Do not point this at the public CSS Bot Community repository.
+- `GITHUB_WORK_REPO` — optional `owner/repo` where the agent may manage project files. Grant the Worker token Contents read/write access to this repository.
+- `GITHUB_WORK_BRANCH` — optional existing branch for agent changes; omit to use the repository default branch.
+- `GITHUB_WORK_ROOT` — optional allowed directory prefix; defaults to `agent-workspace`. The agent cannot access paths outside this prefix.
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
@@ -68,7 +72,7 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 
 - File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file. File-library listing follows R2 cursors (up to 10,000 objects per request).
 - File analysis currently supports text, Markdown, CSV, JSON, XML, logs, common source-code text files, PDF documents, and image attachments (PDF/image handling is delegated to the configured primary Responses API model). CSV analysis returns deterministic row/column counts and numeric summary statistics. DOCX, XLSX, OCR pipelines, audio/video, and arbitrary code execution are not implemented yet. Binary attachments are not processed by the text-only backup provider.
-- Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, and analyze uploaded CSVs. The backup-compatible provider path is text-only and must not claim that tool actions ran.
+- Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, analyze uploaded CSVs, and (when configured) list/read/create/update text files in a GitHub workspace repository. GitHub writes create auditable commits and are path-restricted to `GITHUB_WORK_ROOT`. The tool loop currently permits up to 12 rounds per request. The backup-compatible provider path is text-only and must not claim that tool actions ran.
 - Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
 - The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
 - Each conversation is a GitHub Issue; turns are comments. Conversation and comment retrieval is paginated (up to 10,000 issues and 5,000 comments per issue in one retrieval), and continuation ancestry is followed for up to 100 linked segments. The just-submitted user turn is explicitly re-injected when rollover creates a fresh continuation, preventing a boundary-turn loss.
