@@ -1,214 +1,218 @@
-# Local CSS Bridge — implementation specification
+# Local CSS Bridge — read-only diagnostics and GitHub fix delivery
 
-**Purpose:** create a real Windows-side agent that connects this ChatGPT conversation to the user's local Counter-Strike: Source v34 installation through a GitHub-controlled task queue. The agent must let the assistant inspect game files, collect diagnostics, prepare fixes, apply approved/safe repairs, and return verifiable results.
+**Purpose:** build a Windows-side read-only agent connecting this ChatGPT conversation to the user's local Counter-Strike: Source v34 installation. The agent inspects the game and publishes diagnostic evidence to GitHub. The assistant analyzes that evidence, develops fixes in GitHub, builds downloadable packages, and provides direct links. The user manually installs each fix.
 
-**Known game root:** `C:\\Games\\Counter-Strike Source v34`
-
+**Game root:** `C:\\Games\\Counter-Strike Source v34`  
 **Repository:** `desdesyo/CSS-Bot-Community`
 
-**Important status rule:** this document is a target implementation plan. None of the bridge capabilities are considered implemented until the corresponding code exists, builds, passes tests, and is exercised against a real CSS v34 folder.
+**Core rule:** the local agent NEVER downloads fixes and NEVER writes to, replaces, renames, or deletes anything in the game folder. It is a read-only scanner and evidence publisher. Fix development and packaging happen in GitHub. The user is responsible for manual installation.
 
-## 1. Non-negotiable outcome
+This is a specification, not an implemented bridge. Do not claim a capability is complete until code exists, builds, passes tests, and is exercised on the actual Windows installation.
 
-The finished bridge is not just a logger, screenshot helper, or one-way uploader. It must support this complete loop:
+## 1. Target workflow
 
-1. The assistant creates a structured repair/inspection task in GitHub.
-2. The local Windows agent discovers the task without inbound ports or router configuration.
-3. The agent validates the task, scope, and allowed paths.
-4. The agent inspects the actual local CSS v34 installation and gathers requested evidence.
-5. The evidence is returned to GitHub in a machine-readable report and human-readable summary.
-6. The assistant analyzes the evidence and prepares a concrete patch or repair package in GitHub.
-7. The local agent downloads and validates the patch, creates a rollback point, applies it according to policy, and runs verification.
-8. The agent reports exact changed files, hashes, test results, errors, and rollback status.
-9. The assistant uses that report to decide whether the issue is fixed or another repair iteration is needed.
+1. ChatGPT creates a structured inspection task in GitHub.
+2. The local Windows agent polls GitHub over outbound HTTPS and receives the task.
+3. The agent validates the task and scans only the configured CSS v34 folder.
+4. It reads folder structure, file metadata, hashes, selected configuration files, logs, crash reports, and other explicitly requested evidence.
+5. It publishes a bounded JSON manifest and readable Markdown report to GitHub. It does not upload the whole game folder.
+6. ChatGPT analyzes the evidence, checks source code, SDKs, engine build, dependencies, and compatibility.
+7. ChatGPT makes actual changes in GitHub, adds tests, runs CI, and creates a ready-to-download ZIP or release asset.
+8. ChatGPT verifies that the package exists, checks its contents and hashes, then provides a direct GitHub download link and exact installation instructions.
+9. The user backs up the named files and manually copies the fix into the game, approving replacement when instructed.
+10. A new read-only scan compares the installed files with the expected manifest. ChatGPT reports whether the fix is verified and prepares another iteration if needed.
 
-The assistant must never claim local access, successful repair, or successful testing unless the agent has returned evidence proving it.
+A source commit is not an installable fix. A successful compile is not proof that the game works. Never claim success without the corresponding evidence.
 
-## 2. Connection model and honest platform boundary
+## 2. Responsibilities
 
-A normal ChatGPT browser conversation cannot directly open arbitrary files on the user's PC or connect to a localhost process merely because a program is installed. The bridge therefore needs an explicit communication channel.
+### Local Windows agent
+- Read-only access to the configured game root.
+- Enumerate folders and files; calculate SHA-256; record size, timestamps, file versions, PE architecture, and metadata.
+- Read relevant text configs and diagnostic logs.
+- Detect missing, zero-byte, unexpected, duplicate, unreadable, or hash-mismatched files against versioned manifests.
+- Publish bounded diagnostic evidence and precise scan errors to GitHub.
+- Never install or apply a fix.
 
-### First working transport: GitHub task queue
+### ChatGPT assistant
+- Read GitHub diagnostic reports and investigate the evidence.
+- Separate confirmed faults from hypotheses.
+- Make real source/configuration changes in GitHub.
+- Add tests and CI workflows; inspect build/test logs and fix failures.
+- Build a correctly structured install package, include an install guide and SHA-256 manifest, and publish a GitHub Release asset or verified workflow artifact.
+- Give the user a direct, verified download link and exact destination paths.
+- Compare post-install scan results and report verified/unverified status.
 
-Use the existing private/authorized GitHub integration as the control plane:
+### User
+- Download the package from GitHub.
+- Back up files named in the installation guide.
+- Manually copy the package into the specified game directories.
+- Launch the game when gameplay testing is needed.
+- Request or allow a post-install scan.
 
-- ChatGPT creates a task as a GitHub Issue (or a dedicated queue record) with a strict JSON payload.
-- The local agent makes outbound HTTPS requests to GitHub on a polling schedule; no inbound listening port is required.
-- The agent posts results as issue comments and uploads bounded diagnostic artifacts to a task branch/release when appropriate.
-- ChatGPT reads the task result through the GitHub integration and continues the repair cycle.
-- A task has a unique ID, status, timestamps, requested scope, and result reference. Duplicate delivery must not execute a repair twice.
+The user should not have to manually browse folders, find DLL names, gather logs, or diagnose issues when the scanner can safely collect that evidence.
 
-This gives a real, auditable, asynchronous bridge to this conversation through GitHub. It is not a live remote desktop or an unrestricted shell.
+## 3. Connection model
 
-### Later transport: direct ChatGPT tool connection
+A normal browser conversation cannot directly open arbitrary local files or call localhost merely because a program is installed. The first connection is an asynchronous GitHub task queue:
 
-A direct interactive connection may be added only through a supported remote MCP/plugin/connector endpoint with authentication and explicit user authorization. Do not pretend that a local HTTP/WebSocket endpoint is directly callable from this chat. Keep the transport interface replaceable so GitHub queue and a future supported connector can share the same agent core.
+- ChatGPT creates a GitHub Issue or repository-backed task with a strict JSON payload.
+- The local agent polls GitHub using outbound HTTPS; no inbound router port is required.
+- The agent claims the task, performs named read-only operations, and posts its result and bounded artifacts.
+- ChatGPT reads the result through the GitHub integration.
+- Tasks have unique IDs, timestamps, status transitions, bounded retries, and idempotency.
 
-## 3. Local agent architecture
+This is not a live desktop connection or unrestricted remote shell. A future direct connection may use only a supported, authenticated MCP/plugin/connector endpoint. Do not pretend localhost HTTP/WebSocket is directly callable from this chat.
 
-Implement the Windows agent as a standalone **C#/.NET 8** application (no Python). Keep it separate from the game process and separate from the CSS Bot gameplay mod.
+## 4. Local agent architecture
 
-Suggested components:
+Implement as a standalone **C#/.NET 8 Windows application**, not Python. Keep it separate from the CSS Bot gameplay mod.
 
-- **Bridge.Host** — Windows background process/tray app; starts, stops, reports health, and manages configuration.
-- **Bridge.GitHub** — authenticated outbound HTTPS client; polls tasks, posts results, downloads signed/hashed artifacts.
-- **Bridge.TaskEngine** — validates task schema, permissions, state transitions, retries, and idempotency.
-- **Bridge.FileSystem** — enumerates and reads only allowlisted roots; records file size, timestamps, SHA-256, PE metadata, and access errors.
-- **Bridge.Diagnostics** — gathers game version/build indicators, DLL metadata, VDF/plugin configuration, crash dumps, logs, and dependency presence without assuming SourceMod is installed.
-- **Bridge.Repair** — stages patches, creates backups, applies approved file operations, verifies hashes, and rolls back failed changes.
-- **Bridge.TestRunner** — runs only explicitly allowlisted, bounded diagnostic commands/tests; captures stdout, stderr, exit code, timeout, and timestamps.
-- **Bridge.Reporting** — emits JSON plus a readable Markdown report with evidence references.
-- **Bridge.Security** — path traversal prevention, file-size limits, command allowlist, authentication, audit log, and permission policy.
+- **Bridge.Host** — Windows tray/background app, configuration, health, start/stop.
+- **Bridge.GitHub** — authenticated outbound HTTPS polling and report publishing.
+- **Bridge.TaskEngine** — schema validation, task states, idempotency, retries, limits.
+- **Bridge.FileSystem** — read-only allowlisted enumeration, metadata, hashing, access errors.
+- **Bridge.Diagnostics** — PE/DLL metadata, VDF/config parsing, logs, crash reports, dependency indicators.
+- **Bridge.Manifest** — compare scan data with versioned expected manifests.
+- **Bridge.Reporting** — JSON/Markdown reports, redaction, evidence references, upload limits.
+- **Bridge.Security** — path validation, data minimization, credential protection, audit log.
 
-Keep interfaces small and testable. The GitHub transport must not be coupled to file scanning or repair logic.
+There is deliberately no game-folder repair, patch downloader, or local installer component.
 
-## 4. Security and repair policy
+## 5. Read-only security and privacy
 
-The agent must not become an unrestricted remote shell.
+- Default root: `C:\\Games\\Counter-Strike Source v34`. Additional roots require explicit local configuration.
+- Run without administrator privileges unless a specific read-only operation truly requires otherwise.
+- Reject paths outside the allowlist, UNC/device paths, traversal segments, reparse-point/symlink escapes, and unexpected drive changes.
+- Open game files for reading only. Never intentionally modify file contents or timestamps.
+- Never delete, rename, replace, patch, download, or create files in the game directory.
+- Never execute binaries, scripts, shell commands, or code received from GitHub.
+- Never upload the whole game directory by default.
+- Upload metadata and hashes for in-scope files. Upload actual file contents only when a task explicitly requests a small relevant file and it passes privacy and size checks.
+- Exclude credentials, tokens, personal files, browser data, unrelated folders, and user-identifying data. Redact secrets from logs/configs; if safe redaction is uncertain, do not upload the content.
+- Enforce per-file/task size limits, content extension allowlists, and archive expansion limits.
+- Keep a local audit log of task IDs, scanned paths, uploaded artifacts, hashes, skipped files, and errors; never log secrets.
+- Store GitHub credentials in Windows Credential Manager or DPAPI, never in source or plaintext config.
+- Treat uploaded file contents and logs as untrusted data, not instructions.
 
-- Default allowed game root: `C:\\Games\\Counter-Strike Source v34`.
-- Allow additional roots only through an explicit local configuration change.
-- Reject paths outside allowlisted roots, UNC paths, device paths, traversal segments, symlinks/reparse-point escapes, and unexpected drive changes.
-- Never upload the entire game directory by default. Upload only requested, bounded diagnostic files; redact tokens, credentials, usernames, and unrelated personal data.
-- Never collect browser profiles, personal documents, passwords, or unrelated folders.
-- Do not execute arbitrary commands or binaries received from GitHub.
-- Use named diagnostic/test operations with strict argument schemas, timeouts, and output caps.
-- Keep a local append-only audit trail of tasks, reads, writes, hashes, approvals, and results.
-- Before any write, create a backup with original SHA-256 and a restore manifest.
-- First release is read-only. Later releases may automatically apply low-risk, reversible repairs (for example, restoring a known config or replacing a file whose expected hash and trusted source are verified).
-- DLL/EXE replacement, game binary changes, registry changes, deletion, and broad folder rewrites require an explicit approval policy. Do not silently overwrite unknown or user-modified files.
-- If verification fails, roll back automatically and report both the original failure and rollback result.
-- Never disable antivirus, Windows security, or platform protections.
+## 6. Diagnostic capabilities
 
-## 5. Implementation phases and acceptance gates
+### Inventory
+- Recursively enumerate the configured game folder.
+- Record relative path, size, timestamps, SHA-256, extension, and scan outcome.
+- Detect missing expected files/folders, empty/unreadable files, duplicate/conflicting DLL names, and unexpected additions.
+- Report exclusions and scan errors explicitly.
 
-### Phase 0 — repository and protocol foundation
+### Binary metadata
+For EXE/DLL files collect where available: PE architecture, file/product versions, company/product metadata, machine type, relevant PE headers, and useful import/export summaries. Static imports alone do not prove runtime compatibility.
 
-Deliver:
-- `bridge/README.md` with install/run/configuration instructions.
-- Versioned JSON schemas for `BridgeTask`, `BridgeResult`, `FileRecord`, `RepairPlan`, and `RepairResult`.
-- Task lifecycle: `queued -> claimed -> inspecting -> awaiting_patch -> patch_ready -> applying -> verifying -> completed|failed|rolled_back`.
-- A threat model and explicit permission matrix.
+### Configurations and logs
+- Parse relevant VDF, INI, CFG, JSON, and known text formats with size limits.
+- Collect relevant game/plugin/crash/exception logs.
+- Detect malformed declarations, missing references, conflicting plugin entries, and known error signatures.
+- Preserve source paths and line/offset references where possible.
+- Do not assume SourceMod is installed or required.
 
-Acceptance:
-- Schemas validate known-good and reject malformed/oversized/unknown operations.
-- Duplicate task IDs are idempotent.
-- No local file writes are possible in this phase.
+### Evidence-based findings
+Each finding includes a unique ID, severity, confidence, exact relative path, observed value/hash/log excerpt, expected value and source if known, rationale, status (confirmed/probable/hypothesis), and any additional evidence needed.
 
-### Phase 1 — Windows agent and secure GitHub connection
+## 7. GitHub fix development and packaging
 
-Deliver:
-- .NET 8 solution and Windows x64 build.
-- Configuration for repository, task label/queue, polling interval, game root, and credential source.
-- Outbound GitHub polling, task claiming, heartbeat, retry/backoff, and result comments.
-- Token storage using Windows Credential Manager or DPAPI; never store tokens in source, logs, or plain config.
-- GitHub Actions build and automated unit tests.
+For every fix, ChatGPT must:
+1. Create a dedicated branch or clearly scoped commit.
+2. Modify the necessary source/configuration files in GitHub.
+3. Add tests/validation where possible.
+4. Run the repository's GitHub Actions build/test workflow and inspect logs.
+5. Fix CI failures before declaring the package ready.
+6. Produce a ZIP or suitable installable artifact containing only necessary files.
+7. Preserve game-relative folder structure so extraction/copy destinations are unambiguous.
+8. Include `INSTALL.md`: exact target paths, backup steps, replacement list, prerequisites, install and rollback instructions.
+9. Include `manifest.json`: package version, file list, destination paths, SHA-256 hashes, source commit, CI run, and compatibility target.
+10. Publish as a GitHub Release asset or verified workflow artifact.
+11. Verify the asset exists, is downloadable, and matches the manifest before sharing the link.
 
-Acceptance:
-- Agent starts on Windows, authenticates, receives a test task, posts a heartbeat/result, survives network interruption, and does not execute arbitrary task text.
-- Build artifact is downloadable from a successful GitHub Actions run.
+A DLL/EXE package requires checks for architecture, exports/dependencies, target engine compatibility, and destination. Never present a speculative binary as a confirmed fix.
 
-### Phase 2 — real CSS v34 filesystem inspection
+Use precise delivery states:
+- source change committed;
+- CI build passed;
+- package created;
+- package contents/hash verified;
+- user downloaded;
+- user installed;
+- post-install scan passed;
+- game launch/gameplay test passed.
 
-Deliver:
-- Safe recursive inventory of the known game root.
-- Configurable exclusions and file-size caps.
-- SHA-256 manifest, PE metadata for EXE/DLL, version/product fields, architecture, and dependency metadata where available.
-- Detection of expected folders/files, missing files, zero-byte files, duplicate/conflicting DLLs, malformed VDF/config files, and inaccessible paths.
-- Targeted collection of existing logs, crash dumps, and exception files.
+## 8. Implementation phases and acceptance gates
 
-Acceptance:
-- A real scan of `C:\\Games\\Counter-Strike Source v34` returns a complete, bounded inventory and explicit skipped/error entries.
-- The report distinguishes “missing”, “unreadable”, “not checked”, and “present”; it never guesses.
-- The agent does not modify the game during inspection.
+### Phase 0 — protocol and repository foundation
+Deliver `bridge/README.md`; versioned JSON schemas for `BridgeTask`, `BridgeResult`, `FileRecord`, `DiagnosticFinding`, and `UploadArtifact`; task lifecycle `queued -> claimed -> scanning -> reported -> fix_in_progress -> fix_ready -> awaiting_user_install -> awaiting_rescan -> verified|needs_followup|failed`; privacy rules, limits, threat model, and operation allowlist.
 
-### Phase 3 — diagnostics and fault analysis
+Acceptance: malformed/oversized/unknown operations are rejected; duplicate IDs are idempotent; no write, patch, download, or command-execution operation exists in task schema.
 
-Deliver:
-- Named diagnostic probes for game executable/DLL metadata, required folder layout, VDF plugin declarations, runtime dependencies, known engine/plugin compatibility markers, and log signatures.
-- Comparison against versioned known-good manifests stored in GitHub.
-- Evidence-linked diagnosis: each finding includes file path, observed value/hash, expected value/source, severity, and confidence.
-- A repair recommendation generated from evidence, not from filename guesses alone.
+### Phase 1 — Windows read-only agent and GitHub queue
+Deliver .NET 8 Windows x64 solution; repository/queue/polling/game-root config; secure GitHub polling, heartbeat, retries/backoff, task claiming, result comments; Credential Manager/DPAPI; CI build and unit tests.
 
-Acceptance:
-- Repeated scans of an unchanged installation produce stable manifests.
-- Known test fixtures correctly identify missing, corrupted, incompatible, and healthy files.
-- The report never marks a speculative issue as confirmed.
+Acceptance: agent receives a test task and publishes the result; handles network interruption and duplicate delivery; cannot execute arbitrary task text; successful CI publishes a Windows x64 build.
 
-### Phase 4 — staged repair and rollback
+### Phase 2 — real CSS v34 scan
+Deliver safe recursive inventory; SHA-256 manifest; PE metadata for EXE/DLL; detection of missing/empty/unreadable/duplicate files and malformed configs; bounded log/exception collection; JSON and Markdown report upload.
 
-Deliver:
-- Repair plans stored as declarative JSON operations, not arbitrary scripts.
-- Trusted artifact download with SHA-256 verification and source/provenance record.
-- Backup/restore manifest, atomic staging, safe replacement, and rollback.
-- Repair classes: configuration repair, known-file restoration, dependency repair, and plugin/DLL repair with stricter approval.
-- Dry-run mode showing exact files and operations before applying.
+Acceptance: real scan has explicit skipped/error records; repeated scans yield stable hashes; agent demonstrably does not modify game files; no full-directory upload occurs.
 
-Acceptance:
-- Unit/integration tests prove backup restoration after simulated failure.
-- A corrupted test fixture is repaired to the expected hash.
-- Unknown or mismatched source files are rejected.
-- Failed post-repair verification triggers rollback and a truthful report.
+### Phase 3 — diagnostics and evidence analysis
+Deliver named read-only probes for binary metadata, VDF/plugin declarations, dependencies, folder layout, and log signatures; versioned known-good manifests; evidence-linked findings.
 
-### Phase 5 — verification and autonomous repair loop
+Acceptance: fixtures distinguish healthy, missing, corrupted, and incompatible examples; reports separate confirmed faults from hypotheses; evidence supports reproducible root-cause analysis.
 
-Deliver:
-- Bounded test runner for file integrity and safe non-interactive checks.
-- Optional game launch/health probe only after a dedicated safe test protocol exists; capture process exit, timeout, logs, and crash evidence.
-- Assistant-driven loop: inspect -> diagnose -> patch in GitHub -> apply -> verify -> report -> repeat.
-- Stop conditions for repeated failures, uncertain provenance, unsafe operations, or exhausted retry budget.
+### Phase 4 — GitHub fix production
+Deliver documented branch/commit workflow; CI build/test; ZIP packaging with correct game-relative paths; install/rollback guide; hash manifest and GitHub Release asset.
 
-Acceptance:
-- At least one documented end-to-end test starts with a deliberately damaged test installation, detects the fault, applies a verified repair, verifies the result, and records the full audit trail.
-- The agent stops rather than guessing when evidence is insufficient.
-- No claim of “game launches successfully” is made unless an actual launch test completed.
+Acceptance: release asset exists and downloads; every packaged file matches manifest hash; archive structure and destination paths are checked; build/test results link to source commit; shared link is verified.
 
-### Phase 6 — production packaging and maintenance
+### Phase 5 — post-install verification
+Deliver new scan tasks comparing the installation with expected fixed manifest; before/after report comparison; statuses verified/partially verified/unchanged/regressed/unable to verify; follow-up diagnostics.
 
-Deliver:
-- Signed or otherwise provenance-verifiable Windows installer/package.
-- Upgrade/uninstall flow, health status, logs, configuration backup, and recovery procedure.
-- CI build, tests, release artifacts, versioning, changelog, and reproducible build instructions.
-- Operator documentation and a minimal status view.
+Acceptance: known fault is diagnosed, a fix package is built and hash-verified, manual installation in a test installation is followed by a scan confirming expected files/config; claim game launch success only with actual launch/gameplay evidence.
 
-Acceptance:
-- Clean install, upgrade, uninstall, and recovery are tested on Windows.
-- A release artifact is attached to a GitHub Release and its hash is published.
-- The agent can update itself safely without losing credentials or configuration.
+### Phase 6 — scanner packaging and maintenance
+Deliver installer for scanner only, scanner upgrade/uninstall, health status, logs, configuration backup, CI releases, changelog, reproducible build instructions.
 
-## 6. First milestone: what to implement next
+Acceptance: clean install/upgrade/uninstall tested; scanner release and hash published; updates preserve credentials/config; scanner remains read-only against game files.
 
-Do not start by writing a giant all-in-one “repair” script. The first code milestone is the smallest verifiable vertical slice:
+## 9. First implementation milestone
 
-1. Create the .NET 8 solution and schemas.
-2. Implement secure GitHub task polling and a heartbeat/result response.
-3. Add a read-only scan of the configured CSS v34 root.
-4. Return a JSON manifest and Markdown summary to the originating GitHub task.
-5. Add CI build and tests; publish a Windows x64 artifact.
+Build the smallest working vertical slice:
+1. Create .NET 8 solution and task/report schemas.
+2. Implement authenticated GitHub polling and heartbeat.
+3. Implement read-only inventory of configured CSS v34 folder.
+4. Calculate SHA-256 and collect basic EXE/DLL metadata.
+5. Publish JSON and Markdown reports to the originating GitHub task.
+6. Add CI build/tests and publish Windows x64 scanner artifact.
 
-Only after this vertical slice works on the real Windows machine should write/repair functionality begin.
+Do not implement patch downloading or game-folder modification. After a real scan works, implement evidence-based diagnosis and GitHub fix packaging.
 
-## 7. Project constraints and known environment
+## 10. Known environment and project constraints
 
-- Known local CSS v34 path: `C:\\Games\\Counter-Strike Source v34`.
-- The user wants development and source changes managed through GitHub.
-- Do not use Python for this project.
-- Do not require the user to manually inspect folders, copy logs, or run a long list of commands when the bridge can collect the same evidence.
-- Do not depend on SourceMod; the native engine plugin path is a separate investigation and SourceMod was explicitly rejected in the recent project direction.
-- Earlier investigation found that `plugin_print` works and reports no loaded plugins; engine commands include `plugin_load`, `plugin_unload`, and `plugin_print`, and the engine supports `addons/*.vdf`. This is a lead for later diagnostics, not proof that a plugin DLL is compatible.
+- Game path: `C:\\Games\\Counter-Strike Source v34`.
+- Source changes, CI, and distributable fixes are managed through GitHub.
+- No Python for this project.
+- User manually installs GitHub fixes; the bridge never installs them.
+- Do not ask the user to inspect folders or copy logs if the scanner can safely collect the same evidence.
+- Do not depend on SourceMod; it was rejected in the recent project direction. Native engine plugin investigation is separate.
+- Earlier investigation found `plugin_print` reported no loaded plugins; engine commands include `plugin_load`, `plugin_unload`, and `plugin_print`, and engine supports `addons/*.vdf`. This is a diagnostic lead, not proof of DLL compatibility.
 - A prior SDK foundation did not contain the actual CS:S DLL, SDK, or bot integration. Do not confuse an engine-independent C++ core with a working in-game mod.
-- The current CSS Bot Community repository is early development. Its README describes an experimental SourceMod bridge; that is not this Local CSS Bridge and must not be presented as satisfying this specification.
+- The current CSS Bot Community repository is early development. Its experimental SourceMod bridge is not this Local CSS Bridge.
 
-## 8. Definition of done
+## 11. Definition of done
 
-The bridge is “working” only when all of the following are demonstrated on the user's Windows PC:
+The system is working only when:
+- This chat creates a GitHub scan task and receives a result from the local Windows agent.
+- The agent safely inspects the actual CSS v34 folder and publishes useful evidence without modifying it.
+- ChatGPT identifies a real fault from that evidence.
+- ChatGPT implements a fix in GitHub, builds/tests it, and publishes a verified downloadable package.
+- The user manually installs the package using precise instructions.
+- A new scan confirms whether expected files/configuration are present and correct.
+- The inspect -> diagnose -> develop -> package -> download -> manual install -> rescan cycle is repeatable and documented.
 
-- This conversation can create a task through GitHub and receive a result from the local agent.
-- The agent can safely inspect the actual CSS v34 directory without manual file uploads.
-- The assistant can identify a real fault from returned evidence.
-- A verified repair package can be delivered through GitHub and applied under the defined policy.
-- The agent can test the repaired files and return exact evidence.
-- A failed repair can be rolled back.
-- The complete cycle is repeatable, logged, and documented.
-
-Until then, use precise statuses such as “protocol drafted”, “agent builds”, “GitHub connection tested”, “read-only scan tested”, “repair tested on fixture”, and “repair tested on the real game”. Never use “fully connected” or “autonomous repair working” prematurely.
+Use exact statuses: “protocol drafted”, “agent builds”, “GitHub connection tested”, “read-only scan tested”, “diagnosis validated”, “CI build passed”, “package created”, “asset verified”, “user installed”, “post-install scan passed”, “game launch tested”. Never say “fully connected” or “fixed” prematurely.
