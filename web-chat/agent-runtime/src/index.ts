@@ -385,7 +385,7 @@ export default {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
-    const legacy = await import("../worker.js");
+    const legacy = await import("../../worker.js");
     return legacy.default.fetch(request, env, ctx);
   }
 };
