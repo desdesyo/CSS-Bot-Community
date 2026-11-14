@@ -26,7 +26,18 @@ async function gh(env,path,options={}){
 function base(env){return "/repos/"+repo(env)}
 function role(c){return c.body.startsWith("<!-- role:assistant -->")?"assistant":"user"}
 function content(c){return c.body.replace(/^<!-- role:(?:assistant|user) -->\s*/,"").replace(/\n?<!-- files:\[[\s\S]*?\] -->/,"").trim()}
-async function comments(env,n){return gh(env,base(env)+"/issues/"+n+"/comments?per_page=100")}
+async function paged(env,path,maxPages=50){
+  const all=[];
+  for(let page=1;page<=maxPages;page++){
+    const separator=path.includes("?")?"&":"?";
+    const batch=await gh(env,path+separator+"per_page=100&page="+page);
+    if(!Array.isArray(batch))throw new Error("Unexpected paginated response");
+    all.push(...batch);
+    if(batch.length<100)break;
+  }
+  return all;
+}
+async function comments(env,n){return paged(env,base(env)+"/issues/"+n+"/comments")}
 async function issue(env,n){return gh(env,base(env)+"/issues/"+n)}
 async function createIssue(env,title,body){return gh(env,base(env)+"/issues",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,body})})}
 async function addComment(env,n,roleName,text){return gh(env,base(env)+"/issues/"+n+"/comments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:"<!-- role:"+roleName+" -->\n"+text})})}
@@ -138,7 +149,7 @@ async function activeIssue(env,root){
 }
 async function chain(env,root){
   const out=[];const rootIssue=await issue(env,root);const activeMatch=(rootIssue.body||"").match(/<!-- github-chat-active:(\d+) -->/);let current=activeMatch?Number(activeMatch[1]):root;const seen=new Set();
-  for(let i=0;i<20&&current&&!seen.has(current);i++){
+  for(let i=0;i<100&&current&&!seen.has(current);i++){
     seen.add(current);const it=await issue(env,current);const cs=await comments(env,current);
     out.unshift({id:current,issue:it,comments:cs});
     const m=(it.body||"").match(/<!-- github-chat-parent:(\d+) -->/);current=m?Number(m[1]):null;
@@ -217,7 +228,7 @@ async function handle(req,env){
       return replyJson({query:q,results:await webSearch(env,q)},200,env);
     }
     if(url.pathname==="/api/threads"&&req.method==="GET"){
-      const issues=await gh(env,base(env)+"/issues?state=all&per_page=100&sort=updated&direction=desc");
+      const issues=await paged(env,base(env)+"/issues?state=all&sort=updated&direction=desc",10);
       return replyJson({threads:issues.filter(x=>!x.pull_request&&(x.body||"").includes("<!-- github-chat -->")).map(x=>({number:x.number,title:x.title,updated_at:x.updated_at}))},200,env);
     }
     if(url.pathname==="/api/messages"&&req.method==="GET"){
@@ -246,7 +257,7 @@ async function handle(req,env){
         ch=await chain(env,root);all=visibleMessages(ch).slice(-2);
       }
       const currentComments=await comments(env,active);
-      const recent=boundedMessages(currentComments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content).slice(-40),26000);
+      const recent=boundedMessages(currentComments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content).slice(-40),26000);\n      // After a context rollover, the new continuation issue has no comments yet.\n      // Re-inject the just-saved user turn so it is never lost at the boundary.\n      if(!recent.length)recent.push({role:"user",content:message});
       const input=[];
       if(summary)input.push({role:"user",content:"CONTINUITY MEMORY FROM THE PREVIOUS PART OF THIS SAME CONVERSATION:\n"+summary});
       input.push(...recent);
