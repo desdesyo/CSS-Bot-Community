@@ -139,6 +139,27 @@
         "maxLength": 512
       },
       "maxItems": 256
+    },
+    "textWarningMatches": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "textKeyValueLines": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "textSyntaxIssues": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
     }
   }
 }
