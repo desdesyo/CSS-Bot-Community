@@ -89,7 +89,7 @@ async function uploadSelected(files){
 }
 async function send(){
  const message=$("prompt").value.trim();if(!message||busy)return;
- busy=true;$("send").disabled=true;$("prompt").disabled=true;$("prompt").value="";
+ busy=true;$("send").disabled=true;$("prompt").readOnly=true;$("prompt").value="";
  const bubble=addMessage("user",message,attachedFiles);let completed=false;
  try{
   let d,last;
@@ -98,8 +98,8 @@ async function send(){
    catch(e){last=e;if(e.message==="Unauthorized")break;await new Promise(r=>setTimeout(r,700*Math.pow(2,attempt)))}
   }
   if(completed){thread=d.thread;localStorage.setItem("ghchat_thread",String(thread));$("chatTitle").textContent=d.title;addMessage("assistant",d.reply);attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";try{await loadThreads()}catch(_){}}
-  else{bubble.remove();$("prompt").value=message;addMessage("assistant","**Не удалось отправить сообщение.** "+(last?.message||"Сервис не ответил. Проверьте подключение и повторите попытку."));$("toolFeedback").textContent="Ошибка отправки"}
- }finally{busy=false;$("send").disabled=false;$("prompt").disabled=false;$("prompt").focus()}
+  else{bubble.remove();$("prompt").value=message;if(last?.message==="Unauthorized"){token="";sessionStorage.removeItem("ghchat_password");$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";addMessage("assistant","**Сессия истекла или пароль изменён.** Введите пароль заново.");}else{addMessage("assistant","**Не удалось отправить сообщение.** "+(last?.message||"Сервис не ответил. Проверьте подключение и повторите попытку."));}$("toolFeedback").textContent="Ошибка отправки"}
+ }finally{busy=false;$("send").disabled=false;$("prompt").readOnly=false;$("prompt").focus()}
 }
 async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
 $("messages").addEventListener("click",e=>{const b=e.target.closest(".copy-code");if(!b)return;const code=b.closest("pre")?.querySelector("code")?.textContent||"";navigator.clipboard?.writeText(code);b.textContent="Скопировано";setTimeout(()=>b.textContent="Копировать код",1200)});$("attach").onclick=()=>$("filePicker").click();$("computerConnect").onclick=async()=>{const b=$("computerConnect"),f=$("toolFeedback");b.disabled=true;try{const d=await api("/api/agent/computer/pair-code",{method:"POST",body:JSON.stringify({})});const msg="Код сопряжения: "+d.code+" (valid 5 minutes). Run: node agent.mjs pair "+location.origin+" "+d.code;f.textContent=msg;try{await navigator.clipboard.writeText(msg)}catch(_){}}catch(e){f.textContent="Computer pairing unavailable: "+e.message}finally{b.disabled=false}};$("myFiles").onclick=()=>{const p=$("fileLibrary");if(p.hidden)loadFileLibrary();else p.hidden=true};$("filePicker").addEventListener("change",e=>uploadSelected([...e.target.files]));$("webSearch").onclick=()=>{webSearchEnabled=!webSearchEnabled;$("webSearch").setAttribute("aria-pressed",String(webSearchEnabled));$("webSearch").textContent="⌕ Поиск в интернете: "+(webSearchEnabled?"on":"off")};$("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
