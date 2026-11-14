@@ -27,7 +27,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
-       github.event.action == 'opened') ||
+       github.event.action == 'opened' &&
+       contains(github.event.issue.labels.*.name, 'agent-task')) ||
       (github.event_name == 'issues' &&
        github.event.action == 'labeled' &&
        github.event.label.name == 'status:queued') ||
