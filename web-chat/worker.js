@@ -44,7 +44,59 @@ async function addComment(env,n,roleName,text){return gh(env,base(env)+"/issues/
 async function auth(req,env){const h=req.headers.get("Authorization")||"";if(!env.APP_PASSWORD||!safeEqual(h,"Bearer "+env.APP_PASSWORD))throw new Error("Unauthorized")}
 function extractText(data){return (data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==="output_text").map(x=>x.text).join("\n").trim()}
 
+function workRepo(env){
+  if(!env.GITHUB_WORK_REPO||!env.GITHUB_WORK_REPO.includes("/"))throw new Error("GitHub workspace repository is not configured");
+  return "/repos/"+encodeURIComponent(env.GITHUB_WORK_REPO).replace("%2F","/");
+}
+function workBranch(env){return env.GITHUB_WORK_BRANCH||null}
+function safeRepoPath(env,value){
+  const root=String(env.GITHUB_WORK_ROOT||"agent-workspace").replace(/^\\/+|\\/+$/g,"");
+  const path=String(value||"").replace(/^\\/+|\\/+$/g,"");
+  if(!path||path.split("/").some(x=>!x||x==="."||x===".."||! /^[a-zA-Z0-9._ -]+$/.test(x)))throw new Error("Invalid workspace path");
+  if(path!==root&&!path.startsWith(root+"/"))throw new Error("Path is outside the configured GitHub workspace root");
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+function utf8Base64(value){
+  const bytes=new TextEncoder().encode(String(value));let binary="";
+  for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(binary);
+}
+function decodeGitHubText(value){
+  const raw=atob(String(value||"").replace(/\\s/g,""));
+  const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+async function githubWorkspaceTool(env,name,args){
+  const path=safeRepoPath(env,args.path||args.directory||env.GITHUB_WORK_ROOT||"agent-workspace");
+  const query=workBranch(env)?"?ref="+encodeURIComponent(workBranch(env)):"";
+  if(name==="github_list_files"){
+    const data=await gh(env,workRepo(env)+"/contents/"+path+query);
+    const items=Array.isArray(data)?data:[data];
+    return {repository:env.GITHUB_WORK_REPO,branch:workBranch(env)||"default",path:args.directory||env.GITHUB_WORK_ROOT||"agent-workspace",entries:items.map(x=>({name:x.name,path:x.path,type:x.type,size:x.size,download_url:x.download_url||null})).slice(0,100)};
+  }
+  if(name==="github_read_file"){
+    const data=await gh(env,workRepo(env)+"/contents/"+path+query);
+    if(data.type!=="file"||!data.content)throw new Error("Workspace path is not a readable file");
+    const content=decodeGitHubText(data.content);
+    if(content.length>120000)throw new Error("Repository file exceeds the 120 KB model-read limit");
+    return {repository:env.GITHUB_WORK_REPO,path:data.path,content,sha:data.sha};
+  }
+  if(name==="github_write_file"){
+    const content=String(args.content??"");
+    if(new TextEncoder().encode(content).length>900000)throw new Error("GitHub Contents API workspace files are limited to 900 KB in this chat");
+    const endpoint=workRepo(env)+"/contents/"+path;
+    let existing=null;
+    try{existing=await gh(env,endpoint+query)}catch(e){if(e.status!==404)throw e}
+    const body={message:String(args.message||"AI workspace update").slice(0,200),content:utf8Base64(content)};
+    if(workBranch(env))body.branch=workBranch(env);
+    if(existing?.sha)body.sha=existing.sha;
+    const result=await gh(env,endpoint,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    return {written:true,operation:existing?.sha?"updated":"created",repository:env.GITHUB_WORK_REPO,path:result.content?.path||args.path,commit:result.commit?.sha,html_url:result.content?.html_url};
+  }
+  throw new Error("Unknown GitHub workspace operation");
+}
 async function runAssistantTool(env,name,args){
+  if(name==="github_list_files"||name==="github_read_file"||name==="github_write_file")return githubWorkspaceTool(env,name,args);
   if(name==="web_search"){
     const q=String(args.query||"").trim();if(!q)throw new Error("Search query is required");
     return {query:q,results:await webSearch(env,q)};
@@ -74,6 +126,9 @@ async function model(env,input,instructions){
   if(!env.OPENAI_API_KEY)throw new Error("AI provider is not configured");
   let last;
   const tools=[
+    {type:"function",name:"github_list_files",description:"List files and folders in the configured GitHub workspace repository. Only paths under GITHUB_WORK_ROOT are accessible.",parameters:{type:"object",properties:{directory:{type:"string",description:"Directory inside the configured workspace root"}},required:["directory"],additionalProperties:false},strict:true},
+    {type:"function",name:"github_read_file",description:"Read a UTF-8 text file from the configured GitHub workspace repository. Only paths under GITHUB_WORK_ROOT are accessible.",parameters:{type:"object",properties:{path:{type:"string"}},required:["path"],additionalProperties:false},strict:true},
+    {type:"function",name:"github_write_file",description:"Create or update a UTF-8 text/source file in the configured GitHub workspace repository. The operation creates an auditable Git commit. Only paths under GITHUB_WORK_ROOT are accessible. Never write secrets.",parameters:{type:"object",properties:{path:{type:"string"},content:{type:"string"},message:{type:"string"}},required:["path","content","message"],additionalProperties:false},strict:true},
     {type:"function",name:"web_search",description:"Search the live public internet for current facts. Use when the user asks to find information, verify recent facts, compare current options, or research a topic. Return source URLs in the answer.",parameters:{type:"object",properties:{query:{type:"string",description:"A focused search query"}},required:["query"],additionalProperties:false},strict:true},
     {type:"function",name:"create_file",description:"Create a real downloadable file for the user when asked to create, prepare, export, or save an artifact. Use plain text, Markdown, CSV, JSON, HTML, or source code as appropriate. Do not claim it exists until this tool succeeds.",parameters:{type:"object",properties:{filename:{type:"string"},content:{type:"string"},content_type:{type:"string"}},required:["filename","content","content_type"],additionalProperties:false},strict:true},
     {type:"function",name:"analyze_csv",description:"Perform deterministic analysis of a CSV file already uploaded by the user. Returns row counts and numeric column statistics.",parameters:{type:"object",properties:{file_id:{type:"string"}},required:["file_id"],additionalProperties:false},strict:true},
@@ -82,7 +137,7 @@ async function model(env,input,instructions){
   for(let attempt=0;attempt<3;attempt++){
     try{
       let working=[...input];
-      for(let round=0;round<6;round++){
+      for(let round=0;round<12;round++){
         const r=await fetch(env.OPENAI_API_URL||"https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":"Bearer "+env.OPENAI_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.OPENAI_MODEL||"gpt-4.1-mini",store:false,instructions,input:working,tools,tool_choice:"auto"})});
         const data=await r.json().catch(()=>({}));
         if(!r.ok){const e=new Error(data.error?.message||"AI provider error");e.status=r.status;throw e}
@@ -139,7 +194,7 @@ async function webSearch(env,q){
   const d=await r.json();return (d.web?.results||[]).map(x=>({title:x.title,url:x.url,description:x.description,age:x.age||x.page_age||null})).slice(0,8);
 }
 
-const INSTRUCTIONS = "You are a capable task-oriented assistant. Understand the user's actual goal, carry out supported work rather than merely describing how, and use available tools when useful. For multi-step requests, plan internally, execute each safe step, verify results, and deliver concrete outputs. When blocked, identify the exact blocker and actively propose or attempt the best safe alternative; distinguish hard external limits from solvable constraints. Search the live web for current or source-dependent questions. Create real downloadable files when requested. Analyze uploaded data and explain findings, uncertainties, and actionable options. Cite web sources by URL. Never claim a tool ran or a file exists unless it succeeded. Never mention internal chat rollover, provider retries, tools or infrastructure failures unless directly asked. The user's active project is CSS Bot Community for Counter-Strike: Source v34. Respect the Local CSS Bridge security boundary: the Windows agent is read-only and must never execute arbitrary commands or modify game files. Distinguish plans from completed work.";
+const INSTRUCTIONS = "You are a capable task-oriented autonomous agent. When a GitHub workspace is configured, inspect and modify real repository files through GitHub tools; verify writes by reading the resulting file or commit metadata. For software tasks, inspect project structure and existing conventions before editing, make minimal coherent changes, and add or update tests and documentation. Use multi-step planning internally, preserve task state, and never claim execution or test success without evidence.  Understand the user's actual goal, carry out supported work rather than merely describing how, and use available tools when useful. For multi-step requests, plan internally, execute each safe step, verify results, and deliver concrete outputs. When blocked, identify the exact blocker and actively propose or attempt the best safe alternative; distinguish hard external limits from solvable constraints. Search the live web for current or source-dependent questions. Create real downloadable files when requested. Analyze uploaded data and explain findings, uncertainties, and actionable options. Cite web sources by URL. Never claim a tool ran or a file exists unless it succeeded. Never mention internal chat rollover, provider retries, tools or infrastructure failures unless directly asked. The user's active project is CSS Bot Community for Counter-Strike: Source v34. Respect the Local CSS Bridge security boundary: the Windows agent is read-only and must never execute arbitrary commands or modify game files. Distinguish plans from completed work.";
 const ROLL_AT_CHARS = 42000;
 async function activeIssue(env,root){
   const rootIssue=await issue(env,root);
