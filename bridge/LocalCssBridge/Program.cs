@@ -11,6 +11,7 @@ internal static class Program
     private static readonly string TokenPath = Path.Combine(DataDirectory, "github-token.dpapi");
     private static readonly string StatePath = Path.Combine(DataDirectory, "processed-tasks.json");
     private static readonly string ManifestPath = Path.Combine(DataDirectory, "previous-scan-manifest.json");
+    private static readonly string LockPath = Path.Combine(DataDirectory, "agent.lock");
 
     public static async Task<int> Main(string[] args)
     {
@@ -18,6 +19,10 @@ internal static class Program
         var rootArg = ReadArgument(args, "--root");
         var configuredRoot = Path.GetFullPath(rootArg ?? @"C:\Games\Counter-Strike Source v34");
         Directory.CreateDirectory(DataDirectory);
+        FileStream instanceLock;
+        try { instanceLock = new FileStream(LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+        catch (IOException) { Console.Error.WriteLine("Another Local CSS Bridge instance is already running for this Windows account."); return 4; }
+        using var heldInstanceLock = instanceLock;
         var token = await LoadOrCreateTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) return 3;
         var state = LoadState();
