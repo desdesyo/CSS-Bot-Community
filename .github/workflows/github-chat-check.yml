@@ -1,0 +1,34 @@
+name: GitHub Chat checks
+
+on:
+  push:
+    branches: [github-chat-prototype]
+    paths:
+      - "web-chat/**"
+      - ".github/workflows/github-chat-check.yml"
+  pull_request:
+    paths:
+      - "web-chat/**"
+      - ".github/workflows/github-chat-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Worker JavaScript syntax
+        run: node --input-type=module --check < web-chat/worker.js
+      - name: Verify required app files
+        run: |
+          test -s web-chat/public/index.html
+          test -s web-chat/worker.js
+          test -s web-chat/wrangler.toml
+          test -s web-chat/README.md
+      - name: Check whitespace errors
+        run: git diff --check
