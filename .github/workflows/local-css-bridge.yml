@@ -1,0 +1,35 @@
+name: Local CSS Bridge CI
+
+on:
+  push:
+    paths:
+      - "bridge/**"
+      - ".github/workflows/local-css-bridge.yml"
+  pull_request:
+    paths:
+      - "bridge/**"
+      - ".github/workflows/local-css-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish
+        run: dotnet publish bridge/LocalCssBridge/LocalCssBridge.csproj -c Release -r win-x64 --self-contained false -o publish
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path "publish/*" -DestinationPath "LocalCssBridge-win-x64.zip" -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalCssBridge-win-x64
+          path: LocalCssBridge-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14
