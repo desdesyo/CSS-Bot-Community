@@ -3,14 +3,131 @@
   "title": "Read-only file record",
   "type": "object",
   "additionalProperties": false,
-  "required": ["relativePath", "length", "lastWriteUtc", "sha256", "status"],
+  "required": [
+    "relativePath",
+    "length",
+    "lastWriteUtc",
+    "sha256",
+    "status"
+  ],
   "properties": {
-    "relativePath": { "type": "string", "maxLength": 1024 },
-    "length": { "type": "integer", "minimum": 0 },
-    "lastWriteUtc": { "type": "string", "format": "date-time" },
-    "sha256": { "type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$" },
-    "status": { "enum": ["hashed", "hash_skipped_size_limit", "unreadable", "empty"] },
-    "extension": { "type": "string", "maxLength": 32 },
-    "fileVersion": { "type": ["string", "null"], "maxLength": 128 }
+    "relativePath": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastWriteUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "hashed",
+        "hash_skipped_size_limit",
+        "unreadable",
+        "empty"
+      ]
+    },
+    "extension": {
+      "type": "string",
+      "maxLength": 32
+    },
+    "fileVersion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "peArchitecture": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32
+    },
+    "peSubsystem": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32
+    },
+    "peIsDll": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "peImports": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "maxItems": 256
+    },
+    "peExportCount": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "peAnalysisStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "textKind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32
+    },
+    "textLines": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "textErrorMatches": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "textTruncated": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "textAnalysisStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    }
   }
 }
