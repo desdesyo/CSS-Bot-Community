@@ -2,7 +2,7 @@ const GH_API = "https://api.github.com";
 const cors = env => ({
   "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || "*",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Vary": "Origin"
 });
 const replyJson = (data,status,env) => new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8",...cors(env)}});
