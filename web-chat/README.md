@@ -48,6 +48,18 @@ Set Worker variables:
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
+## Expert escalation and persistent learning
+
+The durable agent has three explicit tools:
+
+- `consult_external_expert` sends a bounded problem statement, attempts/evidence, and constraints to a separately configured OpenAI API model (default `gpt-4.1`). It returns a proposed diagnosis and verification plan; it does not execute the fix.
+- `save_learned_skill` writes a reusable Markdown procedure to `agent-skills/candidates/` on the configured GitHub branch.
+- `load_learned_skill` retrieves a previously saved procedure for future tasks.
+
+The agent instructions require it to inspect relevant skills before non-trivial work, consult the expert after meaningful blockage, independently implement and verify advice, and save evidence-backed procedures after novel successful tasks. Skills are durable procedural memory, not model-weight training.
+
+**Important boundary:** the expert call is a separate OpenAI API inference. It cannot invoke or continue a particular user's live ChatGPT conversation or subscription session. It requires the Worker secret `OPENAI_API_KEY`; optional `EXPERT_MODEL` selects another API model. Never expose this key in the browser or repository.
+
 ## Durable agent runtime and local computer bridge
 
 The chat now routes text-only compatible turns through a Cloudflare Durable Object running Pi Durable. The legacy Responses API path remains the fallback for PDF/image turns until multimodal support is added to the durable harness.
