@@ -21,7 +21,7 @@ internal sealed class GitHubQueueClient : IDisposable
 
     public async Task<List<QueueIssue>> GetQueuedIssuesAsync(CancellationToken ct)
     {
-        using var response = await http.GetAsync($"repos/{Repository}/issues?state=open&labels=css-bridge-task&per_page=50", ct);
+        using var response = await http.GetAsync($"repos/{Repository}/issues?state=open&per_page=100", ct);
         response.EnsureSuccessStatusCode();
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -30,7 +30,9 @@ internal sealed class GitHubQueueClient : IDisposable
         {
             if (item.TryGetProperty("pull_request", out _)) continue;
             if (!item.TryGetProperty("number", out var number) || !item.TryGetProperty("body", out var body)) continue;
-            result.Add(new QueueIssue(number.GetInt32(), body.GetString() ?? ""));
+            var bodyText = body.GetString() ?? "";
+            if (bodyText.Length > 0 && bodyText.Length <= 8192 && bodyText.TrimStart().StartsWith("{", StringComparison.Ordinal))
+                result.Add(new QueueIssue(number.GetInt32(), bodyText));
         }
         return result;
     }
