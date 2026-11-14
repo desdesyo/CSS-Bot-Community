@@ -62,7 +62,7 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 ## Current scope / limitations
 
 - File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file.
-- File analysis currently supports text, Markdown, CSV, JSON, XML, logs, and common source-code text files. CSV analysis returns deterministic row/column counts and numeric summary statistics. PDF, DOCX, XLSX, image understanding, OCR, and arbitrary code execution are not implemented yet.
+- File analysis currently supports text, Markdown, CSV, JSON, XML, logs, common source-code text files, PDF documents, and image attachments (PDF/image handling is delegated to the configured primary Responses API model). CSV analysis returns deterministic row/column counts and numeric summary statistics. DOCX, XLSX, OCR pipelines, audio/video, and arbitrary code execution are not implemented yet. Binary attachments are not processed by the text-only backup provider.
 - Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, and analyze uploaded CSVs. The backup-compatible provider path is text-only and must not claim that tool actions ran.
 - Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
 - The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
