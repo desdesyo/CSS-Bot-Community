@@ -53,13 +53,15 @@ Set Worker variables:
 The chat now routes text-only compatible turns through a Cloudflare Durable Object running Pi Durable. The legacy Responses API path remains the fallback for PDF/image turns until multimodal support is added to the durable harness.
 
 - Pi Durable stores per-conversation sessions in Durable Object SQLite and resumes interrupted work after object eviction/restart.
+- Each agent has a persistent Cloudflare Computer workspace backed by the same Durable Object SQLite. It provides read/write/search tools and an isolated JavaScript execution backend with network egress disabled. This is the cloud sandbox, not the user's Windows PC.
 - The agent can read/write UTF-8 files in the configured GitHub workspace, search the web, run heuristic static source checks, and connect allowlisted MCP servers.
 - MCP servers are persisted by MCPClientManager. Only tools marked `readOnlyHint=true` are callable autonomously. Other MCP tools are blocked pending a human approval UI.
 - The browser's **Connect computer** button creates a one-time pairing code. The local Node.js companion in `../computer-bridge` polls outbound over HTTPS and supports only system info, directory listing, and reading selected text/config files under explicitly configured roots. It has no shell, process launch, screenshot, or write/delete capability.
-- The source scanner is heuristic, not a full SAST product and not proof that code is safe.
+- The source scanner is heuristic, not a full SAST product and not proof that code is safe. JavaScript tests and analysis can also run in the isolated Cloudflare Computer Dynamic Worker, which has no outbound network access. Do not run untrusted project scripts with network or secret access.
 
 Additional Worker bindings and variables:
 - `AI` — Workers AI binding used by the durable Pi harness.
+- `LOADER` — Worker Loader binding used by the isolated JavaScript workspace backend.
 - `AGENT_SESSIONS` — SQLite Durable Object binding (declared in wrangler.toml).
 - `PI_MODEL` — optional Workers AI model ID; defaults to `@cf/zai-org/glm-5.3-flash`.
 - `MCP_ALLOWED_HOSTS` — comma-separated exact hostnames allowed for outbound MCP connections. Leave empty until you intentionally approve servers.
