@@ -39,7 +39,7 @@ function safePath(env: Env, value: string) {
   const root = (env.GITHUB_WORK_ROOT || "agent-workspace").replace(/^\/+|\/+$/g, "");
   const path = String(value || "").replace(/^\/+|\/+$/g, "");
   if (!path || path.split("/").some(p => !p || p === "." || p === ".." || !/^[a-zA-Z0-9._ -]+$/.test(p))) throw new Error("Invalid repository path");
-  if (path !== root && !path.startsWith(root + "/")) throw new Error("Path is outside GITHUB_WORK_ROOT");
+  if (root && path !== root && !path.startsWith(root + "/")) throw new Error("Path is outside GITHUB_WORK_ROOT");
   return path.split("/").map(encodeURIComponent).join("/");
 }
 function ghBase(env: Env) {
