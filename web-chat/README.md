@@ -48,6 +48,25 @@ Set Worker variables:
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
+## Durable agent runtime and local computer bridge
+
+The chat now routes text-only compatible turns through a Cloudflare Durable Object running Pi Durable. The legacy Responses API path remains the fallback for PDF/image turns until multimodal support is added to the durable harness.
+
+- Pi Durable stores per-conversation sessions in Durable Object SQLite and resumes interrupted work after object eviction/restart.
+- The agent can read/write UTF-8 files in the configured GitHub workspace, search the web, run heuristic static source checks, and connect allowlisted MCP servers.
+- MCP servers are persisted by MCPClientManager. Only tools marked `readOnlyHint=true` are callable autonomously. Other MCP tools are blocked pending a human approval UI.
+- The browser's **Connect computer** button creates a one-time pairing code. The local Node.js companion in `../computer-bridge` polls outbound over HTTPS and supports only system info, directory listing, and reading selected text/config files under explicitly configured roots. It has no shell, process launch, screenshot, or write/delete capability.
+- The source scanner is heuristic, not a full SAST product and not proof that code is safe.
+
+Additional Worker bindings and variables:
+- `AI` — Workers AI binding used by the durable Pi harness.
+- `AGENT_SESSIONS` — SQLite Durable Object binding (declared in wrangler.toml).
+- `PI_MODEL` — optional Workers AI model ID; defaults to `@cf/zai-org/glm-5.3-flash`.
+- `MCP_ALLOWED_HOSTS` — comma-separated exact hostnames allowed for outbound MCP connections. Leave empty until you intentionally approve servers.
+- `BRAVE_SEARCH_API_KEY` — also used by the durable agent's web-search tool.
+
+The local bridge requires Node.js 20+ on the computer and a deployed HTTPS chat URL. Pairing code expires in five minutes and is single-use. The device token is stored only in local `computer-bridge/config.json`; that file is ignored by Git.
+
 ## Deploy
 
 First create a separate **private** GitHub repository for conversation history. Create a fine-grained token limited to that private repository, with Issues read/write permission. The chat Worker stores message text in GitHub Issue comments, so anyone with access to that private repository can read it.
@@ -58,14 +77,14 @@ Requires Node.js and Wrangler:
 
 ```sh
 cd web-chat
-npm install -g wrangler
-wrangler login
+npm install
+npx wrangler login
 wrangler secret put APP_PASSWORD
 wrangler secret put GITHUB_TOKEN
 wrangler secret put GITHUB_REPO
 wrangler secret put OPENAI_API_KEY
-wrangler secret put BRAVE_SEARCH_API_KEY
-wrangler deploy
+npx wrangler secret put BRAVE_SEARCH_API_KEY
+npx npx wrangler deploy
 ```
 
 Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep all secrets out of GitHub files and browser code.
@@ -83,8 +102,8 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - This is best-effort continuity, not guaranteed infinite uptime: if all providers, credentials, or usage quotas are unavailable, no model can produce a reply. The interface avoids exposing internal provider/tool messages; it cannot manufacture an answer while all backends are offline.
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
-- No local PCBridge execution is wired into this prototype yet. That is a separate authenticated, allowlisted integration stage.
-- Add rate limiting, individual user identity, per-user file ownership, streaming, DOCX/XLSX ingestion, OCR, sandboxed general-purpose data analysis, task queues, per-thread access controls, and automated integration tests before broad/public use.
+- The local PC bridge is implemented as an opt-in read-only companion, but it is not connected until the Worker is deployed, a pairing code is generated, and the companion is started on Windows.
+- Add individual user identity, per-user file ownership, explicit MCP write approvals, richer device revocation/approval controls, streaming UI, DOCX/XLSX ingestion, OCR, sandboxed general-purpose code execution, device task cancellation, and automated end-to-end tests before broad/public use.
 
 ## Security notes
 
