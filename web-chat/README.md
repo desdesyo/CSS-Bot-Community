@@ -127,3 +127,16 @@ Never put API tokens in HTML, JavaScript, committed configuration, or chat messa
 ## Deployment automation
 
 Cloudflare deployment is triggered by pushes to `github-chat-prototype` that modify `web-chat/**`; see `.github/workflows/deploy-github-chat.yml`.
+
+
+## Autonomous failure repair (GitHub Chat)
+
+Workflow `.github/workflows/chat-autonomous-repair.yml` listens for a failed **GitHub Chat checks** run on pushes to `github-chat-prototype`. It submits the exact failed run, failed steps and artifact inventory to the deployed chat API. The durable agent then has to inspect GitHub evidence, make a scoped fix on the configured workspace branch, commit it and verify; the workflow itself fails unless the chat returns a non-empty reply.
+
+**Required GitHub Actions repository secrets** (Settings → Secrets and variables → Actions):
+- `CSSBC_CHAT_ENDPOINT`: deployed HTTPS Worker origin only, e.g. `https://your-worker.your-subdomain.workers.dev` (no `/api/chat` suffix).
+- `CSSBC_CHAT_APP_PASSWORD`: exact same value as Cloudflare Worker secret `APP_PASSWORD`.
+
+The Worker must also have `GITHUB_TOKEN` with contents read/write on `CSSBC_CHAT_COMMUNITY` (the configured `GITHUB_WORK_REPO`) and `OPENAI_API_KEY`/Workers AI configured. The chat agent's repository workspace must point at `desdesyo/CSS-Bot-Community`, branch `github-chat-prototype`, with a suitable `GITHUB_WORK_ROOT`.
+
+The workflow is an **external autonomous repair loop**, not a push into the currently open ChatGPT web conversation. Its result is recorded in the Actions run and in the agent's GitHub conversation history. The currently open ChatGPT session cannot receive unsolicited messages from GitHub; to make that happen requires a separate supported inbox/notification integration. Repair is only activated after those secrets are configured and the Worker is deployed.
