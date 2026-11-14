@@ -25,7 +25,16 @@ Set these with `wrangler secret put NAME`:
 
 - `APP_PASSWORD` — a long, unique password for access to this private chat.
 - `GITHUB_TOKEN` — fine-grained GitHub token for this repository with Issues read/write permission.
-- `OPENAI_API_KEY` — API key for model responses.
+- `OPENAI_API_KEY` — API key for model responses and Responses API tool calling.
+- `BRAVE_SEARCH_API_KEY` — Brave Search API key for live web research. Without it, web search tools are unavailable.
+
+Create the private R2 bucket before deployment:
+
+```sh
+wrangler r2 bucket create cssbc-chat-files
+```
+
+The `FILES` R2 binding stores private uploads and generated artifacts. Do not make this bucket public.
 
 Set Worker variables:
 
@@ -44,6 +53,7 @@ wrangler login
 wrangler secret put APP_PASSWORD
 wrangler secret put GITHUB_TOKEN
 wrangler secret put OPENAI_API_KEY
+wrangler secret put BRAVE_SEARCH_API_KEY
 wrangler deploy
 ```
 
@@ -51,7 +61,11 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 
 ## Current scope / limitations
 
-- Text-only conversations in this first prototype.
+- File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file.
+- File analysis currently supports text, Markdown, CSV, JSON, XML, logs, and common source-code text files. CSV analysis returns deterministic row/column counts and numeric summary statistics. PDF, DOCX, XLSX, image understanding, OCR, and arbitrary code execution are not implemented yet.
+- Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, and analyze uploaded CSVs. The backup-compatible provider path is text-only and must not claim that tool actions ran.
+- Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
+- The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
 - Each conversation is a GitHub Issue; turns are comments.
 - One visible conversation is a chain of GitHub Issues. When the context grows beyond the rollover threshold, the Worker creates a continuation automatically and writes a durable summary of goals, decisions, constraints, project facts, and unfinished tasks. The browser keeps the same root conversation ID and does not show a new chat.
 - The Worker retries transient GitHub/model errors and can use an optional OpenAI-compatible backup provider when configured (`FALLBACK_API_URL`, `FALLBACK_API_KEY`, `FALLBACK_MODEL`). The browser silently retries failed requests and preserves the unsent draft instead of displaying infrastructure errors.
@@ -59,8 +73,8 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
 - No local PCBridge execution is wired into this prototype yet. That is a separate authenticated, allowlisted integration stage.
-- Add rate limiting, stronger user identity, streaming, file attachments, per-thread ownership checks, and automated rollover/failover integration tests before broad/public use.
+- Add rate limiting, individual user identity, per-user file ownership, streaming, PDF/DOCX/XLSX/image ingestion, sandboxed data analysis, task queues, per-thread access controls, and automated integration tests before broad/public use.
 
 ## Security notes
 
-Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The Worker rejects requests without the configured password and only accepts chat operations; it does not expose shell or local-file execution.
+Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The Worker rejects requests without the configured password. It exposes only the documented chat, file, CSV-analysis, and web-search routes; it does not expose shell or local-file execution. Uploaded content is treated as untrusted data, not executable instructions.
