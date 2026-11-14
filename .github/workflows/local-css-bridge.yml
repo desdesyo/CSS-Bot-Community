@@ -23,7 +23,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - name: Publish
-        run: dotnet publish bridge/LocalCssBridge/LocalCssBridge.csproj -c Release -r win-x64 --self-contained false -o publish
+        run: dotnet publish bridge/LocalCssBridge/LocalCssBridge.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
       - name: Package
         shell: pwsh
         run: Compress-Archive -Path "publish/*" -DestinationPath "LocalCssBridge-win-x64.zip" -Force
