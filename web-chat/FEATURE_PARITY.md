@@ -12,6 +12,28 @@ This document is the source of truth for expanding the standalone chat. The goal
 - Do not render a control until its complete operation exists. No fake buttons or placeholder features.
 - Provider/model safety rules, law, account permissions, and upstream service restrictions cannot be bypassed.
 
+## User's clarified core requirement — priority order
+
+The product is primarily an **agent workspace**, not merely a chat UI. Its core job is to:
+1. Create real downloadable files and artifacts from user instructions.
+2. Accept user uploads, inspect their contents, analyze them, compare versions, extract facts, and cite the relevant source.
+3. Search the live internet, evaluate sources, synthesize findings, and provide links.
+4. Follow user instructions and requests through multi-step work, keeping task state and reporting what was actually completed.
+5. Analyze datasets, explain findings, recommend solutions, and propose viable alternatives when a requested route is blocked or constrained.
+6. Distinguish a hard external blocker from a solvable constraint; try a safe alternative instead of stopping at the first limitation.
+
+Priority is functional tool execution and finished artifacts over cosmetic feature parity. The agent must not pretend to create, upload, browse, execute, or analyze something when it did not actually do so. Every tool action needs an auditable result. For risky or destructive actions, request confirmation; for read-only research and reversible file creation, proceed when authorized.
+
+### First delivery milestones
+
+- **M1 Files**: private object storage; upload, list, download, delete, text/CSV/JSON inspection; generated artifact creation; attachment-aware chat.
+- **M2 Web research**: live search API, source metadata, links, freshness, source quality comparison, citations in responses.
+- **M3 Data analysis**: deterministic CSV statistics and charts, then isolated execution service for broader Python/R/SQL workloads; export results.
+- **M4 Agent orchestration**: model tool-calling loop, task plan/state, retries, idempotency, progress persistence, verification, fallback paths.
+- **M5 Reliability and privacy**: per-user identity and ownership, private storage, backups, limits, audit trail, integration tests, production monitoring.
+
+External dependencies must be named in setup instructions: R2-compatible private storage, web-search provider credentials, and an isolated analysis runtime for arbitrary code. Never ship fake buttons to imply these dependencies are already configured.
+
 ## Feature inventory and implementation status
 
 Status vocabulary: Implemented = code path exists; Partial = incomplete or not end-to-end verified; Planned = not implemented; External dependency = requires a provider, credential, or infrastructure service.
