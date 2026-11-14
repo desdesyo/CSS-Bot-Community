@@ -96,6 +96,7 @@ internal static class Program
             report = new ScanReport { TaskId = task.TaskId, Status = "failed", StartedUtc = DateTimeOffset.UtcNow,
                 CompletedUtc = DateTimeOffset.UtcNow, Root = configuredRoot, Errors = [SafeMessage(ex.Message)] };
         }
+        var scanWasComplete = report.Status == "reported";
         var manifest = BuildManifest(report);
         var previousManifest = LoadManifest();
         if (previousManifest is null || !string.Equals(previousManifest.Root, report.Root, StringComparison.OrdinalIgnoreCase))
@@ -133,7 +134,7 @@ internal static class Program
         var comment = "## Local CSS Bridge scan report\n\n" + json;
         if (comment.Length > 60000) comment = "## Local CSS Bridge scan report\n\nReport metadata exceeded the safe comment size. Retry with a lower maxFiles value.";
         await client.PostCommentAsync(issue.Number, comment, ct);
-        if (report.Status == "reported")
+        if (scanWasComplete)
             await SaveManifestAsync(manifest);
         state.Add(issue.Number); SaveState(state);
         Console.WriteLine("Task " + task.TaskId + ": " + report.Status + "; " + report.Files.Count + " records posted.");
