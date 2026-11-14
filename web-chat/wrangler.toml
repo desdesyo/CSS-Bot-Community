@@ -14,7 +14,7 @@ binding = "AI"
 [vars]
 GITHUB_WORK_REPO = "desdesyo/CSS-Bot-Community"
 GITHUB_WORK_BRANCH = "github-chat-prototype"
-PI_MODEL = "@cf/zai-org/glm-5.3-flash"
+PI_MODEL = "@cf/zai-org/glm-4.7-flash"
 
 [[durable_objects.bindings]]
 name = "AGENT_SESSIONS"
