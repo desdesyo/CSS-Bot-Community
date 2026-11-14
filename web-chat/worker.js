@@ -79,7 +79,7 @@ function visibleMessages(ch){
 async function rollOver(env,root,active,allMessages){
   const prior=allMessages.map(m=>({role:m.role,content:m.content})).slice(-80);
   const summary=await model(env,prior,"Create a durable, factual continuation memory for a long-running conversation. Preserve the user's goals, preferences, important personal/project context, decisions, constraints, exact technical facts, unfinished tasks, promises already made, and the immediate conversational thread. Separate confirmed facts from hypotheses. Do not invent. Write a compact but sufficiently detailed handoff that lets a new assistant continue as if the conversation never changed. Do not address the user.");
-  const child=await createIssue(env,"Continuation of chat #"+root,"<!-- github-chat-continuation -->\n<!-- github-chat-root:"+root+" -->\n\n## Continuity memory\n"+summary);
+  const child=await createIssue(env,"Continuation of chat #"+root,"<!-- github-chat-continuation -->\n<!-- github-chat-root:"+root+" -->\n<!-- github-chat-parent:"+active+" -->\n\n## Continuity memory\n"+summary);
   const body=(await issue(env,root)).body||"<!-- github-chat -->";
   const clean=body.replace(/\n?<!-- github-chat-active:\d+ -->/g,"");
   await gh(env,base(env)+"/issues/"+root,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:clean+"\n<!-- github-chat-active:"+child.number+" -->"})});
