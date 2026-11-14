@@ -65,7 +65,7 @@ async function activeIssue(env,root){
   return {rootIssue,active:m?Number(m[1]):root};
 }
 async function chain(env,root){
-  const out=[];let current=root;const seen=new Set();
+  const out=[];const rootIssue=await issue(env,root);const activeMatch=(rootIssue.body||"").match(/<!-- github-chat-active:(\\d+) -->/);let current=activeMatch?Number(activeMatch[1]):root;const seen=new Set();
   for(let i=0;i<20&&current&&!seen.has(current);i++){
     seen.add(current);const it=await issue(env,current);const cs=await comments(env,current);
     out.unshift({id:current,issue:it,comments:cs});
