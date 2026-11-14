@@ -24,6 +24,20 @@ internal static class TextFileAnalyzer
             record.TextKind = record.RelativePath.Contains("log", StringComparison.OrdinalIgnoreCase) ? "log_or_text" : "config_or_text";
             record.TextLines = lines.Length;
             record.TextErrorMatches = lines.Count(line => ErrorTerms.Any(term => line.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            record.TextWarningMatches = lines.Count(line => line.Contains("warning", StringComparison.OrdinalIgnoreCase));
+            var isConfig = record.TextKind == "config_or_text";
+            if (isConfig)
+            {
+                record.TextKeyValueLines = lines.Count(line =>
+                {
+                    var trimmed = line.Trim();
+                    return trimmed.Length > 0 && !trimmed.StartsWith("//") && !trimmed.StartsWith("#") &&
+                        (trimmed.Contains('=') || (trimmed.StartsWith('"') && trimmed.Contains("\\t", StringComparison.Ordinal)));
+                });
+                var braces = text.Count(ch => ch == '{') - text.Count(ch => ch == '}');
+                var quotes = text.Count(ch => ch == '"');
+                record.TextSyntaxIssues = Math.Abs(braces) + (quotes % 2);
+            }
             record.TextTruncated = stream.Length > MaxReadBytes;
             record.TextAnalysisStatus = "analyzed";
         }
