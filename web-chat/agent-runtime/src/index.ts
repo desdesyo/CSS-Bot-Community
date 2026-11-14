@@ -1,8 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
 import { Workspace } from "@cloudflare/computer";
-import { WorkerJavaScriptBackend } from "@cloudflare/computer/backends/worker-javascript";
+import { CodemodeBackend } from "@cloudflare/computer/backends/codemode";
 import { createPiTools } from "@cloudflare/computer/tools/pi-ai";
-import { createModels, Harness, createRegistry } from "@earendil-works/pi-durable";
+import { createModels } from "@earendil-works/pi-ai/models";
+import { Harness, createRegistry } from "@earendil-works/pi-durable";
 import { obj, str } from "@earendil-works/pi-schema";
 import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
@@ -12,6 +13,7 @@ import { createAI } from "agents/models/pi-ai";
 interface Env {
   AI: Ai;
   LOADER: WorkerLoader;
+  AGENT_SESSIONS: DurableObjectNamespace<AgentSession>;
   APP_PASSWORD: string;
   PI_MODEL?: string;
   GITHUB_TOKEN?: string;
@@ -120,7 +122,7 @@ export class AgentSession extends DurableObject<Env> {
   readonly ai = createAI({ binding: this.env.AI });
   readonly workspace = new Workspace({
     storage: this.ctx.storage,
-    backends: [new WorkerJavaScriptBackend({
+    backends: [new CodemodeBackend({
       loader: this.env.LOADER,
       root: "/workspace",
       access: "read-write",
@@ -146,7 +148,7 @@ export class AgentSession extends DurableObject<Env> {
     const computer = createPiTools({
       workspace: this.workspace,
       read: { maxBytes: 120000, maxLines: 1500, includeLineNumbers: true },
-      exec: { "worker-javascript": { description: "Run JavaScript modules in an isolated Cloudflare Dynamic Worker. Network egress is disabled; use this for deterministic tests, parsing and safe code analysis, not for accessing the user's Windows computer." } }
+      exec: { backends: { codemode: { description: "Run JavaScript modules in an isolated Cloudflare Dynamic Worker. Network egress is disabled; use this for deterministic tests, parsing and safe code analysis, not for accessing the user's Windows computer." } } }
     });
     const replaySafe = new Set(["read", "ls", "find", "grep", "write", "delete"]);
     const workspaceTools = computer.tools.map((tool: any) => ({
@@ -235,9 +237,15 @@ export class AgentSession extends DurableObject<Env> {
             const parsed = new URL(url);
             const allowed = (env.MCP_ALLOWED_HOSTS || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
             if (parsed.protocol !== "https:" || parsed.username || parsed.password || !allowed.includes(parsed.hostname.toLowerCase())) throw new Error("MCP host is not allowlisted or URL is unsafe");
-            await mcp.addMcpServer(name, parsed.toString());
+            const id = name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 48);
+            await mcp.registerServer(id, { name, url: parsed.toString() });
+            const connection = await mcp.connectToServer(id);
+            if (connection.state === "authenticating") throw new Error("This MCP server requires OAuth; interactive OAuth approval is not wired into the current chat UI");
+            if (connection.state !== "connected") throw new Error("MCP connection failed: " + (connection as any).error);
+            const discovery = await mcp.discoverIfConnected(id);
+            if (!discovery?.success) throw new Error("MCP tool discovery failed: " + (discovery?.error || "unknown error"));
             await mcp.waitForConnections();
-            return textOutput({ connected: true, name, tools: mcp.listTools().filter(t => t.serverName === name).map(t => t.name) });
+            return textOutput({ connected: true, id, name, tools: mcp.listTools().filter(t => t.serverId === id).map(t => t.name) });
           }
         },
         {
@@ -248,7 +256,7 @@ export class AgentSession extends DurableObject<Env> {
           async execute() {
             await mcp.waitForConnections();
             return textOutput(mcp.listTools().map(t => ({
-              serverId: t.serverId, serverName: t.serverName, name: t.name,
+              serverId: t.serverId, name: t.name,
               description: t.description, inputSchema: t.inputSchema,
               readOnlyHint: t.annotations?.readOnlyHint === true
             })));
@@ -414,7 +422,7 @@ export class AgentSession extends DurableObject<Env> {
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
         this.requirePassword(req);
-        return json({ pending: await this.harness.pending(), mcpServers: this.mcp.listServers() });
+        return json({ pending: await this.harness.pending(), mcpServers: this.mcp.listServers(), mcpTools: this.mcp.listTools() });
       }
       return json({ error: "Not found" }, 404);
     } catch (error) {
@@ -432,6 +440,6 @@ export default {
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
     const legacy = await import("../../worker.js");
-    return legacy.default.fetch(request, env, ctx);
+    return legacy.default.fetch(request, env);
   }
 };
