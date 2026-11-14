@@ -189,8 +189,13 @@ async function handle(req,env){
 
     if(url.pathname==="/api/files"&&req.method==="GET"){
       if(!env.FILES)throw new Error("Private file storage is not configured");
-      const listed=await env.FILES.list({prefix:"files/",limit:100});
-      return replyJson({files:listed.objects.map(o=>({id:o.key.slice(6),name:o.customMetadata?.name||o.key.slice(6),type:o.httpMetadata?.contentType||"application/octet-stream",size:o.size,uploaded:o.uploaded}))},200,env);
+      const objects=[];let cursor;
+      for(let page=0;page<100;page++){
+        const listed=await env.FILES.list({prefix:"files/",limit:100,cursor});
+        objects.push(...listed.objects);cursor=listed.cursor;
+        if(!cursor)break;
+      }
+      return replyJson({files:objects.map(o=>({id:o.key.slice(6),name:o.customMetadata?.name||o.key.slice(6),type:o.httpMetadata?.contentType||"application/octet-stream",size:o.size,uploaded:o.uploaded}))},200,env);
     }
     if(url.pathname==="/api/files"&&req.method==="POST"){
       if(!env.FILES)throw new Error("Private file storage is not configured");
@@ -228,7 +233,7 @@ async function handle(req,env){
       return replyJson({query:q,results:await webSearch(env,q)},200,env);
     }
     if(url.pathname==="/api/threads"&&req.method==="GET"){
-      const issues=await paged(env,base(env)+"/issues?state=all&sort=updated&direction=desc",10);
+      const issues=await paged(env,base(env)+"/issues?state=all&sort=updated&direction=desc",100);
       return replyJson({threads:issues.filter(x=>!x.pull_request&&(x.body||"").includes("<!-- github-chat -->")).map(x=>({number:x.number,title:x.title,updated_at:x.updated_at}))},200,env);
     }
     if(url.pathname==="/api/messages"&&req.method==="GET"){
