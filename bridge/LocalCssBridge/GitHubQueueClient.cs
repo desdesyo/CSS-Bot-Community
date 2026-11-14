@@ -37,6 +37,8 @@ internal sealed class GitHubQueueClient : IDisposable
                 count++;
                 if (item.TryGetProperty("pull_request", out _)) continue;
                 if (!item.TryGetProperty("number", out var number) ||
+                    !item.TryGetProperty("title", out var title) ||
+                    !title.GetString()!.StartsWith("Local CSS Bridge Task:", StringComparison.Ordinal) ||
                     !item.TryGetProperty("body", out var body)) continue;
                 var bodyText = body.GetString() ?? "";
                 if (bodyText.Length > 0 && bodyText.Length <= 8192 &&
