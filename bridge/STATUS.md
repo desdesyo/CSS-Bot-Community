@@ -7,7 +7,8 @@
 - Fine-grained GitHub token stored with Windows DPAPI CurrentUser.
 - Read-only recursive inventory with SHA-256 hashes, file sizes, timestamps, and EXE/DLL file version metadata.
 - PE inspection: machine architecture, subsystem, DLL flag, imported library names, export count, and up to 256 exported symbol names.
-- Bounded config/log text analysis (maximum 1 MiB read per candidate file); reports line count and generic error-term matches only, never uploads text contents.
+- Bounded config/log text analysis (maximum 1 MiB read per candidate file); reports line, error, warning, key/value, and basic brace/quote-balance counters only; never uploads text contents.
+- Previous-complete-scan manifest comparison with added/removed/changed SHA-256 paths; first observation is explicitly not treated as a known-good game manifest.
 - Bounded file count, hash size, pending directory queue, and streamed directory enumeration.
 - JSON scan report posted as a comment on the originating task issue; no game file contents uploaded.
 - Windows x64 self-contained single-file publish and ZIP packaging in GitHub Actions.
@@ -25,8 +26,8 @@
 - First real scan of the user's Windows installation. Task is waiting in issue #2.
 - Duplicate-worker claim/lease coordination.
 - Validate PE and text analyzers in the latest Windows CI run; extend text parsers for specific Source engine formats after inspecting actual sample files.
-- Expected-manifest comparison and evidence-based repair package generation.
-- Post-install comparison and verification against the original scan.
+- Trusted expected-manifest comparison against a known-clean CS:S v34 reference and evidence-based repair package generation.
+- Post-install comparison using the implemented previous-scan snapshot; stronger verification against a trusted clean reference remains pending.
 - Real-game launch testing after a repair is prepared and manually installed.
 
 The current deliverable is a CI-built read-only scanner, not an autonomous repair system. No claim is made that the game has been repaired or launched successfully.
