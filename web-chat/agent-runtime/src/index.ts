@@ -1,7 +1,4 @@
 import { DurableObject } from "cloudflare:workers";
-import { Workspace } from "@cloudflare/computer";
-import { CodemodeBackend } from "@cloudflare/computer/backends/codemode";
-import { createPiTools } from "@cloudflare/computer/tools/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { Harness, createRegistry } from "@earendil-works/pi-durable";
 import { obj, str } from "@earendil-works/pi-schema";
@@ -12,7 +9,6 @@ import { createAI } from "agents/models/pi-ai";
 
 interface Env {
   AI: Ai;
-  LOADER: WorkerLoader;
   AGENT_SESSIONS: DurableObjectNamespace<AgentSession>;
   APP_PASSWORD: string;
   PI_MODEL?: string;
@@ -122,17 +118,6 @@ export class AgentSession extends DurableObject<Env> {
   readonly mcp = new MCPClientManager("cssbc-agent-chat", "1.0.0");
   readonly registry = createRegistry();
   readonly ai = createAI({ binding: this.env.AI });
-  readonly workspace = new Workspace({
-    storage: this.ctx.storage,
-    backends: [new CodemodeBackend({
-      loader: this.env.LOADER,
-      root: "/workspace",
-      access: "read-write",
-      defaultTimeoutMs: 60000,
-      maxTimeoutMs: 180000,
-      globalOutbound: null
-    })]
-  });
   readonly harness = new PiHarness({
     harness: ({ storage, context, onWake }) => {
       const models = createModels();
@@ -147,20 +132,7 @@ export class AgentSession extends DurableObject<Env> {
     super(ctx, env);
     const mcp = this.mcp;
     const storage = this.ctx.storage;
-    const computer = createPiTools({
-      workspace: this.workspace,
-      read: { maxBytes: 120000, maxLines: 1500, includeLineNumbers: true },
-      exec: { backends: { codemode: { description: "Run JavaScript modules in an isolated Cloudflare Dynamic Worker. Network egress is disabled; use this for deterministic tests, parsing and safe code analysis, not for accessing the user's Windows computer." } } }
-    });
-    const replaySafe = new Set(["read", "ls", "find", "grep", "write", "delete"]);
-    const workspaceTools = computer.tools.map((tool: any) => ({
-      ...tool,
-      replay: replaySafe.has(tool.name) ? "safe" : "unsafe",
-      async execute(args: unknown, api: any, context: any) {
-        const result = await computer.execute({ id: api.callId, name: tool.name, arguments: args }, { abortSignal: context.abortSignal });
-        return { output: result.content, isError: result.isError };
-      }
-    }));
+    const workspaceTools: any[] = []; // Free Workers plan: no Dynamic Workers code sandbox.
     this.registry.install({
       name: "workspace-and-connectors",
       sections: [{
