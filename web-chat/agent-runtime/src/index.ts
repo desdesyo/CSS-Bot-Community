@@ -11,6 +11,7 @@ import { createAI } from "agents/models/pi-ai";
 
 interface Env {
   AI: Ai;
+  LOADER: WorkerLoader;
   APP_PASSWORD: string;
   PI_MODEL?: string;
   GITHUB_TOKEN?: string;
