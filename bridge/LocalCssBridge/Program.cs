@@ -51,6 +51,12 @@ internal static class Program
         BridgeTask? task;
         try
         {
+            if (issue.Body.Length > 8192) return;
+            using var payload = JsonDocument.Parse(issue.Body);
+            if (!payload.RootElement.TryGetProperty("operation", out _)) return;
+            var allowed = new HashSet<string>(StringComparer.Ordinal) { "schemaVersion", "taskId", "operation", "gameRoot", "maxFiles", "maxFileBytesForHash" };
+            if (payload.RootElement.EnumerateObject().Any(p => !allowed.Contains(p.Name)))
+                throw new InvalidDataException("Task contains unknown properties.");
             task = JsonSerializer.Deserialize<BridgeTask>(issue.Body, JsonOptions);
             if (task is null || task.SchemaVersion != 1 || task.Operation != "scan" ||
                 string.IsNullOrWhiteSpace(task.TaskId) || task.TaskId.Length > 80 ||
