@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Reflection.PortableExecutable;
 using System.Text;
 
@@ -16,13 +15,13 @@ internal static class PeAnalyzer
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             using var reader = new PEReader(stream, PEStreamOptions.LeaveOpen);
             var headers = reader.PEHeaders;
-            record.PeArchitecture = headers.CoffHeader.Machine switch
+            record.PeArchitecture = (ushort)headers.CoffHeader.Machine switch
             {
-                Machine.I386 => "x86",
-                Machine.Amd64 => "x64",
-                Machine.Arm => "ARM",
-                Machine.Arm64 => "ARM64",
-                Machine.Ia64 => "IA64",
+                0x014c => "x86",
+                0x8664 => "x64",
+                0x01c0 or 0x01c4 => "ARM",
+                0xaa64 => "ARM64",
+                0x0200 => "IA64",
                 _ => $"Unknown(0x{(ushort)headers.CoffHeader.Machine:X4})"
             };
             record.PeSubsystem = headers.PEHeader?.Subsystem.ToString();
@@ -80,7 +79,10 @@ internal static class PeAnalyzer
             var start = section.VirtualAddress;
             var span = Math.Max(section.VirtualSize, section.SizeOfRawData);
             if (rva >= start && (long)rva < (long)start + span)
-                return checked((int)(section.PointerToRawData + (uint)(rva - start)));
+            {
+                var rawOffset = (long)section.PointerToRawData + (rva - start);
+                return rawOffset >= 0 && rawOffset <= int.MaxValue ? (int)rawOffset : -1;
+            }
         }
         return -1;
     }
