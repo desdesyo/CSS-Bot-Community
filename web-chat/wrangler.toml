@@ -28,5 +28,3 @@ class_name = "AgentSession"
 tag = "agent-v1"
 new_sqlite_classes = ["AgentSession"]
 
-[[worker_loaders]]
-binding = "LOADER"
