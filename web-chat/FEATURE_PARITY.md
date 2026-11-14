@@ -41,13 +41,13 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Capability | Required behavior | Current status |
 |---|---|---|
 | Continuous text chat | Send/receive, persistent threads, reload restoration | Partial: basic path exists; not deployed or end-to-end tested |
-| Long-context continuity | Summaries, automatic internal continuation, no visible new chat | Partial: rollover code exists; stress tests missing |
+| Long-context continuity | Summaries, automatic internal continuation, no visible new chat | Partial: rollover boundary now preserves the submitted turn; continuation traversal is paginated and follows up to 100 segments; stress/concurrency tests missing |
 | Model routing/failover | Primary + independent compatible fallback, retries, server-side routing | Partial: optional fallback exists; no provider health/circuit-breaker |
 | Streaming responses | Token streaming, cancel generation, reconnect without duplicate turns | Planned |
 | Message actions | Edit/resend, regenerate, copy, delete, retry failed turn | Planned |
 | Rich text | Safe Markdown, headings, lists, links, inline code, fenced code, copy/save actions | Partial: safe basic Markdown and code blocks; tables and syntax highlighting remain |
 | File creation | Assistant creates real downloadable artifacts from instructions | Partial: server-side create-file tool and save-answer-as-Markdown; format templates/large artifact workflow remain |
-| Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: private R2 upload/download/delete, multi-file attach, 15 MB cap; no full file manager yet |
+| Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: private R2 upload/download/delete, multi-file attach, 15 MB cap; library pagination added; no full file manager yet |
 | Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Partial: text/CSV/JSON/source files plus PDF input to primary model; DOCX/XLSX/OCR pipeline pending |
 | Image understanding | Attach images and ask questions about them | Partial: image input to primary Responses API model; no image editing/generation |
 | Image generation/editing | Generate and edit images, persist outputs in conversation | Planned; image provider + object storage required |
