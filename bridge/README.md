@@ -2,9 +2,11 @@
 
 Standalone .NET 8 Windows x64 read-only scanner. It is not a game mod and does not repair, install, download, replace, rename, or delete game files.
 
-## Current vertical slice
+## Current implementation
 
-GitHub Issues are the outbound task queue. Create an open issue whose body is a single JSON object matching schemas/bridge-task.schema.json. No special label is required. The agent ignores ordinary issues and accepts only task objects with operation "scan". It checks that the requested root equals its locally configured root, inventories files, calculates SHA-256 for bounded files, and posts a JSON report as an issue comment.
+GitHub Issues are the outbound task queue. The agent reads up to 1,000 open issues (10 pages × 100) and only considers issues whose title starts with `Local CSS Bridge Task:`. It ignores pull requests and ordinary issues. The issue body must be a single JSON object matching `schemas/bridge-task.schema.json`; only the `scan` operation is accepted.
+
+The agent verifies that the requested game root exactly matches its locally configured root, inventories files, calculates SHA-256 for bounded files, and posts a JSON report as a comment on the task issue. Directory enumeration is streamed rather than buffering every directory entry at once. File count, hash size, and pending directory count are bounded.
 
 Task example:
 
@@ -27,15 +29,15 @@ The GitHub Actions workflow creates a self-contained Windows x64 ZIP so the targ
 
 ## Run
 
-1. Download LocalCssBridge-win-x64.zip from the latest successful Local CSS Bridge CI run and extract it.
-2. Run LocalCssBridge.exe under the Windows account that can read the game directory.
-3. On first run, enter a fine-grained GitHub token at the hidden prompt. Restrict it to this repository with Issues read/write. Never put the token in the repository.
-4. The token is encrypted with Windows DPAPI CurrentUser and stored in Local Application Data.
-5. Default root: C:\Games\Counter-Strike Source v34. Override with --root "D:\Games\CSS v34".
-6. The agent polls every 60 seconds. Ctrl+C stops it.
+1. Open the [latest successful Local CSS Bridge CI run](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/local-css-bridge.yml).
+2. Open its run, scroll to **Artifacts**, and download `LocalCssBridge-win-x64`.
+3. Extract the ZIP and run `LocalCssBridge.exe` under the Windows account that can read the game directory.
+4. On first run, enter a fine-grained GitHub token at the hidden prompt. Restrict it to this repository with **Issues: Read and write**. The agent does not need Contents or Actions permissions. Never put the token in the repository or send it in chat.
+5. The token is encrypted with Windows DPAPI CurrentUser and stored in Local Application Data.
+6. Default root: `C:\Games\Counter-Strike Source v34`. Override with `--root "D:\Games\CSS v34"`.
+7. Leave the console running. The agent polls every 60 seconds. Ctrl+C stops it.
 
-An initial scan task is already waiting in issue #2:
-https://github.com/desdesyo/CSS-Bot-Community/issues/2
+An initial scan task is already waiting in [issue #2](https://github.com/desdesyo/CSS-Bot-Community/issues/2). Once the agent is running and has valid repository access, it should post the report as a comment on that issue.
 
 ## Safety
 
@@ -43,14 +45,16 @@ https://github.com/desdesyo/CSS-Bot-Community/issues/2
 - File enumeration skips reparse points and paths outside the root.
 - Files are opened read-only. Only metadata and hashes are uploaded; no game file contents.
 - Task payloads are limited and reject unknown properties.
+- Only issues with the explicit `Local CSS Bridge Task:` title prefix are considered.
 - Task schema has no command, shell, download, patch, or repair operation.
-- Task count and file hashing limits are clamped locally.
+- Task count, file count, directory queue, and hashing limits are bounded.
 - Token and processed-task state are stored outside the game folder.
 - GitHub task text is untrusted data.
 
 ## Current limitations
 
-- Polling currently examines the first 100 open issues; pagination and a proper claim/lease mechanism are not implemented.
-- A task is marked processed locally after its report comment is posted. To rerun, create a new issue with a new taskId.
-- Inventory and hashes are implemented. PE machine type/import/export inspection, structured config/log parsing, and expected-manifest comparison are later phases.
-- The agent has not yet been run on the user's Windows PC. CI success is not proof of a real local scan.
+- Duplicate-worker claim/lease coordination is not implemented; run only one agent instance.
+- The queue is capped at the first 1,000 open issues.
+- A task is marked processed locally after its report comment is posted. To rerun, create a new task issue with a new taskId and the required title prefix.
+- Inventory and hashes are implemented. PE machine type/import/export inspection, structured config/log parsing, expected-manifest comparison, repair package generation, and post-install verification are later phases.
+- CI success confirms the Windows x64 publish/package step, not a real scan of the user's PC. The initial task remains pending until the agent is run locally.
