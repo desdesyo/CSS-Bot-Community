@@ -1,0 +1,32 @@
+name = "cssbc-github-chat"
+main = "agent-runtime/src/index.ts"
+compatibility_date = "2026-11-14"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "cssbc-chat-files"
+
+[ai]
+binding = "AI"
+
+[vars]
+GITHUB_WORK_REPO = "desdesyo/CSS-Bot-Community"
+GITHUB_WORK_BRANCH = "github-chat-prototype"
+PI_MODEL = "@cf/zai-org/glm-5.3-flash"
+
+[[durable_objects.bindings]]
+name = "AGENT_SESSIONS"
+class_name = "AgentSession"
+
+[[migrations]]
+tag = "agent-v1"
+new_sqlite_classes = ["AgentSession"]
+
+[[worker_loaders]]
+binding = "LOADER"

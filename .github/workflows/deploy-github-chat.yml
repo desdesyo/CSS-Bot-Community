@@ -1,0 +1,40 @@
+name: Deploy GitHub Chat to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - github-chat-prototype
+    paths:
+      - "web-chat/**"
+      - ".github/workflows/deploy-github-chat.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install chat dependencies
+        working-directory: web-chat
+        run: npm install
+
+      - name: Type-check runtime
+        working-directory: web-chat
+        run: npm run check
+
+      - name: Deploy Worker
+        working-directory: web-chat
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --config wrangler.toml

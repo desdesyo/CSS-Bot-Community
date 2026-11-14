@@ -1,0 +1,51 @@
+name: GitHub Chat checks
+
+on:
+  push:
+    branches: [github-chat-prototype]
+    paths:
+      - "web-chat/**"
+      - ".github/workflows/github-chat-check.yml"
+  pull_request:
+    paths:
+      - "web-chat/**"
+      - ".github/workflows/github-chat-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install durable agent dependencies
+        working-directory: web-chat
+        run: npm install
+      - name: Type-check durable agent runtime
+        working-directory: web-chat
+        run: npm run check
+      - name: Bundle Worker without deploying
+        working-directory: web-chat
+        run: npx wrangler deploy --dry-run --outdir /tmp/cssbc-worker-dry-run
+      - name: Check local computer companion syntax
+        run: node --check computer-bridge/agent.mjs
+      - name: Validate local bridge config example
+        run: node -e "JSON.parse(require('fs').readFileSync('computer-bridge/config.example.json','utf8'))"
+      - name: Check Worker JavaScript syntax
+        run: node --input-type=module --check < web-chat/worker.js
+      - name: Check browser JavaScript syntax
+        run: node -e "const fs=require('fs');const html=fs.readFileSync('web-chat/public/index.html','utf8');const m=html.match(/<script>([\\s\\S]*?)<\\/script>/);if(!m)throw new Error('inline script missing');new Function(m[1]);"
+      - name: Verify required app files
+        run: |
+          test -s web-chat/public/index.html
+          test -s web-chat/worker.js
+          test -s web-chat/wrangler.toml
+          test -s web-chat/agent-runtime/src/index.ts
+          test -s computer-bridge/agent.mjs
+          test -s web-chat/README.md
+      - name: Check whitespace errors
+        run: git diff --check

@@ -1,0 +1,7 @@
+{
+  "serverUrl": "https://YOUR-DEPLOYED-CHAT-DOMAIN",
+  "deviceToken": "",
+  "allowedRoots": [
+    "C:\\Games\\Counter-Strike Source v34"
+  ]
+}

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101114"><title>GitHub Chat</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--panel:#17191e;--panel2:#20232a;--line:#2b2f38;--text:#eceef2;--muted:#9299a6;--accent:#8b9cff;--user:#252b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,Segoe UI,sans-serif;height:100dvh}
+button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 13px}button:hover{border-color:#6977bd}button:disabled{opacity:.5;cursor:wait}
+.app{height:100%;display:grid;grid-template-columns:270px 1fr}.side{background:#14161a;border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;min-height:0}.brand{font-weight:700;font-size:17px;letter-spacing:.2px;margin:4px 0 18px}.brand span{color:var(--accent)}.new{width:100%;text-align:left;margin-bottom:14px}.threads{overflow:auto;display:flex;flex-direction:column;gap:5px}.thread{border:0;text-align:left;background:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c5cad3}.thread.active,.thread:hover{background:var(--panel2)}.sidefoot{margin-top:auto;padding-top:14px;color:var(--muted);font-size:12px}.main{display:flex;flex-direction:column;min-width:0;min-height:0}.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;color:var(--muted)}.messages{flex:1;overflow:auto;padding:28px max(20px,calc((100% - 850px)/2));display:flex;flex-direction:column;gap:22px}.welcome{margin:auto;text-align:center;max-width:600px;color:var(--muted)}.welcome h1{color:var(--text);font-size:30px;margin:0 0 8px}.msg{max-width:100%;display:flex;gap:12px;align-items:flex-start}.avatar{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--panel2);flex:none;font-size:12px;font-weight:700}.msg.user .avatar{background:#303b5b}.body{min-width:0;white-space:normal;overflow-wrap:anywhere;padding-top:2px}.body p{margin:0 0 12px}.body p:last-child{margin-bottom:0}.body h1,.body h2,.body h3,.body h4{line-height:1.25;margin:18px 0 9px}.body ul,.body ol{padding-left:24px;margin:8px 0}.body blockquote{margin:10px 0;padding:4px 12px;border-left:3px solid #6977bd;color:#c2c8d5}.body a{color:#aebaff}.body code{font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#252832;border-radius:5px;padding:2px 5px}.body pre{white-space:pre;overflow:auto;background:#101216;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}.body pre code{display:block;background:transparent;padding:0}.code-head{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;margin-bottom:8px}.code-head button,.message-actions button{font-size:11px;padding:3px 8px}.message-actions{display:flex;gap:6px;margin-top:8px;opacity:.65}.message-actions button{background:transparent}.msg.user .body{background:var(--user);padding:11px 14px;border-radius:13px}.composer-wrap{padding:12px 20px 22px}.toolrow{max-width:850px;margin:0 auto 8px;display:flex;gap:8px;align-items:center}.toolrow button{font-size:12px;padding:6px 10px}.toolrow button[aria-pressed="true"]{border-color:var(--accent);background:#29314b}.toolrow span{font-size:11px;color:var(--muted)}.attachments{max-width:850px;margin:0 auto 8px;display:flex;gap:6px;flex-wrap:wrap}.file-chip{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px}.message-files{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.file-library{max-width:850px;margin:0 auto 10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.file-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px}.file-row:last-child{border-bottom:0}.file-row .file-name{flex:1;overflow-wrap:anywhere}.file-row button{font-size:11px;padding:4px 7px}.composer{max-width:850px;margin:auto;border:1px solid #3a3f4a;background:var(--panel);border-radius:16px;padding:10px;display:flex;gap:10px;align-items:flex-end}.composer textarea{flex:1;resize:none;min-height:44px;max-height:180px;border:0;outline:0;background:transparent;color:var(--text);padding:9px}.send{background:#dce1ff;color:#171923;border:0;font-weight:700;min-width:72px}.hint{text-align:center;color:var(--muted);font-size:11px;margin-top:8px}.mobile{display:none}
+#gate{position:fixed;inset:0;background:#101114;display:grid;place-items:center;padding:20px;z-index:5}.gatebox{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px}.gatebox h2{margin:0 0 8px}.gatebox p{color:var(--muted);font-size:13px}.gatebox input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#101114;color:var(--text);margin:10px 0}.gatebox button{width:100%;background:#dce1ff;color:#171923;font-weight:700}.status{display:none}
+@media(max-width:700px){.app{grid-template-columns:1fr}.side{display:none}.mobile{display:inline-block}.top{padding:0 14px}.messages{padding:20px 14px}.composer-wrap{padding:10px 10px 16px}}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatebox"><h2>GitHub Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
+<div class="app">
+<aside class="side"><div class="brand">GitHub <span>Chat</span></div><button class="new" id="newChat">＋ New conversation</button><div class="threads" id="threads"></div><div class="sidefoot">Conversation history is stored as GitHub Issues.<br><span id="connection">Not connected</span></div></aside>
+<main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">New conversation</span></div><div class="status" id="status">Private workspace</div></header><section class="messages" id="messages"><div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved to GitHub so the conversation can be reopened later.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach">＋ Attach files</button><button type="button" id="webSearch" aria-pressed="false">⌕ Web search: off</button><button type="button" id="myFiles">My files</button><button type="button" id="computerConnect">Connect computer</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Ask, research, analyze a file, or create an artifact…"></textarea><button class="send" id="send">Send</button></div><div class="hint">Can research, manage GitHub files, connect MCP tools, inspect your paired computer, and create artifacts.</div></div></main>
+</div>
+<script>
+const $=id=>document.getElementById(id);let token=sessionStorage.getItem("ghchat_password")||"",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,attachedFiles=[],webSearchEnabled=false;
+async function api(path,opts={}){const headers={"Authorization":"Bearer "+token,...opts.headers};if(!(opts.body instanceof FormData))headers["Content-Type"]="application/json";const r=await fetch(path,{...opts,headers});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
+function setStatus(s){$("status").textContent=s}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function inlineMarkdown(s){
+ let x=escapeHtml(s);
+ x=x.replace(/\x60([^\x60]+)\x60/g,"<code>$1</code>");
+ x=x.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\*([^*]+)\*/g,"<em>$1</em>").replace(/~~([^~]+)~~/g,"<del>$1</del>");
+ x=x.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+ x=x.replace(/(^|\s)(https?:\/\/[^\s<]+)/g,'$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+ return x;
+}
+function renderMarkdown(src){
+ const lines=String(src).replace(/\r/g,"").split("\n"),out=[];let p=[],list="",code=null,codeLines=[];
+ const flush=()=>{if(p.length){out.push("<p>"+p.map(inlineMarkdown).join("<br>")+"</p>");p=[]}};
+ const closeList=()=>{if(list){out.push("</"+list+">");list=""}};
+ for(const line of lines){
+  const fence=line.match(/^\x60{3}([\w+-]*)\s*$/);
+  if(code!==null){if(fence){out.push('<pre><div class="code-head"><span>'+escapeHtml(code||"code")+'</span><button type="button" class="copy-code">Copy code</button></div><code>'+escapeHtml(codeLines.join("\n"))+'</code></pre>');code=null;codeLines=[]}else codeLines.push(line);continue}
+  if(fence){flush();closeList();code=fence[1]||"code";continue}
+  if(!line.trim()){flush();closeList();continue}
+  const h=line.match(/^(#{1,6})\s+(.+)$/);if(h){flush();closeList();const n=h[1].length;out.push("<h"+n+">"+inlineMarkdown(h[2])+"</h"+n+">");continue}
+  const quote=line.match(/^>\s?(.*)$/);if(quote){flush();closeList();out.push("<blockquote>"+inlineMarkdown(quote[1])+"</blockquote>");continue}
+  const ul=line.match(/^\s*[-*+]\s+(.+)$/),ol=line.match(/^\s*\d+[.)]\s+(.+)$/);
+  if(ul||ol){flush();const next=ul?"ul":"ol";if(list!==next){closeList();list=next;out.push("<"+list+">")}out.push("<li>"+inlineMarkdown((ul||ol)[1])+"</li>");continue}
+  closeList();p.push(line);
+ }
+ if(code!==null)out.push('<pre><div class="code-head"><span>'+escapeHtml(code)+'</span><button type="button" class="copy-code">Copy code</button></div><code>'+escapeHtml(codeLines.join("\n"))+'</code></pre>');
+ flush();closeList();return out.join("");
+}
+function addMessage(role,text,files=[]){const empty=$("messages").querySelector(".welcome");if(empty)empty.remove();const row=document.createElement("article");row.className="msg "+role;const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?"YOU":"AI";const body=document.createElement("div");body.className="body";if(role==="assistant"){body.innerHTML=renderMarkdown(text);const actions=document.createElement("div");actions.className="message-actions";const copy=document.createElement("button");copy.type="button";copy.textContent="Copy";copy.onclick=()=>navigator.clipboard?.writeText(text);const save=document.createElement("button");save.type="button";save.textContent="Save as .md";save.onclick=async()=>{save.disabled=true;try{const f=await api("/api/files/create",{method:"POST",body:JSON.stringify({name:"assistant-response.md",content:text,type:"text/markdown; charset=utf-8"})});const r=await fetch("/api/files/"+f.id,{headers:{"Authorization":"Bearer "+token}});if(!r.ok)throw Error("Download failed");const blob=await r.blob(),a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download=f.name;a.click();URL.revokeObjectURL(u);save.textContent="Saved";try{await loadFileLibrary()}catch(_){}}catch(e){save.textContent="Save failed"}finally{save.disabled=false}};actions.append(copy,save);body.append(actions)}else body.textContent=text;if(files&&files.length){const box=document.createElement("div");box.className="message-files";for(const file of files){const tag=document.createElement("span");tag.className="file-chip";tag.textContent="📎 "+(file.name||"attachment");box.append(tag)}body.append(box)}row.append(av,body);$("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight;return row}
+function showWelcome(){ $("messages").innerHTML='<div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved to GitHub so the conversation can be reopened later.</div></div>'; }
+async function loadThreads(){const d=await api("/api/threads");$("threads").innerHTML="";for(const t of d.threads){const b=document.createElement("button");b.className="thread"+(t.number===thread?" active":"");b.textContent=t.title;b.title=t.title;b.onclick=()=>openThread(t.number);$("threads").append(b)}$("connection").textContent="Connected · "+d.threads.length+" conversations"}
+async function openThread(n){thread=n;localStorage.setItem("ghchat_thread",String(n));setStatus("Loading history…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=d.title||("Conversation #"+n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content,m.files||[]);await loadThreads();setStatus("Saved in GitHub · #"+n)}
+function newChat(){thread=null;localStorage.removeItem("ghchat_thread");$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("New conversation")}
+
+
+async function downloadStoredFile(file){
+ const r=await fetch("/api/files/"+file.id,{headers:{"Authorization":"Bearer "+token}});
+ if(!r.ok)throw Error("Download failed");const blob=await r.blob(),a=document.createElement("a"),u=URL.createObjectURL(blob);
+ a.href=u;a.download=file.name;a.click();URL.revokeObjectURL(u);
+}
+async function loadFileLibrary(){
+ const panel=$("fileLibrary");panel.hidden=false;panel.textContent="Loading…";
+ try{
+  const d=await api("/api/files");panel.innerHTML="";
+  if(!d.files.length){panel.textContent="No uploaded or generated files yet.";return}
+  for(const file of d.files){
+   const row=document.createElement("div");row.className="file-row";
+   const name=document.createElement("span");name.className="file-name";name.textContent=file.name+" · "+Math.ceil(file.size/1024)+" KB";
+   const down=document.createElement("button");down.textContent="Download";down.onclick=()=>downloadStoredFile(file);
+   const del=document.createElement("button");del.textContent="Delete";del.onclick=async()=>{del.disabled=true;try{await api("/api/files/"+file.id,{method:"DELETE"});await loadFileLibrary()}catch(e){del.disabled=false;$("toolFeedback").textContent=e.message}};
+   row.append(name,down,del);panel.append(row);
+  }
+ }catch(e){panel.textContent=e.message}
+}
+function renderAttachments(){
+ $("attachments").innerHTML="";
+ for(const f of attachedFiles){const chip=document.createElement("span");chip.className="file-chip";chip.textContent=f.name+" · "+Math.ceil(f.size/1024)+" KB";const remove=document.createElement("button");remove.type="button";remove.textContent="×";remove.style.marginLeft="6px";remove.onclick=()=>{attachedFiles=attachedFiles.filter(x=>x.id!==f.id);renderAttachments()};chip.append(remove);$("attachments").append(chip)}
+}
+async function uploadSelected(files){
+ for(const file of files){
+  const form=new FormData();form.append("file",file);
+  try{const saved=await api("/api/files",{method:"POST",body:form});attachedFiles.push(saved);$("toolFeedback").textContent="Uploaded "+saved.name}
+  catch(e){$("toolFeedback").textContent=e.message}
+ }
+ renderAttachments();$("filePicker").value="";
+}
+async function send(){
+ const message=$("prompt").value.trim();if(!message||busy)return;
+ busy=true;$("send").disabled=true;$("prompt").disabled=true;$("prompt").value="";
+ const bubble=addMessage("user",message,attachedFiles);let completed=false;
+ try{
+  let d,last;
+  for(let attempt=0;attempt<5;attempt++){
+   try{d=await api("/api/chat",{method:"POST",body:JSON.stringify({thread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled})});completed=true;break}
+   catch(e){last=e;if(e.message==="Unauthorized")break;await new Promise(r=>setTimeout(r,700*Math.pow(2,attempt)))}
+  }
+  if(completed){thread=d.thread;localStorage.setItem("ghchat_thread",String(thread));$("chatTitle").textContent=d.title;addMessage("assistant",d.reply);attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";try{await loadThreads()}catch(_){}}
+  else{bubble.remove();$("prompt").value=message}
+ }finally{busy=false;$("send").disabled=false;$("prompt").disabled=false;$("prompt").focus()}
+}
+async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
+$("messages").addEventListener("click",e=>{const b=e.target.closest(".copy-code");if(!b)return;const code=b.closest("pre")?.querySelector("code")?.textContent||"";navigator.clipboard?.writeText(code);b.textContent="Copied";setTimeout(()=>b.textContent="Copy code",1200)});$("attach").onclick=()=>$("filePicker").click();$("computerConnect").onclick=async()=>{const b=$("computerConnect"),f=$("toolFeedback");b.disabled=true;try{const d=await api("/api/agent/computer/pair-code",{method:"POST",body:JSON.stringify({})});const msg="Pair code: "+d.code+" (valid 5 minutes). Run: node agent.mjs pair "+location.origin+" "+d.code;f.textContent=msg;try{await navigator.clipboard.writeText(msg)}catch(_){}}catch(e){f.textContent="Computer pairing unavailable: "+e.message}finally{b.disabled=false}};$("myFiles").onclick=()=>{const p=$("fileLibrary");if(p.hidden)loadFileLibrary();else p.hidden=true};$("filePicker").addEventListener("change",e=>uploadSelected([...e.target.files]));$("webSearch").onclick=()=>{webSearchEnabled=!webSearchEnabled;$("webSearch").setAttribute("aria-pressed",String(webSearchEnabled));$("webSearch").textContent="⌕ Web search: "+(webSearchEnabled?"on":"off")};$("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
+if(token){$("password").value=token;unlock()}
+</script>
+</body></html>
