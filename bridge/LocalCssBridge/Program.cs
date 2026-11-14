@@ -183,4 +183,15 @@ internal sealed class FileRecord
     public string Status { get; set; } = "";
     public string Extension { get; set; } = "";
     public string? FileVersion { get; set; }
+    public string? PeArchitecture { get; set; }
+    public string? PeSubsystem { get; set; }
+    public bool? PeIsDll { get; set; }
+    public List<string>? PeImports { get; set; }
+    public int? PeExportCount { get; set; }
+    public string? PeAnalysisStatus { get; set; }
+    public string? TextKind { get; set; }
+    public int? TextLines { get; set; }
+    public int? TextErrorMatches { get; set; }
+    public bool? TextTruncated { get; set; }
+    public string? TextAnalysisStatus { get; set; }
 }
