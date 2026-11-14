@@ -145,6 +145,7 @@ export class AgentSession extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    const env = this.env;
     const mcp = this.mcp;
     const storage = this.ctx.storage;
     const computer = createPiTools({
