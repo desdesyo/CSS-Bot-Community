@@ -32,7 +32,11 @@ internal static class PeAnalyzer
                 record.PeImports = ReadImportNames(stream, sections, importRva);
             var exportRva = headers.PEHeader?.ExportTableDirectory.RelativeVirtualAddress ?? 0;
             if (exportRva != 0)
-                record.PeExportCount = ReadExportCount(stream, sections, exportRva);
+            {
+                var exports = ReadExportNames(stream, sections, exportRva);
+                record.PeExports = exports.Names;
+                record.PeExportCount = exports.TotalCount;
+            }
             record.PeAnalysisStatus = "analyzed";
         }
         catch (BadImageFormatException) { record.PeAnalysisStatus = "not_pe_or_invalid"; }
@@ -62,14 +66,31 @@ internal static class PeAnalyzer
         return result.Distinct(StringComparer.OrdinalIgnoreCase).Take(256).ToList();
     }
 
-    private static int ReadExportCount(FileStream stream, System.Collections.Immutable.ImmutableArray<System.Reflection.PortableExecutable.SectionHeader> sections, int rva)
+    private static (int TotalCount, List<string> Names) ReadExportNames(FileStream stream, System.Collections.Immutable.ImmutableArray<System.Reflection.PortableExecutable.SectionHeader> sections, int rva)
     {
         var offset = RvaToOffset(sections, rva);
-        if (offset < 0 || offset + 40 > stream.Length) return 0;
+        if (offset < 0 || offset + 40 > stream.Length) return (0, []);
         using var reader = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-        stream.Position = offset + 20;
-        var count = reader.ReadUInt32();
-        return (int)Math.Min(count, 100000);
+        stream.Position = offset + 24;
+        var nameCount = Math.Min(reader.ReadUInt32(), 100000);
+        stream.Position = offset + 32;
+        var namesRva = reader.ReadUInt32();
+        var namesOffset = RvaToOffset(sections, checked((int)namesRva));
+        if (namesOffset < 0) return ((int)nameCount, []);
+        var names = new List<string>();
+        var limit = (int)Math.Min(nameCount, 256);
+        for (var i = 0; i < limit; i++)
+        {
+            var entry = namesOffset + i * 4L;
+            if (entry < 0 || entry + 4 > stream.Length) break;
+            stream.Position = entry;
+            var symbolRva = reader.ReadUInt32();
+            var symbolOffset = RvaToOffset(sections, checked((int)symbolRva));
+            if (symbolOffset < 0) continue;
+            var symbol = ReadAsciiZ(stream, symbolOffset);
+            if (!string.IsNullOrWhiteSpace(symbol)) names.Add(symbol);
+        }
+        return ((int)nameCount, names);
     }
 
     private static int RvaToOffset(System.Collections.Immutable.ImmutableArray<System.Reflection.PortableExecutable.SectionHeader> sections, int rva)
