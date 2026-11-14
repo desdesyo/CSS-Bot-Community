@@ -1,0 +1,22 @@
+{
+  "name": "cssbc-agent-chat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261114.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.45.0"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "~1.5.0",
+    "@earendil-works/pi-ai": "~1.5.0",
+    "@earendil-works/pi-durable": "~1.5.0",
+    "@earendil-works/pi-schema": "~1.5.0",
+    "@modelcontextprotocol/client": "2.3.1",
+    "agents": "^0.33.0"
+  }
+}
