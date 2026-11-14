@@ -36,11 +36,16 @@ async function sha256(value: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
 }
-function safeEqual(a: string, b: string) {\n  if (a.length !== b.length) return false;\n  let diff = 0;\n  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  return diff === 0;\n}\nfunction textOutput(value: unknown) {
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}\nfunction textOutput(value: unknown) {
   return { output: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] };
 }
 function safePath(env: Env, value: string) {
-  const root = (env.GITHUB_WORK_ROOT || "agent-workspace").replace(/^\/+|\/+$/g, "");
+  const root = String(env.GITHUB_WORK_ROOT || "").replace(/^\/+|\/+$/g, "");
   const path = String(value || "").replace(/^\/+|\/+$/g, "");
   if (!path || path.split("/").some(p => !p || p === "." || p === ".." || !/^[a-zA-Z0-9._ -]+$/.test(p))) throw new Error("Invalid repository path");
   if (root && path !== root && !path.startsWith(root + "/")) throw new Error("Path is outside GITHUB_WORK_ROOT");
