@@ -91,15 +91,27 @@ internal static class Program
                 CompletedUtc = DateTimeOffset.UtcNow, Root = configuredRoot, Errors = [SafeMessage(ex.Message)] };
         }
         var json = JsonSerializer.Serialize(report, JsonOptions);
-        if (json.Length > 50000)
+        if (json.Length > 42000)
         {
-            report.Files = report.Files.Take(500).ToList();
-            report.Status = "partial";
-            report.Errors.Add("Posted inventory truncated to 500 records to respect GitHub comment size limits.");
+            foreach (var file in report.Files)
+            {
+                if (file.PeImports is { Count: > 32 }) file.PeImports = file.PeImports.Take(32).ToList();
+                if (file.PeExports is { Count: > 32 }) file.PeExports = file.PeExports.Take(32).ToList();
+            }
+            var originalCount = report.Files.Count;
+            var keep = Math.Min(originalCount, 400);
+            do
+            {
+                report.Files = report.Files.Take(keep).ToList();
+                report.Status = "partial";
+                json = JsonSerializer.Serialize(report, JsonOptions);
+                keep -= 50;
+            } while (json.Length > 42000 && keep >= 0);
+            report.Errors.Add($"Report shortened from {originalCount} records to {report.Files.Count} records to fit GitHub comment limits; summary counts cover the full scan.");
             json = JsonSerializer.Serialize(report, JsonOptions);
         }
         var comment = "## Local CSS Bridge scan report\n\n" + json;
-        if (comment.Length > 60000) comment = "## Local CSS Bridge scan report\n\nReport exceeded safe comment size. Retry with a lower maxFiles value.";
+        if (comment.Length > 60000) comment = "## Local CSS Bridge scan report\n\nReport metadata exceeded the safe comment size. Retry with a lower maxFiles value.";
         await client.PostCommentAsync(issue.Number, comment, ct);
         state.Add(issue.Number); SaveState(state);
         Console.WriteLine("Task " + task.TaskId + ": " + report.Status + "; " + report.Files.Count + " records posted.");
