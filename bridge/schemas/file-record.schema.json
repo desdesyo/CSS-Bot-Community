@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Read-only file record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["relativePath", "length", "lastWriteUtc", "sha256", "status"],
+  "properties": {
+    "relativePath": { "type": "string", "maxLength": 1024 },
+    "length": { "type": "integer", "minimum": 0 },
+    "lastWriteUtc": { "type": "string", "format": "date-time" },
+    "sha256": { "type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$" },
+    "status": { "enum": ["hashed", "hash_skipped_size_limit", "unreadable", "empty"] },
+    "extension": { "type": "string", "maxLength": 32 },
+    "fileVersion": { "type": ["string", "null"], "maxLength": 128 }
+  }
+}
