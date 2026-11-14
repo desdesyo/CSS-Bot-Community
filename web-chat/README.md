@@ -42,9 +42,9 @@ The `FILES` R2 binding stores private uploads and generated artifacts. Do not ma
 Set Worker variables:
 
 - `GITHUB_REPO` — required; set to a separate private repository such as `your-account/private-chat-history`. Do not point this at the public CSS Bot Community repository.
-- `GITHUB_WORK_REPO` — optional `owner/repo` where the agent may manage project files. Grant the Worker token Contents read/write access to this repository.
-- `GITHUB_WORK_BRANCH` — optional existing branch for agent changes; omit to use the repository default branch.
-- `GITHUB_WORK_ROOT` — optional allowed directory prefix; defaults to `agent-workspace`. Leave this unset to allow the configured repository branch; set it to a subdirectory to narrow access.
+- `GITHUB_WORK_REPO` — set to `desdesyo/CSS-Bot-Community` for this project. Grant the Worker token Contents read/write access to this repository.
+- `GITHUB_WORK_BRANCH` — set to the existing development branch `github-chat-prototype`.
+- `GITHUB_WORK_ROOT` — optional allowed directory prefix. Leave unset to allow the agent to work across the configured repository; set a subdirectory to restrict access.
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
