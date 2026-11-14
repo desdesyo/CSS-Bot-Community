@@ -42,6 +42,10 @@ CSSBC is intended as a broad gameplay and presentation overhaul:
 
 The visual decisions are recorded in [docs/UI_VISUAL_SPEC.md](docs/UI_VISUAL_SPEC.md). This is a target specification, not a claim that these assets/UI are already implemented.
 
+## Local Chat Bridge
+
+The implementation specification for the Windows-side agent that connects this ChatGPT conversation to the local CS:S v34 installation through a GitHub task queue is in [docs/LOCAL_CHAT_BRIDGE_SPEC.md](docs/LOCAL_CHAT_BRIDGE_SPEC.md). This is a separate local diagnostic/repair agent, not the experimental SourceMod gameplay bridge. The specification defines staged delivery from a read-only scanner to verified, rollback-capable repairs; it does not claim those capabilities are already implemented.
+
 ## Build and test
 
 The portable C++ core can be built with CMake:
