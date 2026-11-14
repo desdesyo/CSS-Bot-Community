@@ -26,7 +26,7 @@ jobs:
 
       - name: Install chat dependencies
         working-directory: web-chat
-        run: npm ci
+        run: npm install
 
       - name: Type-check runtime
         working-directory: web-chat
