@@ -66,12 +66,12 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 
 ## Current scope / limitations
 
-- File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file.
+- File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file. File-library listing follows R2 cursors (up to 10,000 objects per request).
 - File analysis currently supports text, Markdown, CSV, JSON, XML, logs, common source-code text files, PDF documents, and image attachments (PDF/image handling is delegated to the configured primary Responses API model). CSV analysis returns deterministic row/column counts and numeric summary statistics. DOCX, XLSX, OCR pipelines, audio/video, and arbitrary code execution are not implemented yet. Binary attachments are not processed by the text-only backup provider.
 - Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, and analyze uploaded CSVs. The backup-compatible provider path is text-only and must not claim that tool actions ran.
 - Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
 - The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
-- Each conversation is a GitHub Issue; turns are comments.
+- Each conversation is a GitHub Issue; turns are comments. Conversation and comment retrieval is paginated (up to 10,000 issues and 5,000 comments per issue in one retrieval), and continuation ancestry is followed for up to 100 linked segments. The just-submitted user turn is explicitly re-injected when rollover creates a fresh continuation, preventing a boundary-turn loss.
 - One visible conversation is a chain of GitHub Issues. When the context grows beyond the rollover threshold, the Worker creates a continuation automatically and writes a durable summary of goals, decisions, constraints, project facts, and unfinished tasks. The browser keeps the same root conversation ID and does not show a new chat.
 - The Worker retries transient GitHub/model errors and can use an optional OpenAI-compatible backup provider when configured (`FALLBACK_API_URL`, `FALLBACK_API_KEY`, `FALLBACK_MODEL`). The browser silently retries failed requests and preserves the unsent draft instead of displaying infrastructure errors.
 - This is best-effort continuity, not guaranteed infinite uptime: if all providers, credentials, or usage quotas are unavailable, no model can produce a reply. The interface avoids exposing internal provider/tool messages; it cannot manufacture an answer while all backends are offline.
