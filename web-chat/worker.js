@@ -370,7 +370,7 @@ async function handle(req,env){
     return replyJson({error:"Not found"},404,env);
   }catch(e){
     const status=e.message==="Unauthorized"?401:(e.status&&e.status>=400&&e.status<500?e.status:503);
-    return replyJson({error:status===401?"Unauthorized":"Temporarily unavailable"},status,env);
+    const safeMessage=status===401?"Unauthorized":String(e?.message||"Service error").replace(/[\\r\\n\\t]+/g," ").slice(0,240);return replyJson({error:safeMessage},status,env);
   }
 }
 export default {fetch:handle};
