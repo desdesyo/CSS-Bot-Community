@@ -25,7 +25,7 @@ async function gh(env,path,options={}){
 }
 function base(env){return "/repos/"+repo(env)}
 function role(c){return c.body.startsWith("<!-- role:assistant -->")?"assistant":"user"}
-function content(c){return c.body.replace(/^<!-- role:(?:assistant|user) -->\s*/,"").trim()}
+function content(c){return c.body.replace(/^<!-- role:(?:assistant|user) -->\s*/,"").replace(/\n?<!-- files:\\[[\\s\\S]*?\\] -->/,"").trim()}
 async function comments(env,n){return gh(env,base(env)+"/issues/"+n+"/comments?per_page=100")}
 async function issue(env,n){return gh(env,base(env)+"/issues/"+n)}
 async function createIssue(env,title,body){return gh(env,base(env)+"/issues",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,body})})}
@@ -146,7 +146,7 @@ async function chain(env,root){
   return out;
 }
 function visibleMessages(ch){
-  return ch.flatMap(part=>part.comments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content));
+  return ch.flatMap(part=>part.comments.map(c=>{const m=(c.body||"").match(/<!-- files:(\\[[\\s\\S]*?\\]) -->/);let files=[];if(m)try{files=JSON.parse(m[1])}catch(_){}return {role:role(c),content:content(c),files}}).filter(m=>m.content));
 }
 function boundedMessages(messages,limit){
   const out=[];let used=0;
@@ -237,7 +237,8 @@ async function handle(req,env){
         const rootIssue=await createIssue(env,title,"Persistent private conversation. All continuations are linked here.\n<!-- github-chat -->");
         root=rootIssue.number;active=root;
       }
-      await addComment(env,active,"user",message);
+      const fileIds=Array.isArray(b.files)?b.files.slice(0,5).map(String):[];const fileRefs=[];for(const id of fileIds){const obj=await getStoredFile(env,id);fileRefs.push({id,name:obj.customMetadata?.name||"attachment"})}
+      await addComment(env,active,"user",message+(fileRefs.length?"\\n<!-- files:"+JSON.stringify(fileRefs)+" -->":""));
       let ch=await chain(env,root);let all=visibleMessages(ch);
       const charCount=all.reduce((n,m)=>n+m.content.length,0)+(summary.length||0);
       if(charCount>ROLL_AT_CHARS&&all.length>8){
@@ -250,7 +251,6 @@ async function handle(req,env){
       if(summary)input.push({role:"user",content:"CONTINUITY MEMORY FROM THE PREVIOUS PART OF THIS SAME CONVERSATION:\n"+summary});
       input.push(...recent);
 
-      const fileIds=Array.isArray(b.files)?b.files.slice(0,5):[];
       for(const id of fileIds){
         const obj=await getStoredFile(env,String(id));const name=obj.customMetadata?.name||"uploaded file";const type=obj.httpMetadata?.contentType||"";
         if(type==="application/pdf"||name.toLowerCase().endsWith(".pdf")){
