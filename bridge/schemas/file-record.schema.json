@@ -128,6 +128,17 @@
         "null"
       ],
       "maxLength": 64
+    },
+    "peExports": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "maxItems": 256
     }
   }
 }
