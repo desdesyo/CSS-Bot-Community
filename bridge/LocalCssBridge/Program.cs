@@ -10,6 +10,7 @@ internal static class Program
     private static readonly string DataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalCssBridge");
     private static readonly string TokenPath = Path.Combine(DataDirectory, "github-token.dpapi");
     private static readonly string StatePath = Path.Combine(DataDirectory, "processed-tasks.json");
+    private static readonly string ManifestPath = Path.Combine(DataDirectory, "previous-scan-manifest.json");
 
     public static async Task<int> Main(string[] args)
     {
@@ -90,6 +91,20 @@ internal static class Program
             report = new ScanReport { TaskId = task.TaskId, Status = "failed", StartedUtc = DateTimeOffset.UtcNow,
                 CompletedUtc = DateTimeOffset.UtcNow, Root = configuredRoot, Errors = [SafeMessage(ex.Message)] };
         }
+        var manifest = BuildManifest(report);
+        var previousManifest = LoadManifest();
+        if (previousManifest is null || !string.Equals(previousManifest.Root, report.Root, StringComparison.OrdinalIgnoreCase))
+        {
+            report.ManifestComparison = new ManifestComparison
+            {
+                Status = report.Status == "reported" ? "first_observation_not_a_clean_reference" : "baseline_not_created_incomplete_scan"
+            };
+        }
+        else
+        {
+            report.ManifestComparison = CompareManifests(previousManifest, manifest);
+        }
+
         var json = JsonSerializer.Serialize(report, JsonOptions);
         if (json.Length > 42000)
         {
@@ -113,8 +128,54 @@ internal static class Program
         var comment = "## Local CSS Bridge scan report\n\n" + json;
         if (comment.Length > 60000) comment = "## Local CSS Bridge scan report\n\nReport metadata exceeded the safe comment size. Retry with a lower maxFiles value.";
         await client.PostCommentAsync(issue.Number, comment, ct);
+        if (report.Status == "reported")
+            await SaveManifestAsync(manifest);
         state.Add(issue.Number); SaveState(state);
         Console.WriteLine("Task " + task.TaskId + ": " + report.Status + "; " + report.Files.Count + " records posted.");
+    }
+
+    private static BaselineManifest BuildManifest(ScanReport report) => new()
+    {
+        Root = report.Root,
+        CreatedUtc = DateTimeOffset.UtcNow,
+        Files = report.Files.Where(f => !string.IsNullOrWhiteSpace(f.Sha256))
+            .ToDictionary(f => f.RelativePath, f => f.Sha256!, StringComparer.OrdinalIgnoreCase)
+    };
+
+    private static BaselineManifest? LoadManifest()
+    {
+        try
+        {
+            if (!File.Exists(ManifestPath)) return null;
+            return JsonSerializer.Deserialize<BaselineManifest>(File.ReadAllText(ManifestPath), JsonOptions);
+        }
+        catch { return null; }
+    }
+
+    private static async Task SaveManifestAsync(BaselineManifest manifest)
+    {
+        var temporary = ManifestPath + ".tmp";
+        await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(manifest, JsonOptions));
+        File.Move(temporary, ManifestPath, overwrite: true);
+    }
+
+    private static ManifestComparison CompareManifests(BaselineManifest previous, BaselineManifest current)
+    {
+        var added = current.Files.Keys.Where(path => !previous.Files.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var removed = previous.Files.Keys.Where(path => !current.Files.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var changed = current.Files.Keys.Where(path => previous.Files.TryGetValue(path, out var hash) &&
+            !string.Equals(hash, current.Files[path], StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        return new ManifestComparison
+        {
+            Status = "compared_to_previous_local_scan_not_a_known_good_manifest",
+            AddedCount = added.Count,
+            RemovedCount = removed.Count,
+            ChangedCount = changed.Count,
+            Added = added.Take(100).ToList(),
+            Removed = removed.Take(100).ToList(),
+            Changed = changed.Take(100).ToList()
+        };
     }
 
     private static async Task<string?> LoadOrCreateTokenAsync()
@@ -185,6 +246,25 @@ internal sealed class ScanReport
     public Dictionary<string, long> Summary { get; set; } = [];
     public List<FileRecord> Files { get; set; } = [];
     public List<string> Errors { get; set; } = [];
+    public ManifestComparison? ManifestComparison { get; set; }
+}
+
+internal sealed class BaselineManifest
+{
+    public string Root { get; set; } = "";
+    public DateTimeOffset CreatedUtc { get; set; }
+    public Dictionary<string, string> Files { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+internal sealed class ManifestComparison
+{
+    public string Status { get; set; } = "";
+    public int AddedCount { get; set; }
+    public int RemovedCount { get; set; }
+    public int ChangedCount { get; set; }
+    public List<string> Added { get; set; } = [];
+    public List<string> Removed { get; set; } = [];
+    public List<string> Changed { get; set; } = [];
 }
 internal sealed class FileRecord
 {
