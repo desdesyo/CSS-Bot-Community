@@ -47,5 +47,7 @@ jobs:
           test -s web-chat/agent-runtime/src/index.ts
           test -s computer-bridge/agent.mjs
           test -s web-chat/README.md
+      - name: Run Chat Tester assertions
+        run: npm test --prefix web-chat
       - name: Check whitespace errors
         run: git diff --check
