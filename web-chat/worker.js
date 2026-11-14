@@ -50,7 +50,7 @@ function workRepo(env){
 }
 function workBranch(env){return env.GITHUB_WORK_BRANCH||null}
 function safeRepoPath(env,value){
-  const root=String(env.GITHUB_WORK_ROOT||"agent-workspace").replace(/^\/+|\/+$/g,"");
+  const root=String(env.GITHUB_WORK_ROOT||"").replace(/^\/+|\/+$/g,"");
   const path=String(value||"").replace(/^\/+|\/+$/g,"");
   if(!path||path.split("/").some(x=>!x||x==="."||x===".."||! /^[a-zA-Z0-9._ -]+$/.test(x)))throw new Error("Invalid workspace path");
   if(root&&path!==root&&!path.startsWith(root+"/"))throw new Error("Path is outside the configured GitHub workspace root");
