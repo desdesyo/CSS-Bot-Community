@@ -24,7 +24,7 @@
 ## Pending verification and later phases
 
 - First real scan of the user's Windows installation. Task is waiting in issue #2.
-- Duplicate-worker claim/lease coordination.
+- Cross-machine duplicate-worker claim/lease coordination (a local per-account file lock is implemented).
 - Validate PE and text analyzers in the latest Windows CI run; extend text parsers for specific Source engine formats after inspecting actual sample files.
 - Trusted expected-manifest comparison against a known-clean CS:S v34 reference and evidence-based repair package generation.
 - Post-install comparison using the implemented previous-scan snapshot; stronger verification against a trusted clean reference remains pending.
