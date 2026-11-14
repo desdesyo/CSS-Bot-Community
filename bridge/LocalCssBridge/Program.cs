@@ -161,10 +161,12 @@ internal static class Program
 
     private static ManifestComparison CompareManifests(BaselineManifest previous, BaselineManifest current)
     {
-        var added = current.Files.Keys.Where(path => !previous.Files.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
-        var removed = previous.Files.Keys.Where(path => !current.Files.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
-        var changed = current.Files.Keys.Where(path => previous.Files.TryGetValue(path, out var hash) &&
-            !string.Equals(hash, current.Files[path], StringComparison.OrdinalIgnoreCase))
+        var previousFiles = new Dictionary<string, string>(previous.Files, StringComparer.OrdinalIgnoreCase);
+        var currentFiles = new Dictionary<string, string>(current.Files, StringComparer.OrdinalIgnoreCase);
+        var added = currentFiles.Keys.Where(path => !previousFiles.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var removed = previousFiles.Keys.Where(path => !currentFiles.ContainsKey(path)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var changed = currentFiles.Keys.Where(path => previousFiles.TryGetValue(path, out var hash) &&
+            !string.Equals(hash, currentFiles[path], StringComparison.OrdinalIgnoreCase))
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         return new ManifestComparison
         {
