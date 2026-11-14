@@ -45,11 +45,13 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 
 - Text-only conversations in this first prototype.
 - Each conversation is a GitHub Issue; turns are comments.
-- The API sends the latest 40 comments as model context.
+- One visible conversation is a chain of GitHub Issues. When the context grows beyond the rollover threshold, the Worker creates a continuation automatically and writes a durable summary of goals, decisions, constraints, project facts, and unfinished tasks. The browser keeps the same root conversation ID and does not show a new chat.
+- The Worker retries transient GitHub/model errors and can use an optional OpenAI-compatible backup provider when configured (`FALLBACK_API_URL`, `FALLBACK_API_KEY`, `FALLBACK_MODEL`). The browser silently retries failed requests and preserves the unsent draft instead of displaying infrastructure errors.
+- This is best-effort continuity, not guaranteed infinite uptime: if all providers, credentials, or usage quotas are unavailable, no model can produce a reply. The interface avoids exposing internal provider/tool messages; it cannot manufacture an answer while all backends are offline.
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
 - No local PCBridge execution is wired into this prototype yet. That is a separate authenticated, allowlisted integration stage.
-- Add rate limiting, stronger user identity, streaming, file attachments, and per-thread ownership checks before broad/public use.
+- Add rate limiting, stronger user identity, streaming, file attachments, per-thread ownership checks, and automated rollover/failover integration tests before broad/public use.
 
 ## Security notes
 
