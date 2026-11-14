@@ -4,6 +4,8 @@ A small browser chat UI with conversation history stored in GitHub Issues and AI
 
 ## Architecture
 
+See [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md) for the target universal-agent architecture, security boundaries, and staged implementation plan.
+
 - Browser UI: `public/index.html`
 - API and authentication: Cloudflare Worker in `worker.js`
 - Conversation persistence: GitHub Issues with the `github-chat` label; each user/assistant turn is a comment.
