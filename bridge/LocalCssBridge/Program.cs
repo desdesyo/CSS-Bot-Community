@@ -188,6 +188,7 @@ internal sealed class FileRecord
     public bool? PeIsDll { get; set; }
     public List<string>? PeImports { get; set; }
     public int? PeExportCount { get; set; }
+    public List<string>? PeExports { get; set; }
     public string? PeAnalysisStatus { get; set; }
     public string? TextKind { get; set; }
     public int? TextLines { get; set; }
