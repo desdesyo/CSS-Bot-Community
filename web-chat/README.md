@@ -44,7 +44,7 @@ Set Worker variables:
 - `GITHUB_REPO` — required; set to a separate private repository such as `your-account/private-chat-history`. Do not point this at the public CSS Bot Community repository.
 - `GITHUB_WORK_REPO` — optional `owner/repo` where the agent may manage project files. Grant the Worker token Contents read/write access to this repository.
 - `GITHUB_WORK_BRANCH` — optional existing branch for agent changes; omit to use the repository default branch.
-- `GITHUB_WORK_ROOT` — optional allowed directory prefix; defaults to `agent-workspace`. The agent cannot access paths outside this prefix.
+- `GITHUB_WORK_ROOT` — optional allowed directory prefix; defaults to `agent-workspace`. Leave this unset to allow the configured repository branch; set it to a subdirectory to narrow access.
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
