@@ -143,8 +143,7 @@ internal static class Program
     {
         Root = report.Root,
         CreatedUtc = DateTimeOffset.UtcNow,
-        Files = report.Files.Where(f => !string.IsNullOrWhiteSpace(f.Sha256))
-            .ToDictionary(f => f.RelativePath, f => f.Sha256!, StringComparer.OrdinalIgnoreCase)
+        Files = report.Files.ToDictionary(f => f.RelativePath, f => f.Sha256 ?? "", StringComparer.OrdinalIgnoreCase)
     };
 
     private static BaselineManifest? LoadManifest()
