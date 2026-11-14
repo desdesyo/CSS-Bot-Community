@@ -32,7 +32,7 @@ internal static class TextFileAnalyzer
                 {
                     var trimmed = line.Trim();
                     return trimmed.Length > 0 && !trimmed.StartsWith("//") && !trimmed.StartsWith("#") &&
-                        (trimmed.Contains('=') || (trimmed.StartsWith('"') && trimmed.Contains("\\t", StringComparison.Ordinal)));
+                        (trimmed.Contains('=') || (trimmed.StartsWith('"') && trimmed.Count(ch => ch == '"') >= 2));
                 });
                 var braces = text.Count(ch => ch == '{') - text.Count(ch => ch == '}');
                 var quotes = text.Count(ch => ch == '"');
