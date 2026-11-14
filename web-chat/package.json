@@ -17,6 +17,8 @@
     "@earendil-works/pi-durable": "~1.5.0",
     "@earendil-works/pi-schema": "~1.5.0",
     "@modelcontextprotocol/client": "2.4.0",
-    "agents": "^0.33.0"
+    "agents": "^0.33.0",
+    "@cloudflare/computer": "^0.10.0",
+    "zod": "^4.1.0"
   }
 }
