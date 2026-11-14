@@ -22,3 +22,6 @@ class_name = "AgentSession"
 [[migrations]]
 tag = "agent-v1"
 new_sqlite_classes = ["AgentSession"]
+
+[[worker_loaders]]
+binding = "LOADER"
