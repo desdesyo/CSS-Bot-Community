@@ -81,12 +81,12 @@ Requires Node.js and Wrangler:
 cd web-chat
 npm install
 npx wrangler login
-wrangler secret put APP_PASSWORD
-wrangler secret put GITHUB_TOKEN
-wrangler secret put GITHUB_REPO
-wrangler secret put OPENAI_API_KEY
+npx wrangler secret put APP_PASSWORD
+npx wrangler secret put GITHUB_TOKEN
+npx wrangler secret put GITHUB_REPO
+npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put BRAVE_SEARCH_API_KEY
-npx npx wrangler deploy
+npx wrangler deploy
 ```
 
 Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep all secrets out of GitHub files and browser code.
@@ -94,8 +94,8 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 ## Current scope / limitations
 
 - File workspace: authenticated upload, list, download, delete, and server-side artifact creation through private R2 storage. Upload limit is 15 MB per file. File-library listing follows R2 cursors (up to 10,000 objects per request).
-- File analysis currently supports text, Markdown, CSV, JSON, XML, logs, common source-code text files, PDF documents, and image attachments (PDF/image handling is delegated to the configured primary Responses API model). CSV analysis returns deterministic row/column counts and numeric summary statistics. DOCX, XLSX, OCR pipelines, audio/video, and arbitrary code execution are not implemented yet. Binary attachments are not processed by the text-only backup provider.
-- Agent tools: the primary Responses API model can call live web search, create downloadable files, read supported uploaded text files, analyze uploaded CSVs, and (when configured) list/read/create/update text files in a GitHub workspace repository. GitHub writes create auditable commits and are path-restricted to `GITHUB_WORK_ROOT`. The tool loop currently permits up to 12 rounds per request. The backup-compatible provider path is text-only and must not claim that tool actions ran.
+- File analysis supports text, Markdown, CSV, JSON, XML, logs, source-code text, PDFs and images through the legacy multimodal path. CSV analysis is deterministic. The durable Cloudflare Computer workspace also supports persistent files and isolated JavaScript execution with network egress disabled; DOCX/XLSX/OCR and audio/video pipelines remain unimplemented.
+- Durable agent tools: GitHub repository list/read/write, persistent workspace read/write/search, isolated JavaScript execution, heuristic static source analysis, Brave web search, MCP discovery and read-only tool calls, and read-only local computer inspection when paired. GitHub writes create auditable commits on `github-chat-prototype`. The legacy Responses API path remains for PDF/image turns.
 - Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
 - The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
 - Each conversation is a GitHub Issue; turns are comments. Conversation and comment retrieval is paginated (up to 10,000 issues and 5,000 comments per issue in one retrieval), and continuation ancestry is followed for up to 100 linked segments. The just-submitted user turn is explicitly re-injected when rollover creates a fresh continuation, preventing a boundary-turn loss.
@@ -105,8 +105,8 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
 - The local PC bridge is implemented as an opt-in read-only companion, but it is not connected until the Worker is deployed, a pairing code is generated, and the companion is started on Windows.
-- Add individual user identity, per-user file ownership, explicit MCP write approvals, richer device revocation/approval controls, streaming UI, DOCX/XLSX ingestion, OCR, sandboxed general-purpose code execution, device task cancellation, and automated end-to-end tests before broad/public use.
+- Add individual user identity, per-user file ownership, explicit MCP write approvals, device revocation, streaming UI, DOCX/XLSX ingestion, OCR, broader sandbox language runtimes, device task cancellation, and automated end-to-end tests before broad/public use.
 
 ## Security notes
 
-Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The Worker rejects requests without the configured password. It exposes only the documented chat, file, CSV-analysis, and web-search routes; it does not expose shell or local-file execution. Uploaded content is treated as untrusted data, not executable instructions.
+Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The public API is password-protected and does not expose arbitrary shell execution. The opt-in local companion can only inspect configured folders and selected text files; it cannot modify the PC. Uploaded and retrieved content is untrusted data, not executable instructions.
