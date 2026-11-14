@@ -47,6 +47,7 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Message actions | Edit/resend, regenerate, copy, delete, retry failed turn | Planned |
 | Rich text | Safe Markdown, headings, lists, links, inline code, fenced code, copy/save actions | Partial: safe basic Markdown and code blocks; tables and syntax highlighting remain |
 | File creation | Assistant creates real downloadable artifacts from instructions | Partial: server-side create-file tool and save-answer-as-Markdown; format templates/large artifact workflow remain |
+| GitHub workspace | Agent lists, reads, creates, and updates repository files with auditable commits | Partial: optional configured repo + path-root restriction; UTF-8 text only, 900 KB write cap; requires token Contents permissions; no binary Git data API or branch creation yet |
 | Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: private R2 upload/download/delete, multi-file attach, 15 MB cap; library pagination added; no full file manager yet |
 | Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Partial: text/CSV/JSON/source files plus PDF input to primary model; DOCX/XLSX/OCR pipeline pending |
 | Image understanding | Attach images and ask questions about them | Partial: image input to primary Responses API model; no image editing/generation |
