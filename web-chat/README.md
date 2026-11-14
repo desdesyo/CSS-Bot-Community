@@ -48,6 +48,12 @@ Set Worker variables:
 - `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
 - `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
 
+## Automated agent orchestration
+
+`.github/workflows/agent-orchestrator.yml` is the LLM dispatcher: it forwards newly opened `agent-task` issues, queued tasks, manual prompts, and failed `GitHub Chat checks` / `CSSBC Core CI` runs into the deployed Durable Agent at `/api/agent/chat` (JSON `prompt`, not legacy `/api/chat` `message`). The durable agent uses its GitHub tools to inspect, implement, commit, and verify work. `agent-supervisor.yml` independently audits task issue structure/evidence and labels review-needed; it is a policy/evidence audit, not a second code executor. CI is the tester and its failure is routed back to the agent for repair.
+
+For GitHub Actions dispatch, configure repository secrets `CSSBC_CHAT_ENDPOINT` (Worker base URL, e.g. `https://your-worker.workers.dev`) and `CSSBC_CHAT_APP_PASSWORD` (exact same value as Worker `APP_PASSWORD`). These are write-only GitHub secrets; the workflow never prints them. If either is missing/wrong, orchestration fails clearly rather than pretending the agent ran.
+
 ## Expert escalation and persistent learning
 
 The durable agent has three explicit tools:
