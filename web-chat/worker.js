@@ -76,8 +76,21 @@ async function chain(env,root){
 function visibleMessages(ch){
   return ch.flatMap(part=>part.comments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content));
 }
-async function rollOver(env,root,active,allMessages){
-  const prior=allMessages.map(m=>({role:m.role,content:m.content})).slice(-80);
+function boundedMessages(messages,limit){
+  const out=[];let used=0;
+  for(let i=messages.length-1;i>=0;i--){
+    const m=messages[i];const content=String(m.content||"");const remaining=limit-used;
+    if(remaining<=0)break;
+    const clipped=content.length>remaining?content.slice(-remaining):content;
+    out.unshift({role:m.role,content:clipped});used+=clipped.length;
+  }
+  return out;
+}
+async function rollOver(env,root,active,allMessages,chainParts){
+  const carried=chainParts.map(p=>(p.issue.body||"").split("## Continuity memory")[1]?.trim()||"").filter(Boolean);
+  const prior=[];
+  if(carried.length)prior.push({role:"user",content:"PREVIOUS CONTINUITY MEMORIES. Reconcile these without discarding facts that remain relevant:\n"+carried.join("\n\n---\n\n")});
+  prior.push(...boundedMessages(allMessages,36000));
   const summary=await model(env,prior,"Create a durable, factual continuation memory for a long-running conversation. Preserve the user's goals, preferences, important personal/project context, decisions, constraints, exact technical facts, unfinished tasks, promises already made, and the immediate conversational thread. Separate confirmed facts from hypotheses. Do not invent. Write a compact but sufficiently detailed handoff that lets a new assistant continue as if the conversation never changed. Do not address the user.");
   const child=await createIssue(env,"Continuation of chat #"+root,"<!-- github-chat-continuation -->\n<!-- github-chat-root:"+root+" -->\n<!-- github-chat-parent:"+active+" -->\n\n## Continuity memory\n"+summary);
   const body=(await issue(env,root)).body||"<!-- github-chat -->";
@@ -115,11 +128,11 @@ async function handle(req,env){
       let ch=await chain(env,root);let all=visibleMessages(ch);
       const charCount=all.reduce((n,m)=>n+m.content.length,0)+(summary.length||0);
       if(charCount>ROLL_AT_CHARS&&all.length>8){
-        const rolled=await rollOver(env,root,active,all);active=rolled.id;summary=rolled.summary;
+        const rolled=await rollOver(env,root,active,all,ch);active=rolled.id;summary=rolled.summary;
         ch=await chain(env,root);all=visibleMessages(ch).slice(-2);
       }
       const currentComments=await comments(env,active);
-      const recent=currentComments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content).slice(-30);
+      const recent=boundedMessages(currentComments.map(c=>({role:role(c),content:content(c)})).filter(m=>m.content).slice(-40),26000);
       const input=[];
       if(summary)input.push({role:"user",content:"CONTINUITY MEMORY FROM THE PREVIOUS PART OF THIS SAME CONVERSATION:\n"+summary});
       input.push(...recent);
