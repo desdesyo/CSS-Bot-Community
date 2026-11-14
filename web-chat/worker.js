@@ -32,23 +32,65 @@ async function createIssue(env,title,body){return gh(env,base(env)+"/issues",{me
 async function addComment(env,n,roleName,text){return gh(env,base(env)+"/issues/"+n+"/comments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body:"<!-- role:"+roleName+" -->\n"+text})})}
 async function auth(req,env){const h=req.headers.get("Authorization")||"";if(!env.APP_PASSWORD||!safeEqual(h,"Bearer "+env.APP_PASSWORD))throw new Error("Unauthorized")}
 function extractText(data){return (data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==="output_text").map(x=>x.text).join("\n").trim()}
+
+async function runAssistantTool(env,name,args){
+  if(name==="web_search"){
+    const q=String(args.query||"").trim();if(!q)throw new Error("Search query is required");
+    return {query:q,results:await webSearch(env,q)};
+  }
+  if(name==="create_file"){
+    if(!env.FILES)throw new Error("Private file storage is not configured");
+    const filename=safeName(args.filename||"assistant-output.txt"),body=String(args.content??"");
+    if(body.length>MAX_FILE_BYTES)throw new Error("Generated file exceeds 15 MB");
+    const id=fileId(),type=String(args.content_type||"text/plain; charset=utf-8");
+    await env.FILES.put("files/"+id,body,{httpMetadata:{contentType:type},customMetadata:{name:filename}});
+    return {created:true,name:filename,id,download_path:"/api/files/"+id,size:new TextEncoder().encode(body).length};
+  }
+  if(name==="analyze_csv"){
+    const obj=await getStoredFile(env,String(args.file_id||""));const filename=obj.customMetadata?.name||"";
+    if(!filename.toLowerCase().endsWith(".csv")&&!String(obj.httpMetadata?.contentType||"").includes("csv"))throw new Error("The selected file is not CSV");
+    return analyzeCsv(await obj.text());
+  }
+  if(name==="read_file"){
+    const obj=await getStoredFile(env,String(args.file_id||""));const filename=obj.customMetadata?.name||"";
+    if(!/\.(txt|md|csv|json|xml|log|js|ts|py|html|css)$/i.test(filename))throw new Error("This file type is not supported for text extraction");
+    const content=await obj.text();if(content.length>120000)throw new Error("File exceeds text extraction limit");
+    return {filename,content};
+  }
+  throw new Error("Unknown assistant tool");
+}
 async function model(env,input,instructions){
   if(!env.OPENAI_API_KEY)throw new Error("AI provider is not configured");
   let last;
-  for(let i=0;i<3;i++){
+  const tools=[
+    {type:"function",name:"web_search",description:"Search the live public internet for current facts. Use when the user asks to find information, verify recent facts, compare current options, or research a topic. Return source URLs in the answer.",parameters:{type:"object",properties:{query:{type:"string",description:"A focused search query"}},required:["query"],additionalProperties:false},strict:true},
+    {type:"function",name:"create_file",description:"Create a real downloadable file for the user when asked to create, prepare, export, or save an artifact. Use plain text, Markdown, CSV, JSON, HTML, or source code as appropriate. Do not claim it exists until this tool succeeds.",parameters:{type:"object",properties:{filename:{type:"string"},content:{type:"string"},content_type:{type:"string"}},required:["filename","content"],additionalProperties:false},strict:true},
+    {type:"function",name:"analyze_csv",description:"Perform deterministic analysis of a CSV file already uploaded by the user. Returns row counts and numeric column statistics.",parameters:{type:"object",properties:{file_id:{type:"string"}},required:["file_id"],additionalProperties:false},strict:true},
+    {type:"function",name:"read_file",description:"Read the text of a previously uploaded text, Markdown, CSV, JSON, XML, log, or source-code file by its file ID.",parameters:{type:"object",properties:{file_id:{type:"string"}},required:["file_id"],additionalProperties:false},strict:true}
+  ];
+  for(let attempt=0;attempt<3;attempt++){
     try{
-      const r=await fetch(env.OPENAI_API_URL||"https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":"Bearer "+env.OPENAI_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.OPENAI_MODEL||"gpt-4.1-mini",store:false,instructions,input})});
-      const data=await r.json().catch(()=>({}));
-      if(r.ok){const t=extractText(data);if(t)return t;throw new Error("Empty model response")}
-      const e=new Error(data.error?.message||"AI provider error");e.status=r.status;
-      if(r.status<500&&r.status!==429)throw e;last=e;
-    }catch(e){last=e;if(e.status&&e.status<500&&e.status!==429)break}
-    await wait(500*(i+1));
+      let working=[...input];
+      for(let round=0;round<6;round++){
+        const r=await fetch(env.OPENAI_API_URL||"https://api.openai.com/v1/responses",{method:"POST",headers:{"Authorization":"Bearer "+env.OPENAI_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.OPENAI_MODEL||"gpt-4.1-mini",store:false,instructions,input:working,tools,tool_choice:"auto"})});
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok){const e=new Error(data.error?.message||"AI provider error");e.status=r.status;throw e}
+        const calls=(data.output||[]).filter(x=>x.type==="function_call");
+        if(!calls.length){const t=extractText(data);if(t)return t;throw new Error("Empty model response")}
+        for(const call of calls){
+          let result;
+          try{const args=JSON.parse(call.arguments||"{}");result=await runAssistantTool(env,call.name,args)}
+          catch(e){result={error:String(e.message||e)}}
+          working.push(call,{type:"function_call_output",call_id:call.call_id,output:JSON.stringify(result)});
+        }
+      }
+      throw new Error("Assistant tool-call limit reached");
+    }catch(e){last=e;if(e.status&&e.status<500&&e.status!==429)break;await wait(500*(attempt+1))}
   }
-  // Optional OpenAI-compatible backup endpoint. Configure all three fallback secrets together.
+  // Optional OpenAI-compatible backup endpoint. The backup path is text-only; it never pretends tools ran.
   if(env.FALLBACK_API_URL&&env.FALLBACK_API_KEY&&env.FALLBACK_MODEL){
     try{
-      const r=await fetch(env.FALLBACK_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+env.FALLBACK_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.FALLBACK_MODEL,messages:[{role:"system",content:instructions},...input.map(x=>({role:x.role,content:x.content}))]})});
+      const r=await fetch(env.FALLBACK_API_URL,{method:"POST",headers:{"Authorization":"Bearer "+env.FALLBACK_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.FALLBACK_MODEL,messages:[{role:"system",content:instructions+" Tool execution is unavailable on this backup path; do not claim to have searched or created files."},...input.map(x=>({role:x.role,content:x.content}))]})});
       const d=await r.json().catch(()=>({}));
       if(r.ok&&d.choices?.[0]?.message?.content)return d.choices[0].message.content;
       last=new Error("Backup provider unavailable");
@@ -56,7 +98,6 @@ async function model(env,input,instructions){
   }
   throw last||new Error("No model provider available");
 }
-
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 function safeName(name){return String(name||"upload.bin").replace(/[^a-zA-Z0-9._ -]/g,"_").slice(0,120)||"upload.bin"}
 function fileId(){return crypto.randomUUID()}
