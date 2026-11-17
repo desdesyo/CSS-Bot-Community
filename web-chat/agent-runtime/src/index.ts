@@ -475,7 +475,10 @@ export class AgentSession extends DurableObject<Env> {
 
         let reply = "";
         try {
-          const result = await this.runChat(String(threadId), message, String(body.operationId || "browser-" + crypto.randomUUID()));
+          const agentPrompt = body.webSearch
+            ? message + "\n\nThe user enabled web search. Use the web_search tool to verify current facts and cite source URLs."
+            : message;
+          const result = await this.runChat(String(threadId), agentPrompt, String(body.operationId || "browser-" + crypto.randomUUID()));
           reply = String(result.reply || "").trim();
           if (!reply) throw new Error("The AI agent returned an empty reply");
         } catch (error) {
