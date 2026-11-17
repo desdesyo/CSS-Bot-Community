@@ -5,6 +5,7 @@ const html = await readFile(new URL("./public/index.html", import.meta.url), "ut
 const runtime = await readFile(new URL("./agent-runtime/src/index.ts", import.meta.url), "utf8");
 const wrangler = await readFile(new URL("./wrangler.toml", import.meta.url), "utf8");
 const deploy = await readFile(new URL("../.github/workflows/deploy-github-chat.yml", import.meta.url), "utf8");
+const projectSkill = await readFile(new URL("../agent-skills/css-v34-project-context.md", import.meta.url), "utf8");
 const checks = [
  ["Pi harness registers Gemini, OpenRouter, OpenAI and Groq as tool-capable providers", runtime.includes('openrouterProvider') && runtime.includes('openaiProvider') && runtime.includes('groqProvider') && runtime.includes('models.setProvider(this.openrouter)') && runtime.includes('models.setProvider(this.openai)') && runtime.includes('models.setProvider(this.groq)')],
  ["Workers AI quota circuit only bypasses the harness when no external tool-capable provider is configured", runtime.includes('!this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY')],
@@ -13,6 +14,7 @@ const checks = [
  ["Agent status is represented by a compact icon with an accessible descriptive label", html.includes('textContent=bad?"✕":unknown?"⚠":"✓"') && html.includes('setAttribute("aria-label",label)')],
  ["SOLO.Chat system prompt contains the verified CSSBC v34 GameDLL build, project branches and honest in-game status", runtime.includes('PROJECT BASELINE — CSS BOT COMMUNITY / COUNTER-STRIKE: SOURCE V34') && runtime.includes('Counter-Strike Source v34') && runtime.includes('OnBotUpdate(this)') && runtime.includes('43487000595') && runtime.includes('NOT proof that the binaries have been installed or tested')],
  ["SOLO.Chat exposes a self-diagnostic for tools, providers, GitHub and paired computer access", runtime.includes('name: "solo_capability_check"') && runtime.includes('tokenConfigured') && runtime.includes('deviceCount') && runtime.includes('workersAiQuotaCircuitOpen')],
+ ["Authoritative CSS v34 project context skill records the real GameDLL build and remaining in-game validation", projectSkill.includes("43487000595") && projectSkill.includes("OnBotUpdate(this)") && projectSkill.includes("in-game") && projectSkill.includes("sourcemod/scripting/cssbc.sp")],
 
  ["SOLO.Chat has a dedicated UI editor restricted to public HTML/CSS/JS/JSON on its own development branch", runtime.includes('name: "solo_ui_write_file"') && runtime.includes('desdesyo/CSS-Bot-Community", "github-chat-prototype') && runtime.includes('safe.startsWith("web-chat/public/")') && runtime.includes("SOLO.Chat interface self-maintenance")],
 
