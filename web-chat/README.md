@@ -47,6 +47,12 @@ Text chat and durable conversation history use Durable Object storage. User atta
 
 The orchestrator uses the deployed Worker URL `https://cssbc-github-chat.descapan.workers.dev/` and the repository secret `CSSBC_CHAT_APP_PASSWORD`. Deployment copies that password into the Worker as `APP_PASSWORD`; the value is never printed. The live end-to-end workflow checks the authenticated agent route, GitHub workspace access, browser chat, AI replies, and durable history.
 
+## ChatGPT handoff queue
+
+When SOLO.Chat is blocked or needs an independent review, it can call `handoff_to_chatgpt`. The tool writes a sanitized Markdown evidence bundle to `agent-handoffs/pending/` on `github-chat-prototype`, using the existing GitHub Contents write permission. The handoff contains the goal, inspected evidence, attempts, errors and constraints; credentials and secrets are redacted.
+
+This is a durable handoff queue that the user's ChatGPT assistant can retrieve through the connected GitHub repository when asked to inspect pending handoffs. It does **not** send a push notification or invoke the user's live ChatGPT conversation; there is no public API for targeting a particular active ChatGPT session. The agent must not claim otherwise.
+
 ## Expert escalation and persistent learning
 
 The durable agent has three explicit tools:
