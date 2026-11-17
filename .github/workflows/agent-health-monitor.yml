@@ -19,7 +19,11 @@ concurrency:
 
 jobs:
   health:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == 'github-chat-prototype'
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_branch == 'github-chat-prototype' &&
+       github.event.workflow_run.conclusion != 'cancelled' &&
+       github.event.workflow_run.conclusion != 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Check live app and queue a repair task on failure
