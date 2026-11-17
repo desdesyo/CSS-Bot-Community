@@ -55,3 +55,10 @@ The browser polls the authenticated Worker version endpoint every 30 seconds. Wh
 - GitHub Actions workflows cannot inject events into the user's active ChatGPT conversation; the issue queue is the handoff channel.
 - If the deployed Worker is entirely unreachable, the monitor can create a GitHub repair issue but cannot use the same unavailable Worker to repair itself.
 - Canonical app: [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/).
+
+
+## Write-token selection and UI edit isolation
+
+- Orchestrated agent requests carry a short-lived workflow token with repository-scoped Contents write. The runtime must prefer this token over the persistent Worker secret; a weaker persistent token must never shadow the task-scoped token.
+- Browser-initiated writes use the persistent `CSSBC_GITHUB_TOKEN` secret and require Contents: Read and write for the target repository. Use the temporary branch/file write probe and GitHub's accepted-permissions header to diagnose 403s.
+- SOLO.Chat UI writes are confined to `github-chat-prototype`, which is isolated from `main`. The global builder concurrency group serializes agent tasks, and Contents API SHA preconditions reject stale concurrent updates. Every UI commit must pass checks and exact-SHA deployment. This is the documented safe equivalent for the dedicated UI editor; it does not create a per-task PR.
