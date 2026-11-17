@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: solo-chat-e2e
+  cancel-in-progress: true
+
 jobs:
   live-chat:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
