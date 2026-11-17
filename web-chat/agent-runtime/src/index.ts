@@ -1039,8 +1039,28 @@ LEARNING FROM CORRECTIONS
     } else failures.push("OpenAI: CSSBC_OPENAI_API_KEY is not configured");
 
     if (this.env.GEMINI_API_KEY) {
-      try { return await runCompatible("gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", this.env.GEMINI_API_KEY, this.env.GEMINI_MODEL || "gemini-3.8-flash"); }
-      catch (error) { failures.push("Gemini: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+      try {
+        const model = this.env.GEMINI_MODEL || "gemini-3.8-flash";
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
+          method: "POST",
+          headers: { "x-goog-api-key": this.env.GEMINI_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 2048 }
+          })
+        });
+        const data: any = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail = data.error?.message || data.message || data.error?.status || ("HTTP " + response.status);
+          throw new Error("Gemini generateContent " + response.status + ": " + String(detail).slice(0, 350));
+        }
+        const reply = (data.candidates || []).flatMap((candidate: any) => candidate.content?.parts || [])
+          .filter((part: any) => typeof part.text === "string" && !part.thought)
+          .map((part: any) => String(part.text)).join("\\n").trim();
+        if (!reply) throw new Error("Gemini returned no text (finishReason: " + String(data.candidates?.[0]?.finishReason || "unknown") + ")");
+        return { reply, model: String(data.modelVersion || model), provider: "gemini" };
+      } catch (error) { failures.push("Gemini: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
     } else failures.push("Gemini: CSSBC_GEMINI_API_KEY is not configured");
 
     if (this.env.GROQ_API_KEY) {
