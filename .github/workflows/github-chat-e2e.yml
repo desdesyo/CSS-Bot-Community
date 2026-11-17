@@ -1,6 +1,10 @@
 name: GitHub Chat live end-to-end test
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/github-chat-e2e.yml"
   workflow_run:
     workflows: ["Deploy GitHub Chat to Cloudflare"]
     types: [completed]
@@ -12,7 +16,7 @@ permissions:
 
 jobs:
   live-chat:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -33,8 +37,12 @@ jobs:
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
           echo "2/5 Verify GitHub workspace credentials and repository access..."
-          curl --fail-with-body --silent --show-error --max-time 60 \
-            -H "$AUTH" "$ENDPOINT/api/agent/github-check" > github-check.json
+          GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
+            -H "$AUTH" "$ENDPOINT/api/agent/github-check")"
+          if [[ "$GH_CODE" != "200" ]]; then
+            echo "::error::GitHub workspace check returned HTTP $GH_CODE: $(head -c 500 github-check.json)"
+            exit 1
+          fi
           jq -e '.ok == true and any(.files[]; .name=="worker.js")' github-check.json >/dev/null
 
           echo "3/5 Verify the orchestrator agent chat endpoint..."
