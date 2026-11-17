@@ -23,7 +23,7 @@ interface Env {
 }
 interface ComputerTask {
   id: string;
-  action: "system_info" | "list_directory" | "read_text_file" | "write_text_file";
+  action: "system_info" | "list_directory" | "read_text_file" | "write_text_file" | "install_smx";
   path: string;
   content?: string;
   expectedSha256?: string;
