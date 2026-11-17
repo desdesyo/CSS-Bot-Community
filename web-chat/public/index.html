@@ -127,7 +127,7 @@ async function send(){
     if(result.status==="failed")throw Error(result.error||"Не удалось получить ответ");
     thinking.update(seconds,result.status==="queued"?"Запрос в очереди":"Думаю над ответом");
    }catch(e){
-    if(e.message==="Unauthorized"||e.message==="Operation not found")throw e;
+    if(e.message==="Unauthorized"||e.message==="Operation not found"||result?.status==="failed")throw e;
     lastNetworkError=e;
     thinking.update(Math.floor((Date.now()-started)/1000),"Связь восстанавливается…");
    }
@@ -146,7 +146,7 @@ async function send(){
    token="";sessionStorage.removeItem("ghchat_password");$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";
    addMessage("assistant","**Сессия истекла.** Введите пароль заново.");
   }else{
-   addMessage("assistant","**"+escapeHtml(e.message||"Ошибка чата")+"**");
+   addMessage("assistant","**"+(e.message||"Ошибка чата")+"**");
    $("toolFeedback").textContent="Ответ не получен";
   }
  }finally{
