@@ -2524,7 +2524,10 @@ LEARNING FROM CORRECTIONS
         const minimalExecuted = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + minimalNonce);
         await this.ctx.storage.delete("harness-probe:" + minimalNonce);
         if (!minimalExecuted) {
-          return json({ ok: false, toolExecution: false, minimalToolExecution: false, fullToolExecution: false, failureStage: "minimal-probe", provider: minimalProbe.provider || null, error: "Even the isolated diagnostic tool could not execute.", fallbackReason: minimalProbe.fallbackReason || null }, 503);
+          return json({ ok: false, toolExecution: false, minimalToolExecution: false, fullToolExecution: false, failureStage: "minimal-probe", provider: minimalProbe.provider || null, error: "Even the isolated diagnostic tool could not execute.", fallbackReason: minimalProbe.fallbackReason || null, reply: String(minimalProbe.reply || "").slice(0, 1200) }, 503);
+        }
+        if (!String(minimalProbe.reply || "").includes("SOLO_CHAT_HARNESS_OK:" + minimalNonce)) {
+          return json({ ok: false, toolExecution: true, minimalToolExecution: true, fullToolExecution: false, failureStage: "minimal-probe-finalization", provider: minimalProbe.provider || null, error: "The probe tool executed, but Pi did not complete the assistant turn with the required confirmation.", fallbackReason: minimalProbe.fallbackReason || null, reply: String(minimalProbe.reply || "").slice(0, 1200) }, 503);
         }
         const allToolNames = this.registry.snapshot().tools().map(({ tool }) => tool.name);
         const fullProbe = await runProbe(fullThread, fullNonce, allToolNames).catch(error => ({ reply: "", provider: "", fallbackReason: String(error instanceof Error ? error.message : error) }));
