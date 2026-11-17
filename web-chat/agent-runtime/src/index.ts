@@ -995,7 +995,7 @@ LEARNING FROM CORRECTIONS
         failures.push(modelId + ": " + String(error instanceof Error ? error.message : error).slice(0, 350));
       }
     }
-    throw new Error("Workers AI direct fallback failed: " + failures.join(" | "));
+    throw new Error("Не удалось получить ответ от ИИ. " + failures.join(" | "));
   }
 
   private async runChat(threadKey: string, prompt: string, operationId: string) {
