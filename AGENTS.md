@@ -102,3 +102,8 @@ For autonomous work inside CSS-Bot-Community, the default-branch agent workflow 
 ## 8. Binding SOLO.Chat master protocol (2026-11-17)
 
 For every SOLO.Chat change, agents MUST read and follow `docs/SOLO_CHAT_MASTER_PROTOCOL.md` in addition to this file and `web-chat/USER_INTERACTION_CONTRACT.md`. The master protocol defines the mandatory task lifecycle, role separation, secret provisioning boundaries, storage/upload target, archive security, mobile navigation, FL Studio and generated-file workspaces, context compaction, realtime performance, and release evidence. A conflict is resolved in favor of the stricter security requirement and the latest explicit user instruction. No task may be marked done without the Supervisor evidence gate.
+
+
+## SOLO.Chat interface editing permission
+
+The SOLO.Chat implementer is explicitly authorized to modify its own public interface through the dedicated `solo_ui_write_file` tool. The tool is restricted to HTML/CSS/JavaScript/JSON under `web-chat/public/` on `github-chat-prototype`. It may change layout, colors, typography, spacing, responsive behavior, panels, controls and UI settings. Read before write, preserve behavior, add tests, and require exact-SHA CI and deployment evidence. Backend code, secrets and files outside the public UI directory are outside this permission.
