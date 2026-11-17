@@ -535,8 +535,25 @@ export class AgentSession extends DurableObject<Env> {
         try {
           const repo = String(this.env.GITHUB_WORK_REPO || "");
           const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
-          const files = await github(this.env, "/repos/" + repo + "/contents?ref=" + encodeURIComponent(branch));
-          return json({ ok: true, repo, branch, files: Array.isArray(files) ? files.map((file: any) => ({ name: file.name, type: file.type })) : [] });
+          if (!this.env.GITHUB_TOKEN || !repo.includes("/")) return json({ ok: false, error: "GitHub workspace is not configured" }, 503);
+          const response = await fetch("https://api.github.com/repos/" + repo + "/contents?ref=" + encodeURIComponent(branch), {
+            headers: {
+              Accept: "application/vnd.github+json",
+              Authorization: "Bearer " + this.env.GITHUB_TOKEN,
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "cssbc-github-chat"
+            }
+          });
+          const body = await response.json().catch(() => ({})) as any;
+          const diagnostics = {
+            status: response.status,
+            rateLimitRemaining: response.headers.get("x-ratelimit-remaining"),
+            rateLimitReset: response.headers.get("x-ratelimit-reset"),
+            acceptedPermissions: response.headers.get("x-accepted-github-permissions"),
+            requestId: response.headers.get("x-github-request-id")
+          };
+          if (!response.ok) return json({ ok: false, repo, branch, error: body.message || "GitHub API request failed", diagnostics }, 503);
+          return json({ ok: true, repo, branch, files: Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [], diagnostics });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
           return json({ ok: false, error: detail }, 503);
