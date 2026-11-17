@@ -1736,38 +1736,16 @@ LEARNING FROM CORRECTIONS
     if (!cleanPrompt || cleanPrompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
     const baseName = String(filename || "solo-generated-image").replace(/\.(?:jpe?g|png|webp)$/i, "").replace(/[\/\u0000-\u001f\u007f]/g, "_").slice(0, 100) || "solo-generated-image";
     const safeName = baseName + ".jpg";
-    let metadata: any = null, provider = "", premiumError = "";
-    const storeImage = async (value: unknown, name: string) => {
-      if (typeof value !== "string" || !value.trim()) throw new Error("Image provider returned an empty image payload");
-      const payload = value.trim();
-      if (/^https:\/\//i.test(payload)) return this.saveRemoteArtifact(payload, name, "image/jpeg");
-      const encoded = payload.replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, "").replace(/\s/g, "");
-      const binary = atob(encoded), bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-      if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error("Generated image must be between 1 byte and 15 MB");
-      const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-      const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-      const webp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
-      if (!jpeg && !png && !webp) throw new Error("Image provider returned data that is not a recognized JPEG, PNG or WebP image");
-      const mime = png ? "image/png" : webp ? "image/webp" : "image/jpeg";
-      const ext = png ? ".png" : webp ? ".webp" : ".jpg";
-      return this.saveGeneratedArtifact(name.replace(/\.jpg$/i, ext), mime, bytes);
-    };
+    let metadata: any = null, provider = "";
     try {
-      const premium: any = await this.env.AI.run("black-forest-labs/flux-2-pro-preview", { prompt: cleanPrompt, width: 1024, height: 1024, output_format: "jpeg", safety_tolerance: 2 });
-      if (premium?.state && String(premium.state).toLowerCase() !== "completed") throw new Error("FLUX.2 Pro job state: " + String(premium.state));
-      metadata = await storeImage(premium?.result?.image || premium?.image, safeName);
-      provider = "Black Forest Labs FLUX.2 Pro Preview";
-    } catch (error) { premiumError = (error instanceof Error ? error.message : String(error)).slice(0, 700); }
-    if (!metadata) {
-      try {
-        const fast: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
-        metadata = await storeImage(fast?.image || fast?.result?.image, safeName);
-        provider = "FLUX.1 Schnell fallback";
-      } catch (error) {
-        throw new Error("Image generation failed. Premium FLUX.2 Pro: " + (premiumError || "unknown error") + ". FLUX.1 Schnell fallback: " + (error instanceof Error ? error.message : String(error)).slice(0, 700));
-      }
+      // Free-tier-safe path: never call the paid FLUX.2 Pro preview model.
+      const fast: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
+      metadata = await storeImage(fast?.image || fast?.result?.image, safeName);
+      provider = "FLUX.1 Schnell (Cloudflare Workers AI free allocation)";
+    } catch (error) {
+      throw new Error("Free FLUX.1 Schnell image generation failed: " + (error instanceof Error ? error.message : String(error)).slice(0, 700));
     }
-    return { created: true, provider, quality: provider.includes("Pro") ? "premium" : "fallback",
+    return { created: true, provider, quality: "free",
       format: metadata.name?.toLowerCase().endsWith(".png") ? "image/png" : metadata.name?.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg",
       artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true, premiumFallbackReason: premiumError || undefined };
   }
@@ -1781,7 +1759,7 @@ LEARNING FROM CORRECTIONS
     if (body.method === "initialize") return json({ jsonrpc: "2.0", id, result: { protocolVersion: "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "solo-chat-image-bridge", version: "1.0.0" }, instructions: "Use solo_generate_image by default for every image generation request." } });
     if (body.method === "ping") return json({ jsonrpc: "2.0", id, result: {} });
     if (body.method === "tools/list") return json({ jsonrpc: "2.0", id, result: { tools: [{
-      name: "solo_generate_image", description: "DEFAULT image generator. Generate and save an image with SOLO.Chat FLUX.2 Pro Preview and automatic FLUX.1 Schnell fallback. Always use this tool for image-generation requests.",
+      name: "solo_generate_image", description: "DEFAULT image generator. Generate and save an image with FLUX.1 Schnell using Cloudflare Workers AI's daily free allocation. FLUX.2 Pro is intentionally disabled to prevent paid usage. Always use this tool for image-generation requests.",
       inputSchema: { type: "object", properties: { prompt: { type: "string", minLength: 1, maxLength: 2000 }, filename: { type: "string", maxLength: 120 } }, required: ["prompt"], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
     }] } });
