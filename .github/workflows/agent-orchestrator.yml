@@ -128,6 +128,10 @@ jobs:
           elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect, implement, verify, and report evidence."
           else
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
+              if [[ -z "$ISSUE_NUMBER" ]]; then echo "No queued agent-task issue exists."; exit 0; fi
+            fi
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
             ISSUE_LABELS="$(jq -r '.labels[].name' <<<"$ISSUE")"
@@ -152,7 +156,7 @@ jobs:
 
           if [[ -n "$ISSUE_NUMBER" ]]; then
             for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
-            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --add-label status:in-progress >/dev/null 2>&1 || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress >/dev/null 2>&1 || true
           fi
           THREAD="cssbc-orchestrator-manual-$GITHUB_RUN_ID"
           if [[ -n "$ISSUE_NUMBER" ]]; then THREAD="cssbc-orchestrator-issue-$ISSUE_NUMBER"; fi
