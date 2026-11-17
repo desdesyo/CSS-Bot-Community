@@ -1474,7 +1474,7 @@ LEARNING FROM CORRECTIONS
           if (!item || (item.createdBy && item.createdBy !== "user") || item.origin === "agent" || item.visibility === "internal") continue;
           const messages = Array.isArray(item.messages) ? item.messages : [];
           const signatureSource = messages.map((m: any) => ({ role: String(m?.role || ""), content: String(m?.content || "").trim().replace(/\s+/g, " "), files: Array.isArray(m?.files) ? m.files.map((f: any) => String(f?.id || f?.name || "")).sort() : [] }));
-          if (signatureSource.length) {
+          if (signatureSource.length && signatureSource[signatureSource.length - 1].role === "assistant") {
             const signature = await sha256(JSON.stringify(signatureSource)), previous = seen.get(signature);
             if (previous !== undefined) {
               const prev = await this.ctx.storage.get<any>("browser-chat:thread:" + previous);
