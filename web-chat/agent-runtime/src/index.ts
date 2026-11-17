@@ -283,6 +283,7 @@ TROUBLESHOOTING AND REPORTS
 DOMAIN PREFERENCES — APPLY ONLY WHEN RELEVANT
 - Music/lyrics: preserve original wording, rhythm, sung/rap phrasing and intentionally shifted stress accents. Do not rewrite merely to enforce conventional meter/rhyme. Changes must fit the existing flow and emotional intent.
 - FL Studio/audio: when asked to teach, explain controls practically and provide concrete diagnostics. Sound design should avoid muddy, horror-like, excessively ethereal or generic "vanilla forest" presets; respect the user's named reference and target. Never claim audio was generated/auditioned unless a real file was created and checked.
+- SOLO.Chat interface self-maintenance: use the dedicated solo_ui_write_file tool for changes to web-chat/public/index.html and other public HTML/CSS/JS/JSON UI files in desdesyo/CSS-Bot-Community/github-chat-prototype. This is explicit permission to adjust layout, colors, typography, spacing, responsive/mobile behavior, panels, controls and UI settings without asking the user for each ordinary visual change. Read the current file first, make focused changes, preserve existing behavior, add/update tests, and require passing exact-SHA CI plus successful exact-SHA deployment before reporting completion. The tool is restricted to web-chat/public/ and cannot modify runtime secrets or backend code.
 - SOLO.Chat self-maintenance: the default GitHub workspace points to desdesyo/modhaul/main. For SOLO.Chat source, ALWAYS use github_project_list_files / github_project_read_file / github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype. For SDK foundation use the same repo and branch=sdk-foundation; for core-runtime work use the same repo and branch=main. For Overhaul use desdesyo/modhaul/main. These explicit project tools enforce an allowlist; never confuse workspaces.
 - Media and artifacts: if the user requests an image, call generate_image and save the actual image; for a song/music, call generate_music; for spoken voice, call generate_speech; for a 3D asset, call generate_3d_model then check_3d_model until a GLB is saved; for downloadable text/code/data assets, call create_text_artifact. Never answer a file-generation request with only a prompt or code snippet when an artifact tool can create the file. Return the actual /api/files/<id> download URL from the tool result. If a provider is unavailable, report the exact missing provider/billing/secret; do not fabricate output.
 - Cooking: use tablespoons/teaspoons and household measures rather than requiring scales. Account for a weak electric hotplate and older tabletop oven when relevant. Favor strong, piquant, hearty flavors. Avoid overly creamy dinners and fresh garlic in sauces unless requested.
@@ -401,6 +402,35 @@ LEARNING FROM CORRECTIONS
               })
             });
             return textOutput({ written: true, repository, branch, path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url });
+          }
+        },
+        {
+          name: "solo_ui_write_file",
+          description: "Dedicated SOLO.Chat interface editor. Read the current UI file first, then create or update only web-chat/public/ HTML, CSS, JavaScript, or JSON files in desdesyo/CSS-Bot-Community/github-chat-prototype. Use this for layout, styles, responsive behavior, visible controls, and UI settings. Changes are committed to GitHub; tests and deployment are still required.",
+          parameters: obj({ path: str(), content: str(), message: str() }),
+          replay: "unsafe",
+          async execute({ path, content, message }: { path: string; content: string; message: string }) {
+            await assertAgentCanWrite();
+            const safe = safeProjectPath(path);
+            if (!/^web-chat\\/public\\/[A-Za-z0-9._/-]+\\.(?:html|css|js|json)$/i.test(safe) || safe.includes("..")) {
+              throw new Error("SOLO UI editor is limited to web-chat/public HTML, CSS, JS and JSON files");
+            }
+            if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
+            const ws = projectWorkspace(env, "desdesyo/CSS-Bot-Community", "github-chat-prototype");
+            const endpoint = ws.base + "/contents/" + safe;
+            let existing: any = null;
+            try { existing = await agentGithub(endpoint + "?ref=" + encodeURIComponent(ws.branch)); }
+            catch (error) { if (!(error instanceof Error) || !error.message.includes("404")) throw error; }
+            const result = await agentGithub(endpoint, {
+              method: "PUT",
+              body: JSON.stringify({
+                message: String(message || "Update SOLO.Chat interface").slice(0, 180),
+                content: encodeBase64(content),
+                branch: ws.branch,
+                ...(existing?.sha ? { sha: existing.sha } : {})
+              })
+            });
+            return textOutput({ written: true, scope: "SOLO.Chat public interface", path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url, testsRequired: true, deploymentRequired: true });
           }
         },
         {
