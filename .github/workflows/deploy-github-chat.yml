@@ -77,7 +77,7 @@ jobs:
       - name: Verify the deployed Worker health and version
         id: smoke
         env:
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
         run: |
           set -euo pipefail
@@ -100,7 +100,7 @@ jobs:
       - name: Verify live agent dashboard and model inference
         id: model_smoke
         env:
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
         run: |
           set -euo pipefail
@@ -117,7 +117,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
         run: |
           set -euo pipefail
