@@ -19,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: cssbc-orchestrator-${{ github.event.issue.number || github.event.workflow_run.id || github.run_id }}
+  group: cssbc-orchestrator-global
   cancel-in-progress: false
 
 jobs:
@@ -32,7 +32,8 @@ jobs:
        contains(github.event.issue.labels.*.name, 'status:queued')) ||
       (github.event_name == 'issues' &&
        github.event.action == 'labeled' &&
-       github.event.label.name == 'status:queued') ||
+       github.event.label.name == 'status:queued' &&
+       contains(github.event.issue.labels.*.name, 'agent-task')) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'failure' &&
        github.event.workflow_run.head_branch == 'github-chat-prototype')
@@ -64,8 +65,15 @@ jobs:
               ISSUE_URL="$(gh issue create --repo "$REPO" --title "[Self-Heal] Repair failed run $RUN_ID" --body "$BODY" --label agent-task --label agent-generated --label status:queued)"
               ISSUE_NUMBER="${ISSUE_URL##*/}"
             fi
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
-            TASK="$MANUAL_TASK"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ -n "$MANUAL_TASK" ]]; then
+              TASK="$MANUAL_TASK"
+            else
+              ISSUE_NUMBER="$(gh issue list --repo "$REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
+              if [[ -z "$ISSUE_NUMBER" ]]; then echo "No queued agent-task issue exists."; exit 0; fi
+              ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
+              TASK="MANUAL ORCHESTRATOR DISPATCH: issue #$ISSUE_NUMBER. $(jq -r .title <<<"$ISSUE"). $(jq -r .body <<<"$ISSUE"). Implement, verify, commit, and report evidence."
+            fi
           else
             ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
             TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work on $REPO branch $BRANCH. Inspect existing code and instructions, implement the requested outcome, run verification, repair failures, commit changes, and report exact evidence. Do not claim completion without successful tests."
