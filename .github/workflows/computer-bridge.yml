@@ -33,3 +33,18 @@ jobs:
           node --check computer-bridge/file-policy.mjs
       - name: Run file policy tests
         run: node --test computer-bridge/tests/file-policy.test.mjs
+      - name: Package Windows companion
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package/computer-bridge | Out-Null
+          Copy-Item computer-bridge/agent.mjs,computer-bridge/file-policy.mjs,computer-bridge/config.example.json,computer-bridge/README.md package/computer-bridge/
+          Compress-Archive -Path package/computer-bridge -DestinationPath SOLO-Chat-Computer-Bridge.zip -Force
+      - name: Upload companion package
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOLO-Chat-Computer-Bridge
+          path: SOLO-Chat-Computer-Bridge.zip
+          if-no-files-found: error
+          retention-days: 14
