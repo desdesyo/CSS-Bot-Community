@@ -27,6 +27,18 @@ interface ComputerTask {
   path: string;
   createdAt: number;
 }
+interface BrowserChatJob {
+  operationId: string;
+  threadId: number;
+  prompt: string;
+  status: "queued" | "running" | "done" | "failed";
+  createdAt: number;
+  updatedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  reply?: string;
+  error?: string;
+}
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 const randomToken = (bytes = 32) => {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
@@ -367,6 +379,67 @@ export class AgentSession extends DurableObject<Env> {
     });
   }
 
+  private async processNextBrowserChatJob() {
+    const entries = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
+    const job = Array.from(entries.values())
+      .filter(item => item.status === "queued")
+      .sort((a, b) => a.createdAt - b.createdAt)[0];
+    if (!job) return;
+
+    const jobKey = "browser-chat:job:" + job.operationId;
+    job.status = "running";
+    job.startedAt = Date.now();
+    job.updatedAt = Date.now();
+    await this.ctx.storage.put(jobKey, job);
+
+    try {
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 3 минуты. Попробуйте отправить запрос ещё раз.")), 180000);
+      });
+      let result: { reply: string };
+      try {
+        result = await Promise.race([
+          this.runChat(String(job.threadId), job.prompt, job.operationId),
+          timeout
+        ]);
+      } finally {
+        clearTimeout(timeoutId!);
+      }
+      const reply = String(result.reply || "").trim();
+      if (!reply) throw new Error("AI вернул пустой ответ");
+
+      const threadKey = "browser-chat:thread:" + job.threadId;
+      const thread = await this.ctx.storage.get<any>(threadKey);
+      if (!thread) throw new Error("Диалог не найден");
+      const alreadySaved = (thread.messages || []).some((message: any) => message.role === "assistant" && message.operationId === job.operationId);
+      if (!alreadySaved) thread.messages.push({ role: "assistant", content: reply, files: [], operationId: job.operationId });
+      thread.updatedAt = Date.now();
+      await this.ctx.storage.put(threadKey, thread);
+
+      job.status = "done";
+      job.reply = reply;
+      job.completedAt = Date.now();
+      job.updatedAt = Date.now();
+      await this.ctx.storage.put(jobKey, job);
+    } catch (error) {
+      job.status = "failed";
+      job.error = (error instanceof Error ? error.message : "AI request failed").slice(0, 1200);
+      job.completedAt = Date.now();
+      job.updatedAt = Date.now();
+      await this.ctx.storage.put(jobKey, job);
+    }
+
+    const remaining = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
+    if (Array.from(remaining.values()).some(item => item.status === "queued")) {
+      await this.ctx.storage.setAlarm(Date.now() + 250);
+    }
+  }
+
+  async alarm() {
+    await this.processNextBrowserChatJob();
+  }
+
   private async runChat(threadKey: string, prompt: string, operationId: string) {
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key);
@@ -448,6 +521,15 @@ export class AgentSession extends DurableObject<Env> {
         if (!message || message.length > 12000) return json({ error: "Message must be 1–12000 characters" }, 400);
         if (Array.isArray(body.files) && body.files.length) return json({ error: "File attachments are not enabled in this chat build" }, 501);
 
+        const requestedOperationId = String(body.operationId || crypto.randomUUID());
+        const operationId = /^[a-zA-Z0-9_-]{1,100}$/.test(requestedOperationId) ? requestedOperationId : crypto.randomUUID();
+        const jobKey = "browser-chat:job:" + operationId;
+        const existingJob = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+        if (existingJob) {
+          const existingThread = await this.ctx.storage.get<any>("browser-chat:thread:" + existingJob.threadId);
+          return json({ thread: existingJob.threadId, title: existingThread?.title || "Conversation", operationId, status: existingJob.status }, 202);
+        }
+
         let threadId = body.thread ? Number(body.thread) : 0;
         let item: any;
         if (threadId) {
@@ -469,27 +551,33 @@ export class AgentSession extends DurableObject<Env> {
           await this.ctx.storage.put("browser-chat:threads", ids);
         }
 
-        item.messages.push({ role: "user", content: message, files: [] });
+        item.messages.push({ role: "user", content: message, files: [], operationId });
         item.updatedAt = Date.now();
         await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
 
-        let reply = "";
-        try {
-          const agentPrompt = body.webSearch
-            ? message + "\n\nThe user enabled web search. Use the web_search tool to verify current facts and cite source URLs."
-            : message;
-          const result = await this.runChat(String(threadId), agentPrompt, String(body.operationId || "browser-" + crypto.randomUUID()));
-          reply = String(result.reply || "").trim();
-          if (!reply) throw new Error("The AI agent returned an empty reply");
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "AI request failed";
-          return json({ error: message }, 503);
-        }
-
-        item.messages.push({ role: "assistant", content: reply, files: [] });
-        item.updatedAt = Date.now();
-        await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
-        return json({ thread: threadId, title: item.title, reply });
+        const prompt = body.webSearch
+          ? message + "\n\nThe user enabled web search. Use the web_search tool to verify current facts and cite source URLs."
+          : message;
+        const job: BrowserChatJob = {
+          operationId, threadId, prompt, status: "queued",
+          createdAt: Date.now(), updatedAt: Date.now()
+        };
+        await this.ctx.storage.put(jobKey, job);
+        await this.ctx.storage.setAlarm(Date.now() + 250);
+        return json({ thread: threadId, title: item.title, operationId, status: job.status }, 202);
+      }
+      if (url.pathname === "/api/chat/status" && req.method === "GET") {
+        this.requirePassword(req);
+        const operationId = String(url.searchParams.get("operationId") || "");
+        if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId)) return json({ error: "Invalid operation ID" }, 400);
+        const job = await this.ctx.storage.get<BrowserChatJob>("browser-chat:job:" + operationId);
+        if (!job) return json({ error: "Operation not found" }, 404);
+        return json({
+          operationId, thread: job.threadId, status: job.status,
+          reply: job.status === "done" ? job.reply : undefined,
+          error: job.status === "failed" ? job.error : undefined,
+          createdAt: job.createdAt, updatedAt: job.updatedAt
+        });
       }
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
         this.requirePassword(req);
