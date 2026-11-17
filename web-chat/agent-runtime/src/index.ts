@@ -552,7 +552,7 @@ LEARNING FROM CORRECTIONS
     if (file.size < 1) throw new Error("Пустой файл");
     if (file.size > 15 * 1024 * 1024) throw new Error("Размер файла превышает 15 МБ");
     const id = crypto.randomUUID();
-    const name = String(file.name || "upload.bin").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120) || "upload.bin";
+    const name = String(file.name || "upload.bin").replace(/[\/\\\u0000-\u001f\u007f]/g, "_").slice(0, 120) || "upload.bin";
     const type = String(file.type || "application/octet-stream").slice(0, 160);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const chunkSize = 64 * 1024;
@@ -822,13 +822,14 @@ LEARNING FROM CORRECTIONS
           const metadata = await this.ctx.storage.get<any>("file:meta:" + id);
           if (!metadata) return json({ error: "Файл не найден" }, 404);
           const stored = await this.readStoredAttachment(id, metadata);
-          const name = String(metadata.name || "download.bin").replace(/["\\r\\n]/g, "_");
+          const name = String(metadata.name || "download.bin").replace(/[\r\n]/g, "_");
+          const safeName = name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
           const type = String(metadata.type || "application/octet-stream");
           const inline = url.searchParams.get("inline") === "1" && type.startsWith("image/");
           return new Response(stored.bytes, {
             headers: {
               "Content-Type": type,
-              "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + name + '"',
+              "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + safeName + '"; filename*=UTF-8'' + encodeURIComponent(name),
               "Cache-Control": "private, no-store",
               "X-Content-Type-Options": "nosniff"
             }
