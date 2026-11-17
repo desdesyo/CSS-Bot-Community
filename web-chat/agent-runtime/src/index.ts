@@ -2318,10 +2318,19 @@ LEARNING FROM CORRECTIONS
           const files = Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [];
           const ref = await github(this.env, "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(branch), {}, token);
           const checkBranch = "cssbc-agent-check-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-          await github(this.env, "/repos/" + repo + "/git/refs", {
-            method: "POST",
-            body: JSON.stringify({ ref: "refs/heads/" + checkBranch, sha: ref.object.sha })
-          }, token);
+          try {
+            await github(this.env, "/repos/" + repo + "/git/refs", {
+              method: "POST",
+              body: JSON.stringify({ ref: "refs/heads/" + checkBranch, sha: ref.object.sha })
+            }, token);
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : "GitHub write check failed";
+            return json({
+              ok: false, read: true, write: false, repo, branch,
+              error: "GitHub workspace read succeeded, but creating a temporary branch failed. The Worker token must have Contents: Read and write permission on this repository.",
+              diagnostics: { ...diagnostics, requiredPermission: "Contents: Read and write", writeError: detail.slice(0, 700) }
+            }, 503);
+          }
           let branchRemoved = false;
           try {
             await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }, token);
