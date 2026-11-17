@@ -1011,6 +1011,7 @@ LEARNING FROM CORRECTIONS
           { id: "tester", label: "Тестировщик", workflow: "GitHub Chat checks" },
           { id: "supervisor", label: "Контролёр", workflow: "Agent Supervisor Audit" },
           { id: "task-generator", label: "Планировщик", workflow: "Agent Task Generator" },
+          { id: "health-monitor", label: "Монитор здоровья", workflow: "SOLO.Chat Health Monitor" },
           { id: "deploy", label: "Деплой", workflow: "Deploy GitHub Chat to Cloudflare" }
         ].map(role => {
           const run = runs.find(item => item.name === role.workflow);
