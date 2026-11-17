@@ -41,9 +41,9 @@ jobs:
           curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$CHAT_ENDPOINT/api/agent/feedback" > feedback.json
           jq -c '.items[]' feedback.json | while read -r RECORD; do
             ID="$(jq -r '.id' <<<"$RECORD")"
-            TASK_KEY="FEEDBACK-$THREAD-$(printf '%s' "$ID" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z0-9-' | cut -c1-16)"
             RATING="$(jq -r '.rating' <<<"$RECORD")"
             THREAD="$(jq -r '.threadId' <<<"$RECORD")"
+            TASK_KEY="FEEDBACK-$THREAD-$(printf '%s' "$ID" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z0-9-' | cut -c1-16)"
             OP="$(jq -r '.operationId' <<<"$RECORD")"
             USER_TEXT="$(jq -r '.userMessage' <<<"$RECORD")"
             ASSISTANT_TEXT="$(jq -r '.assistantReply' <<<"$RECORD")"
