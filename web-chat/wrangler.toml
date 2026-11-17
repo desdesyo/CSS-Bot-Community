@@ -2,8 +2,8 @@ name = "cssbc-github-chat"
 main = "agent-runtime/src/index.ts"
 compatibility_date = "2026-11-14"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
-routes = [{ pattern = "solo.chat", custom_domain = true }]
 
 [assets]
 directory = "./public"
