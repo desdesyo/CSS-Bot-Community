@@ -1,0 +1,136 @@
+name: Agent Supervisor Audit
+
+on:
+  schedule:
+    - cron: "43 */4 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened, edited, labeled, unlabeled, closed]
+  workflow_run:
+    workflows: ["CSSBC Agent Orchestrator", "GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: cssbc-agent-supervisor-${{ github.event.issue.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  audit-and-review:
+    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'agent-task')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit task lifecycle and run independent reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          NAMES=('agent-task' 'agent-generated' 'agent-chat-runtime' 'agent-core-runtime' 'agent-overhaul' 'agent-review-needed' 'status:queued' 'status:in-progress' 'status:review' 'status:done')
+          for name in "${NAMES[@]}"; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+          ISSUES="$(gh api "repos/$SOURCE_REPO/issues?state=open&labels=agent-task&per_page=100")"
+          echo "$ISSUES" | jq -c '.[] | select(.pull_request==null) | {number,title,body,labels:[.labels[].name]}' | while IFS= read -r row; do
+            NUMBER="$(jq -r .number <<<"$row")"
+            BODY="$(jq -r .body <<<"$row")"
+            LABELS="$(jq -r '.labels[]' <<<"$row")"
+            VIOLATIONS=()
+            has_section_content() {
+              awk -v heading="$1" '
+                $0 == heading { found=1; next }
+                found && /^## / { exit }
+                found && /[^[:space:]]/ { ok=1 }
+                END { exit !ok }
+              ' <<< "$BODY"
+            }
+            grep -Eq 'Task-Key: [A-Z0-9-]+' <<<"$BODY" || VIOLATIONS+=("missing Task-Key")
+            has_section_content "## Objective" || VIOLATIONS+=("missing/empty Objective")
+            has_section_content "## Acceptance criteria" || VIOLATIONS+=("missing Acceptance criteria")
+            grep -q '## Evidence' <<<"$BODY" || VIOLATIONS+=("missing Evidence section")
+            STATUS_COUNT="$(grep -Ec '^status:' <<<"$LABELS" || true)"
+            [[ "$STATUS_COUNT" == "1" ]] || VIOLATIONS+=("exactly one status:* label required")
+            if grep -qx 'status:done' <<<"$LABELS"; then
+              grep -Eq 'Implementation: https?://' <<<"$BODY" || VIOLATIONS+=("done without implementation link")
+              grep -Eq 'Verification run: https?://' <<<"$BODY" || VIOLATIONS+=("done without verification run link")
+            fi
+            if [[ "${#VIOLATIONS[@]}" -gt 0 ]]; then
+              REPORT="### Supervisor audit — review required"$'\n'"- $(printf '%s\n' "${VIOLATIONS[@]}" | paste -sd '; ' -)"
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
+              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "$REPORT" >/dev/null
+              continue
+            fi
+            if ! grep -qx 'status:review' <<<"$LABELS"; then
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
+              continue
+            fi
+            TARGET_LINE="$(grep -m1 '^Agent-Target:' <<<"$BODY" | cut -d' ' -f2- || true)"
+            if [[ -n "$TARGET_LINE" && "$TARGET_LINE" == *@* ]]; then
+              TARGET_REPO="${TARGET_LINE%@*}"; TARGET_BRANCH="${TARGET_LINE##*@}"
+            elif grep -qx 'agent-chat-runtime' <<<"$LABELS"; then
+              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"
+            elif grep -qx 'agent-core-runtime' <<<"$LABELS"; then
+              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="main"
+            else
+              TARGET_REPO="desdesyo/modhaul"; TARGET_BRANCH="main"
+            fi
+            HEAD_SHA="$(gh api "repos/$TARGET_REPO/commits/$TARGET_BRANCH" --jq .sha)"
+            RUNS="$(gh api "repos/$TARGET_REPO/actions/runs?branch=$TARGET_BRANCH&per_page=50")"
+            if [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "github-chat-prototype" ]]; then
+              CI_NAME="GitHub Chat checks"
+              CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
+              DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
+              DEPLOY_OK="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success")' <<<"$RUNS")"
+            elif [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "main" ]]; then
+              CI_NAME="CSSBC Core CI"
+              CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
+              DEPLOY_STATE="not-required-for-core"
+              DEPLOY_OK="true"
+            else
+              CI_NAME="modhaul workflow"
+              CI_RUN="$(jq -c --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
+              DEPLOY_STATE="not-required-for-modhaul"
+              DEPLOY_OK="true"
+            fi
+            CI_MATCH="false"
+            CI_URL=""
+            if [[ -n "$CI_RUN" ]]; then CI_MATCH="true"; CI_URL="$(jq -r .html_url <<<"$CI_RUN")"; fi
+            CI_STATE="$(jq -r --arg name "$CI_NAME" '[.workflow_runs[]|select(.name==$name)][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
+            REVIEW_MARKER="<!-- supervisor-review:$TARGET_REPO:$TARGET_BRANCH:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE -->"
+            COMMENTS="$(gh api "repos/$SOURCE_REPO/issues/$NUMBER/comments?per_page=100")"
+            if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
+              echo "Supervisor already reviewed issue #$NUMBER at this target commit/CI state."
+              continue
+            fi
+            if [[ -z "$CHAT_APP_PASSWORD" ]]; then
+              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review unavailable: CSSBC_CHAT_APP_PASSWORD is missing. Structural audit only; no approval granted." >/dev/null
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
+              continue
+            fi
+            PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and successful deployment smoke test. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
+            jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" '{prompt:$prompt,threadKey:$thread}' > reviewer.json
+            CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+            if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
+              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review failed (HTTP $CODE). Task remains in review; no approval granted." >/dev/null
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
+              continue
+            fi
+            { printf '%s\n\n' "$REVIEW_MARKER"; jq -r '.reply' review.json; } > review-report.md
+            gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body-file review-report.md >/dev/null
+            if grep -q 'VERDICT: PASS' review-report.md && [[ "$CI_MATCH" == "true" ]] && [[ "$DEPLOY_OK" == "true" ]] && [[ -n "$CI_URL" ]]; then
+              UPDATED_BODY="$(printf '%s\n' "$BODY" | sed -E "s#- Implementation: _?pending_?#- Implementation: https://github.com/$TARGET_REPO/commit/$HEAD_SHA#" | sed -E "s#- Verification run: _?pending_?#- Verification run: $CI_URL#")"
+              gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$UPDATED_BODY" >/dev/null
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --remove-label status:review --remove-label agent-review-needed --add-label status:done >/dev/null
+              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor PASS: target commit passed the required CI gate and deployment policy. Task moved to status:done." >/dev/null
+            else
+              gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
+              if [[ "$CI_MATCH" != "true" || "$DEPLOY_OK" != "true" ]]; then
+                gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor gate: target CI match=$CI_MATCH; deployment success=$DEPLOY_OK. Reviewer PASS cannot override missing or mismatched verification." >/dev/null
+              fi
+            fi
+          done
+          echo "Supervisor audit completed."
