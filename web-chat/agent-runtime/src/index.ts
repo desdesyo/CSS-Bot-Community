@@ -9,7 +9,7 @@ import { createAI } from "agents/models/pi-ai";
 
 interface Env {
   AI: Ai;
-  FILES?: R2Bucket;
+  FILES?: KVNamespace;
   AGENT_SESSIONS: DurableObjectNamespace<AgentSession>;
   APP_PASSWORD: string;
   PI_MODEL?: string;
@@ -542,13 +542,15 @@ LEARNING FROM CORRECTIONS
     let totalText = 0;
     for (const id of ids) {
       if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Некорректный идентификатор вложения");
-      const object = await this.env.FILES.get("files/" + id);
-      if (!object) throw new Error("Вложение не найдено: " + id);
-      const name = String(object.customMetadata?.name || "attachment");
-      const type = String(object.httpMetadata?.contentType || "application/octet-stream");
-      files.push({ id, name, type, size: object.size });
+      const object = await this.env.FILES.getWithMetadata("files/" + id, "arrayBuffer");
+      if (!object.value) throw new Error("Вложение не найдено: " + id);
+      const metadata: any = object.metadata || {};
+      const name = String(metadata.name || "attachment");
+      const type = String(metadata.type || "application/octet-stream");
+      const size = Number(metadata.size || (object.value as ArrayBuffer).byteLength || 0);
+      files.push({ id, name, type, size });
       if (type.startsWith("image/")) {
-        const bytes = new Uint8Array(await object.arrayBuffer());
+        const bytes = new Uint8Array(object.value as ArrayBuffer);
         let binary = "";
         for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         const imageData = "data:" + type + ";base64," + btoa(binary);
@@ -564,7 +566,7 @@ LEARNING FROM CORRECTIONS
         sections.push("ИЗОБРАЖЕНИЕ: " + name + "\nОписание и видимый текст:\n" + description.slice(0, 12000));
       } else if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
         if (this.env.OPENAI_API_KEY) {
-          const bytes = new Uint8Array(await object.arrayBuffer());
+          const bytes = new Uint8Array(object.value as ArrayBuffer);
           let binary = "";
           for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
           const base64 = btoa(binary);
@@ -593,7 +595,7 @@ LEARNING FROM CORRECTIONS
         const textLike = type.startsWith("text/") || /^(json|csv|xml|javascript)$/.test(type.split("/").pop() || "") ||
           /^(txt|md|csv|json|xml|log|js|ts|py|html|css|yaml|yml|toml|ini|sql|sh|diff)$/.test(ext);
         if (textLike) {
-          const content = await object.text();
+          const content = new TextDecoder().decode(object.value as ArrayBuffer);
           const remaining = 100000 - totalText;
           if (remaining <= 0) throw new Error("Суммарный объём текстовых вложений превышает лимит анализа");
           const clipped = content.slice(0, Math.min(40000, remaining));
@@ -737,12 +739,12 @@ LEARNING FROM CORRECTIONS
         let cursor: string | undefined;
         for (let page = 0; page < 100; page++) {
           const listed = await this.env.FILES.list({ prefix: "files/", limit: 1000, cursor });
-          files.push(...listed.objects.map((item: any) => ({
-            id: item.key.slice(6), name: item.customMetadata?.name || item.key.slice(6),
-            type: item.httpMetadata?.contentType || "application/octet-stream", size: item.size,
-            uploaded: item.uploaded
+          files.push(...listed.keys.map((item: any) => ({
+            id: item.name.slice(6), name: item.metadata?.name || item.name.slice(6),
+            type: item.metadata?.type || "application/octet-stream", size: item.metadata?.size || 0,
+            uploaded: item.metadata?.uploadedAt || null
           })));
-          cursor = listed.truncated ? listed.cursor : undefined;
+          cursor = listed.list_complete ? undefined : listed.cursor;
           if (!cursor) break;
         }
         return json({ files });
@@ -759,8 +761,7 @@ LEARNING FROM CORRECTIONS
         const name = String(file.name || "upload.bin").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120) || "upload.bin";
         const type = String(file.type || "application/octet-stream").slice(0, 160);
         await this.env.FILES.put("files/" + id, await file.arrayBuffer(), {
-          httpMetadata: { contentType: type },
-          customMetadata: { name, uploadedAt: new Date().toISOString() }
+          metadata: { name, type, size: file.size, uploadedAt: new Date().toISOString() }
         });
         return json({ id, name, type, size: file.size }, 201);
       }
@@ -771,19 +772,21 @@ LEARNING FROM CORRECTIONS
         if (!/^[a-f0-9-]{36}$/i.test(id)) return json({ error: "Некорректный идентификатор файла" }, 400);
         const key = "files/" + id;
         if (req.method === "DELETE") {
-          const existing = await this.env.FILES.head(key);
+          const existing = await this.env.FILES.get(key, "arrayBuffer");
           if (!existing) return json({ error: "Файл не найден" }, 404);
           await this.env.FILES.delete(key);
           return json({ ok: true });
         }
         if (req.method === "GET") {
-          const object = await this.env.FILES.get(key);
-          if (!object) return json({ error: "Файл не найден" }, 404);
-          const name = String(object.customMetadata?.name || "download.bin").replace(/["\\r\\n]/g, "_");
-          const inline = url.searchParams.get("inline") === "1" && String(object.httpMetadata?.contentType || "").startsWith("image/");
-          return new Response(object.body, {
+          const stored = await this.env.FILES.getWithMetadata(key, "arrayBuffer");
+          if (!stored.value) return json({ error: "Файл не найден" }, 404);
+          const metadata: any = stored.metadata || {};
+          const name = String(metadata.name || "download.bin").replace(/["\\r\\n]/g, "_");
+          const type = String(metadata.type || "application/octet-stream");
+          const inline = url.searchParams.get("inline") === "1" && type.startsWith("image/");
+          return new Response(stored.value, {
             headers: {
-              "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+              "Content-Type": type,
               "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + name + '"',
               "Cache-Control": "private, no-store",
               "X-Content-Type-Options": "nosniff"
