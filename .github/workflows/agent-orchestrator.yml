@@ -152,8 +152,9 @@ jobs:
             TASK="$MANUAL_TASK Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect, implement, verify, and report evidence."
           else
             ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --label agent-health-alert --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"
+            # Prefer user-authored tasks over the generated repair backlog; health alerts remain highest priority.
+            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --search 'is:open label:agent-task label:status:queued -label:agent-generated' --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"; fi
             if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --label agent-generated --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"; fi
-            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"; fi
             if [[ -z "$ISSUE_NUMBER" ]]; then echo "has_task=false" >> "$GITHUB_OUTPUT"; echo "No queued agent task; builder is idle."; exit 0; fi
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
