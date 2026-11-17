@@ -123,6 +123,11 @@ const checks = [
  ["Authenticated memory status endpoint is routed to the shared Durable Object", runtime.includes('url.pathname === "/api/memory/status"') && runtime.includes('"/api/memory/status"')],
  ["Chat history renders only user questions and assistant answers", html.includes('if(role!=="user"&&role!=="assistant")return null') && html.includes('m.role==="user"||m.role==="assistant"')],
  ["Sidebar displays the persistent semantic memory index status", html.includes('id="memoryStatus"') && html.includes('api("/api/memory/status")')],
+
+ [ "New conversations are explicitly user-owned", runtime.includes('createdBy: "user"') && runtime.includes('visibility: "private"')],
+ [ "Agent/internal conversations are hidden from the user thread list", runtime.includes('item.createdBy && item.createdBy !== "user"') && runtime.includes('item.origin === "agent"') && runtime.includes('item.visibility === "internal"')],
+ [ "Exact duplicate conversations are pruned with memory indexes", runtime.includes("duplicatesRemoved") && runtime.includes("memory:indexed:")],
+ [ "Search history can be cleared without deleting conversations", runtime.includes('url.pathname === "/api/search-history"') && runtime.includes('"search:history:"') && html.includes('id="clearSearchHistory"') && html.includes('api("/api/search-history",{method:"DELETE"})')],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
