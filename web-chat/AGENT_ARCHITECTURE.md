@@ -99,7 +99,8 @@ Primary technical references:
 - [x] Heuristic static source scan; submitted code is never executed by the scanner. A separate isolated JavaScript runtime can execute project tests without outbound network access.
 - [x] Local Windows computer companion with one-time pairing and read-only system/file inspection.
 - [x] Narrow approval-gated UTF-8 source/config text writer with SHA-256 preconditions, local backups and post-write verification (local end-to-end test still pending).
-- [ ] Binary plugin package installer for verified `.smx`/native artifacts with manifest, backup, rollback and post-install scan.
+- [x] Single-file SourceMod `.smx` installer from approved GitHub HTTPS hosts, restricted to the SourceMod plugins folder, with package/current hashes, backup, local APPLY and post-write verification (local end-to-end test still pending).
+- [ ] Native `.dll` installer: requires exact v34 ABI/toolchain validation and a separate safe package design; core engine DLL replacement remains blocked.
 - [ ] Human approval UI for MCP tools that change external state.
 - [x] Persistent Cloudflare Computer workspace with isolated JavaScript execution and network egress disabled.
 - [ ] Browser/computer agent for graphical remote application control.
