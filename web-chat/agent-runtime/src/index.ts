@@ -1396,11 +1396,22 @@ LEARNING FROM CORRECTIONS
         if (cached && Date.now() - cached.checkedAt < 20000) return json({ ...cached.data, cached: true });
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
-        const response = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100", { headers });
+        const githubRead = async (url: string) => {
+          let result = await fetch(url, { headers });
+          // The public repository endpoints can still be read without a token when a
+          // fine-grained token lacks Actions/Issues read permission. Retry once anonymously.
+          if ((result.status === 401 || result.status === 403) && headers.Authorization) {
+            const publicHeaders = { ...headers };
+            delete publicHeaders.Authorization;
+            result = await fetch(url, { headers: publicHeaders });
+          }
+          return result;
+        };
+        const response = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100");
         if (!response.ok) return json({ error: "GitHub Actions status unavailable", upstreamStatus: response.status }, 502);
         const payload: any = await response.json();
         const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
-        const issuesResponse = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100", { headers });
+        const issuesResponse = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100");
         if (!issuesResponse.ok) return json({ error: "GitHub task queue status unavailable", upstreamStatus: issuesResponse.status }, 502);
         const issues: any[] = await issuesResponse.json();
         const queue = { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 };
@@ -1417,7 +1428,7 @@ LEARNING FROM CORRECTIONS
         let teamSteps: any[] = [];
         if (teamRun?.id) {
           try {
-            const jobsResponse = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs/" + teamRun.id + "/jobs?per_page=100", { headers });
+            const jobsResponse = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs/" + teamRun.id + "/jobs?per_page=100");
             if (jobsResponse.ok) {
               const jobsPayload: any = await jobsResponse.json();
               teamSteps = (jobsPayload.jobs || []).flatMap((job: any) => (job.steps || []).map((step: any) => ({
