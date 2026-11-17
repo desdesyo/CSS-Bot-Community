@@ -112,6 +112,7 @@ const checks = [
 
 
  ["Workers AI remains the no-Gemini Pi provider while Gemini is the tool-capable primary when configured", runtime.includes("models.setProvider(this.ai.provider)") && runtime.includes("models.setProvider(this.google)") && runtime.includes('this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")')],
+ ["Workers AI quota circuit cannot bypass the configured Gemini tool-capable Pi harness", runtime.includes('workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY')],
  ["Direct fallback is explicitly text-only and cannot claim tool execution", runtime.includes("text-only emergency fallback") && runtime.includes("инструменты и операции с файлами/GitHub сейчас недоступны") && runtime.includes("Never claim that you performed or verified an action.")],
  ["Primary and fallback model requests have bounded retries and timeouts", runtime.includes("maxAttempts: 3") && runtime.includes("requestTimeoutMs: 120000")],
  ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", runtime.includes("const fileBuffer = new ArrayBuffer(bytes.byteLength)") && runtime.includes("new File([fileBuffer]")],
