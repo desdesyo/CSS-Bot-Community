@@ -512,9 +512,52 @@ LEARNING FROM CORRECTIONS
     if (!reply) throw new Error("AI operation completed without assistant text");
     return { reply, status: result.status, operationId: receipt.operationId, sessionId };
   }
-  private requirePassword(req: Request) {
+  private async requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
-    if (!this.env.APP_PASSWORD || !safeEqual(auth, "Bearer " + this.env.APP_PASSWORD)) throw new Error("Unauthorized");
+    if (this.env.APP_PASSWORD && safeEqual(auth, "Bearer " + this.env.APP_PASSWORD)) return;
+    const cookie = req.headers.get("Cookie") || "";
+    const match = cookie.match(/(?:^|;\\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
+    if (!match) throw new Error("Unauthorized");
+    const digest = await sha256(match[1]);
+    const session = await this.ctx.storage.get<{ expiresAt: number }>("browser-auth:device:" + digest);
+    if (!session || session.expiresAt < Date.now()) {
+      if (session) await this.ctx.storage.delete("browser-auth:device:" + digest);
+      throw new Error("Unauthorized");
+    }
+  }
+  private async loginDevice(req: Request) {
+    if (!this.env.APP_PASSWORD) throw new Error("Chat password is not configured");
+    const body = await req.json() as any;
+    const supplied = String(body.password || "");
+    const attempts = await this.ctx.storage.get<{ count: number; resetAt: number }>("browser-auth:attempts");
+    const current = !attempts || attempts.resetAt < Date.now() ? { count: 0, resetAt: Date.now() + 15 * 60 * 1000 } : attempts;
+    current.count++;
+    await this.ctx.storage.put("browser-auth:attempts", current);
+    if (current.count > 12) throw new Error("Too many login attempts; wait 15 minutes");
+    if (!safeEqual(supplied, this.env.APP_PASSWORD)) throw new Error("Unauthorized");
+    await this.ctx.storage.delete("browser-auth:attempts");
+    const token = randomToken();
+    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    await this.ctx.storage.put("browser-auth:device:" + await sha256(token), { expiresAt, createdAt: Date.now() });
+    return new Response(JSON.stringify({ ok: true, expiresAt }), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Set-Cookie": "solo_device=" + token + "; Max-Age=2592000; Path=/api; HttpOnly; Secure; SameSite=Strict"
+      }
+    });
+  }
+  private async logoutDevice(req: Request) {
+    const cookie = req.headers.get("Cookie") || "";
+    const match = cookie.match(/(?:^|;\\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
+    if (match) await this.ctx.storage.delete("browser-auth:device:" + await sha256(match[1]));
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Set-Cookie": "solo_device=; Max-Age=0; Path=/api; HttpOnly; Secure; SameSite=Strict"
+      }
+    });
   }
   private async deviceFromToken(req: Request) {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -548,7 +591,7 @@ LEARNING FROM CORRECTIONS
     const url = new URL(req.url);
     try {
       if (url.pathname === "/api/health" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         return json({ ok: true });
       }
       if (url.pathname === "/api/threads" && req.method === "GET") {
@@ -742,7 +785,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/chat", "/api/chat/status", "/api/threads", "/api/messages"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/status", "/api/threads", "/api/messages"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
