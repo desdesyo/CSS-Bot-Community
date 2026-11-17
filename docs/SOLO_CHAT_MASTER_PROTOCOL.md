@@ -125,3 +125,12 @@ Every user-facing completion report must separate:
 - Remaining queue (ordered, testable tasks).
 
 Never use "unlimited", "fully autonomous", "self-healing" or "RAR supported" as a completion claim without measurable acceptance evidence.
+
+
+## 10. SOLO.Chat interface self-maintenance
+
+- The implementer has a dedicated `solo_ui_write_file` capability for the public interface in `web-chat/public/` on `desdesyo/CSS-Bot-Community/github-chat-prototype`.
+- Allowed file types are HTML, CSS, JavaScript and JSON. This grants ordinary visual/UI changes (layout, colors, typography, spacing, responsive behavior, panels, controls and UI settings) without per-change user approval.
+- The agent must read the current version first, make a focused change, preserve existing functionality, add/update automated tests and commit the change.
+- The dedicated writer cannot modify backend runtime code, secrets, deployment credentials or files outside the public UI directory.
+- UI changes are not complete until GitHub Chat checks pass and the exact same commit SHA is successfully deployed. Report commit, CI and deployment evidence separately.
