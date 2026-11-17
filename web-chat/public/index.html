@@ -16,12 +16,42 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1p
 .thinking-time{font-size:11px;color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums}
 @keyframes thinkPulse{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 @media(max-width:700px){.app{grid-template-columns:1fr}.side{display:none}.mobile{display:inline-block}.top{padding:0 14px}.messages{padding:20px 14px}.composer-wrap{padding:10px 10px 16px}}
+/* Neon sunset theme */
+:root{color-scheme:dark;--bg:#100b18;--panel:#191323;--panel2:#251a31;--line:rgba(238,145,191,.19);--text:#fff1f4;--muted:#b9a0b6;--accent:#ffad70;--user:#39223d;--glow:rgba(255,111,151,.22)}
+body{background:radial-gradient(ellipse at 78% -10%,rgba(255,125,91,.24),transparent 36%),radial-gradient(ellipse at 48% 0%,rgba(163,83,181,.25),transparent 48%),radial-gradient(ellipse at 5% 75%,rgba(106,53,132,.16),transparent 42%),linear-gradient(145deg,#100b18,#171020 58%,#100d19)}
+.app{background:linear-gradient(120deg,rgba(255,139,119,.35),rgba(167,94,185,.25) 48%,rgba(255,154,188,.22))}
+.side{background:linear-gradient(180deg,rgba(26,17,34,.98),rgba(17,13,27,.98));border-right:1px solid rgba(255,171,145,.12)}
+.brand{display:flex;align-items:center;gap:11px;font-size:22px;letter-spacing:-.8px;margin:2px 0 30px;text-shadow:0 0 20px rgba(255,129,165,.25)}
+.brand:before{display:none}.brand-mark{width:40px;height:40px;flex:none;filter:drop-shadow(0 0 5px rgba(255,142,121,.85)) drop-shadow(0 0 14px rgba(198,103,218,.65))}
+.brand-word{color:#fff1f5}.brand-word span{background:linear-gradient(100deg,#ffbd77,#ff8d9e 48%,#c89bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.new{background:linear-gradient(110deg,rgba(255,143,104,.19),rgba(190,104,190,.18),rgba(255,157,189,.12));border:1px solid rgba(255,167,151,.34);box-shadow:0 7px 26px rgba(196,82,139,.12),inset 0 1px rgba(255,255,255,.06)}
+.new:hover{border-color:#ffb18c;box-shadow:0 0 22px rgba(255,127,145,.2)}.new-icon{color:#ffb17c;text-shadow:0 0 12px #ff8c9c}
+.threads-heading{color:#c29dbb}.thread{color:#d5bfd1}.thread.active,.thread:hover{background:linear-gradient(100deg,rgba(255,140,131,.13),rgba(174,109,199,.13));box-shadow:inset 2px 0 #ff9c91}
+.main{background:linear-gradient(160deg,rgba(19,14,27,.97),rgba(15,12,23,.98))}
+.top{background:rgba(27,18,35,.72);border-bottom-color:rgba(242,151,178,.14)}
+.welcome{border:1px solid rgba(255,166,163,.22);background:radial-gradient(ellipse at 50% 0%,rgba(225,119,161,.17),transparent 65%),linear-gradient(145deg,rgba(48,29,55,.64),rgba(23,17,34,.48));box-shadow:0 20px 90px rgba(0,0,0,.28),0 0 45px rgba(178,91,166,.08);backdrop-filter:blur(12px)}
+.welcome h1{background:linear-gradient(100deg,#fff0df,#ffb5a3 45%,#d6b2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.avatar{background:linear-gradient(145deg,#713d69,#342342);border:1px solid rgba(255,171,164,.36);color:#ffe1df;box-shadow:0 0 16px rgba(218,111,171,.12)}
+.msg.user .avatar{background:linear-gradient(145deg,#9b4f69,#543052)}
+.body code{background:#302239}.body pre{background:#140f1c;border-color:rgba(237,147,181,.2)}
+.html-preview{border-color:rgba(255,166,163,.3)}.preview-toggle{border-color:#9b668e!important;color:#ffc1b4!important}
+.composer-wrap{background:linear-gradient(0deg,rgba(16,11,24,.99),rgba(16,11,24,.78))}
+.composer{border:1px solid rgba(255,161,158,.34);background:linear-gradient(125deg,rgba(43,27,48,.97),rgba(30,22,43,.98));box-shadow:0 12px 38px rgba(0,0,0,.28),0 0 28px rgba(183,89,160,.1),inset 0 1px rgba(255,255,255,.05)}
+.composer:focus-within{border-color:rgba(255,172,145,.7);box-shadow:0 0 0 3px rgba(255,139,151,.08),0 0 30px rgba(204,104,172,.17)}
+.send{background:linear-gradient(115deg,#ffc078,#ff9299 55%,#c39aff);color:#251528;box-shadow:0 5px 22px rgba(239,115,151,.25)}
+button:hover{border-color:#e99aaf}.toolrow button[aria-pressed="true"]{border-color:#ffad9b;background:rgba(173,91,151,.24)}
+.gatebox{background:radial-gradient(ellipse at 80% 0%,rgba(255,134,119,.19),transparent 55%),linear-gradient(145deg,#2a1a35,#171020);border-color:rgba(255,168,157,.3);box-shadow:0 25px 100px rgba(0,0,0,.55),0 0 55px rgba(181,89,167,.12)}
+.gatebox h2{background:linear-gradient(100deg,#fff0df,#ffad9f 55%,#c7a2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gatebox input{background:#160f20;border-color:rgba(255,161,158,.25)}
+.gatebox button{background:linear-gradient(110deg,#ffc078,#ff9299 55%,#c39aff);color:#251528}
+.thinking-dots i{background:#ff9eaa}.sidefoot{color:#a88da8}
+@media(max-width:700px){.brand{margin-bottom:20px}}
 </style>
 </head>
 <body>
 <div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Закрытый доступ. Введите пароль для входа.</p><input id="password" type="password" placeholder="Пароль" autocomplete="current-password"><label class="remember-device"><input id="rememberDevice" type="checkbox" checked> Запомнить это устройство на 30 дней</label><button id="unlock">Войти</button><p id="gateError" role="alert"></p></div></div>
 <div class="app">
-<aside class="side"><div class="brand">SOLO<span>.Chat</span></div><button class="new" id="newChat" aria-label="Создать новый диалог"><span class="new-icon" aria-hidden="true">＋</span><span>Новый диалог</span></button><div class="threads-heading">История диалогов</div><div class="threads" id="threads" aria-label="История диалогов"><div class="threads-empty">Здесь появятся ваши диалоги</div></div><div class="sidefoot">История диалогов сохраняется и доступна для повторного открытия.<br><span id="connection">Нет подключения</span></div></aside>
+<aside class="side"><div class="brand"><svg class="brand-mark" viewBox="0 0 48 48" role="img" aria-label="Неоновая пальма"><defs><linearGradient id="palmSunset" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc477"/><stop offset=".52" stop-color="#ff8e9e"/><stop offset="1" stop-color="#c49aff"/></linearGradient></defs><g fill="none" stroke="url(#palmSunset)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 43C25 32 27 22 25 13"/><path d="M25 14C17 5 9 7 5 9c7 1 10 5 13 10-7-4-12-2-15 1 8-1 13 2 18 5"/><path d="M25 14C29 5 37 4 43 6c-6 3-9 7-11 12 6-5 11-4 14-1-7 0-12 4-17 9"/><path d="M24 16C21 9 17 5 12 4c2 5 5 9 10 13"/><path d="M26 16C30 10 35 8 40 8c-3 4-6 7-12 10"/><path d="M8 43h32"/></g><circle cx="25" cy="14" r="2" fill="#fff0d7"/></svg><div class="brand-word">SOLO<span>.Chat</span></div></div><button class="new" id="newChat" aria-label="Создать новый диалог"><span class="new-icon" aria-hidden="true">＋</span><span>Новый диалог</span></button><div class="threads-heading">История диалогов</div><div class="threads" id="threads" aria-label="История диалогов"><div class="threads-empty">Здесь появятся ваши диалоги</div></div><div class="sidefoot">История диалогов сохраняется и доступна для повторного открытия.<br><span id="connection">Нет подключения</span></div></aside>
 <main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">Новый диалог</span></div><div class="status" id="status">Личное пространство</div></header><section class="messages" id="messages"><div class="welcome"><h1>С чего начнём?</h1><div>Сообщения сохраняются автоматически.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Подключить компьютер</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Напишите задачу или вопрос…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">SOLO.Chat поможет с вопросами, исследованиями и работой над проектами.</div></div></main>
 </div>
 <script>
@@ -43,7 +73,7 @@ function renderMarkdown(src){
  const closeList=()=>{if(list){out.push("</"+list+">");list=""}};
  for(const line of lines){
   const fence=line.match(/^\x60{3}([\w+-]*)\s*$/);
-  if(code!==null){if(fence){out.push('<pre><div class="code-head"><span>'+escapeHtml(code||"code")+'</span><button type="button" class="copy-code">Копировать код</button></div><code>'+escapeHtml(codeLines.join("\n"))+'</code></pre>');code=null;codeLines=[]}else codeLines.push(line);continue}
+  if(code!==null){if(fence){const source=codeLines.join("\n");const htmlLike=/^(html|htm|xhtml)$/i.test(code)||/<(!doctype|html|head|body|div|main|section|canvas|svg)\b/i.test(source);out.push('<pre><div class="code-head"><span>'+escapeHtml(code||"code")+'</span><button type="button" class="copy-code">Копировать код</button></div><code>'+escapeHtml(source)+'</code></pre>'+(htmlLike?'<button type="button" class="preview-toggle" data-preview="html">Показать HTML-превью</button><div class="preview-host" hidden></div>':''));code=null;codeLines=[]}else codeLines.push(line);continue}
   if(fence){flush();closeList();code=fence[1]||"code";continue}
   if(!line.trim()){flush();closeList();continue}
   const h=line.match(/^(#{1,6})\s+(.+)$/);if(h){flush();closeList();const n=h[1].length;out.push("<h"+n+">"+inlineMarkdown(h[2])+"</h"+n+">");continue}
