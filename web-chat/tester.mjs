@@ -32,6 +32,10 @@ const checks = [
  ["Agent prompt requires independent repair and verification", /YOU make the changes and run verification/.test(runtime)],
  ["No provider credentials are embedded in browser client", !/OPENAI_API_KEY|GITHUB_TOKEN|APP_PASSWORD\s*=/.test(html)],
  ["Follow-up UI keeps the send control available while busy", /if\(busy\)\{await sendFollowup\(message\);return\}/.test(html) && /Добавить/.test(html)],
+ ["Sidebar has a localized history heading", html.includes("История диалогов") && html.includes("Новый диалог")],
+ ["Sidebar replaces CJK and mojibake titles with readable fallback", /function safeThreadTitle/.test(html) && /cjk>Math\.max/.test(html) && /Диалог #/.test(html)],
+ ["Sidebar has an explicit empty state", /Здесь появятся ваши диалоги/.test(html)],
+ ["Sidebar history buttons have accessible labels", /setAttribute\("aria-label","Открыть "\+label\)/.test(html)],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
