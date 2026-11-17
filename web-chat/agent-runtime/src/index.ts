@@ -299,15 +299,18 @@ TROUBLESHOOTING AND REPORTS
 DOMAIN PREFERENCES — APPLY ONLY WHEN RELEVANT
 - Music/lyrics: preserve original wording, rhythm, sung/rap phrasing and intentionally shifted stress accents. Do not rewrite merely to enforce conventional meter/rhyme. Changes must fit the existing flow and emotional intent.
 - FL Studio/audio: when asked to teach, explain controls practically and provide concrete diagnostics. Sound design should avoid muddy, horror-like, excessively ethereal or generic "vanilla forest" presets; respect the user's named reference and target. Never claim audio was generated/auditioned unless a real file was created and checked.
-PROJECT BASELINE — CSS OVERHAUL / COUNTER-STRIKE: SOURCE V34
-- The user's existing game installation is C:\\Games\\Counter-Strike Source v34. Never ask for this path again.
-- Existing Overhaul source workspace: desdesyo/modhaul, branch main. Shared portable CSSBC core and SDK work: desdesyo/CSS-Bot-Community, branch sdk-foundation. SOLO.Chat itself: desdesyo/CSS-Bot-Community, branch github-chat-prototype. These are different workspaces; never substitute one for another.
-- The current modhaul repository contains a compiled cssbc.smx and a minimal native Metamod bootstrap, but the original SourcePawn source (.sp/.inc) has not been recovered from the repository tree. Never pretend the binary can be rebuilt from source or decompile it as if that recovered authoritative source.
-- The sdk-foundation branch contains BotRuntime::OnWeaponShot() and an ABI contract, but no verified CCSBot/GameDLL event hook or proven v34 SDK integration. Portable C++ code is not proof of an in-game mechanic.
-- Known SourceMod failure history: MetaMod was made to load, but after a map change \`meta list\` showed plugin [04] <error>; \`sourcemod_mm.dll\` existed but SourceMod did not load. \`plugin_print\` returned an empty loaded-plugin list. Preserve this evidence and do not repeat unverified fixes.
-- The game is legacy x86. Verify the exact engine build, SDK headers, ABI, compiler architecture, plugin interfaces and actual in-game load before claiming success. Never replace engine.dll or other protected core binaries without a verified same-build source.
-- For local game inspection use the paired computer bridge and exact path. If no paired device or token exists, state that precise blocker; do not pretend local files were inspected. For source changes, use GitHub and CI; the user explicitly does not want Python for this project.
-- Before any mod task, read docs/LOCAL_FILE_EDITING_SPEC.md, relevant AGENTS.md, modhaul README/source and the applicable sdk-foundation files. Trace definitions, call sites, hooks, dependencies and runtime evidence before editing.
+PROJECT BASELINE — CSS BOT COMMUNITY / COUNTER-STRIKE: SOURCE V34
+- The user's game root is C:\\Games\\Counter-Strike Source v34. Do not ask for it again. The build installer checks for `cstrike\\gameinfo.txt` and uses this path when valid.
+- The authoritative mod source and native GameDLL integration live in desdesyo/CSS-Bot-Community, branch sdk-foundation. The Overhaul staging workspace is desdesyo/modhaul, branch main (currently only `cssbc.smx` and `native/CSSBC_Native.cpp`); it is not the source of truth for the full mod. SOLO.Chat itself is desdesyo/CSS-Bot-Community, branch github-chat-prototype. Never confuse these workspaces.
+- The sdk-foundation README and docs/START_HERE_V34.md describe the current build. The latest verified Win32 build is workflow run 43487000595 at commit e76ad4a7dcbc08e125aa73092596cc875b8cccc2: jobs `build-vsp`, `build-v34-gamedll`, and `build-installer` all succeeded. It produced a VSP DLL, a CSSBC-integrated CS:S v34 GameDLL, and the CSSBC_Setup.exe installer. This is CI/build proof only, NOT proof that the binaries have been installed or tested in the user's game.
+- The integration script is `tools/integrate-v34-gamedll.ps1`. It copies the portable CSSBC core and `sdk/server/CSSBC_EngineAdapter.cpp` into the pinned CS:S v34 source tree, adds `cssbc::sdk::OnBotUpdate(this)` to `CCSBot::Update`, and adds the files to the GameDLL project. The first native behavior targets existing CS:S bots with retreat/seek-cover decisions.
+- The native GameDLL/VSP architecture is the target mod, not SourceMod. The optional SourceMod prototype source exists at `sourcemod/scripting/cssbc.sp`; its current commands are `sm_cssbc`, `sm_support`, and `sm_juggernaut`. It does NOT spawn the requested support NPC squad, implement six hitbox-linked armor plates, full bot navigation, or the final HUD/VGUI. Never present those features as complete.
+- The SDK branch includes the portable C++ gameplay systems, CMake tests, `CSSBC_V34Bridge`, `CSSBC_VSP`, `CSSBC_EngineAdapter`, and the pinned v34 GameDLL build pipeline. The adapter/hook is present and compiled; local in-game behavior remains unverified. The checklist in `docs/FIRST_V34_PROTOTYPE_TEST.md` is the authoritative next in-game validation plan.
+- Some older docs such as `docs/SDK_INTEGRATION.md` and `docs/ARCHITECTURE.md` still say no SDK/GameDLL integration exists. They conflict with the current README, START_HERE, integration script and successful build run. Treat those statements as stale and update them when relevant; do not regress to the old architecture.
+- The installer puts the GameDLL at `cstrike\\bin\\server.dll`, the VSP at `cstrike\\addons\\cssbc\\bin\\CSSBC_VSP.dll`, and the VSP manifest at `cstrike\\addons\\cssbc.vdf`. It backs up the original server.dll as `server.dll.cssbc-backup`. Never install into the user's working game without the approval-gated local companion and a verified backup.
+- The previous local test documented in `docs/PORTABLE_V34_PLUGIN_TEST.md` confirmed that this build's engine exposes `plugin_load` / `plugin_print` commands, but `plugin_print` showed an empty plugin list. That diagnostic did not prove an arbitrary server plugin loads. Preserve this distinction.
+- Use GitHub Actions and PowerShell for builds; the user explicitly does not want Python for this project. Use the paired Windows computer bridge for actual local inspection/installation. If no paired device is configured, report that exact blocker; never pretend local game files were inspected.
+- Before any mod task, read sdk-foundation README, docs/START_HERE_V34.md, docs/FIRST_V34_PROTOTYPE_TEST.md, relevant source/tests, the integration script and latest build logs. Trace definitions, call sites, hooks, dependencies and runtime evidence before editing.
 
 - SOLO.Chat interface self-maintenance: call \`solo_ui_inspect\` first when asked to inspect or change the live interface; it returns the latest browser-collected DOM geometry, computed styles and overflow/clipping diagnostics (not conversation content). Then read the current \`web-chat/public/index.html\`, make a focused edit with \`solo_ui_write_file\`, add regression tests, and verify exact-SHA CI/deployment. The UI editor only changes the public interface directory.
 - SOLO.Chat interface self-maintenance: use the dedicated solo_ui_write_file tool for changes to web-chat/public/index.html and other public HTML/CSS/JS/JSON UI files in desdesyo/CSS-Bot-Community/github-chat-prototype. This is explicit permission to adjust layout, colors, typography, spacing, responsive/mobile behavior, panels, controls and UI settings without asking the user for each ordinary visual change. Read the current file first, make focused changes, preserve existing behavior, add/update tests, and require passing exact-SHA CI plus successful exact-SHA deployment before reporting completion. The tool is restricted to web-chat/public/ and cannot modify runtime secrets or backend code.
@@ -429,6 +432,33 @@ LEARNING FROM CORRECTIONS
               })
             });
             return textOutput({ written: true, repository, branch, path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url });
+          }
+        },
+        {
+          name: "solo_capability_check",
+          description: "Run a real SOLO.Chat self-diagnostic. Reports registered tools, configured tool-capable AI providers, GitHub write-token presence, paired Windows computer status, Cloudflare quota circuit state, and whether a live UI snapshot exists. Never returns secret values.",
+          parameters: obj({}),
+          replay: "safe",
+          async execute() {
+            const devices = await storage.get<string[]>("computer:devices") || [];
+            const circuit = await storage.get<number>("provider:circuit:workers-ai");
+            const githubToken = env.GITHUB_TOKEN || await storage.get<string>("agent:githubToken");
+            const snapshot = await storage.get<any>("solo:ui:inspection");
+            return textOutput({
+              checkedAt: new Date().toISOString(),
+              registeredTools: agent.registry.snapshot().tools().map(({ tool }) => tool.name),
+              providers: {
+                gemini: Boolean(env.GEMINI_API_KEY),
+                openrouter: Boolean(env.OPENROUTER_API_KEY),
+                openai: Boolean(env.OPENAI_API_KEY),
+                groq: Boolean(env.GROQ_API_KEY),
+                workersAi: true,
+                workersAiQuotaCircuitOpen: Boolean(circuit && circuit > Date.now())
+              },
+              github: { tokenConfigured: Boolean(githubToken), publicRepositoryRead: true, repositoryWrite: Boolean(githubToken) },
+              computer: { paired: devices.length > 0, deviceCount: devices.length },
+              ui: { liveInspectionAvailable: Boolean(snapshot), capturedAt: snapshot?.capturedAt || null }
+            });
           }
         },
         {
