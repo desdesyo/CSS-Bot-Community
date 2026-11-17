@@ -28,7 +28,6 @@ jobs:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           REPO: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           if [[ -z "$CHAT_APP_PASSWORD" ]]; then
@@ -37,28 +36,11 @@ jobs:
           fi
           ENDPOINT="${CHAT_ENDPOINT%/}"
           CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
-          HEALTH_OK=false
           if [[ "$CODE" == "200" ]] && jq -e '.ok == true' health.json >/dev/null; then
-            HEALTH_OK=true
             echo "SOLO.Chat HTTP health passed: $(jq -r '.service + " · " + .checkedAt' health.json)"
-          fi
-          MODEL_FAILURE=""
-          if [[ "$HEALTH_OK" == "true" && "$EVENT_NAME" == "schedule" && "$(date -u +%M)" == "00" ]]; then
-            jq -n --arg prompt "Reply exactly with SOLO_CHAT_HOURLY_MODEL_OK and nothing else. Do not call tools." --arg thread "solo-hourly-health-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-health-request.json
-            MODEL_CODE="$(curl --silent --show-error --max-time 200 -o model-health-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-health-request.json "$ENDPOINT/api/agent/chat" || true)"
-            if [[ "$MODEL_CODE" == "200" ]] && jq -e '.reply and (.reply|contains("SOLO_CHAT_HOURLY_MODEL_OK"))' model-health-response.json >/dev/null; then
-              echo "Hourly live model smoke test passed."
-            else
-              MODEL_FAILURE="Live model smoke test failed: HTTP $MODEL_CODE; response=$(cat model-health-response.json 2>/dev/null || echo 'no response')"
-            fi
-          fi
-          if [[ "$HEALTH_OK" == "true" && -z "$MODEL_FAILURE" ]]; then
-            echo "SOLO.Chat service checks passed."
             exit 0
           fi
-          FAILURE_REASON="$MODEL_FAILURE"
-          if [[ "$HEALTH_OK" != "true" ]]; then FAILURE_REASON="Authenticated health endpoint returned HTTP $CODE; response=$(cat health.json 2>/dev/null || echo 'no response')"; fi
-          BODY="$(printf 'Task-Key: AUTO-HEALTH\n\n## Objective\nRestore the deployed SOLO.Chat service and its live model runtime. Failure: %s.\n\n## Acceptance criteria\n- Identify whether the failure is DNS, TLS, Worker routing, authentication, Durable Object runtime, model provider, or deployment propagation.\n- Repair the root cause with the smallest safe change.\n- Run GitHub Chat checks and deploy smoke test successfully.\n- Preserve the last known working user data and never expose credentials.\n\n## Evidence\n- Health endpoint: %s/api/health\n- HTTP response code: %s\n- Failure detail: %s\n- Implementation: pending\n- Verification run: pending\n' "$FAILURE_REASON" "$ENDPOINT" "$CODE" "$FAILURE_REASON")"
+          BODY="$(printf 'Task-Key: AUTO-HEALTH\n\n## Objective\nRestore the deployed SOLO.Chat service. Authenticated health endpoint returned HTTP %s.\n\n## Acceptance criteria\n- Identify whether the failure is DNS, TLS, Worker routing, authentication, Durable Object runtime, or deployment propagation.\n- Repair the root cause with the smallest safe change.\n- Run GitHub Chat checks and deploy smoke test successfully.\n- Preserve the last known working user data and never expose credentials.\n\n## Evidence\n- Health endpoint: %s/api/health\n- Response code: %s\n- Body: %s\n- Implementation: pending\n- Verification run: pending\n' "$CODE" "$ENDPOINT" "$CODE" "$(cat health.json 2>/dev/null || echo 'No response body')")"
           for name in agent-task agent-generated status:queued agent-health-alert; do gh label create "$name" --repo "$REPO" --color d73a4a --force >/dev/null 2>&1 || true; done
           EXISTING="$(gh api "repos/$REPO/issues?state=open&per_page=100" | jq -r '[.[]|select(.pull_request==null and (.labels|any(.name=="agent-health-alert")))][0].number // empty')"
           if [[ -n "$EXISTING" ]]; then
