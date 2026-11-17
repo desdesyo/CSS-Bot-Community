@@ -6,48 +6,75 @@ on:
   workflow_dispatch:
   issues:
     types: [opened, edited, labeled, unlabeled, closed]
+  workflow_run:
+    workflows: ["CSSBC Agent Orchestrator", "GitHub Chat checks", "Deploy GitHub Chat to Cloudflare"]
+    types: [completed]
 
 permissions:
+  actions: read
   contents: read
   issues: write
 
+concurrency:
+  group: cssbc-agent-supervisor-${{ github.event.issue.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
-  audit:
+  audit-and-review:
     if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'agent-task')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
-        with:
-          script: |
-            const {owner,repo}=context.repo;
-            const names=['agent-task','agent-generated','agent-review-needed','status:queued','status:in-progress','status:review','status:done'];
-            for(const name of names){
-              try{await github.rest.issues.getLabel({owner,repo,name});}
-              catch(e){if(e.status===404) await github.rest.issues.createLabel({owner,repo,name,color:name==='agent-review-needed'?'d73a4a':'1d76db'});else throw e;}
-            }
-            const issues=await github.paginate(github.rest.issues.listForRepo,{owner,repo,state:'open',labels:'agent-task',per_page:100});
-            for(const issue of issues){
-              if(issue.pull_request) continue;
-              const body=issue.body||'';
-              const violations=[];
-              if(!/Task-Key: [A-Z0-9-]+/.test(body)) violations.push('missing Task-Key');
-              if(!/## Objective[\s\S]{10,}/.test(body)) violations.push('missing/empty Objective');
-              if(!/## Acceptance criteria[\s\S]{10,}/.test(body)) violations.push('missing Acceptance criteria');
-              if(!/## Evidence/.test(body)) violations.push('missing Evidence section');
-              const status=issue.labels.map(l=>l.name).filter(n=>n.startsWith('status:'));
-              if(status.length!==1) violations.push('exactly one status:* label required');
-              if(status[0]==='status:done' && (!/Implementation: https?:\/\//.test(body)||!/Verification run: https?:\/\//.test(body))) violations.push('done without implementation + verification links');
-              const marker='<!-- supervisor-audit -->';
-              const report=violations.length ? `${marker}\n### ⚠️ Supervisor audit\n- ${violations.join('\n- ')}\n\nCorrect these items before moving the task forward.` : `${marker}\n### ✅ Supervisor audit\nRequired structure and evidence fields are present. This is a policy check, **not** proof that the implementation is correct.`;
-              const comments=await github.paginate(github.rest.issues.listComments,{owner,repo,issue_number:issue.number,per_page:100});
-              const prior=comments.find(c=>c.body.startsWith(marker));
-              if(!prior || prior.body!==report){
-                if(prior) await github.rest.issues.updateComment({owner,repo,comment_id:prior.id,body:report});
-                else await github.rest.issues.createComment({owner,repo,issue_number:issue.number,body:report});
-              }
-              const has=issue.labels.some(l=>l.name==='agent-review-needed');
-              if(violations.length&&!has) await github.rest.issues.addLabels({owner,repo,issue_number:issue.number,labels:['agent-review-needed']});
-              if(!violations.length&&has) await github.rest.issues.removeLabel({owner,repo,issue_number:issue.number,name:'agent-review-needed'});
-              core.info(`Issue #${issue.number}: ${violations.length?'review needed':'structure OK'}`);
-            }
-            core.notice(`Audited ${issues.length} agent tasks`);
+      - name: Audit task lifecycle and perform independent reviewer pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          NAMES=('agent-task' 'agent-generated' 'agent-review-needed' 'status:queued' 'status:in-progress' 'status:review' 'status:done')
+          for name in "${NAMES[@]}"; do
+            gh label create "$name" --repo "$REPO" --color 1d76db --force >/dev/null 2>&1 || true
+          done
+          ISSUES="$(gh api "repos/$REPO/issues?state=open&labels=agent-task&per_page=100")"
+          echo "$ISSUES" | jq -c '.[] | select(.pull_request==null) | {number,title,body,labels:[.labels[].name]}' | while IFS= read -r row; do
+            NUMBER="$(jq -r .number <<<"$row")"
+            BODY="$(jq -r .body <<<"$row")"
+            LABELS="$(jq -r '.labels[]' <<<"$row")"
+            VIOLATIONS=()
+            grep -Eq 'Task-Key: [A-Z0-9-]+' <<<"$BODY" || VIOLATIONS+=("missing Task-Key")
+            grep -Eq '## Objective[[:space:][:print:]]{10,}' <<<"$BODY" || VIOLATIONS+=("missing/empty Objective")
+            grep -Eq '## Acceptance criteria[[:space:][:print:]]{10,}' <<<"$BODY" || VIOLATIONS+=("missing Acceptance criteria")
+            grep -q '## Evidence' <<<"$BODY" || VIOLATIONS+=("missing Evidence section")
+            STATUS_COUNT="$(grep -Ec '^status:' <<<"$LABELS" || true)"
+            [[ "$STATUS_COUNT" == "1" ]] || VIOLATIONS+=("exactly one status:* label required")
+            if [[ "${#VIOLATIONS[@]}" -gt 0 ]]; then
+              REPORT="### Supervisor audit — review required"$'\n'"- $(printf '%s\n' "${VIOLATIONS[@]}" | paste -sd '; ' -)"
+              gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
+              gh issue comment "$NUMBER" --repo "$REPO" --body "$REPORT" >/dev/null
+              continue
+            fi
+            gh issue edit "$NUMBER" --repo "$REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
+            if grep -qx 'status:review' <<<"$LABELS"; then
+              if [[ -z "$CHAT_ENDPOINT" || -z "$CHAT_APP_PASSWORD" ]]; then
+                gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor AI review skipped: CSSBC_CHAT_ENDPOINT or CSSBC_CHAT_APP_PASSWORD is missing. Structural audit only; this is not an approval." >/dev/null
+                continue
+              fi
+              PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in $REPO. Do not edit files, create commits, open PRs, or change issue labels. Fetch the issue, acceptance criteria, current github-chat-prototype diff/commits, and relevant successful GitHub Actions logs. Check that implementation really meets each criterion, that the exact commit was tested, that no required workflow is queued/failed/skipped, and that the report does not overclaim. Return exactly: VERDICT: PASS or VERDICT: REJECT; then criterion-by-criterion evidence with links; then missing evidence/blockers. If the evidence is insufficient, REJECT. Do not treat your own reasoning as a test."
+              jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" '{prompt:$prompt,threadKey:$thread}' > reviewer.json
+              CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+              if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
+                gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor AI review could not run (HTTP $CODE). Task remains in review; no approval granted." >/dev/null
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
+                continue
+              fi
+              jq -r '.reply' review.json > review-report.md
+              gh issue comment "$NUMBER" --repo "$REPO" --body-file review-report.md >/dev/null
+              if grep -q 'VERDICT: PASS' review-report.md; then
+                gh issue edit "$NUMBER" --repo "$REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
+              else
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
+              fi
+            fi
+          done
+          echo "Supervisor audit finished. AI review is a separate read-only instruction pass; only evidence-backed PASS removes the review-needed label."
