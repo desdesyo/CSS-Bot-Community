@@ -71,6 +71,7 @@ jobs:
           npx wrangler deploy --config wrangler.toml
 
       - name: Verify the deployed Worker health and version
+        id: smoke
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -90,4 +91,29 @@ jobs:
             sleep 5
           done
           echo "::error::Deployed SOLO.Chat did not pass authenticated health check."
+          exit 1
+
+      - name: Automatic rollback if the new version fails its live smoke test
+        id: rollback
+        if: failure() && steps.smoke.outcome == 'failure'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "::warning::New version failed the health check. Rolling back to the previous Cloudflare Worker version."
+          npx wrangler rollback --message "Automatic rollback after SOLO.Chat post-deploy smoke test failure" --config wrangler.toml
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          for attempt in $(seq 1 12); do
+            CODE="$(curl --silent --show-error --max-time 20 -o rollback-health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
+            if [[ "$CODE" == "200" ]] && jq -e '.ok == true' rollback-health.json >/dev/null; then
+              echo "Previous version restored and health check passed."
+              exit 0
+            fi
+            echo "Rollback health attempt $attempt/12 returned HTTP $CODE."
+            sleep 5
+          done
+          echo "::error::Automatic rollback did not restore a healthy endpoint."
           exit 1
