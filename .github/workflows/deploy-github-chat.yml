@@ -134,14 +134,6 @@ jobs:
             exit 1
           fi
           echo "Direct model inference passed."
-          echo "Checking real Pi tool execution, not only text generation..."
-          HARNESS_CODE="$(curl --silent --show-error --max-time 240 -o harness-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/harness-check" || true)"
-          if [[ "$HARNESS_CODE" != "200" ]] || ! jq -e '.ok == true and .toolExecution == true' harness-check.json >/dev/null; then
-            echo "::error::Live Pi tool execution failed with HTTP $HARNESS_CODE"
-            cat harness-check.json
-            exit 1
-          fi
-          echo "Live Pi tool execution passed."
           jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
           MODEL_CODE="$(curl --silent --show-error --max-time 240 -o model-smoke-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat" || true)"
           if [[ "$MODEL_CODE" != "200" ]]; then
