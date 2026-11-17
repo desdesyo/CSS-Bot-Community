@@ -1026,7 +1026,8 @@ LEARNING FROM CORRECTIONS
           { id: "task-generator", label: "Планировщик", workflow: "Agent Task Generator" },
           { id: "health-monitor", label: "Монитор здоровья", workflow: "SOLO.Chat Health Monitor" },
           { id: "model-monitor", label: "Монитор модели", workflow: "SOLO.Chat Model Monitor" },
-          { id: "deploy", label: "Деплой", workflow: "Deploy GitHub Chat to Cloudflare" }
+          { id: "deploy", label: "Деплой", workflow: "Deploy GitHub Chat to Cloudflare" },
+          { id: "e2e", label: "E2E-проверка", workflow: "GitHub Chat live end-to-end test" }
         ].map(role => {
           const run = runs.find(item => item.name === role.workflow);
           return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null };
