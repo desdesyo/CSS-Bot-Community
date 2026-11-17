@@ -173,12 +173,14 @@ jobs:
                 .filename==".github/workflows/deploy-github-chat.yml"
               )
               and
-              (not (
-                .filename=="web-chat/agent-runtime/src/index.ts" and
-                .additions==1 and .deletions==1 and
-                ((.patch // "") | contains("name: \"generate_image\"")) and
-                ((.patch // "") | contains("description: \"Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.\""))
-              ))
+              (
+                (
+                  .filename=="web-chat/agent-runtime/src/index.ts" and
+                  .additions==1 and .deletions==1 and
+                  ((.patch // "") | contains("name: \"generate_image\"")) and
+                  ((.patch // "") | contains("description: \"Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.\""))
+                ) | not
+              )
             )
           ' <<<"$APP_COMPARE")"
           if [[ "$APP_DEPLOY_PENDING" == "true" ]]; then
