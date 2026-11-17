@@ -1088,20 +1088,49 @@ LEARNING FROM CORRECTIONS
           if (labels.includes("status:done")) queue.done++;
           if (labels.includes("agent-review-needed")) queue.reviewNeeded++;
         }
+        const teamRun = runs.find(item => item.name === "CSSBC Agent Orchestrator");
+        let teamSteps: any[] = [];
+        if (teamRun?.id) {
+          try {
+            const jobsResponse = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs/" + teamRun.id + "/jobs?per_page=100", { headers });
+            if (jobsResponse.ok) {
+              const jobsPayload: any = await jobsResponse.json();
+              teamSteps = (jobsPayload.jobs || []).flatMap((job: any) => (job.steps || []).map((step: any) => ({
+                name: step.name, status: step.status || "queued", conclusion: step.conclusion || null,
+                startedAt: step.started_at || null, completedAt: step.completed_at || null,
+                jobName: job.name, jobStatus: job.status, jobConclusion: job.conclusion
+              })));
+            }
+          } catch (_) {}
+        }
+        const stepRole = (id: string, label: string, stepName: string) => {
+          const step = teamSteps.find(item => item.name === stepName);
+          return {
+            id, label, workflow: "CSSBC Agent Orchestrator",
+            status: step?.status || (teamRun?.status === "queued" ? "queued" : "not_started"),
+            conclusion: step?.conclusion || null,
+            url: teamRun?.html_url || null,
+            updatedAt: step?.completedAt || step?.startedAt || teamRun?.updated_at || teamRun?.created_at || null,
+            commit: teamRun?.head_sha || null, branch: teamRun?.head_branch || null
+          };
+        };
         const roles = [
-          { id: "orchestrator", label: "Оркестратор", workflow: "CSSBC Agent Orchestrator" },
-          { id: "tester", label: "Тестировщик", workflow: "GitHub Chat checks" },
-          { id: "supervisor", label: "Контролёр", workflow: "Agent Supervisor Audit" },
-          { id: "task-generator", label: "Планировщик", workflow: "Agent Task Generator" },
+          stepRole("orchestrator", "Агент 1 · Оркестратор", "Agent 1 — Orchestrator plans and delegates"),
+          stepRole("implementer", "Агент 2 · Разработчик", "Agent 2 — Implementer executes the plan"),
+          stepRole("tester", "Агент 3 · Независимый тестировщик", "Agent 3 — Independent tester reviews the implementation"),
+          { id: "supervisor", label: "Агент 4 · Контролёр", workflow: "Agent Supervisor Audit" },
+          { id: "task-generator", label: "Генератор заданий", workflow: "Agent Task Generator" },
           { id: "health-monitor", label: "Монитор здоровья", workflow: "SOLO.Chat Health Monitor" },
           { id: "model-monitor", label: "Монитор модели", workflow: "SOLO.Chat Model Monitor" },
-          { id: "deploy", label: "Деплой", workflow: "Deploy GitHub Chat to Cloudflare" },
-          { id: "e2e", label: "E2E-проверка", workflow: "GitHub Chat live end-to-end test" }
+          { id: "deploy", label: "Автодеплой", workflow: "Deploy GitHub Chat to Cloudflare" },
+          { id: "e2e", label: "E2E-проверка", workflow: "GitHub Chat live end-to-end test" },
+          { id: "ci", label: "CI / сборка", workflow: "GitHub Chat checks" }
         ].map(role => {
+          if (["orchestrator", "implementer", "tester"].includes(role.id)) return role;
           const run = runs.find(item => item.name === role.workflow);
           return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null, branch: run?.head_branch || null };
         });
-        const data = { roles, queue, checkedAt: Date.now(), source: "GitHub Actions + Issues" };
+        const data = { roles, queue, team: { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps }, checkedAt: Date.now(), source: "GitHub Actions runs, job steps and Issues" };
         await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
         return json(data);
       }
