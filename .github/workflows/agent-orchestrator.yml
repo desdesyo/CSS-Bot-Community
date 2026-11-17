@@ -4,22 +4,22 @@ on:
   issues:
     types: [opened, labeled]
   workflow_run:
-    workflows: ["GitHub Chat checks", "CSSBC Core CI"]
+    workflows: ["GitHub Chat checks", "CSSBC Core CI", "Deploy GitHub Chat to Cloudflare"]
     types: [completed]
   workflow_dispatch:
     inputs:
       task:
-        description: Task prompt (optional; otherwise latest queued agent-task issue)
+        description: Task prompt (optional)
         required: false
         type: string
 
 permissions:
   actions: read
   contents: read
-  issues: read
+  issues: write
 
 concurrency:
-  group: cssbc-orchestrator-${{ github.event.workflow_run.id || github.event.issue.number || github.run_id }}
+  group: cssbc-orchestrator-${{ github.event.issue.number || github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +28,8 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        github.event.action == 'opened' &&
-       contains(github.event.issue.labels.*.name, 'agent-task')) ||
+       contains(github.event.issue.labels.*.name, 'agent-task') &&
+       contains(github.event.issue.labels.*.name, 'status:queued')) ||
       (github.event_name == 'issues' &&
        github.event.action == 'labeled' &&
        github.event.label.name == 'status:queued') ||
@@ -37,7 +38,7 @@ jobs:
        github.event.workflow_run.head_branch == 'github-chat-prototype')
     runs-on: ubuntu-latest
     steps:
-      - name: Build task and send to durable LLM agent
+      - name: Dispatch task, track execution and hand off for independent review
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -55,18 +56,40 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             RUN="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
             JOBS="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100")"
-            TASK="CI FAILURE REPAIR. Repo=$REPO branch=$BRANCH run=$(jq -r .html_url <<<"$RUN") commit=$(jq -r .head_sha <<<"$RUN"). Failed jobs/steps: $(jq -c '[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name}]' <<<"$JOBS"). Inspect logs/artifacts, reproduce root cause, edit branch $BRANCH, commit fix, run verification. Never report success without evidence."
+            FAILED="$(jq -c '[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name]}]' <<<"$JOBS")"
+            TASK="AUTOMATIC CI/DEPLOY REPAIR. Repository=$REPO branch=$BRANCH. Failed run=$(jq -r .html_url <<<"$RUN"), commit=$(jq -r .head_sha <<<"$RUN"), run_id=$RUN_ID. Failed jobs and steps: $FAILED. Inspect exact logs, reproduce the failure, fix the root cause on $BRANCH, commit, and run all relevant verification. Never claim success while checks are queued, skipped or failed."
+            ISSUE_NUMBER="$(gh api "repos/$REPO/issues?state=open&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
+            if [[ -z "$ISSUE_NUMBER" ]]; then
+              BODY="$(printf 'Task-Key: AUTO-RUN-%s\n\n## Objective\nRepair failed GitHub Actions run %s on branch %s.\n\n## Acceptance criteria\nThe root cause is identified from logs, a minimal fix is committed, and relevant CI plus deployment smoke checks pass.\n\n## Evidence\n- Failed run: %s\n- Implementation: pending\n- Verification run: pending\n\n## Agent execution contract\nDo not mark done without a successful verification run.\n' "$RUN_ID" "$RUN_ID" "$BRANCH" "$(jq -r .html_url <<<"$RUN")")"
+              ISSUE_URL="$(gh issue create --repo "$REPO" --title "[Self-Heal] Repair failed run $RUN_ID" --body "$BODY" --label agent-task --label agent-generated --label status:queued)"
+              ISSUE_NUMBER="${ISSUE_URL##*/}"
+            fi
           elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK"
           else
             ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
-            TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work on $REPO branch $BRANCH. Inspect, implement, test, commit, and report evidence. Follow acceptance criteria and do not mark done without verified evidence."
+            TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work on $REPO branch $BRANCH. Inspect existing code and instructions, implement the requested outcome, run verification, repair failures, commit changes, and report exact evidence. Do not claim completion without successful tests."
           fi
-          jq -n --arg prompt "$TASK" --arg thread "cssbc-orchestrator" '{prompt:$prompt,threadKey:$thread}' > payload.json
+          if [[ -n "$ISSUE_NUMBER" ]]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "status:queued" --add-label "status:in-progress" || true
+          fi
+          THREAD="cssbc-orchestrator-manual-$GITHUB_RUN_ID"
+          if [[ -n "$ISSUE_NUMBER" ]]; then THREAD="cssbc-orchestrator-issue-$ISSUE_NUMBER"; fi
+          jq -n --arg prompt "$TASK" --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread}' > payload.json
           ENDPOINT="${CHAT_ENDPOINT%/}"
           curl --fail-with-body --silent --show-error --max-time 900 \
             -H "Authorization: Bearer $CHAT_APP_PASSWORD" \
             -H "Content-Type: application/json" \
             --data @payload.json "$ENDPOINT/api/agent/chat" | tee response.json
           jq -e '.reply and (.reply|length>0)' response.json >/dev/null
-          echo "LLM agent returned a non-empty result."
+          REPLY="$(jq -r '.reply' response.json)"
+          if [[ -n "$ISSUE_NUMBER" ]]; then
+            printf '%s\n' "$REPLY" > agent-report.md
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file agent-report.md
+            if grep -Eiq '(^|[^A-Z])BLOCKED([^A-Z]|$)|NOT COMPLETE|не удалось завершить|заблокировано' agent-report.md; then
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "status:review" --add-label "status:in-progress" || true
+            else
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "status:in-progress" --add-label "status:review"
+            fi
+          fi
+          echo "Orchestrator returned a non-empty execution report; issue handed to review when not blocked."
