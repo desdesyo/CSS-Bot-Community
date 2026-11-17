@@ -1444,6 +1444,40 @@ LEARNING FROM CORRECTIONS
     }
   }
 
+  private resolvePreferredPiModel(preferred: { provider?: string; model?: string } | null | undefined): any | null {
+    if (!preferred?.provider) return null;
+    const provider = preferred.provider;
+    const modelId = String(preferred.model || "");
+    if (provider === "openrouter") {
+      const models = this.openrouter.getModels();
+      return models.find(model => model.id === modelId)
+        || models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash"))
+        || models[0] || null;
+    }
+    if (provider === "openai") {
+      const models = this.openai.getModels();
+      return models.find(model => model.id === modelId)
+        || models.find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1"))
+        || models[0] || null;
+    }
+    if (provider === "gemini") {
+      const models = this.google.getModels();
+      return models.find(model => model.id === modelId)
+        || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-flash-latest"))
+        || models[0] || null;
+    }
+    if (provider === "groq") {
+      const models = this.groq.getModels();
+      return models.find(model => model.id === modelId)
+        || models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile"))
+        || models[0] || null;
+    }
+    if (provider === "workers-ai-direct-fallback" || provider === "workers-ai") {
+      return this.ai(modelId || this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash");
+    }
+    return null;
+  }
+
   private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user") {
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
@@ -1459,6 +1493,9 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.put(key, sessionId);
       }
       const session = this.harness.session(sessionId);
+      const preferred = await this.ctx.storage.get<{ provider: string; model: string }>("agent:preferred-tool-model");
+      const preferredModel = this.resolvePreferredPiModel(preferred);
+      if (preferredModel) await session.setModel(preferredModel);
       const receipt = await session.submit(effectivePrompt, { operationId });
       const result = await this.harness.wait(receipt.operationId, { session: sessionId });
       if (result.status === "done") {
@@ -2096,7 +2133,8 @@ LEARNING FROM CORRECTIONS
         await this.requirePassword(req);
         try {
           const result = await this.runDirectModel("Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.");
-          return json({ ok: true, model: result.model, reply: result.reply, provider: result.provider });
+          await this.ctx.storage.put("agent:preferred-tool-model", { provider: result.provider, model: result.model, checkedAt: Date.now() });
+          return json({ ok: true, model: result.model, reply: result.reply, provider: result.provider, preferredToolModelSaved: true });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "Unknown model provider error";
           console.error("[SOLO.Chat] provider-chain model check failed", JSON.stringify({ error: detail }));
