@@ -3,9 +3,6 @@ name: CSSBC Agent Orchestrator
 on:
   issues:
     types: [opened, labeled]
-  workflow_run:
-    workflows: ["GitHub Chat checks", "CSSBC Core CI"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       task:
@@ -32,9 +29,6 @@ jobs:
       (github.event_name == 'issues' &&
        github.event.action == 'labeled' &&
        github.event.label.name == 'status:queued') ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'failure' &&
-       github.event.workflow_run.head_branch == 'github-chat-prototype')
     runs-on: ubuntu-latest
     steps:
       - name: Build task and send to durable LLM agent
@@ -44,23 +38,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
           MANUAL_TASK: ${{ inputs.task }}
-          REPO: ${{ github.repository }}
-          BRANCH: github-chat-prototype
+          REPO: desdesyo/modhaul
+          BRANCH: main
         run: |
           set -euo pipefail
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
           test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD repository secret"; exit 1; }
-          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
-            RUN="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
-            JOBS="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100")"
-            TASK="CI FAILURE REPAIR. Repo=$REPO branch=$BRANCH run=$(jq -r .html_url <<<"$RUN") commit=$(jq -r .head_sha <<<"$RUN"). Failed jobs/steps: $(jq -c '[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name}]' <<<"$JOBS"). Inspect logs/artifacts, reproduce root cause, edit branch $BRANCH, commit fix, run verification. Never report success without evidence."
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK"
           else
-            ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
-            TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work on $REPO branch $BRANCH. Inspect, implement, test, commit, and report evidence. Follow acceptance criteria and do not mark done without verified evidence."
+            ISSUE="$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER")"
+            TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work in workspace $REPO branch $BRANCH. Inspect, implement, test, commit, and report evidence. Follow acceptance criteria and do not mark done without verified evidence."
           fi
           jq -n --arg prompt "$TASK" --arg thread "cssbc-orchestrator" '{prompt:$prompt,threadKey:$thread}' > payload.json
           ENDPOINT="${CHAT_ENDPOINT%/}"
