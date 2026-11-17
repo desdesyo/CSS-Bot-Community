@@ -1469,6 +1469,27 @@ LEARNING FROM CORRECTIONS
           return json({ ok: false, error: detail }, 503);
         }
       }
+      if (url.pathname === "/api/agent/model-check" && req.method === "GET") {
+        await this.requirePassword(req);
+        const modelId = this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash";
+        try {
+          const model = this.ai(modelId, { fallback: ["@cf/google/gemma-4-26b-a4b-it"], requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } });
+          const result: any = await this.ai.complete(model, {
+            messages: [{ role: "user", content: "Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.", timestamp: Date.now() }]
+          });
+          const reply = (Array.isArray(result?.content) ? result.content : [])
+            .filter((part: any) => part?.type === "text")
+            .map((part: any) => String(part.text || ""))
+            .join("")
+            .trim();
+          if (!reply) throw new Error("Model provider returned no text");
+          return json({ ok: true, model: modelId, reply });
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "Unknown model provider error";
+          console.error("[SOLO.Chat] direct model check failed", JSON.stringify({ model: modelId, error: detail }));
+          return json({ ok: false, model: modelId, error: detail }, 502);
+        }
+      }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
@@ -1494,6 +1515,7 @@ LEARNING FROM CORRECTIONS
       return json({ error: "Not found" }, 404);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Request failed";
+      console.error("[SOLO.Chat] API request failed", JSON.stringify({ path: url.pathname, method: req.method, error: message }));
       return json({ error: message === "Unauthorized" ? "Unauthorized" : message }, message === "Unauthorized" ? 401 : 400);
     }
   }
