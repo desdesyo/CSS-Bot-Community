@@ -1,6 +1,8 @@
 name: CSSBC Agent Orchestrator
 
 on:
+  issues:
+    types: [opened, labeled]
   issue_comment:
     types: [created]
   workflow_run:
@@ -102,7 +104,13 @@ jobs:
     concurrency:
       group: cssbc-agent-builder-global
       cancel-in-progress: false
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       contains(github.event.issue.labels.*.name, 'agent-task') &&
+       ((github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'status:queued')) ||
+        (github.event.action == 'labeled' && github.event.label.name == 'status:queued')))
     runs-on: ubuntu-latest
     steps:
       - name: Claim the oldest queued task and execute it with SOLO.Chat
