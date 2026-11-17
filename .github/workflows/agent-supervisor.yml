@@ -78,15 +78,18 @@ jobs:
               CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
               CI_MATCH="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | (. != null and .status=="completed" and .conclusion=="success" and .head_sha==$sha)' <<<"$RUNS")"
               CI_URL="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0].html_url // empty' <<<"$RUNS")"
-              DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
-              DEPLOY_OK="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success")' <<<"$RUNS")"
-              REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE -->"
+              DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
+              CHANGED_FILES="$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '[.files[].filename]')"
+              DEPLOY_REQUIRED="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$CHANGED_FILES")"
+              DEPLOY_MATCH="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success" and .head_sha==$sha)' <<<"$RUNS")"
+              DEPLOY_OK="$([[ "$DEPLOY_REQUIRED" == "false" || "$DEPLOY_MATCH" == "true" ]] && echo true || echo false)"
+              REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE:required=$DEPLOY_REQUIRED -->"
               COMMENTS="$(gh api "repos/$REPO/issues/$NUMBER/comments?per_page=100")"
               if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
                 echo "Supervisor already reviewed this exact code/CI state for issue #$NUMBER."
                 continue
               fi
-              PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in $REPO. Current branch head is $HEAD_SHA. Latest GitHub Chat checks state is $CI_STATE. Latest deployment state is $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Fetch the issue, acceptance criteria, exact current commit diff, and relevant successful GitHub Actions logs. Check that implementation really meets each criterion, that the exact current commit passed GitHub Chat checks, that the latest deployment smoke test succeeded, that no required workflow is queued/failed/skipped, and that the report does not overclaim. Return exactly: VERDICT: PASS or VERDICT: REJECT; then criterion-by-criterion evidence with links; then missing evidence/blockers. If evidence is insufficient, REJECT. Do not treat your own reasoning as a test."
+              PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in $REPO. Current branch head is $HEAD_SHA. Latest GitHub Chat checks state is $CI_STATE. Latest deployment state is $DEPLOY_STATE. Deployment required for this commit=$DEPLOY_REQUIRED and exact deployment match=$DEPLOY_MATCH. Do not edit files, create commits, open PRs, or change issue labels. Fetch the issue, acceptance criteria, exact current commit diff, and relevant successful GitHub Actions logs. Check that implementation really meets each criterion, that the exact current commit passed GitHub Chat checks, that deployment passed for this exact commit whenever web-chat/** changed, and that no required workflow is queued/failed/skipped. Return exactly: VERDICT: PASS or VERDICT: REJECT; then criterion-by-criterion evidence with links; then missing evidence/blockers. If evidence is insufficient, REJECT. Do not treat your own reasoning as a test."
               jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" '{prompt:$prompt,threadKey:$thread}' > reviewer.json
               CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
               if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
@@ -104,7 +107,7 @@ jobs:
               else
                 gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
                 if [[ "$CI_MATCH" != "true" || "$DEPLOY_OK" != "true" ]]; then
-                  gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor gate: current commit CI match=$CI_MATCH; latest deployment success=$DEPLOY_OK. A reviewer PASS cannot override missing, queued, failed or mismatched verification." >/dev/null
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor gate: current commit CI match=$CI_MATCH; deployment required=$DEPLOY_REQUIRED; exact deployment match=$DEPLOY_MATCH. A reviewer PASS cannot override missing, queued, failed or mismatched verification." >/dev/null
                 fi
               fi
             fi
