@@ -26,3 +26,7 @@ class_name = "AgentSession"
 tag = "agent-v1"
 new_sqlite_classes = ["AgentSession"]
 
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "solo-chat-files"
