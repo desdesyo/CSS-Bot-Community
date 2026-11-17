@@ -41,6 +41,7 @@ jobs:
           curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$CHAT_ENDPOINT/api/agent/feedback" > feedback.json
           jq -c '.items[]' feedback.json | while read -r RECORD; do
             ID="$(jq -r '.id' <<<"$RECORD")"
+            TASK_KEY="FEEDBACK-$THREAD-$(printf '%s' "$ID" | tr '[:lower:]' '[:upper:]' | tr -cd 'A-Z0-9-' | cut -c1-16)"
             RATING="$(jq -r '.rating' <<<"$RECORD")"
             THREAD="$(jq -r '.threadId' <<<"$RECORD")"
             OP="$(jq -r '.operationId' <<<"$RECORD")"
@@ -48,7 +49,7 @@ jobs:
             ASSISTANT_TEXT="$(jq -r '.assistantReply' <<<"$RECORD")"
             NOTE="$(jq -r '.note' <<<"$RECORD")"
             TITLE="[SOLO.Chat feedback] $RATING · thread $THREAD"
-            BODY="$(jq -n --arg id "$ID" --arg rating "$RATING" --arg thread "$THREAD" --arg op "$OP" --arg user "$USER_TEXT" --arg answer "$ASSISTANT_TEXT" --arg note "$NOTE" '{body:("Feedback ID: "+$id+"\nRating: "+$rating+"\nThread: "+$thread+"\nOperation: "+$op+"\n\nUSER REQUEST\n"+$user+"\n\nASSISTANT RESPONSE\n"+$answer+"\n\nFEEDBACK / ERROR\n"+$note+"\n\nRequired: reproduce, inspect source and runtime evidence, implement a safe fix, add regression tests, verify. Promote reusable skills only after independent verification on at least two cases. Never expose secrets. Report commit/test evidence.")}' | jq -r '.body')"
+            BODY="$(jq -n --arg task "$TASK_KEY" --arg target "$SOURCE_REPO@github-chat-prototype" --arg id "$ID" --arg rating "$RATING" --arg thread "$THREAD" --arg op "$OP" --arg user "$USER_TEXT" --arg answer "$ASSISTANT_TEXT" --arg note "$NOTE" '{body:("Task-Key: "+$task+"\nAgent-Target: "+$target+"\nFeedback ID: "+$id+"\nRating: "+$rating+"\nThread: "+$thread+"\nOperation: "+$op+"\n\n## Objective\nReproduce and fix this SOLO.Chat user feedback.\n\n## Acceptance criteria\n- Inspect source and runtime evidence.\n- Implement a safe fix and add regression tests.\n- Verify the fix and report commit/test evidence.\n- Promote reusable skills only after independent verification on at least two cases.\n- Never expose secrets.\n\nUSER REQUEST\n"+$user+"\n\nASSISTANT RESPONSE\n"+$answer+"\n\nFEEDBACK / ERROR\n"+$note+"\n\n## Evidence\n- Implementation: pending\n- Verification run: pending")}' | jq -r '.body')"
             ISSUE_URL="$(gh issue create --repo "$SOURCE_REPO" --title "$TITLE" --body "$BODY" --label agent-task --label agent-generated --label agent-feedback --label agent-chat-runtime --label status:queued)"
             curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data "$(jq -n --arg id "$ID" --arg url "$ISSUE_URL" '{id:$id,issueUrl:$url}')" "$CHAT_ENDPOINT/api/agent/feedback/ack" >/dev/null
             echo "- $ID → $ISSUE_URL" >> "$GITHUB_STEP_SUMMARY"
