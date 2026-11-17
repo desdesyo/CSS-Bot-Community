@@ -128,6 +128,24 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD repository secret"; exit 1; }
+          # Do not let the agent team run against an old Worker deployment.
+          APP_HEAD="$(gh api "repos/$SOURCE_REPO/branches/github-chat-prototype" --jq .commit.sha)"
+          APP_RUNS="$(gh api "repos/$SOURCE_REPO/actions/runs?branch=github-chat-prototype&per_page=100")"
+          LAST_GOOD_DEPLOY="$(jq -c '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare" and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$APP_RUNS")"
+          LAST_DEPLOY_SHA="$(jq -r '.head_sha // empty' <<<"$LAST_GOOD_DEPLOY")"
+          if [[ -z "$LAST_DEPLOY_SHA" ]]; then
+            APP_CHANGES='["web-chat/deployment-not-yet-verified"]'
+          elif [[ "$LAST_DEPLOY_SHA" == "$APP_HEAD" ]]; then
+            APP_CHANGES='[]'
+          else
+            APP_CHANGES="$(gh api "repos/$SOURCE_REPO/compare/$LAST_DEPLOY_SHA...$APP_HEAD" --jq '[.files[]?.filename]' || echo '["web-chat/deployment-diff-unavailable"]')"
+          fi
+          APP_DEPLOY_PENDING="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$APP_CHANGES")"
+          if [[ "$APP_DEPLOY_PENDING" == "true" ]]; then
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Agent team paused: latest SOLO.Chat Worker code has not been successfully deployed yet."
+            exit 0
+          fi
           TARGET_REPO="$DEFAULT_REPO"
           TARGET_BRANCH="$DEFAULT_BRANCH"
           ISSUE_NUMBER=""
