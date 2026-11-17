@@ -1296,7 +1296,7 @@ LEARNING FROM CORRECTIONS
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuit = await this.ctx.storage.get<number>("provider:circuit:workers-ai");
     try {
-      if (workersAiCircuit && workersAiCircuit > Date.now()) throw new Error("Workers AI quota circuit is open; bypassing Pi harness");
+      if (workersAiCircuit && workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY) throw new Error("Workers AI quota circuit is open; bypassing Pi harness only because no Gemini tool-capable provider is configured");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
