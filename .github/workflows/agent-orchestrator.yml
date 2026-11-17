@@ -28,7 +28,7 @@ jobs:
        contains(github.event.issue.labels.*.name, 'agent-task')) ||
       (github.event_name == 'issues' &&
        github.event.action == 'labeled' &&
-       github.event.label.name == 'status:queued') ||
+       github.event.label.name == 'status:queued')
     runs-on: ubuntu-latest
     steps:
       - name: Build task and send to durable LLM agent
@@ -39,6 +39,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           MANUAL_TASK: ${{ inputs.task }}
+          SOURCE_REPO: ${{ github.repository }}
           REPO: desdesyo/modhaul
           BRANCH: main
         run: |
@@ -48,7 +49,13 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK"
           else
-            ISSUE="$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER")"
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              ISSUE="$(gh issue list --repo "$SOURCE_REPO" --label agent-task --state open --json number,title,body --limit 1 | jq '.[0]')"
+              test "$ISSUE" != "null" || { echo "::error::No open agent-task issue found"; exit 1; }
+              ISSUE_NUMBER="$(jq -r .number <<<"$ISSUE")"
+            else
+              ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
+            fi
             TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body: $(jq -r .body <<<"$ISSUE"). Work in workspace $REPO branch $BRANCH. Inspect, implement, test, commit, and report evidence. Follow acceptance criteria and do not mark done without verified evidence."
           fi
           jq -n --arg prompt "$TASK" --arg thread "cssbc-orchestrator" '{prompt:$prompt,threadKey:$thread}' > payload.json
