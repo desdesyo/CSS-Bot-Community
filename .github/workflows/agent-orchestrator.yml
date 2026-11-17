@@ -74,7 +74,8 @@ jobs:
             fi
             EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg prefix "[Self-Heal] $RUN_NAME failed (" --arg target "$TARGET_REPO@$TARGET_BRANCH" '[.[]|select(.pull_request==null and (.title|startswith($prefix)) and ((.body//"")|contains("Agent-Target: "+$target)))][0].number // empty')"
             if [[ -n "$EXISTING" ]]; then
-              gh issue comment "$EXISTING" --repo "$SOURCE_REPO" --body "Repeated failure detected. Workflow run: $GITHUB_SERVER_URL/$SOURCE_REPO/actions/runs/$RUN_ID\nBranch: $RUN_BRANCH\nCommit: $RUN_SHA\nFailed jobs/steps: $FAILED"
+              REPEAT_BODY="$(printf 'Repeated failure detected.\nWorkflow run: %s/%s/actions/runs/%s\nBranch: %s\nCommit: %s\n' "$GITHUB_SERVER_URL" "$SOURCE_REPO" "$RUN_ID" "$RUN_BRANCH" "$RUN_SHA")"
+              gh issue comment "$EXISTING" --repo "$SOURCE_REPO" --body "$REPEAT_BODY"
               echo "Aggregated repeated failure run $RUN_ID into issue #$EXISTING."
               continue
             fi
