@@ -108,13 +108,37 @@ button:hover{border-color:rgba(109,231,215,.55)}
 .main{min-width:0;width:100%;overflow:hidden}
 .top,#chatTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:700px){.app{grid-template-columns:minmax(0,1fr)}.side{display:none}}
+
+/* Telegram-inspired contrast, scrollbar and user-selectable wallpaper */
+:root{--wallpaper:#17202b;--wallpaper-alpha:.22;scrollbar-color:rgba(151,190,211,.72) rgba(255,255,255,.045);scrollbar-width:thin}
+*{scrollbar-width:thin;scrollbar-color:rgba(151,190,211,.72) rgba(255,255,255,.045)}
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:12px;margin:5px}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(116,224,211,.78),rgba(183,151,224,.72));border:3px solid transparent;background-clip:padding-box;border-radius:12px;min-height:34px}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(135,245,229,.98),rgba(210,174,255,.95));border:2px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-corner{background:transparent}
+.messages{background-image:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--wallpaper) calc(var(--wallpaper-alpha)*100%),transparent),transparent 76%);background-attachment:local}
+.body{ text-shadow:0 1px 2px rgba(0,0,0,.42),0 0 1px rgba(255,255,255,.12)}
+.msg.user .body{ text-shadow:0 1px 2px rgba(0,0,0,.48)}
+.top{position:relative}
+.theme-tools{display:flex;align-items:center;gap:9px}
+.theme-toggle{font-size:12px;padding:7px 11px;border-radius:10px;background:rgba(31,43,54,.72);border-color:rgba(132,218,211,.32);backdrop-filter:blur(14px)}
+.theme-panel{position:absolute;z-index:4;right:20px;top:56px;width:250px;padding:14px;border:1px solid rgba(133,218,211,.28);border-radius:14px;background:rgba(20,27,38,.94);box-shadow:0 16px 44px rgba(0,0,0,.42);backdrop-filter:blur(20px);display:grid;gap:10px}
+.theme-panel[hidden]{display:none}
+.theme-panel label{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#d8e3e8;font-size:12px}
+.theme-panel input[type=color]{width:46px;height:30px;padding:2px;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:transparent}
+.theme-panel input[type=range]{width:112px;accent-color:#70d9ce}
+.theme-swatches{display:flex;gap:7px}
+.theme-swatches button{width:27px;height:27px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.35)}
+@media(max-width:700px){.theme-panel{right:8px;top:54px}.theme-toggle{font-size:11px;padding:6px 8px}}
+
 .message-actions{opacity:.8;flex-wrap:wrap}.message-actions button.feedback-positive,.message-actions button.feedback-negative{border:1px solid rgba(118,219,211,.18);border-radius:8px;padding:4px 9px;color:#b9cbd0}.message-actions button.feedback-negative:hover{border-color:rgba(255,145,155,.55);color:#ffc0c0}.message-actions button.feedback-positive:hover{border-color:rgba(112,228,209,.55);color:#b5fff0}</style>
 </head>
 <body>
 <div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Закрытый доступ. Введите пароль для входа.</p><input id="password" type="password" placeholder="Пароль" autocomplete="current-password"><label class="remember-device"><input id="rememberDevice" type="checkbox" checked> Запомнить это устройство на 30 дней</label><button id="unlock">Войти</button><p id="gateError" role="alert"></p></div></div>
 <div class="app">
 <aside class="side"><div class="brand"><svg class="brand-mark" viewBox="0 0 48 48" role="img" aria-label="Неоновая пальма"><defs><linearGradient id="palmSunset" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc477"/><stop offset=".52" stop-color="#ff8e9e"/><stop offset="1" stop-color="#c49aff"/></linearGradient></defs><g fill="none" stroke="url(#palmSunset)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 43C25 32 27 22 25 13"/><path d="M25 14C17 5 9 7 5 9c7 1 10 5 13 10-7-4-12-2-15 1 8-1 13 2 18 5"/><path d="M25 14C29 5 37 4 43 6c-6 3-9 7-11 12 6-5 11-4 14-1-7 0-12 4-17 9"/><path d="M24 16C21 9 17 5 12 4c2 5 5 9 10 13"/><path d="M26 16C30 10 35 8 40 8c-3 4-6 7-12 10"/><path d="M8 43h32"/></g><circle cx="25" cy="14" r="2" fill="#fff0d7"/></svg><div class="brand-word">SOLO<span>.Chat</span></div></div><button class="new" id="newChat" aria-label="Создать новый диалог"><span class="new-icon" aria-hidden="true">＋</span><span>Новый диалог</span></button><div class="threads-heading">История диалогов</div><div class="threads" id="threads" aria-label="История диалогов"><div class="threads-empty">Здесь появятся ваши диалоги</div></div><div class="sidefoot">История диалогов сохраняется и доступна для повторного открытия.<br><span id="connection">Нет подключения</span></div></aside>
-<main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">Новый диалог</span></div><div class="status" id="status">Личное пространство</div></header><section class="messages" id="messages"><div class="welcome"><h1>С чего начнём?</h1><div>Сообщения сохраняются автоматически.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Подключить компьютер</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Напишите задачу или вопрос…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">SOLO.Chat поможет с вопросами, исследованиями и работой над проектами.</div></div></main>
+<main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">Новый диалог</span></div><div class="theme-tools"><button type="button" class="theme-toggle" id="themeToggle" aria-expanded="false">◐ Оформление</button><div class="status" id="status">Личное пространство</div></div><div class="theme-panel" id="themePanel" hidden><label>Цвет фона <input type="color" id="wallpaperColor" value="#17202b"></label><label>Прозрачность <input type="range" id="wallpaperAlpha" min="0" max="60" value="22"></label><div class="theme-swatches" aria-label="Готовые цвета"><button type="button" data-wall="#17202b" style="background:#17202b" aria-label="Графитовый"></button><button type="button" data-wall="#183b3a" style="background:#183b3a" aria-label="Бирюзовый"></button><button type="button" data-wall="#38253f" style="background:#38253f" aria-label="Сливовый"></button><button type="button" data-wall="#3b2b25" style="background:#3b2b25" aria-label="Тёплый"></button><button type="button" data-wall="#202c48" style="background:#202c48" aria-label="Синий"></button></div></div></header><section class="messages" id="messages"><div class="welcome"><h1>С чего начнём?</h1><div>Сообщения сохраняются автоматически.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Подключить компьютер</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Напишите задачу или вопрос…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">SOLO.Chat поможет с вопросами, исследованиями и работой над проектами.</div></div></main>
 </div>
 <script>
 const $=id=>document.getElementById(id);let token="",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,activeOperationId=null,attachedFiles=[],webSearchEnabled=false;
@@ -277,6 +301,23 @@ async function send(){
  }
 }
 async function unlock(){const password=$("password").value.trim();try{const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({password,rememberDevice:$("rememberDevice").checked})});const d=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(d.error||"Login failed");token="";$("password").value="";$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
+
+function applyWallpaper(color,alpha){
+ document.documentElement.style.setProperty("--wallpaper",color);
+ document.documentElement.style.setProperty("--wallpaper-alpha",String(alpha/100));
+ $("wallpaperColor").value=color;$("wallpaperAlpha").value=String(alpha);
+ try{localStorage.setItem("solo_wallpaper",JSON.stringify({color,alpha}))}catch(_){}
+}
+(function initWallpaper(){
+ let saved=null;try{saved=JSON.parse(localStorage.getItem("solo_wallpaper")||"null")}catch(_){}
+ applyWallpaper(saved?.color||"#17202b",Number.isFinite(saved?.alpha)?saved.alpha:22);
+ $("themeToggle").onclick=()=>{const panel=$("themePanel"),open=panel.hidden;panel.hidden=!open;$("themeToggle").setAttribute("aria-expanded",String(open))};
+ $("wallpaperColor").addEventListener("input",e=>applyWallpaper(e.target.value,Number($("wallpaperAlpha").value)));
+ $("wallpaperAlpha").addEventListener("input",e=>applyWallpaper($("wallpaperColor").value,Number(e.target.value)));
+ $("themePanel").querySelectorAll("[data-wall]").forEach(b=>b.addEventListener("click",()=>applyWallpaper(b.dataset.wall,Number($("wallpaperAlpha").value))));
+ document.addEventListener("click",e=>{if(!$("themePanel").contains(e.target)&&!$("themeToggle").contains(e.target)){$("themePanel").hidden=true;$("themeToggle").setAttribute("aria-expanded","false")}});
+})();
+
 $("messages").addEventListener("click",e=>{const p=e.target.closest("[data-preview=html]");if(p){const source=p.previousElementSibling?.querySelector("code")?.textContent||"",host=p.nextElementSibling;if(host.hidden){const f=document.createElement("iframe");f.className="html-preview";f.setAttribute("sandbox","allow-scripts");f.title="Изолированный HTML предпросмотр";f.srcdoc=source;host.replaceChildren(f);host.hidden=false;p.textContent="Скрыть HTML-превью"}else{host.hidden=true;host.replaceChildren();p.textContent="Показать HTML-превью"}return}const b=e.target.closest(".copy-code");if(!b)return;const code=b.closest("pre")?.querySelector("code")?.textContent||"";navigator.clipboard?.writeText(code);b.textContent="Скопировано";setTimeout(()=>b.textContent="Копировать код",1200)});$("attach").onclick=()=>$("filePicker").click();$("computerConnect").onclick=async()=>{const b=$("computerConnect"),f=$("toolFeedback");b.disabled=true;try{const d=await api("/api/agent/computer/pair-code",{method:"POST",body:JSON.stringify({})});const msg="Код сопряжения: "+d.code+" (valid 5 minutes). Run: node agent.mjs pair "+location.origin+" "+d.code;f.textContent=msg;try{await navigator.clipboard.writeText(msg)}catch(_){}}catch(e){f.textContent="Computer pairing unavailable: "+e.message}finally{b.disabled=false}};$("myFiles").onclick=()=>{const p=$("fileLibrary");if(p.hidden)loadFileLibrary();else p.hidden=true};$("filePicker").addEventListener("change",e=>uploadSelected([...e.target.files]));$("webSearch").onclick=()=>{webSearchEnabled=!webSearchEnabled;$("webSearch").setAttribute("aria-pressed",String(webSearchEnabled));$("webSearch").textContent="⌕ Поиск в интернете: "+(webSearchEnabled?"on":"off")};$("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
 fetch("/api/health",{credentials:"same-origin"}).then(r=>{if(r.ok){$("gate").style.display="none";loadThreads().then(()=>{if(thread)openThread(thread).catch(()=>{})})}}).catch(()=>{});
 </script>
