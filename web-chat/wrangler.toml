@@ -12,8 +12,8 @@ run_worker_first = ["/api/*"]
 binding = "AI"
 
 [vars]
-GITHUB_WORK_REPO = "desdesyo/CSS-Bot-Community"
-GITHUB_WORK_BRANCH = "github-chat-prototype"
+GITHUB_WORK_REPO = "desdesyo/modhaul"
+GITHUB_WORK_BRANCH = "main"
 PI_MODEL = "@cf/zai-org/glm-4.7-flash"
 
 [[durable_objects.bindings]]
