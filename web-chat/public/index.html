@@ -19,14 +19,14 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1p
 </style>
 </head>
 <body>
-<div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
+<div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><label class="remember-device"><input id="rememberDevice" type="checkbox" checked> Запомнить это устройство на 30 дней</label><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
 <div class="app">
 <aside class="side"><div class="brand">SOLO<span>.Chat</span></div><button class="new" id="newChat">＋ New conversation</button><div class="threads" id="threads"></div><div class="sidefoot">Conversation history is stored securely and can be reopened later.<br><span id="connection">Not connected</span></div></aside>
 <main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">New conversation</span></div><div class="status" id="status">Private workspace</div></header><section class="messages" id="messages"><div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved automatically so the conversation can be reopened later.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Connect computer</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Ask, research, or work with the connected GitHub repository…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">Can answer questions, research, work with the connected repository, and inspect your paired computer.</div></div></main>
 </div>
 <script>
-const $=id=>document.getElementById(id);let token=sessionStorage.getItem("ghchat_password")||"",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,attachedFiles=[],webSearchEnabled=false;
-async function api(path,opts={}){const headers={"Authorization":"Bearer "+token,...opts.headers};if(!(opts.body instanceof FormData))headers["Content-Type"]="application/json";const r=await fetch(path,{...opts,headers});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
+const $=id=>document.getElementById(id);let token="",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,attachedFiles=[],webSearchEnabled=false;
+async function api(path,opts={}){const headers={...opts.headers};if(token)headers["Authorization"]="Bearer "+token;if(!(opts.body instanceof FormData))headers["Content-Type"]="application/json";const r=await fetch(path,{...opts,headers,credentials:"same-origin"});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
 function setStatus(s){$("status").textContent=s}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function inlineMarkdown(s){
@@ -143,7 +143,7 @@ async function send(){
  }catch(e){
   thinking.row.remove();
   if(e.message==="Unauthorized"){
-   token="";sessionStorage.removeItem("ghchat_password");$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";
+   token="";$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";
    addMessage("assistant","**Сессия истекла.** Введите пароль заново.");
   }else{
    addMessage("assistant","**"+(e.message||"Ошибка чата")+"**");
@@ -153,8 +153,8 @@ async function send(){
   busy=false;$("send").disabled=false;$("prompt").focus();
  }
 }
-async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
+async function unlock(){const password=$("password").value.trim();try{const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({password,rememberDevice:$("rememberDevice").checked})});const d=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(d.error||"Login failed");token="";$("password").value="";$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
 $("messages").addEventListener("click",e=>{const b=e.target.closest(".copy-code");if(!b)return;const code=b.closest("pre")?.querySelector("code")?.textContent||"";navigator.clipboard?.writeText(code);b.textContent="Скопировано";setTimeout(()=>b.textContent="Копировать код",1200)});$("attach").onclick=()=>$("filePicker").click();$("computerConnect").onclick=async()=>{const b=$("computerConnect"),f=$("toolFeedback");b.disabled=true;try{const d=await api("/api/agent/computer/pair-code",{method:"POST",body:JSON.stringify({})});const msg="Код сопряжения: "+d.code+" (valid 5 minutes). Run: node agent.mjs pair "+location.origin+" "+d.code;f.textContent=msg;try{await navigator.clipboard.writeText(msg)}catch(_){}}catch(e){f.textContent="Computer pairing unavailable: "+e.message}finally{b.disabled=false}};$("myFiles").onclick=()=>{const p=$("fileLibrary");if(p.hidden)loadFileLibrary();else p.hidden=true};$("filePicker").addEventListener("change",e=>uploadSelected([...e.target.files]));$("webSearch").onclick=()=>{webSearchEnabled=!webSearchEnabled;$("webSearch").setAttribute("aria-pressed",String(webSearchEnabled));$("webSearch").textContent="⌕ Поиск в интернете: "+(webSearchEnabled?"on":"off")};$("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
-if(token){$("password").value=token;unlock()}
+fetch("/api/health",{credentials:"same-origin"}).then(r=>{if(r.ok){$("gate").style.display="none";loadThreads().then(()=>{if(thread)openThread(thread).catch(()=>{})})}}).catch(()=>{});
 </script>
 </body></html>
