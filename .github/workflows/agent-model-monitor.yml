@@ -1,0 +1,56 @@
+name: SOLO.Chat Model Monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: solo-chat-model-monitor
+  cancel-in-progress: false
+
+jobs:
+  model-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live model and queue a repair task if it fails
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$CHAT_APP_PASSWORD" ]]; then
+            echo "::error::Model monitor cannot authenticate because CSSBC_CHAT_APP_PASSWORD is missing."
+            exit 1
+          fi
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          HEALTH_CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
+          MODEL_CODE="not-run"
+          FAILURE=""
+          if [[ "$HEALTH_CODE" != "200" ]] || ! jq -e '.ok == true' health.json >/dev/null 2>&1; then
+            FAILURE="Health endpoint failed: HTTP $HEALTH_CODE; response=$(cat health.json 2>/dev/null || echo 'no response')"
+          else
+            jq -n --arg prompt "Reply exactly with SOLO_CHAT_MODEL_OK and nothing else. Do not call tools." --arg thread "solo-model-monitor-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-request.json
+            MODEL_CODE="$(curl --silent --show-error --max-time 200 -o model-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-request.json "$ENDPOINT/api/agent/chat" || true)"
+            if [[ "$MODEL_CODE" == "200" ]] && jq -e '.reply and (.reply|contains("SOLO_CHAT_MODEL_OK"))' model-response.json >/dev/null 2>&1; then
+              echo "SOLO.Chat live model smoke test passed."
+              exit 0
+            fi
+            FAILURE="Live model request failed: HTTP $MODEL_CODE; response=$(cat model-response.json 2>/dev/null || echo 'no response')"
+          fi
+          for name in agent-task agent-generated agent-chat-runtime agent-model-alert status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$REPO" --color d73a4a --force >/dev/null 2>&1 || true; done
+          EXISTING="$(gh api "repos/$REPO/issues?state=open&per_page=100" | jq -r '[.[]|select(.pull_request==null and (.labels|any(.name=="agent-model-alert")))][0].number // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "Hourly model monitor still failing. Health HTTP $HEALTH_CODE; model HTTP $MODEL_CODE. Detail: $FAILURE. Run: $GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" >/dev/null
+          else
+            BODY="$(printf 'Task-Key: AUTO-MODEL\nAgent-Target: %s@github-chat-prototype\n\n## Objective\nRestore SOLO.Chat live model inference. %s\n\n## Acceptance criteria\n- Diagnose the model provider, Workers AI binding, authentication, Durable Object harness, or routing failure from evidence.\n- Restore a real model response through /api/agent/chat.\n- Run GitHub Chat checks and deployment model smoke test successfully.\n- Do not fabricate a successful reply or expose credentials.\n\n## Evidence\n- Health HTTP: %s\n- Model HTTP: %s\n- Failure: %s\n- Implementation: pending\n- Verification run: pending\n' "$REPO" "$FAILURE" "$HEALTH_CODE" "$MODEL_CODE" "$FAILURE")"
+            gh issue create --repo "$REPO" --title "[Self-Heal] SOLO.Chat model inference failed" --body "$BODY" --label agent-task --label agent-generated --label agent-chat-runtime --label agent-model-alert --label status:queued
+          fi
+          exit 1
