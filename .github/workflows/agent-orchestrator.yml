@@ -154,7 +154,7 @@ jobs:
           else
             APP_CHANGES="$(gh api "repos/$SOURCE_REPO/compare/$LAST_DEPLOY_SHA...$APP_HEAD" --jq '[.files[]?.filename]' || echo '["web-chat/deployment-diff-unavailable"]')"
           fi
-          APP_DEPLOY_PENDING="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$APP_CHANGES")"
+          APP_DEPLOY_PENDING="$(jq -r 'any(.[]; startswith("web-chat/agent-runtime/") or startswith("web-chat/public/") or .=="web-chat/wrangler.toml" or .=="web-chat/package.json" or .=="web-chat/package-lock.json" or .==".github/workflows/deploy-github-chat.yml")' <<<"$APP_CHANGES")"
           if [[ "$APP_DEPLOY_PENDING" == "true" ]]; then
             echo "has_task=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Agent team paused: latest SOLO.Chat Worker code has not been successfully deployed yet."
