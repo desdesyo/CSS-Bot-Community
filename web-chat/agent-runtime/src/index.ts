@@ -27,6 +27,8 @@ interface ComputerTask {
   path: string;
   content?: string;
   expectedSha256?: string;
+  sourceUrl?: string;
+  packageSha256?: string;
   createdAt: number;
 }
 interface BrowserChatJob {
@@ -469,6 +471,27 @@ LEARNING FROM CORRECTIONS
             queue.push(task);
             await storage.put(key, queue);
             return textOutput({ queued: true, deviceId, taskId: task.id, action: "write_text_file", status: "waiting for local approval in the Windows companion", expectedSha256 });
+          }
+        },
+        {
+          name: "computer_install_smx",
+          description: "Install a previously built SourceMod .smx plugin from a GitHub HTTPS URL into the paired CSS game under cstrike/addons/sourcemod/plugins/. Requires the exact SHA-256 of the package and the expected current file hash (or NEW). The local companion downloads only from approved GitHub hosts, verifies the package hash, makes a verified backup, displays the target and hashes, and requires local APPLY approval. This cannot install DLLs or core game binaries.",
+          parameters: obj({ path: str(), sourceUrl: str(), packageSha256: str(), expectedSha256: str() }),
+          replay: "unsafe",
+          async execute({ path, sourceUrl, packageSha256, expectedSha256 }: { path: string; sourceUrl: string; packageSha256: string; expectedSha256: string }) {
+            if (!path || path.length > 256 || path.includes("..") || path.includes("\\\\")) throw new Error("Use a safe relative plugin path under cstrike/addons/sourcemod/plugins/");
+            if (!sourceUrl.startsWith("https://") || !/^[a-f0-9]{64}$/i.test(packageSha256)) throw new Error("A GitHub HTTPS source URL and package SHA-256 are required");
+            if (expectedSha256 !== "NEW" && !/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Provide the exact current plugin SHA-256 or NEW");
+            const devices = await storage.get<string[]>("computer:devices") || [];
+            const deviceId = devices[0];
+            if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to pair the Windows companion first.");
+            const task: ComputerTask = { id: crypto.randomUUID(), action: "install_smx", path, sourceUrl, packageSha256, expectedSha256, createdAt: Date.now() };
+            const key = "computer:queue:" + deviceId;
+            const queue = await storage.get<ComputerTask[]>(key) || [];
+            if (queue.length >= 20) throw new Error("Computer task queue is full");
+            queue.push(task);
+            await storage.put(key, queue);
+            return textOutput({ queued: true, deviceId, taskId: task.id, action: "install_smx", status: "waiting for local download verification and APPLY approval", packageSha256 });
           }
         }
       ]
