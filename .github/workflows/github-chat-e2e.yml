@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: solo-chat-e2e
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   live-chat:
