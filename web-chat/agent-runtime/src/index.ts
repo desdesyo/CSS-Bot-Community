@@ -1592,25 +1592,31 @@ LEARNING FROM CORRECTIONS
     return null;
   }
 
-  private resolveToolModelCandidates(preferred: { provider?: string; model?: string } | null | undefined): any[] {
+  private async resolveToolModelCandidates(preferred: { provider?: string; model?: string } | null | undefined): Promise<any[]> {
     const candidates: any[] = [];
     const add = (model: any) => {
       if (model && !candidates.some(existing => existing.provider === model.provider && existing.id === model.id)) candidates.push(model);
     };
-    add(this.resolvePreferredPiModel(preferred));
-    if (this.env.OPENROUTER_API_KEY) {
+    const circuitOpen = async (provider: string) => {
+      const key = provider === "google" ? "gemini" : provider;
+      const until = await this.ctx.storage.get<number>("provider:circuit:" + key);
+      return Boolean(until && until > Date.now());
+    };
+    const preferredModel = this.resolvePreferredPiModel(preferred);
+    if (preferredModel && !(await circuitOpen(preferredModel.provider || preferred?.provider || ""))) add(preferredModel);
+    if (this.env.OPENROUTER_API_KEY && !(await circuitOpen("openrouter"))) {
       const models = this.openrouter.getModels();
       add(models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || models[0]);
     }
-    if (this.env.OPENAI_API_KEY) {
+    if (this.env.OPENAI_API_KEY && !(await circuitOpen("openai"))) {
       const models = this.openai.getModels();
       add(models.find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1")) || models[0]);
     }
-    if (this.env.GEMINI_API_KEY) {
+    if (this.env.GEMINI_API_KEY && !(await circuitOpen("google"))) {
       const models = this.google.getModels();
       add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-2.5-flash")) || models[0]);
     }
-    if (this.env.GROQ_API_KEY) {
+    if (this.env.GROQ_API_KEY && !(await circuitOpen("groq"))) {
       const models = this.groq.getModels();
       add(models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || models[0]);
     }
@@ -1633,7 +1639,7 @@ LEARNING FROM CORRECTIONS
       }
       const session = this.harness.session(sessionId);
       const preferred = await this.ctx.storage.get<{ provider: string; model: string }>("agent:preferred-tool-model");
-      const modelCandidates = this.resolveToolModelCandidates(preferred);
+      const modelCandidates = await this.resolveToolModelCandidates(preferred);
       const attempts = modelCandidates.length ? modelCandidates : [null];
       let completed = false;
       for (let attempt = 0; attempt < attempts.length; attempt++) {
