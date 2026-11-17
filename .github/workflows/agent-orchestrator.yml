@@ -194,10 +194,13 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect, implement, verify, and report evidence."
           else
-            ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --label agent-health-alert --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"
-            # Prefer user-authored tasks over the generated repair backlog; health alerts remain highest priority.
-            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --search 'is:open label:agent-task label:status:queued -label:agent-generated' --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"; fi
-            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --label agent-generated --sort created --order asc --limit 100 --json number --jq '.[0].number // ""')"; fi
+            # GitHub CLI on the hosted runner does not support --sort/--order for gh issue list.
+            # Fetch the queued issues once and sort deterministically with jq instead.
+            QUEUED_ISSUES="$(gh api "repos/$SOURCE_REPO/issues?state=open&labels=agent-task,status%3Aqueued&per_page=100")"
+            ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and any(.labels[]?; .name=="agent-health-alert"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"
+            # Prefer user-authored tasks over generated repair backlog; health alerts remain highest priority.
+            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and all(.labels[]?; .name!="agent-generated"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"; fi
+            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and any(.labels[]?; .name=="agent-generated"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"; fi
             if [[ -z "$ISSUE_NUMBER" ]]; then echo "has_task=false" >> "$GITHUB_OUTPUT"; echo "No queued agent task; builder is idle."; exit 0; fi
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
