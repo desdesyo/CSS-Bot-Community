@@ -21,6 +21,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: solo-chat-checks
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
