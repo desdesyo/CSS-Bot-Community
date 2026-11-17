@@ -15,7 +15,7 @@ const checks = [
  ["Durable Agent runtime has chat entrypoint", /class .*Agent|async .*chat|onMessage/.test(runtime)],
  ["Live follow-up API endpoint exists", runtime.includes('url.pathname === "/api/chat/followup"')],
  ["Follow-ups trigger an updated generation pass", /pendingFollowups/.test(runtime) && /consumedFollowups/.test(runtime) && /Incorporate them into the task/.test(runtime)],
- ["Follow-up messages are saved in conversation history", /followup: true/.test(runtime) && /thread\.messages\.push/.test(runtime)]
+ ["Follow-up messages are saved in conversation history", /followup: true/.test(runtime) && /thread\.messages\.push/.test(runtime)],
  ["External expert escalation is implemented", /name: "consult_external_expert"/.test(runtime) && /api.openai.com/.test(runtime)],
  ["Persistent skill loading is implemented", /name: "load_learned_skill"/.test(runtime) && /agent-skills/.test(runtime)],
  ["Persistent skill saving is implemented", /name: "save_learned_skill"/.test(runtime) && /status: candidate/.test(runtime)],
