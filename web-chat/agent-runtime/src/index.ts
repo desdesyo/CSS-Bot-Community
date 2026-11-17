@@ -535,7 +535,7 @@ export class AgentSession extends DurableObject<Env> {
         try {
           const repo = String(this.env.GITHUB_WORK_REPO || "");
           const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
-          const files = await github(this.env, "/repos/" + repo + "/contents/web-chat?ref=" + encodeURIComponent(branch));
+          const files = await github(this.env, "/repos/" + repo + "/contents?ref=" + encodeURIComponent(branch));
           return json({ ok: true, repo, branch, files: Array.isArray(files) ? files.map((file: any) => ({ name: file.name, type: file.type })) : [] });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
