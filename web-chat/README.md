@@ -47,6 +47,20 @@ Text chat and durable conversation history use Durable Object storage. User atta
 
 The orchestrator uses the deployed Worker URL `https://cssbc-github-chat.descapan.workers.dev/` and the repository secret `CSSBC_CHAT_APP_PASSWORD`. Deployment copies that password into the Worker as `APP_PASSWORD`; the value is never printed. The live end-to-end workflow checks the authenticated agent route, GitHub workspace access, browser chat, AI replies, and durable history.
 
+## ChatGPT native image-generator bridge (MCP)
+
+SOLO.Chat exposes a narrowly scoped remote MCP Streamable HTTP endpoint at `/mcp`. It publishes one tool, `solo_generate_image`, which calls the same server-side FLUX.2 Pro → FLUX.1 Schnell implementation and private artifact store as SOLO.Chat's own agent. The endpoint does not expose GitHub, file-write, shell, or general agent tools.
+
+- Endpoint: `https://cssbc-github-chat.descapan.workers.dev/mcp`
+- Transport: MCP Streamable HTTP, JSON-RPC 2.0, protocol version `2025-03-26`
+- Authentication: `Authorization: Bearer <APP_PASSWORD>` (the existing SOLO.Chat application password; never put it in a URL or prompt)
+- Tool: `solo_generate_image(prompt, filename?)`
+- Output: provider, quality/fallback details, and an absolute private artifact URL under `/api/files/<id>`
+
+The endpoint requires the same application password as the browser chat and authenticates every request. Keep the MCP connection private; do not publish its bearer credential. Image generation may incur Cloudflare AI usage charges/quotas. The endpoint returns the actual provider error if both FLUX models fail.
+
+**ChatGPT default-use boundary:** exposing an MCP endpoint does not silently add it to a user's ChatGPT tools. A one-time custom-connector/app connection in ChatGPT is still required; after that connection is active, the connector's tool instructions explicitly designate SOLO.Chat as the default image generator. This repository cannot change ChatGPT account settings or activate a connector on the user's behalf.
+
 ## ChatGPT handoff queue
 
 When SOLO.Chat is blocked or needs an independent review, it can call `handoff_to_chatgpt`. The tool writes a sanitized Markdown evidence bundle to `agent-handoffs/pending/` on `github-chat-prototype`, using the existing GitHub Contents write permission. The handoff contains the goal, inspected evidence, attempts, errors and constraints; credentials and secrets are redacted.
