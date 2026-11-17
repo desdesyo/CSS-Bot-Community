@@ -72,7 +72,7 @@ jobs:
               TASK="$MANUAL_TASK"
             else
               ISSUE_NUMBER="$(gh issue list --repo "$REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
-              if [[ -z "$ISSUE_NUMBER" ]]; then echo "No queued agent-task issue exists."; exit 0; fi
+              if [[ -z "$ISSUE_NUMBER" ]]; then echo "has_task=false" >> "$GITHUB_OUTPUT"; echo "No queued agent-task issue exists."; exit 0; fi
               ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
               TASK="MANUAL ORCHESTRATOR DISPATCH: issue #$ISSUE_NUMBER. $(jq -r .title <<<"$ISSUE"). $(jq -r .body <<<"$ISSUE"). Implement, verify, commit, and report evidence."
             fi
@@ -83,6 +83,7 @@ jobs:
           if [[ -n "$ISSUE_NUMBER" ]]; then
             gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label "status:queued" --add-label "status:in-progress" || true
           fi
+          echo "has_task=true" >> "$GITHUB_OUTPUT"
           echo "task<<EOF" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$TASK" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -90,6 +91,7 @@ jobs:
 
       - name: Agent 1 — Orchestrator plans and delegates
         id: planner
+        if: steps.task.outputs.has_task == 'true'
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -107,6 +109,7 @@ jobs:
 
       - name: Agent 2 — Implementer executes the plan
         id: implementer
+        if: steps.task.outputs.has_task == 'true'
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -124,6 +127,7 @@ jobs:
 
       - name: Agent 3 — Independent tester reviews the implementation
         id: tester
+        if: steps.task.outputs.has_task == 'true'
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -150,7 +154,7 @@ jobs:
 
       - name: One bounded repair cycle after tester rejection
         id: repair
-        if: steps.tester.outputs.verdict == 'reject'
+        if: steps.task.outputs.has_task == 'true' && steps.tester.outputs.verdict == 'reject'
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -189,7 +193,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Hand off evidence to independent supervisor
-        if: always() && steps.task.outputs.issue_number != ''
+        if: always() && steps.task.outputs.has_task == 'true' && steps.task.outputs.issue_number != ''
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
