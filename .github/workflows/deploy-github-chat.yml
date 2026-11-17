@@ -107,7 +107,7 @@ jobs:
           jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null
           echo "Live agent dashboard and model inference passed."
           
-      - name: Automatic rollback if the new version fails its live smoke test
+      - name: Automatic rollback if the core health/version check fails
         id: rollback
         if: failure() && steps.smoke.outcome == 'failure'
         env:
