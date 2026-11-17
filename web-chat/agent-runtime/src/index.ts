@@ -1871,32 +1871,11 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agents/status" && req.method === "GET") {
         await this.requirePassword(req);
         const cached = await this.ctx.storage.get<any>("agents:status-cache");
-        if (cached && Date.now() - cached.checkedAt < 300000) return json({ ...cached.data, cached: true });
-        const unavailable = (upstreamStatus: number, reason: string) => {
-          const data = cached?.data || {
-            roles: [
-              { id: "orchestrator", label: "Агент 1 · Оркестратор", status: "unknown" },
-              { id: "implementer", label: "Агент 2 · Разработчик", status: "unknown" },
-              { id: "tester", label: "Агент 3 · Независимый тестировщик", status: "unknown" },
-              { id: "supervisor", label: "Агент 4 · Контролёр", status: "unknown" },
-              { id: "task-generator", label: "Генератор заданий", status: "unknown" },
-              { id: "health-monitor", label: "Монитор здоровья", status: "unknown" },
-              { id: "model-monitor", label: "Монитор модели", status: "unknown" },
-              { id: "deploy", label: "Автодеплой", status: "unknown" },
-              { id: "e2e", label: "Проверка E2E", status: "unknown" }
-            ],
-            queue: null,
-            source: "GitHub Actions + Issues",
-            checkedAt: null
-          };
-          return json({ ...data, stale: true, statusUnavailable: true, upstreamStatus, statusError: reason.slice(0, 240) });
-        };
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
         const githubRead = async (url: string) => {
           let result = await fetch(url, { headers });
-          // The public repository endpoints can still be read without a token when a
-          // fine-grained token lacks Actions/Issues read permission. Retry once anonymously.
+          // Public repository endpoints can be read anonymously when a token lacks read scopes.
           if ((result.status === 401 || result.status === 403) && headers.Authorization) {
             const publicHeaders = { ...headers };
             delete publicHeaders.Authorization;
@@ -1904,21 +1883,28 @@ LEARNING FROM CORRECTIONS
           }
           return result;
         };
-        const response = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100");
-        if (!response.ok) {
-          const detail: any = await response.clone().json().catch(() => ({}));
-          return unavailable(response.status, String(detail.message || "GitHub Actions status unavailable"));
-        }
-        const payload: any = await response.json();
-        const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
-        const issuesResponse = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100");
-        if (!issuesResponse.ok) {
-          const detail: any = await issuesResponse.clone().json().catch(() => ({}));
-          return unavailable(issuesResponse.status, String(detail.message || "GitHub task queue status unavailable"));
-        }
-        const issues: any[] = await issuesResponse.json();
-        const queue = { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 };
-        for (const issue of issues) {
+        const readJson = async (url: string) => {
+          const response = await githubRead(url);
+          if (!response.ok) {
+            const detail: any = await response.clone().json().catch(() => ({}));
+            throw Object.assign(new Error(String(detail.message || "GitHub API request failed")), { status: response.status });
+          }
+          return response.json();
+        };
+        // Fetch the workflow list and task queue independently. A failure in one source
+        // must never erase valid status information from the other.
+        const [runsResult, issuesResult] = await Promise.allSettled([
+          readJson("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100"),
+          readJson("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100")
+        ]);
+        const runsOk = runsResult.status === "fulfilled";
+        const issuesOk = issuesResult.status === "fulfilled";
+        const runs: any[] = runsOk && Array.isArray((runsResult as PromiseFulfilledResult<any>).value.workflow_runs)
+          ? (runsResult as PromiseFulfilledResult<any>).value.workflow_runs : [];
+        const issues: any[] = issuesOk && Array.isArray((issuesResult as PromiseFulfilledResult<any>).value)
+          ? (issuesResult as PromiseFulfilledResult<any>).value : [];
+        const queue = issuesOk ? { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 } : null;
+        if (queue) for (const issue of issues) {
           if (issue.pull_request) continue;
           const labels = (issue.labels || []).map((label: any) => label.name);
           if (labels.includes("status:queued")) queue.queued++;
@@ -1927,50 +1913,79 @@ LEARNING FROM CORRECTIONS
           if (labels.includes("status:done")) queue.done++;
           if (labels.includes("agent-review-needed")) queue.reviewNeeded++;
         }
-        const teamRun = runs.find(item => item.name === "CSSBC Agent Orchestrator" && item.event !== "workflow_run") || runs.find(item => item.name === "CSSBC Agent Orchestrator");
+        const newestRun = (name: string) => runs.find(item => item.name === name);
+        const teamRun = runs.find(item => item.name === "CSSBC Agent Orchestrator" && item.event !== "workflow_run")
+          || newestRun("CSSBC Agent Orchestrator");
         let teamSteps: any[] = [];
-        if (teamRun?.id) {
+        let jobsError: string | null = null;
+        if (teamRun?.id && runsOk) {
           try {
-            const jobsResponse = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs/" + teamRun.id + "/jobs?per_page=100");
-            if (jobsResponse.ok) {
-              const jobsPayload: any = await jobsResponse.json();
-              teamSteps = (jobsPayload.jobs || []).flatMap((job: any) => (job.steps || []).map((step: any) => ({
-                name: step.name, status: step.status || "queued", conclusion: step.conclusion || null,
-                startedAt: step.started_at || null, completedAt: step.completed_at || null,
-                jobName: job.name, jobStatus: job.status, jobConclusion: job.conclusion
-              })));
-            }
-          } catch (_) {}
+            const jobsPayload: any = await readJson("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs/" + teamRun.id + "/jobs?per_page=100");
+            teamSteps = (jobsPayload.jobs || []).flatMap((job: any) => (job.steps || []).map((step: any) => ({
+              name: step.name, status: step.status || "queued", conclusion: step.conclusion || null,
+              startedAt: step.started_at || null, completedAt: step.completed_at || null,
+              jobName: job.name, jobStatus: job.status, jobConclusion: job.conclusion
+            })));
+          } catch (error) {
+            jobsError = String(error instanceof Error ? error.message : error).slice(0, 180);
+          }
         }
         const stepRole = (id: string, label: string, stepName: string) => {
           const step = teamSteps.find(item => item.name === stepName);
+          const fallbackStatus = !teamRun ? "not_started"
+            : ["queued", "pending", "in_progress"].includes(teamRun.status || "") ? teamRun.status
+            : teamRun.status === "completed" ? "not_started" : "unknown";
           return {
             id, label, workflow: "CSSBC Agent Orchestrator",
-            status: step?.status || (["queued", "pending", "in_progress"].includes(teamRun?.status || "") ? "queued" : "not_started"),
-            conclusion: step?.conclusion || null,
+            status: !runsOk ? "unknown" : (step?.status || fallbackStatus),
+            conclusion: step?.conclusion || (step ? null : teamRun?.conclusion || null),
             url: teamRun?.html_url || null,
             updatedAt: step?.completedAt || step?.startedAt || teamRun?.updated_at || teamRun?.created_at || null,
-            commit: teamRun?.head_sha || null, branch: teamRun?.head_branch || null
+            commit: teamRun?.head_sha || null, branch: teamRun?.head_branch || null,
+            detail: jobsError
+          };
+        };
+        const workflowRole = (id: string, label: string, workflow: string, maxAgeMinutes: number) => {
+          const run = runsOk ? newestRun(workflow) : null;
+          return {
+            id, label, workflow,
+            status: !runsOk ? "unknown" : (run?.status || "not_started"),
+            conclusion: run?.conclusion || null, url: run?.html_url || null,
+            updatedAt: run?.updated_at || run?.created_at || null,
+            commit: run?.head_sha || null, branch: run?.head_branch || null,
+            maxAgeMinutes
           };
         };
         const roles = [
           stepRole("orchestrator", "Агент 1 · Оркестратор", "Agent 1 — Orchestrator plans and delegates"),
           stepRole("implementer", "Агент 2 · Разработчик", "Agent 2 — Implementer executes the plan"),
           stepRole("tester", "Агент 3 · Независимый тестировщик", "Agent 3 — Independent tester reviews the implementation"),
-          { id: "supervisor", label: "Агент 4 · Контролёр", workflow: "Agent Supervisor Audit" },
-          { id: "task-generator", label: "Генератор заданий", workflow: "Agent Task Generator" },
-          { id: "health-monitor", label: "Монитор здоровья", workflow: "SOLO.Chat Health Monitor" },
-          { id: "model-monitor", label: "Монитор модели", workflow: "SOLO.Chat Model Monitor" },
-          { id: "deploy", label: "Автодеплой", workflow: "Deploy GitHub Chat to Cloudflare" },
-          { id: "e2e", label: "E2E-проверка", workflow: "GitHub Chat live end-to-end test" },
-          { id: "ci", label: "CI / сборка", workflow: "GitHub Chat checks" }
-        ].map(role => {
-          if (["orchestrator", "implementer", "tester"].includes(role.id)) return role;
-          const run = runs.find(item => item.name === role.workflow);
-          return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null, branch: run?.head_branch || null };
-        });
-        const data = { roles, queue, team: { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps }, checkedAt: Date.now(), source: "GitHub Actions runs, job steps and Issues" };
-        await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
+          workflowRole("supervisor", "Агент 4 · Контролёр", "Agent Supervisor Audit", 300),
+          workflowRole("task-generator", "Генератор заданий", "Agent Task Generator", 150),
+          workflowRole("health-monitor", "Монитор здоровья", "SOLO.Chat Health Monitor", 25),
+          workflowRole("model-monitor", "Монитор модели", "SOLO.Chat Model Monitor", 75),
+          workflowRole("deploy", "Автодеплой", "Deploy GitHub Chat to Cloudflare", 0),
+          workflowRole("e2e", "E2E-проверка", "GitHub Chat live end-to-end test", 0),
+          workflowRole("ci", "CI / сборка", "GitHub Chat checks", 0)
+        ];
+        const sources = {
+          workflows: { ok: runsOk, error: runsResult.status === "rejected" ? String(runsResult.reason?.message || runsResult.reason).slice(0, 240) : null },
+          queue: { ok: issuesOk, error: issuesResult.status === "rejected" ? String(issuesResult.reason?.message || issuesResult.reason).slice(0, 240) : null },
+          teamJobs: { ok: !teamRun || !runsOk ? runsOk : !jobsError, error: jobsError }
+        };
+        const data = {
+          roles, queue, sources,
+          statusUnavailable: !runsOk && !issuesOk,
+          stale: false,
+          team: { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps },
+          checkedAt: Date.now(), source: "GitHub Actions runs, per-run job steps and Issues"
+        };
+        // Cache successful data only. Never let a transient API failure overwrite a
+        // previously useful snapshot, and never serve a five-minute-old snapshot as live.
+        if (runsOk || issuesOk) await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
+        if (!runsOk && !issuesOk && cached?.data) {
+          return json({ ...cached.data, stale: true, statusUnavailable: true, sources, checkedAt: cached.checkedAt });
+        }
         return json(data);
       }
       if (url.pathname === "/api/memory/status" && req.method === "GET") {
