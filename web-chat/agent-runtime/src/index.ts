@@ -19,6 +19,7 @@ interface Env {
   MCP_ALLOWED_HOSTS?: string;
   BRAVE_SEARCH_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  CHAT_MODEL?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
   CF_VERSION_METADATA?: { id: string; tag?: string; timestamp?: string };
@@ -980,8 +981,34 @@ LEARNING FROM CORRECTIONS
   }
 
   private async runDirectModel(prompt: string) {
-    const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
     const failures: string[] = [];
+    if (this.env.OPENAI_API_KEY) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: this.env.CHAT_MODEL || "gpt-4.1",
+            store: false,
+            instructions: "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.",
+            input: prompt
+          })
+        });
+        const data: any = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error("OpenAI API " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 400));
+        const reply = (data.output || []).flatMap((item: any) => item.content || [])
+          .filter((item: any) => item.type === "output_text")
+          .map((item: any) => String(item.text || ""))
+          .join("\n").trim();
+        if (reply) return { reply, model: this.env.CHAT_MODEL || "gpt-4.1", provider: "openai" };
+        throw new Error("OpenAI returned no text");
+      } catch (error) {
+        failures.push("OpenAI: " + String(error instanceof Error ? error.message : error).slice(0, 450));
+      }
+    } else {
+      failures.push("OpenAI: CSSBC_OPENAI_API_KEY is not configured");
+    }
+    const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
     for (const modelId of modelIds) {
       try {
         const result: any = await this.env.AI.run(modelId as any, {
@@ -989,7 +1016,7 @@ LEARNING FROM CORRECTIONS
           max_tokens: 4096
         } as any);
         const reply = String(result?.response || result?.output_text || result?.text || "").trim();
-        if (reply) return { reply, model: modelId };
+        if (reply) return { reply, model: modelId, provider: "workers-ai" };
         failures.push(modelId + ": provider returned empty text");
       } catch (error) {
         failures.push(modelId + ": " + String(error instanceof Error ? error.message : error).slice(0, 350));
@@ -1026,7 +1053,7 @@ LEARNING FROM CORRECTIONS
     const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + prompt;
     try {
       const fallback = await this.runDirectModel(fallbackPrompt);
-      return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
+      return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
       throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
