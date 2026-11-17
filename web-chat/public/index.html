@@ -264,6 +264,7 @@ async function send(){
   setStatus("Готово · #"+thread);
  }catch(e){
   thinking.row.remove();
+  if(thread){try{await api("/api/feedback/error",{method:"POST",body:JSON.stringify({operationId,threadId:thread,userMessage:message,error:e.message||"Unknown chat error"})})}catch(_){}}
   if(e.message==="Unauthorized"){
    token="";$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";
    addMessage("assistant","**Сессия истекла.** Введите пароль заново.");
