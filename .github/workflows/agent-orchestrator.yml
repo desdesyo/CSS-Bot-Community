@@ -90,6 +90,7 @@ jobs:
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           COMMENT_BODY: ${{ github.event.comment.body }}
@@ -136,6 +137,10 @@ jobs:
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
             ISSUE_LABELS="$(jq -r '.labels[].name' <<<"$ISSUE")"
+            if [[ "$EVENT_NAME" == "issues" ]] && { grep -qx 'status:in-progress' <<<"$ISSUE_LABELS" || grep -qx 'status:review' <<<"$ISSUE_LABELS" || grep -qx 'status:done' <<<"$ISSUE_LABELS"; }; then
+              echo "Issue #$ISSUE_NUMBER has already been claimed or completed; ignoring duplicate issue event."
+              exit 0
+            fi
             TARGET_LINE="$(grep -m1 '^Agent-Target:' <<<"$ISSUE_BODY" | cut -d' ' -f2- || true)"
             if [[ -n "$TARGET_LINE" && "$TARGET_LINE" == *@* ]]; then
               TARGET_REPO="${TARGET_LINE%@*}"; TARGET_BRANCH="${TARGET_LINE##*@}"
