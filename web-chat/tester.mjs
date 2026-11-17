@@ -127,6 +127,7 @@ const checks = [
  [ "New conversations are explicitly user-owned", runtime.includes('createdBy: "user"') && runtime.includes('visibility: "private"')],
  [ "Agent/internal conversations are hidden from the user thread list", runtime.includes('item.createdBy && item.createdBy !== "user"') && runtime.includes('item.origin === "agent"') && runtime.includes('item.visibility === "internal"')],
  [ "Exact duplicate conversations are pruned with memory indexes", runtime.includes("duplicatesRemoved") && runtime.includes("memory:indexed:")],
+ [ "Duplicate cleanup skips unfinished conversations", runtime.includes('signatureSource[signatureSource.length - 1].role === "assistant"')],
  [ "Search history can be cleared without deleting conversations", runtime.includes('url.pathname === "/api/search-history"') && runtime.includes('"search:history:"') && html.includes('id="clearSearchHistory"') && html.includes('api("/api/search-history",{method:"DELETE"})')],
 ];
 let failed=0;
