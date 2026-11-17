@@ -109,7 +109,7 @@ const checks = [
  ["Primary and fallback model requests have bounded retries and timeouts", runtime.includes("maxAttempts: 3") && runtime.includes("requestTimeoutMs: 120000")],
  ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", runtime.includes("const fileBuffer = new ArrayBuffer(bytes.byteLength)") && runtime.includes("new File([fileBuffer]")],
  ["Model operation failures log operation identifiers and return a localized diagnostic", runtime.includes("[SOLO.Chat] AI operation failed") && runtime.includes("Не удалось получить ответ от ИИ-модели")],
- ["Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes('status == "done"')],
+ ["Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes('[[ "$STATUS" == "done" ]]')],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
