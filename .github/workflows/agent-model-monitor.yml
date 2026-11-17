@@ -21,7 +21,7 @@ jobs:
       - name: Verify live model and queue a repair task if it fails
         env:
           GH_TOKEN: ${{ github.token }}
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           REPO: ${{ github.repository }}
         run: |
