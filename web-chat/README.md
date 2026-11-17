@@ -31,8 +31,8 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 
 Worker variables in `wrangler.toml`:
 
-- `GITHUB_WORK_REPO` — repository the agent's GitHub tools can access.
-- `GITHUB_WORK_BRANCH` — branch used by those tools.
+- `GITHUB_WORK_REPO` — `desdesyo/modhaul`, the repository the agent's GitHub tools can access.
+- `GITHUB_WORK_BRANCH` — `main`, the branch used by those tools.
 - `GITHUB_WORK_ROOT` — optional path restriction.
 - `PI_MODEL` — Workers AI model identifier.
 
