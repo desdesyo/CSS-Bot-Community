@@ -48,6 +48,9 @@ const checks = [
  [ "Image previews are rendered in chat history", /className="message-image"/.test(html) && /\?inline=1/.test(html)],
  [ "Paired computer can create/edit local text files only through the approval-gated tool", runtime.includes('name: "computer_write_text_file"') && runtime.includes('expectedSha256') && runtime.includes('status: "waiting for local approval in the Windows companion"')],
  [ "Local computer writes require exact SHA-256 and 256 KB bound", /new TextEncoder\(\)\.encode\(content\)\.length > 256 \* 1024/.test(runtime) && /expectedSha256 !== "NEW"/.test(runtime)],
+ [ "SourceMod plugin install tool is restricted to approved GitHub sources and plugin path", runtime.includes('name: "computer_install_smx"') && runtime.includes("packageSha256") && runtime.includes("cstrike/addons/sourcemod/plugins/")],
+ [ "Local task schema includes SourceMod plugin install", /"install_smx"/.test(runtime) && /status: "waiting for local download verification and APPLY approval"/.test(runtime)],
+
  [ "Computer task results can be polled after local approval", runtime.includes('name: "computer_task_result"') && runtime.includes('"computer:result:" + taskId')],
  [ "Cross-chat continuity and canonical SOLO.Chat URL are in the agent prompt", runtime.includes("CROSS-CHAT CONTINUITY — ABSOLUTE REQUIREMENT") && runtime.includes("https://cssbc-github-chat.descapan.workers.dev/")],
 
