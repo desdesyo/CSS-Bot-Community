@@ -979,25 +979,48 @@ LEARNING FROM CORRECTIONS
     return { files, context: sections.join("\n\n") };
   }
 
+  private async runDirectModel(prompt: string) {
+    const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
+    const failures: string[] = [];
+    for (const modelId of modelIds) {
+      try {
+        const result: any = await this.env.AI.run(modelId as any, {
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 4096
+        } as any);
+        const reply = String(result?.response || result?.output_text || result?.text || "").trim();
+        if (reply) return { reply, model: modelId };
+        failures.push(modelId + ": provider returned empty text");
+      } catch (error) {
+        failures.push(modelId + ": " + String(error instanceof Error ? error.message : error).slice(0, 350));
+      }
+    }
+    throw new Error("Workers AI direct fallback failed: " + failures.join(" | "));
+  }
+
   private async runChat(threadKey: string, prompt: string, operationId: string) {
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
-    let sessionId = await this.ctx.storage.get<string>(key);
-    if (!sessionId) {
-      const session = await this.harness.sessions.create();
-      sessionId = session.id;
-      await this.ctx.storage.put(key, sessionId);
+    let sessionId = await this.ctx.storage.get<string>(key) || "";
+    try {
+      if (!sessionId) {
+        const session = await this.harness.sessions.create();
+        sessionId = session.id;
+        await this.ctx.storage.put(key, sessionId);
+      }
+      const session = this.harness.session(sessionId);
+      const receipt = await session.submit(prompt, { operationId });
+      const result = await this.harness.wait(receipt.operationId, { session: sessionId });
+      if (result.status === "done") {
+        const reply = String(result.text || "").trim();
+        if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
+      }
+      const reason = String(result.reason || result.status || "empty assistant response");
+      console.error("[SOLO.Chat] AI operation failed; trying direct Workers AI fallback", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
+    } catch (error) {
+      console.error("[SOLO.Chat] agent harness failed; trying direct Workers AI fallback", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
     }
-    const session = this.harness.session(sessionId);
-    const receipt = await session.submit(prompt, { operationId });
-    const result = await this.harness.wait(receipt.operationId, { session: sessionId });
-    if (result.status !== "done") {
-      const reason = String(result.reason || result.status);
-      console.error("[SOLO.Chat] AI operation failed", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
-      throw new Error("Не удалось получить ответ от ИИ-модели: " + reason + ". Проверьте доступность основной и резервной модели Workers AI.");
-    }
-    const reply = String(result.text || "").trim();
-    if (!reply) throw new Error("AI operation completed without assistant text");
-    return { reply, status: result.status, operationId: receipt.operationId, sessionId };
+    const fallback = await this.runDirectModel(prompt);
+    return { reply: fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
   }
   private async requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
@@ -1473,21 +1496,23 @@ LEARNING FROM CORRECTIONS
         await this.requirePassword(req);
         const modelId = this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash";
         try {
-          const model = this.ai(modelId, { fallback: ["@cf/google/gemma-4-26b-a4b-it"], requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } });
-          const result: any = await this.ai.complete(model, {
-            messages: [{ role: "user", content: "Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.", timestamp: Date.now() }]
-          });
-          const reply = (Array.isArray(result?.content) ? result.content : [])
-            .filter((part: any) => part?.type === "text")
-            .map((part: any) => String(part.text || ""))
-            .join("")
-            .trim();
-          if (!reply) throw new Error("Model provider returned no text");
-          return json({ ok: true, model: modelId, reply });
+          const result: any = await this.env.AI.run(modelId as any, {
+            messages: [{ role: "user", content: "Reply exactly with SOLO_CHAT_MODEL_OK and nothing else." }],
+            max_tokens: 64
+          } as any);
+          const reply = String(result?.response || result?.output_text || result?.text || "").trim();
+          if (!reply) throw new Error("Workers AI returned no text: " + JSON.stringify(result).slice(0, 700));
+          return json({ ok: true, model: modelId, reply, provider: "workers-ai-binding" });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "Unknown model provider error";
           console.error("[SOLO.Chat] direct model check failed", JSON.stringify({ model: modelId, error: detail }));
-          return json({ ok: false, model: modelId, error: detail }, 502);
+          try {
+            const fallback = await this.runDirectModel("Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.");
+            return json({ ok: true, model: fallback.model, reply: fallback.reply, provider: "workers-ai-binding-fallback", primaryError: detail.slice(0, 300) });
+          } catch (fallbackError) {
+            const fallbackDetail = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+            return json({ ok: false, model: modelId, error: detail, fallbackError: fallbackDetail.slice(0, 700) }, 502);
+          }
         }
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
