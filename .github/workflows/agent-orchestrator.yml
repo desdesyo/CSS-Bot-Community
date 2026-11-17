@@ -62,7 +62,7 @@ jobs:
             if [[ -z "$ISSUE_NUMBER" ]]; then
               for name in agent-task agent-generated status:queued status:in-progress status:review; do gh label create "$name" --repo "$REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
               BODY="$(printf 'Task-Key: AUTO-RUN-%s\n\n## Objective\nRepair failed GitHub Actions run %s on branch %s.\n\n## Acceptance criteria\nThe root cause is identified from logs, a minimal fix is committed, and relevant CI plus deployment smoke checks pass.\n\n## Evidence\n- Failed run: %s\n- Implementation: pending\n- Verification run: pending\n\n## Agent execution contract\nDo not mark done without a successful verification run.\n' "$RUN_ID" "$RUN_ID" "$BRANCH" "$(jq -r .html_url <<<"$RUN")")"
-              ISSUE_URL="$(gh issue create --repo "$REPO" --title "[Self-Heal] Repair failed run $RUN_ID" --body "$BODY" --label agent-task --label agent-generated --label status:queued)"
+              ISSUE_URL="$(gh issue create --repo "$REPO" --title "[Self-Heal] Repair failed run $RUN_ID" --body "$BODY" --label agent-task --label agent-generated --label status:in-progress)"
               ISSUE_NUMBER="${ISSUE_URL##*/}"
             fi
           elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
