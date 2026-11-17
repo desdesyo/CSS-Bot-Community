@@ -1019,8 +1019,13 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       console.error("[SOLO.Chat] agent harness failed; trying direct Workers AI fallback", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
     }
-    const fallback = await this.runDirectModel(prompt);
-    return { reply: fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
+    try {
+      const fallback = await this.runDirectModel(prompt);
+      return { reply: fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
+    } catch (error) {
+      const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
+      throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
+    }
   }
   private async requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
