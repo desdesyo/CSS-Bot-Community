@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 const worker = await readFile(new URL("./worker.js", import.meta.url), "utf8");
 const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./agent-runtime/src/index.ts", import.meta.url), "utf8");
+const wrangler = await readFile(new URL("./wrangler.toml", import.meta.url), "utf8");
+const deploy = await readFile(new URL("../.github/workflows/deploy-github-chat.yml", import.meta.url), "utf8");
 const checks = [
  ["Feature-branch orchestrator runs the same isolated three-agent team for issue and workflow events", (await readFile(new URL("../.github/workflows/agent-orchestrator.yml", import.meta.url), "utf8")).includes("Agent 1 — Orchestrator plans and delegates") && (await readFile(new URL("../.github/workflows/agent-orchestrator.yml", import.meta.url), "utf8")).includes("Agent 2 — Implementer executes the plan") && (await readFile(new URL("../.github/workflows/agent-orchestrator.yml", import.meta.url), "utf8")).includes("Agent 3 — Independent tester reviews the implementation")],
  ["Default-branch supervisor runs in a dedicated read-only role and checks exact deployment SHA", (await readFile(new URL("../.github/workflows/agent-supervisor.yml", import.meta.url), "utf8")).includes('agentRole:$role') && (await readFile(new URL("../.github/workflows/agent-supervisor.yml", import.meta.url), "utf8")).includes("DEPLOY_MATCH") && (await readFile(new URL("../.github/workflows/agent-supervisor.yml", import.meta.url), "utf8")).includes(".head_sha==$sha")],
@@ -24,6 +26,7 @@ const checks = [
  ["Worker validates APP_PASSWORD", /async function auth\(req,env\)[\s\S]*?safeEqual\(h,"Bearer "\+env\.APP_PASSWORD\)/.test(worker)],
  ["Health endpoint exists", /\/api\/health/.test(worker)],
  ["Worker runtime exposes immutable Cloudflare version metadata", runtime.includes('url.pathname === "/api/version"') && runtime.includes("CF_VERSION_METADATA")],
+ ["Durable Object code updates preserve in-flight sessions and deployment waits before smoke testing", wrangler.includes("[durable_objects.code_update_strategy]") && wrangler.includes('mode = "deferred"') && wrangler.includes("max_delay = 300") && deploy.includes("sleep 305")],
  ["Agent dashboard reports real GitHub Actions workflow states", runtime.includes('url.pathname === "/api/agents/status"') && runtime.includes("CSSBC Agent Orchestrator") && runtime.includes("Agent Supervisor Audit") && runtime.includes("GitHub Chat checks") && runtime.includes("SOLO.Chat Health Monitor") && runtime.includes("SOLO.Chat Model Monitor") && runtime.includes("GitHub Chat live end-to-end test")],
  ["Agent dashboard caches status for five minutes and returns an explicit degraded state on GitHub API errors", runtime.includes('Date.now() - cached.checkedAt < 300000') && runtime.includes('statusUnavailable: true') && runtime.includes('upstreamStatus')],
  ["Agent dashboard does not fabricate healthy agent or empty-queue states when GitHub status is unavailable", runtime.includes('status: "unknown"') && runtime.includes('queue: null') && html.includes('Статус недоступен') && html.includes('Очередь задач: недоступна')],
