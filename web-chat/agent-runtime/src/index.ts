@@ -1051,7 +1051,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/files"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/files"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
