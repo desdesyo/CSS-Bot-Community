@@ -5,8 +5,11 @@ const html = await readFile(new URL("./public/index.html", import.meta.url), "ut
 const runtime = await readFile(new URL("./agent-runtime/src/index.ts", import.meta.url), "utf8");
 const wrangler = await readFile(new URL("./wrangler.toml", import.meta.url), "utf8");
 const deploy = await readFile(new URL("../.github/workflows/deploy-github-chat.yml", import.meta.url), "utf8");
+const e2e = await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8");
 const projectSkill = await readFile(new URL("../agent-skills/css-v34-project-context.md", import.meta.url), "utf8");
 const checks = [
+ ["GitHub workspace diagnostic accepts a request-scoped Actions token without persisting it", runtime.includes('req.method === "GET" || req.method === "POST"') && runtime.includes("supplied.githubToken || this.env.GITHUB_TOKEN") && runtime.includes('credentialSource: supplied.githubToken ? "request-scoped GitHub Actions token"') && runtime.includes("}, token)")],
+ ["Live E2E proves GitHub Contents writes with a short-lived least-privilege workflow token", e2e.includes("contents: write") && e2e.includes("GH_TOKEN: ${{ github.token }}") && e2e.includes("github-check-request.json") && e2e.includes("--data @github-check-request.json")],
  ["Public GitHub repositories remain readable without a Worker token, while all GitHub mutations require authentication", runtime.includes('if (!token && !["GET", "HEAD"].includes(method))') && runtime.includes('GitHub write access is not configured') && runtime.includes('if (token) headers.Authorization = "Bearer " + token')],
  ["Interrupted Durable Object chat jobs are recovered once instead of remaining stuck in running/finalizing forever", runtime.includes("A Durable Object can be evicted while an alarm-driven request is in flight") && runtime.includes("stale.status = \"queued\"") && runtime.includes("stale.attempts = Number(stale.attempts || 0) + 1") && runtime.includes("exhausted recovery")],
  ["Pi harness registers Gemini, OpenRouter, OpenAI and Groq as tool-capable providers", runtime.includes('openrouterProvider') && runtime.includes('openaiProvider') && runtime.includes('groqProvider') && runtime.includes('models.setProvider(this.openrouter)') && runtime.includes('models.setProvider(this.openai)') && runtime.includes('models.setProvider(this.groq)')],
