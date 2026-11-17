@@ -37,7 +37,8 @@ const checks = [
  ["Sidebar has an explicit empty state", /Здесь появятся ваши диалоги/.test(html)],
  ["Sidebar history buttons have accessible labels", /setAttribute\("aria-label","Открыть "\+label\)/.test(html)],
 
- [ "File upload endpoint is authenticated and backed by private KV", /url\.pathname === "\/api\/files" && req\.method === "POST"/.test(runtime) && /this.env.FILES.put\("files\/" \+ id/.test(runtime)],
+ [ "File upload endpoint is authenticated and backed by Durable Object storage", /url\.pathname === "\/api\/files" && req\.method === "POST"/.test(runtime) && /this.env.FILES.put\("files\/" \+ id/.test(runtime)],
+ [ "Uploads are chunked and bounded to 15 MB", /chunkSize = 64 \\* 1024/.test(runtime) && /file.size > 15 \\* 1024 \\* 1024/.test(runtime)],
  [ "File download and deletion routes are available", /url\.pathname\.startsWith\("\/api\/files\/"\)/.test(runtime) && /method === "DELETE"/.test(runtime)],
  [ "Chat accepts uploaded file IDs", /const fileIds = Array\.isArray\(body\.files\)/.test(runtime) && /prepareAttachments\(fileIds\)/.test(runtime)],
  [ "Image attachments are analyzed with Workers AI vision", runtime.includes("@cf/mistralai/mistral-small-3.1-24b-instruct") && runtime.includes('type: "image_url"') && runtime.includes('data:" + type + ";base64,"')],
