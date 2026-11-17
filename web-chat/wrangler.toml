@@ -1,4 +1,4 @@
-name = "cssbc-github-chat"
+name = "solo"
 main = "agent-runtime/src/index.ts"
 compatibility_date = "2026-11-14"
 compatibility_flags = ["nodejs_compat"]
