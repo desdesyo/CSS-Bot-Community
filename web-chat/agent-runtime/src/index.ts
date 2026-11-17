@@ -829,7 +829,7 @@ LEARNING FROM CORRECTIONS
           return new Response(stored.bytes, {
             headers: {
               "Content-Type": type,
-              "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + safeName + '"; filename*=UTF-8'' + encodeURIComponent(name),
+              "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + safeName + '"; filename*=UTF-8' + "''" + encodeURIComponent(name),
               "Cache-Control": "private, no-store",
               "X-Content-Type-Options": "nosniff"
             }
