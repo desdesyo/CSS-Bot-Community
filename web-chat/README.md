@@ -166,3 +166,18 @@ The workflow is an **external autonomous repair loop**, not a push into the curr
 - The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev/`.
 - Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
 - Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
+
+
+## Free ChatGPT Web bridge (Windows desktop)
+
+The remote MCP endpoint is Streamable HTTP, while the community Web MCP Bridge starts local tools over stdio. This repository includes a small Node.js 20+ adapter at `mcp-bridge/solo-mcp-stdio.mjs` that forwards only the existing `solo_generate_image` tool to the remote endpoint.
+
+1. Install the open-source [Web MCP Bridge](https://github.com/AstraxOf/web-mcp-bridge) in desktop Chrome, Edge or Brave. Its Python bridge is required by that extension; this adapter itself uses Node.js only.
+2. Copy `mcp-bridge/solo-mcp-bridge.local.example.json` to `mcp-bridge/solo-mcp-bridge.local.json` and enter the existing SOLO.Chat app password in that local file. Never commit or send that password.
+3. Add one server to Web MCP Bridge's `server/servers.json` (replace the path with the actual absolute path):
+   ```json
+   { "name": "solo-chat", "port": 8082, "command": ["node", "C:/PATH/TO/web-chat/mcp-bridge/solo-mcp-stdio.mjs"] }
+   ```
+4. Keep the permission at **Ask every time**. In ChatGPT Web, inject the bridge instructions and ask it to generate an image using `solo-chat`.
+
+The bridge is a community extension, not an OpenAI feature. It requires a desktop browser and the extension running locally; it does not work in the ChatGPT Android app. The adapter only exposes the SOLO.Chat image tool and forwards its result. It does not expose GitHub, shell, filesystem or other SOLO.Chat tools.
