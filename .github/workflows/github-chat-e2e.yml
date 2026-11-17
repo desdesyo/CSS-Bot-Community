@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: solo-chat-e2e
@@ -28,6 +28,7 @@ jobs:
         env:
           CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
@@ -43,11 +44,12 @@ jobs:
           echo "2/5 Verify GitHub workspace credentials and repository access..."
           echo "Target workspace: desdesyo/CSS-Bot-Community@github-chat-prototype"
           GITHUB_WORKSPACE_OK="false"
+          jq -n --arg githubToken "$GH_TOKEN" '{githubToken:$githubToken}' > github-check-request.json
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
-            -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
+            -H "$AUTH" -H "Content-Type: application/json" --data @github-check-request.json "$ENDPOINT/api/agent/github-check" || true)"
           if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
             GITHUB_WORKSPACE_OK="true"
-            echo "GitHub workspace read/write access verified."
+            echo "GitHub workspace read/write access verified using the short-lived workflow token."
           else
             echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
           fi
