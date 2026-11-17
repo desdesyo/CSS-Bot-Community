@@ -1478,7 +1478,7 @@ LEARNING FROM CORRECTIONS
             const signature = await sha256(JSON.stringify(signatureSource)), previous = seen.get(signature);
             if (previous !== undefined) {
               const prev = await this.ctx.storage.get<any>("browser-chat:thread:" + previous);
-              if (Number(item.updatedAt || item.createdAt || 0) > Number(prev?.updatedAt || prev?.createdAt || 0)) { duplicates.push(previous); seen.set(signature, id); }
+              if (Number(item.updatedAt || item.createdAt || 0) > Number(prev?.updatedAt || prev?.createdAt || 0)) { duplicates.push(previous); seen.set(signature, id); threads.push({ number: id, title: item.title, updated_at: Number(item.updatedAt || item.createdAt || 0) }); }
               else duplicates.push(id);
               continue;
             }
