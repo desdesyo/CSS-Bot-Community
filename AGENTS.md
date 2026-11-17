@@ -67,7 +67,7 @@ Required end-to-end workflow:
 9. Run a post-apply read-only scan and compare installed hashes with the package manifest. Report "installed" only after the local agent confirms it.
 10. Keep rollback possible. If verification fails, restore the verified backup and report the failure.
 
-The C# Local CSS Bridge is a read-only scanner. The separate Node PC companion now has a narrowly scoped approval-gated text/config writer, but it is not yet verified on the user's PC until the companion is paired and a real write/read-back test passes. Do not claim binary mod installation or in-game changes are connected.
+The C# Local CSS Bridge is a read-only scanner. The separate Node PC companion now has an approval-gated text/config writer and a single-file .smx installer restricted to cstrike/addons/sourcemod/plugins/, with GitHub-host allowlisting, package/current hashes, backup and local APPLY confirmation. These operations are not yet verified on the user's PC until the companion is paired and a real write/read-back test passes. Do not claim a mod is installed or works in-game without local and gameplay evidence.
 
 ## 7. Safety, evidence and delivery
 
