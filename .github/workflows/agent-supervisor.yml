@@ -21,7 +21,11 @@ concurrency:
 
 jobs:
   audit-and-review:
-    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'agent-task')
+    if: >-
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'agent-task')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Audit task lifecycle and run independent reviewer
