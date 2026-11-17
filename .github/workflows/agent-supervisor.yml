@@ -88,8 +88,11 @@ jobs:
               CI_NAME="GitHub Chat checks"
               CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
               CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
-              DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
-              DEPLOY_OK="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success")' <<<"$RUNS")"
+              DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
+              CHANGED_FILES="$(gh api "repos/$TARGET_REPO/commits/$HEAD_SHA" --jq '[.files[].filename]')"
+              DEPLOY_REQUIRED="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$CHANGED_FILES")"
+              DEPLOY_MATCH="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success" and .head_sha==$sha)' <<<"$RUNS")"
+              DEPLOY_OK="$([[ "$DEPLOY_REQUIRED" == "false" || "$DEPLOY_MATCH" == "true" ]] && echo true || echo false)"
             elif [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "main" ]]; then
               CI_NAME="CSSBC Core CI"
               CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="CSSBC Core CI")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
@@ -106,7 +109,7 @@ jobs:
             CI_MATCH="false"
             CI_URL=""
             if [[ -n "$CI_RUN" ]]; then CI_MATCH="true"; CI_URL="$(jq -r .html_url <<<"$CI_RUN")"; fi
-            REVIEW_MARKER="<!-- supervisor-review:$TARGET_REPO:$TARGET_BRANCH:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE -->"
+            REVIEW_MARKER="<!-- supervisor-review:$TARGET_REPO:$TARGET_BRANCH:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE:required=$DEPLOY_REQUIRED -->"
             COMMENTS="$(gh api "repos/$SOURCE_REPO/issues/$NUMBER/comments?per_page=100")"
             if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
               echo "Supervisor already reviewed issue #$NUMBER at this target commit/CI state."
@@ -117,8 +120,8 @@ jobs:
               gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
               continue
             fi
-            PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and successful deployment smoke test. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
-            jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" '{prompt:$prompt,threadKey:$thread}' > reviewer.json
+            PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and, whenever web-chat/** changed, a successful deployment smoke test for that exact same commit SHA. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
+            jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" --arg role "supervisor" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > reviewer.json
             CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
             if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
               gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review failed (HTTP $CODE). Task remains in review; no approval granted." >/dev/null
@@ -135,7 +138,7 @@ jobs:
             else
               gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
               if [[ "$CI_MATCH" != "true" || "$DEPLOY_OK" != "true" ]]; then
-                gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor gate: target CI match=$CI_MATCH; deployment success=$DEPLOY_OK. Reviewer PASS cannot override missing or mismatched verification." >/dev/null
+                gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor gate: target CI match=$CI_MATCH; deployment required=$DEPLOY_REQUIRED; exact deployment match=$DEPLOY_MATCH. Reviewer PASS cannot override missing or mismatched verification." >/dev/null
               fi
             fi
           done
