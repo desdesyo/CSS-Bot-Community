@@ -415,6 +415,76 @@ export class AgentSession extends DurableObject<Env> {
   async onRequest(req: Request) {
     const url = new URL(req.url);
     try {
+      if (url.pathname === "/api/health" && req.method === "GET") {
+        this.requirePassword(req);
+        return json({ ok: true });
+      }
+      if (url.pathname === "/api/threads" && req.method === "GET") {
+        this.requirePassword(req);
+        const ids = await this.ctx.storage.get<number[]>("browser-chat:threads") || [];
+        const threads = [];
+        for (const id of ids) {
+          const item = await this.ctx.storage.get<any>("browser-chat:thread:" + id);
+          if (item) threads.push({ number: id, title: item.title, updated_at: item.updatedAt });
+        }
+        threads.sort((a, b) => b.updated_at - a.updated_at);
+        return json({ threads });
+      }
+      if (url.pathname === "/api/messages" && req.method === "GET") {
+        this.requirePassword(req);
+        const id = Number(url.searchParams.get("thread"));
+        if (!Number.isSafeInteger(id) || id < 1) return json({ error: "Invalid conversation" }, 400);
+        const item = await this.ctx.storage.get<any>("browser-chat:thread:" + id);
+        if (!item) return json({ error: "Conversation not found" }, 404);
+        return json({ title: item.title, messages: item.messages || [], thread: id });
+      }
+      if (url.pathname === "/api/chat" && req.method === "POST") {
+        this.requirePassword(req);
+        const body = await req.json() as any;
+        const message = String(body.message || "").trim();
+        if (!message || message.length > 12000) return json({ error: "Message must be 1–12000 characters" }, 400);
+        if (Array.isArray(body.files) && body.files.length) return json({ error: "File attachments are not enabled in this chat build" }, 501);
+
+        let threadId = body.thread ? Number(body.thread) : 0;
+        let item: any;
+        if (threadId) {
+          if (!Number.isSafeInteger(threadId) || threadId < 1) return json({ error: "Invalid conversation" }, 400);
+          item = await this.ctx.storage.get<any>("browser-chat:thread:" + threadId);
+          if (!item) return json({ error: "Conversation not found" }, 404);
+        } else {
+          threadId = await this.ctx.storage.get<number>("browser-chat:next-id") || 1;
+          await this.ctx.storage.put("browser-chat:next-id", threadId + 1);
+          item = {
+            id: threadId,
+            title: "Chat: " + message.replace(/\s+/g, " ").slice(0, 72),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            messages: []
+          };
+          const ids = await this.ctx.storage.get<number[]>("browser-chat:threads") || [];
+          ids.push(threadId);
+          await this.ctx.storage.put("browser-chat:threads", ids);
+        }
+
+        item.messages.push({ role: "user", content: message, files: [] });
+        item.updatedAt = Date.now();
+        await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
+
+        let reply = "";
+        try {
+          const result = await this.runChat(String(threadId), message, String(body.operationId || "browser-" + crypto.randomUUID()));
+          reply = String(result.reply || "").trim();
+          if (!reply) throw new Error("The AI agent returned an empty reply");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "AI request failed";
+          return json({ error: message }, 503);
+        }
+
+        item.messages.push({ role: "assistant", content: reply, files: [] });
+        item.updatedAt = Date.now();
+        await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
+        return json({ thread: threadId, title: item.title, reply });
+      }
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
         this.requirePassword(req);
         const raw = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
@@ -477,7 +547,7 @@ export class AgentSession extends DurableObject<Env> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/")) {
+    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/chat", "/api/threads", "/api/messages"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
