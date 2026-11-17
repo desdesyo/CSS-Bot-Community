@@ -107,3 +107,8 @@ For every SOLO.Chat change, agents MUST read and follow `docs/SOLO_CHAT_MASTER_P
 ## SOLO.Chat interface editing permission
 
 The SOLO.Chat implementer is explicitly authorized to modify its own public interface through the dedicated `solo_ui_write_file` tool. The tool is restricted to HTML/CSS/JavaScript/JSON under `web-chat/public/` on `github-chat-prototype`. It may change layout, colors, typography, spacing, responsive behavior, panels, controls and UI settings. Read before write, preserve behavior, add tests, and require exact-SHA CI and deployment evidence. Backend code, secrets and files outside the public UI directory are outside this permission.
+
+
+## SOLO.Chat autonomous execution requirements
+
+Use tool-capable Pi providers (Gemini, OpenRouter, OpenAI, Groq) rather than falling back to a text-only model when one is configured. A deploy is not tool-ready until the live `/api/agent/harness-check` diagnostic proves actual tool execution. The browser publishes a privacy-filtered live UI inspection snapshot; call `solo_ui_inspect` before interface edits. Preserve the CSS v34 project baseline: `C:\\Games\\Counter-Strike Source v34`, `desdesyo/modhaul@main`, `desdesyo/CSS-Bot-Community@sdk-foundation`, and `desdesyo/CSS-Bot-Community@github-chat-prototype`. Do not claim SourcePawn source, SDK hooks, local computer pairing, or in-game behavior that has not been verified.
