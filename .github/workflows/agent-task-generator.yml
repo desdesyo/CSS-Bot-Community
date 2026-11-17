@@ -29,7 +29,7 @@ jobs:
             const tasks = lines.map(line => {
               const p = line.slice(2).split('|').map(x=>x.trim());
               return {key:p[0].replaceAll('`','').trim(), title:p[1], objective:p[2], criteria:p[3]};
-            }).filter(t=>t.key && t.title && t.objective && t.criteria);
+            }).filter(t=>/^[A-Z][A-Z0-9]+-\\d+$/.test(t.key) && t.title && t.objective && t.criteria);
             const {owner,repo} = context.repo;
             for(const name of ['agent-task','agent-generated','agent-chat-runtime','agent-overhaul','status:queued','status:in-progress','status:review','status:done','agent-review-needed']){
               try{await github.rest.issues.getLabel({owner,repo,name});}
