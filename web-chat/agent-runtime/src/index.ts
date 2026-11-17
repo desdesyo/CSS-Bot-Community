@@ -1467,7 +1467,7 @@ LEARNING FROM CORRECTIONS
       }
       const resultDiagnostic = result as any;
       const transcript = await this.harness.session(sessionId).messages().catch(() => [] as any[]);
-      const assistantMessage = transcript.slice().reverse().flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
+      const assistantMessage = transcript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
       const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
       const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
       const assistantDiagnostics = assistantMessage ? {
