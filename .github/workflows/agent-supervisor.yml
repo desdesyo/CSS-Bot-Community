@@ -5,7 +5,7 @@ on:
     - cron: "43 */4 * * *"
   workflow_dispatch:
   issues:
-    types: [opened, edited, labeled, unlabeled, closed]
+    types: [opened, edited, labeled]
   workflow_run:
     workflows: ["CSSBC Agent Orchestrator", "GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
     types: [completed]
