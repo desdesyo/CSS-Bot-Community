@@ -37,14 +37,22 @@ jobs:
             gh label create "$name" --repo "$REPO" --color 1d76db --force >/dev/null 2>&1 || true
           done
           ISSUES="$(gh api "repos/$REPO/issues?state=open&labels=agent-task&per_page=100")"
+          has_section_content() {
+            awk -v heading="$1" '
+              $0 == heading { found=1; next }
+              found && /^## / { exit }
+              found && /[^[:space:]]/ { ok=1 }
+              END { exit !ok }
+            ' <<< "$BODY"
+          }
           echo "$ISSUES" | jq -c '.[] | select(.pull_request==null) | {number,title,body,labels:[.labels[].name]}' | while IFS= read -r row; do
             NUMBER="$(jq -r .number <<<"$row")"
             BODY="$(jq -r .body <<<"$row")"
             LABELS="$(jq -r '.labels[]' <<<"$row")"
             VIOLATIONS=()
             grep -Eq 'Task-Key: [A-Z0-9-]+' <<<"$BODY" || VIOLATIONS+=("missing Task-Key")
-            grep -Eq '## Objective[[:space:][:print:]]{10,}' <<<"$BODY" || VIOLATIONS+=("missing/empty Objective")
-            grep -Eq '## Acceptance criteria[[:space:][:print:]]{10,}' <<<"$BODY" || VIOLATIONS+=("missing Acceptance criteria")
+            has_section_content "## Objective" || VIOLATIONS+=("missing/empty Objective")
+            has_section_content "## Acceptance criteria" || VIOLATIONS+=("missing Acceptance criteria")
             grep -q '## Evidence' <<<"$BODY" || VIOLATIONS+=("missing Evidence section")
             STATUS_COUNT="$(grep -Ec '^status:' <<<"$LABELS" || true)"
             [[ "$STATUS_COUNT" == "1" ]] || VIOLATIONS+=("exactly one status:* label required")
