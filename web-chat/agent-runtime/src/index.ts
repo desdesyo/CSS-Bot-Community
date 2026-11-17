@@ -2288,43 +2288,47 @@ LEARNING FROM CORRECTIONS
         for (const id of ids) devices.push(await this.ctx.storage.get<any>("computer:device:" + id));
         return json({ devices: devices.filter(Boolean) });
       }
-      if (url.pathname === "/api/agent/github-check" && req.method === "GET") {
+      if (url.pathname === "/api/agent/github-check" && (req.method === "GET" || req.method === "POST")) {
         await this.requirePassword(req);
         try {
+          // A short-lived GitHub Actions token may be supplied by the orchestrator/E2E
+          // workflow. It is used only for this request and is never persisted.
+          const supplied = req.method === "POST" ? await req.json().catch(() => ({})) as any : {};
+          const token = String(supplied.githubToken || this.env.GITHUB_TOKEN || "").trim();
           const repo = String(this.env.GITHUB_WORK_REPO || "");
           const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
-          if (!this.env.GITHUB_TOKEN || !repo.includes("/")) return json({ ok: false, error: "GitHub workspace is not configured" }, 503);
-          const response = await fetch("https://api.github.com/repos/" + repo + "/contents?ref=" + encodeURIComponent(branch), {
-            headers: {
-              Accept: "application/vnd.github+json",
-              Authorization: "Bearer " + this.env.GITHUB_TOKEN,
-              "X-GitHub-Api-Version": "2022-11-28",
-              "User-Agent": "cssbc-github-chat"
-            }
-          });
+          if (!token || !repo.includes("/")) return json({ ok: false, error: "GitHub workspace credential is unavailable" }, 503);
+          const headers = {
+            Accept: "application/vnd.github+json",
+            Authorization: "Bearer " + token,
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "cssbc-github-chat"
+          };
+          const response = await fetch("https://api.github.com/repos/" + repo + "/contents?ref=" + encodeURIComponent(branch), { headers });
           const body = await response.json().catch(() => ({})) as any;
           const diagnostics = {
             status: response.status,
             rateLimitRemaining: response.headers.get("x-ratelimit-remaining"),
             rateLimitReset: response.headers.get("x-ratelimit-reset"),
             acceptedPermissions: response.headers.get("x-accepted-github-permissions"),
-            requestId: response.headers.get("x-github-request-id")
+            requestId: response.headers.get("x-github-request-id"),
+            credentialSource: supplied.githubToken ? "request-scoped GitHub Actions token" : "Worker secret"
           };
           if (!response.ok) return json({ ok: false, repo, branch, error: body.message || "GitHub API request failed", diagnostics }, 503);
           const files = Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [];
-          const ref = await github(this.env, "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(branch));
+          const ref = await github(this.env, "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(branch), {}, token);
           const checkBranch = "cssbc-agent-check-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
           await github(this.env, "/repos/" + repo + "/git/refs", {
             method: "POST",
             body: JSON.stringify({ ref: "refs/heads/" + checkBranch, sha: ref.object.sha })
-          });
+          }, token);
           let branchRemoved = false;
           try {
-            await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" });
+            await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }, token);
             branchRemoved = true;
           } finally {
             if (!branchRemoved) {
-              try { await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }); } catch (_) {}
+              try { await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }, token); } catch (_) {}
             }
           }
           return json({ ok: true, read: true, write: true, temporaryBranchRemoved: branchRemoved, repo, branch, files, diagnostics });
