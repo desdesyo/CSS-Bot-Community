@@ -1,5 +1,7 @@
 # Local CSS Bridge — read-only diagnostics and GitHub fix delivery
 
+> Scope note: this document describes the C# LocalCssBridge scanner only. It remains read-only. The separate SOLO.Chat computer-bridge now has an approval-gated text/config file writer; see docs/LOCAL_FILE_EDITING_SPEC.md. Do not conflate the two agents or claim that the C# scanner can apply changes.
+
 **Purpose:** build a Windows-side read-only agent connecting this ChatGPT conversation to the user's local Counter-Strike: Source v34 installation. The agent inspects the game and publishes diagnostic evidence to GitHub. The assistant analyzes that evidence, develops fixes in GitHub, builds downloadable packages, and provides direct links. The user manually installs each fix.
 
 **Game root:** `C:\\Games\\Counter-Strike Source v34`  
