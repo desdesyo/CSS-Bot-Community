@@ -1,9 +1,11 @@
 name: CSSBC Core CI
 on:
   push:
+    branches: [main, sdk-foundation]
   pull_request:
+    branches: [main, sdk-foundation]
 concurrency:
-  group: cssbc-core-ci
+  group: cssbc-core-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
