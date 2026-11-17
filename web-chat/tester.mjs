@@ -22,7 +22,7 @@ const checks = [
  ["Read-only MCP boundary is enforced", /readOnlyHint !== true/.test(runtime)],
  ["Follow-up endpoint rejects oversized messages", /message.length > 12000|message.length>12000/.test(runtime)],
  ["Follow-up endpoint caps messages per job", /followups.length >= 20|followups.length>=20/.test(runtime)],
- ["Follow-up endpoint rejects finalizing jobs", /status === "finalizing"/.test(runtime) && /409/.test(runtime)],
+ ["Follow-up endpoint rejects non-running jobs with conflict", /job.status !== "queued" && job.status !== "running"/.test(runtime) && /httpStatus: 409/.test(runtime)],
  ["Follow-up updates are serialized against finalization", /blockConcurrencyWhile/.test(runtime) && /latest.status = "finalizing"/.test(runtime)],
  ["Generation has a bounded timeout", /180000/.test(runtime)],
  ["Empty model replies are treated as failure", /AI вернул пустой ответ/.test(runtime)],
