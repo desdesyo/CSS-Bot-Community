@@ -49,6 +49,9 @@ jobs:
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           CHAT_GITHUB_TOKEN: ${{ secrets.CSSBC_GITHUB_TOKEN }}
           CHAT_OPENAI_API_KEY: ${{ secrets.CSSBC_OPENAI_API_KEY }}
+          CHAT_OPENROUTER_API_KEY: ${{ secrets.CSSBC_OPENROUTER_API_KEY }}
+          CHAT_GEMINI_API_KEY: ${{ secrets.CSSBC_GEMINI_API_KEY }}
+          CHAT_GROQ_API_KEY: ${{ secrets.CSSBC_GROQ_API_KEY }}
           CHAT_MESHY_API_KEY: ${{ secrets.CSSBC_MESHY_API_KEY }}
         run: |
           set -euo pipefail
@@ -66,6 +69,21 @@ jobs:
             printf '%s' "$CHAT_OPENAI_API_KEY" | npx wrangler versions secret put OPENAI_API_KEY
           else
             echo "CSSBC_OPENAI_API_KEY is not set; automatic external-expert escalation will report unavailable."
+          fi
+          if [ -n "$CHAT_OPENROUTER_API_KEY" ]; then
+            printf "%s" "$CHAT_OPENROUTER_API_KEY" | npx wrangler versions secret put OPENROUTER_API_KEY
+          else
+            echo "CSSBC_OPENROUTER_API_KEY is not set; OpenRouter multi-provider failover is disabled."
+          fi
+          if [ -n "$CHAT_GEMINI_API_KEY" ]; then
+            printf "%s" "$CHAT_GEMINI_API_KEY" | npx wrangler versions secret put GEMINI_API_KEY
+          else
+            echo "CSSBC_GEMINI_API_KEY is not set; direct Gemini fallback is disabled."
+          fi
+          if [ -n "$CHAT_GROQ_API_KEY" ]; then
+            printf "%s" "$CHAT_GROQ_API_KEY" | npx wrangler versions secret put GROQ_API_KEY
+          else
+            echo "CSSBC_GROQ_API_KEY is not set; direct Groq fallback is disabled."
           fi
           if [ -n "$CHAT_MESHY_API_KEY" ]; then
             printf '%s' "$CHAT_MESHY_API_KEY" | npx wrangler versions secret put MESHY_API_KEY
