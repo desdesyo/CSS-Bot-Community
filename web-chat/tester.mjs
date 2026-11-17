@@ -112,6 +112,7 @@ const checks = [
  ["Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes('[[ "$STATUS" == "done" ]]')],
  ["Authenticated direct model diagnostic uses the Workers AI binding and exposes fallback errors", runtime.includes('url.pathname === "/api/agent/model-check"') && runtime.includes('this.env.AI.run(modelId as any') && runtime.includes("fallbackError")],
  ["Agent chat falls back to direct Workers AI when the Pi harness fails", runtime.includes("private async runDirectModel(prompt: string)") && runtime.includes('provider: "workers-ai-direct-fallback"')],
+ ["GPT Responses API is available as a server-side fallback when Workers AI quota is exhausted", runtime.includes("this.env.OPENAI_API_KEY") && runtime.includes("https://api.openai.com/v1/responses") && runtime.includes('this.env.CHAT_MODEL || "gpt-4.1"')],
  ["Mobile navigation opens a real conversation drawer with backdrop and Escape close", html.includes('id="mobileMenu"') && html.includes('id="mobileBackdrop"') && html.includes("side.mobile-open") && html.includes('e.key==="Escape"')],
 ];
 let failed=0;
