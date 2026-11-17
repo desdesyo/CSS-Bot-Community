@@ -80,7 +80,7 @@ function ghBase(env: Env) {
 }
 function safeProjectPath(value: string, allowRoot = false) {
   const raw = String(value ?? "").trim();
-  const path = raw.replace(/^\\/+|\\/+$/g, "");
+  const path = raw.replace(/^\/+|\/+$/g, "");
   if (!path && allowRoot) return "";
   if (!path || path.split("/").some(p => !p || p === "." || p === ".." || !/^[a-zA-Z0-9._ -]+$/.test(p))) throw new Error("Invalid project repository path");
   return path.split("/").map(encodeURIComponent).join("/");
