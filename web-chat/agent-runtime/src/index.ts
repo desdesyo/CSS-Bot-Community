@@ -309,19 +309,19 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "generate_image",
-          description: "Generate an actual PNG image with Cloudflare Workers AI FLUX. Use this tool whenever the user asks to create or edit an image. Save the generated image to the private artifact library and return its download URL. This is real image generation, not a text prompt or placeholder.",
+          description: "Generate an actual JPEG image with Cloudflare Workers AI FLUX using the maximum supported 8 steps. Use this tool whenever the user asks to create an image. Save the generated image to the private artifact library and return its download URL. This is real image generation, not a text prompt or placeholder.",
           parameters: obj({ prompt: str(), filename: str() }),
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
             if (!prompt.trim() || prompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
-            const result: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim() });
+            const result: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim(), steps: 8 });
             const encoded = result?.image || result?.result?.image;
             if (typeof encoded !== "string" || !encoded.length) throw new Error("Image model returned no image bytes");
             const binary = atob(encoded.replace(/^data:image\/png;base64,/i, ""));
             const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-            const safeName = (filename || "solo-generated-image.png").toLowerCase().endsWith(".png") ? filename : (filename || "solo-generated-image") + ".png";
-            const metadata = await agent.saveGeneratedArtifact(safeName, "image/png", bytes);
-            return textOutput({ created: true, provider: "@cf/black-forest-labs/flux-1-schnell", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+            const safeName = (filename || "solo-generated-image.jpg").toLowerCase().endsWith(".jpg") || (filename || "").toLowerCase().endsWith(".jpeg") ? filename : (filename || "solo-generated-image") + ".jpg";
+            const metadata = await agent.saveGeneratedArtifact(safeName, "image/jpeg", bytes);
+            return textOutput({ created: true, provider: "@cf/black-forest-labs/flux-1-schnell", format: "image/jpeg", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
         {
@@ -757,7 +757,8 @@ LEARNING FROM CORRECTIONS
   private async saveGeneratedArtifact(name: string, mime: string, bytes: Uint8Array) {
     if (!bytes.byteLength || bytes.byteLength > 15 * 1024 * 1024) throw new Error("Generated artifact must be between 1 byte and 15 MB");
     const safeName = String(name || "generated-file.bin").replace(/[\\/\u0000-\u001f\u007f]/g, "_").slice(0, 120) || "generated-file.bin";
-    const safeMime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(mime) ? mime : "application/octet-stream";
+    const baseMime = String(mime || "").split(";")[0].trim();
+    const safeMime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(baseMime) ? baseMime : "application/octet-stream";
     const file = new File([bytes], safeName, { type: safeMime });
     return this.saveStoredAttachment(file);
   }
