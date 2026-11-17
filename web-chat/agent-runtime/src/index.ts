@@ -1592,6 +1592,31 @@ LEARNING FROM CORRECTIONS
     return null;
   }
 
+  private resolveToolModelCandidates(preferred: { provider?: string; model?: string } | null | undefined): any[] {
+    const candidates: any[] = [];
+    const add = (model: any) => {
+      if (model && !candidates.some(existing => existing.provider === model.provider && existing.id === model.id)) candidates.push(model);
+    };
+    add(this.resolvePreferredPiModel(preferred));
+    if (this.env.OPENROUTER_API_KEY) {
+      const models = this.openrouter.getModels();
+      add(models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || models[0]);
+    }
+    if (this.env.OPENAI_API_KEY) {
+      const models = this.openai.getModels();
+      add(models.find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1")) || models[0]);
+    }
+    if (this.env.GEMINI_API_KEY) {
+      const models = this.google.getModels();
+      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-2.5-flash")) || models[0]);
+    }
+    if (this.env.GROQ_API_KEY) {
+      const models = this.groq.getModels();
+      add(models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || models[0]);
+    }
+    return candidates;
+  }
+
   private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user") {
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
@@ -1608,30 +1633,44 @@ LEARNING FROM CORRECTIONS
       }
       const session = this.harness.session(sessionId);
       const preferred = await this.ctx.storage.get<{ provider: string; model: string }>("agent:preferred-tool-model");
-      const preferredModel = this.resolvePreferredPiModel(preferred);
-      if (preferredModel) await session.setModel(preferredModel);
-      const receipt = await session.submit(effectivePrompt, { operationId });
-      const result = await this.harness.wait(receipt.operationId, { session: sessionId });
-      if (result.status === "done") {
-        const reply = String(result.text || "").trim();
-        if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
+      const modelCandidates = this.resolveToolModelCandidates(preferred);
+      const attempts = modelCandidates.length ? modelCandidates : [null];
+      let completed = false;
+      for (let attempt = 0; attempt < attempts.length; attempt++) {
+        const candidate = attempts[attempt];
+        const attemptId = attempt === 0 ? operationId : operationId + "-provider-" + attempt;
+        try {
+          if (candidate) await session.setModel(candidate);
+          const receipt = await session.submit(effectivePrompt, { operationId: attemptId });
+          const result = await this.harness.wait(receipt.operationId, { session: sessionId });
+          if (result.status === "done") {
+            const reply = String(result.text || "").trim();
+            if (reply) {
+              completed = true;
+              if (candidate) {
+                await this.ctx.storage.put("agent:preferred-tool-model", { provider: candidate.provider, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" });
+              }
+              return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness", model: candidate?.id || null };
+            }
+          }
+          const resultDiagnostic = result as any;
+          const transcript = await session.messages().catch(() => [] as any[]);
+          const assistantMessage = transcript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
+          const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
+          const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
+          const toolCalls = Array.isArray(assistantMessage?.content) ? assistantMessage.content.filter((part: any) => part?.type === "toolCall").map((part: any) => part.name).slice(0, 12) : [];
+          harnessFailure = JSON.stringify({ status: result.status, provider: candidate?.provider || null, model: candidate?.id || null, reason, toolCalls, eventErrors }).slice(0, 1400);
+          console.error("[SOLO.Chat] Pi provider attempt failed", JSON.stringify({ operationId: attemptId, sessionId, attempt: attempt + 1, provider: candidate?.provider || null, model: candidate?.id || null, reason, toolCalls, eventErrors }));
+          if (toolCalls.length) {
+            throw new Error("A tool call already ran during the failed provider attempt; automatic retry stopped to prevent duplicate side effects. " + harnessFailure);
+          }
+        } catch (error) {
+          harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 1400);
+          if (/tool call already ran/.test(harnessFailure)) throw error;
+          console.warn("[SOLO.Chat] Pi provider attempt threw; rotating provider", JSON.stringify({ attempt: attempt + 1, provider: candidate?.provider || null, model: candidate?.id || null, error: harnessFailure }));
+        }
       }
-      const resultDiagnostic = result as any;
-      const transcript = await this.harness.session(sessionId).messages().catch(() => [] as any[]);
-      const assistantMessage = transcript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
-      const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
-      const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
-      const assistantDiagnostics = assistantMessage ? {
-        provider: assistantMessage.provider || null,
-        model: assistantMessage.model || null,
-        api: assistantMessage.api || null,
-        stopReason: assistantMessage.stopReason || null,
-        errorMessage: assistantMessage.errorMessage || null,
-        contentTypes: Array.isArray(assistantMessage.content) ? assistantMessage.content.map((part: any) => part?.type).slice(0, 12) : [],
-        toolCalls: Array.isArray(assistantMessage.content) ? assistantMessage.content.filter((part: any) => part?.type === "toolCall").map((part: any) => part.name).slice(0, 12) : []
-      } : null;
-      harnessFailure = JSON.stringify({ status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), assistant: assistantDiagnostics, eventErrors }).slice(0, 1400);
-      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason, assistant: assistantDiagnostics, eventErrors }));
+      if (!completed) throw new Error("All configured tool-capable Pi providers failed: " + (harnessFailure || "no provider candidate available"));
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
