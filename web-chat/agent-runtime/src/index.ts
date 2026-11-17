@@ -1656,7 +1656,9 @@ LEARNING FROM CORRECTIONS
             if (reply) {
               completed = true;
               if (candidate) {
-                await this.ctx.storage.put("agent:preferred-tool-model", { provider: candidate.provider, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" });
+                const providerKey = candidate.provider === "google" ? "gemini" : candidate.provider;
+                await this.ctx.storage.delete("provider:circuit:" + providerKey);
+                await this.ctx.storage.put("agent:preferred-tool-model", { provider: providerKey, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" });
               }
               return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness", model: candidate?.id || null };
             }
@@ -1676,7 +1678,14 @@ LEARNING FROM CORRECTIONS
         } catch (error) {
           harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 1400);
           if (/tool call already ran/.test(harnessFailure)) throw error;
-          console.warn("[SOLO.Chat] Pi provider attempt threw; rotating provider", JSON.stringify({ attempt: attempt + 1, provider: candidate?.provider || null, model: candidate?.id || null, error: harnessFailure }));
+          const providerKey = candidate?.provider === "google" ? "gemini" : candidate?.provider;
+          if (providerKey && /429|RESOURCE_EXHAUSTED|quota|rate.?limit|insufficient credit|billing|401|403|402|503/i.test(harnessFailure)) {
+            const quotaExhausted = /RESOURCE_EXHAUSTED|daily.*quota|quota.*exhaust|exceeded.*quota|insufficient credit|billing/i.test(harnessFailure);
+            const duration = quotaExhausted ? 24 * 60 * 60 * 1000 : /429|rate.?limit/i.test(harnessFailure) ? 15 * 60 * 1000 : /503/.test(harnessFailure) ? 3 * 60 * 1000 : 60 * 60 * 1000;
+            await this.ctx.storage.put("provider:circuit:" + providerKey, Date.now() + duration);
+            console.warn("[SOLO.Chat] provider circuit opened", JSON.stringify({ provider: providerKey, cooldownMs: duration, quotaExhausted }));
+          }
+          console.warn("[SOLO.Chat] Pi provider attempt threw; rotating provider", JSON.stringify({ attempt: attempt + 1, provider: providerKey || null, model: candidate?.id || null, error: harnessFailure }));
         }
       }
       if (!completed) throw new Error("All configured tool-capable Pi providers failed: " + (harnessFailure || "no provider candidate available"));
