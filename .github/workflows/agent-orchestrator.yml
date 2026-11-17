@@ -175,11 +175,11 @@ jobs:
               and
               (
                 (
-                  .filename=="web-chat/agent-runtime/src/index.ts" and
-                  .additions==1 and .deletions==1 and
-                  ((.patch // "") | contains("name: \"generate_image\"")) and
-                  ((.patch // "") | contains("description: \"Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.\""))
-                ) | not
+                  .filename!="web-chat/agent-runtime/src/index.ts" or
+                  .additions!=1 or .deletions!=1 or
+                  ((.patch // "") | contains("name: \"generate_image\"")) == false or
+                  ((.patch // "") | contains("description: \"Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.\"")) == false
+                )
               )
             )
           ' <<<"$APP_COMPARE")"
