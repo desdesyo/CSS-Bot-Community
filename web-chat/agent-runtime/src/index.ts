@@ -20,6 +20,12 @@ interface Env {
   BRAVE_SEARCH_API_KEY?: string;
   OPENAI_API_KEY?: string;
   CHAT_MODEL?: string;
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_MODEL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
+  GROQ_API_KEY?: string;
+  GROQ_MODEL?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
   CF_VERSION_METADATA?: { id: string; tag?: string; timestamp?: string };
@@ -990,49 +996,83 @@ LEARNING FROM CORRECTIONS
 
   private async runDirectModel(prompt: string) {
     const failures: string[] = [];
+    const system = "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.";
+    const runCompatible = async (provider: string, endpoint: string, apiKey: string, model: string, extra: Record<string, unknown> = {}) => {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + apiKey,
+          "Content-Type": "application/json",
+          ...(provider === "openrouter" ? { "HTTP-Referer": "https://cssbc-github-chat.descapan.workers.dev/", "X-OpenRouter-Title": "SOLO.Chat" } : {})
+        },
+        body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }], max_tokens: 2048, ...extra })
+      });
+      const data: any = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(provider + " API " + response.status + ": " + String(data.error?.message || data.error || "request failed").slice(0, 350));
+      const reply = String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
+      if (!reply) throw new Error(provider + " returned no text");
+      return { reply, model: String(data.model || model), provider };
+    };
+
+    // OpenRouter provides independent provider- and model-level failover.
+    if (this.env.OPENROUTER_API_KEY) {
+      try {
+        return await runCompatible("openrouter", "https://openrouter.ai/api/v1/chat/completions", this.env.OPENROUTER_API_KEY,
+          this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+          { models: ["meta-llama/llama-3.3-70b-instruct", "google/gemini-2.5-flash-lite"], provider: { allow_fallbacks: true } });
+      } catch (error) { failures.push("OpenRouter: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+    } else failures.push("OpenRouter: CSSBC_OPENROUTER_API_KEY is not configured");
+
     if (this.env.OPENAI_API_KEY) {
       try {
         const response = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: this.env.CHAT_MODEL || "gpt-4.1",
-            store: false,
-            instructions: "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.",
-            input: prompt
-          })
+          body: JSON.stringify({ model: this.env.CHAT_MODEL || "gpt-4.1", store: false, instructions: system, input: prompt, max_output_tokens: 2048 })
         });
         const data: any = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("OpenAI API " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 400));
-        const reply = (data.output || []).flatMap((item: any) => item.content || [])
-          .filter((item: any) => item.type === "output_text")
-          .map((item: any) => String(item.text || ""))
-          .join("\n").trim();
+        if (!response.ok) throw new Error("OpenAI API " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 350));
+        const reply = (data.output || []).flatMap((item: any) => item.content || []).filter((item: any) => item.type === "output_text").map((item: any) => String(item.text || "")).join("\n").trim();
         if (reply) return { reply, model: this.env.CHAT_MODEL || "gpt-4.1", provider: "openai" };
         throw new Error("OpenAI returned no text");
-      } catch (error) {
-        failures.push("OpenAI: " + String(error instanceof Error ? error.message : error).slice(0, 450));
-      }
+      } catch (error) { failures.push("OpenAI: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+    } else failures.push("OpenAI: CSSBC_OPENAI_API_KEY is not configured");
+
+    if (this.env.GEMINI_API_KEY) {
+      try { return await runCompatible("gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", this.env.GEMINI_API_KEY, this.env.GEMINI_MODEL || "gemini-2.5-flash"); }
+      catch (error) { failures.push("Gemini: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+    } else failures.push("Gemini: CSSBC_GEMINI_API_KEY is not configured");
+
+    if (this.env.GROQ_API_KEY) {
+      try { return await runCompatible("groq", "https://api.groq.com/openai/v1/chat/completions", this.env.GROQ_API_KEY, this.env.GROQ_MODEL || "llama-3.3-70b-versatile"); }
+      catch (error) { failures.push("Groq: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+    } else failures.push("Groq: CSSBC_GROQ_API_KEY is not configured");
+
+    // Cloudflare is last. If its account-wide daily quota is exhausted, open a 24h circuit.
+    const circuitKey = "provider:circuit:workers-ai";
+    const circuit = await this.ctx.storage.get<number>(circuitKey);
+    if (circuit && circuit > Date.now()) {
+      failures.push("Workers AI: skipped until quota cooldown expires");
     } else {
-      failures.push("OpenAI: CSSBC_OPENAI_API_KEY is not configured");
-    }
-    const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
-    for (const modelId of modelIds) {
-      try {
-        const result: any = await this.env.AI.run(modelId as any, {
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 4096
-        } as any);
-        const reply = String(result?.response || result?.output_text || result?.text || "").trim();
-        if (reply) return { reply, model: modelId, provider: "workers-ai" };
-        failures.push(modelId + ": provider returned empty text");
-      } catch (error) {
-        failures.push(modelId + ": " + String(error instanceof Error ? error.message : error).slice(0, 350));
+      const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
+      for (const modelId of modelIds) {
+        try {
+          const result: any = await this.env.AI.run(modelId as any, { messages: [{ role: "user", content: prompt }], max_tokens: 2048 } as any);
+          const reply = String(result?.response || result?.output_text || result?.text || "").trim();
+          if (reply) return { reply, model: modelId, provider: "workers-ai-direct-fallback" };
+          failures.push(modelId + ": provider returned empty text");
+        } catch (error) {
+          const detail = String(error instanceof Error ? error.message : error);
+          failures.push(modelId + ": " + detail.slice(0, 350));
+          if (/4006|daily free allocation|quota.*exhaust|exceeded.*quota/i.test(detail)) {
+            await this.ctx.storage.put(circuitKey, Date.now() + 24 * 60 * 60 * 1000);
+            break;
+          }
+        }
       }
     }
     throw new Error("Не удалось получить ответ от ИИ. " + failures.join(" | "));
   }
-
 
   private async embedMemoryText(text: string): Promise<number[] | null> {
     try {
