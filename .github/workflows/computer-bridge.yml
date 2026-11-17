@@ -1,0 +1,35 @@
+name: Local computer bridge checks
+
+on:
+  push:
+    branches: [github-chat-prototype]
+    paths:
+      - "computer-bridge/**"
+      - ".github/workflows/computer-bridge.yml"
+  pull_request:
+    paths:
+      - "computer-bridge/**"
+      - ".github/workflows/computer-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check
+        run: |
+          node --check computer-bridge/agent.mjs
+          node --check computer-bridge/file-policy.mjs
+      - name: Run file policy tests
+        run: node --test computer-bridge/tests/file-policy.test.mjs
