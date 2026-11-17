@@ -118,6 +118,9 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.name == 'Deploy GitHub Chat to Cloudflare' &&
+       github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'issues' &&
        contains(github.event.issue.labels.*.name, 'agent-task') &&
        ((github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'status:queued')) ||
