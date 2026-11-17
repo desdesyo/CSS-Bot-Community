@@ -58,9 +58,12 @@ function safeEqual(a: string, b: string) {
 function textOutput(value: unknown) {
   return { output: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] };
 }
-function safePath(env: Env, value: string) {
+function safePath(env: Env, value: string, allowRoot = false) {
   const root = String(env.GITHUB_WORK_ROOT || "").replace(/^\/+|\/+$/g, "");
-  const path = String(value || "").replace(/^\/+|\/+$/g, "");
+  const raw = String(value ?? "").trim();
+  const path = raw.replace(/^\/+|\/+$/g, "");
+  // Listing the repository root is a valid operation; file reads/writes still require a path.
+  if (!path && allowRoot) return "";
   if (!path || path.split("/").some(p => !p || p === "." || p === ".." || !/^[a-zA-Z0-9._ -]+$/.test(p))) throw new Error("Invalid repository path");
   if (root && path !== root && !path.startsWith(root + "/")) throw new Error("Path is outside GITHUB_WORK_ROOT");
   return path.split("/").map(encodeURIComponent).join("/");
@@ -218,9 +221,9 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ directory: str() }),
           replay: "safe",
           async execute({ directory }: { directory: string }) {
-            const path = safePath(env, directory);
+            const path = safePath(env, directory, true);
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
-            const data = await github(env, ghBase(env).replace("https://api.github.com", "") + "/contents/" + path + ref);
+            const data = await github(env, ghBase(env).replace("https://api.github.com", "") + "/contents" + (path ? "/" + path : "") + ref);
             return textOutput((Array.isArray(data) ? data : [data]).map((x: any) => ({ name: x.name, path: x.path, type: x.type, size: x.size })));
           }
         },
