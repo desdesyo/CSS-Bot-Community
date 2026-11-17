@@ -97,7 +97,7 @@ jobs:
               { printf '%s\n\n' "$REVIEW_MARKER"; jq -r '.reply' review.json; } > review-report.md
               gh issue comment "$NUMBER" --repo "$REPO" --body-file review-report.md >/dev/null
               if grep -q 'VERDICT: PASS' review-report.md && [[ "$CI_MATCH" == "true" ]] && [[ "$DEPLOY_OK" == "true" ]] && [[ -n "$CI_URL" ]]; then
-                UPDATED_BODY="$(printf '%s\n' "$BODY" | sed "s#- Implementation: pending#- Implementation: https://github.com/$REPO/commit/$HEAD_SHA#" | sed "s#- Verification run: pending#- Verification run: $CI_URL#")"
+                UPDATED_BODY="$(printf '%s\n' "$BODY" | sed -E "s#- Implementation: _?pending_?#- Implementation: https://github.com/$REPO/commit/$HEAD_SHA#" | sed -E "s#- Verification run: _?pending_?#- Verification run: $CI_URL#")"
                 gh api -X PATCH "repos/$REPO/issues/$NUMBER" -f body="$UPDATED_BODY" >/dev/null
                 gh issue edit "$NUMBER" --repo "$REPO" --remove-label status:review --remove-label agent-review-needed --add-label status:done >/dev/null
                 gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor PASS: current branch commit passed GitHub Chat checks and the latest deployment smoke test succeeded. Task moved to status:done." >/dev/null
