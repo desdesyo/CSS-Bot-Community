@@ -10,9 +10,9 @@ Connect the existing SOLO.Chat agent workspace to the existing CSS Overhaul sour
 - Mod workspace: desdesyo/modhaul, branch main.
 - Game install: C:\Games\Counter-Strike Source v34.
 - Candidate local Overhaul compiled folder: C:\Users\Aleksey\Desktop\overhaul\compiled\ (previously discussed, not yet verified by the paired PC).
-- Existing CSSBC portable C++ core is under CSS-Bot-Community/src/CSSBC_*.cpp and .h.
+- Authoritative portable gameplay/SDK foundation is CSS-Bot-Community branch sdk-foundation: src/CSSBC_*.cpp/.h, sdk/server/CSSBC_BotRuntime.*, sdk/server/CSSBC_SDKBridge.h and sdk/dll/CSSBC_V34Bridge.*. Continue from this branch for mechanics work.
 - Existing modhaul repository contains cssbc.smx, a minimal native Metamod bootstrap source, PCBridge and recovery tooling. The repository tree currently does not establish that the original SourcePawn source for cssbc.smx is present.
-- The portable C++ core is not yet proof of an engine-integrated CS:S v34 plugin. Verify actual hooks, SDK ABI, compiler architecture and runtime integration before claiming a mechanic works.
+- The sdk-foundation branch has BotRuntime::OnWeaponShot() and an ABI contract, but no actual CCSBot/GameDLL event hook or verified matching v34 SDK integration. The portable C++ core is not yet proof of an engine-integrated CS:S v34 plugin. Verify actual hooks, SDK ABI, compiler architecture and runtime integration before claiming a mechanic works.
 
 ## What exists now
 
