@@ -1340,9 +1340,12 @@ LEARNING FROM CORRECTIONS
         const reply = String(result.text || "").trim();
         if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
       }
-      const reason = String(result.reason || result.status || "empty assistant response");
-      harnessFailure = reason.slice(0, 900);
-      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
+      const resultDiagnostic = result as any;
+      const assistantMessage = Array.isArray(resultDiagnostic.messages) ? resultDiagnostic.messages.filter((message: any) => message?.role === "assistant").at(-1) : null;
+      const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
+      const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
+      harnessFailure = JSON.stringify({ status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), assistantStopReason: assistantMessage?.stopReason || null, assistantError: assistantMessage?.errorMessage || null, eventErrors }).slice(0, 900);
+      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), eventErrors }));
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
