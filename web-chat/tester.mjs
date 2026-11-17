@@ -10,6 +10,7 @@ const orchestrator = await readFile(new URL("../.github/workflows/agent-orchestr
 const projectSkill = await readFile(new URL("../agent-skills/css-v34-project-context.md", import.meta.url), "utf8");
 const githubCheckRoute = runtime.slice(runtime.indexOf('if (url.pathname === "/api/agent/github-check"'), runtime.indexOf('if (url.pathname === "/api/agent/model-check"'));
 const checks = [
+ ["Deploy-triggered dispatch preserves the isolated three-agent team and bounded repair cycle", orchestrator.includes("dispatch-to-agent-team:") && orchestrator.includes("Agent 1 — Orchestrator plans and delegates") && orchestrator.includes("One bounded repair cycle after tester rejection")],
  ["Agent queue dispatches immediately after an exact successful Cloudflare deployment", orchestrator.includes("github.event.workflow_run.name == 'Deploy GitHub Chat to Cloudflare'") && orchestrator.includes("github.event.workflow_run.conclusion == 'success'")],
  ["Request-scoped GitHub diagnostic credentials are never persisted", githubCheckRoute.includes("supplied.githubToken") && githubCheckRoute.includes("}, token)") && !githubCheckRoute.includes("storage.put")],
  ["GitHub workspace diagnostic accepts a request-scoped Actions token without persisting it", runtime.includes('req.method === "GET" || req.method === "POST"') && runtime.includes("supplied.githubToken || this.env.GITHUB_TOKEN") && runtime.includes('credentialSource: supplied.githubToken ? "request-scoped GitHub Actions token"') && runtime.includes("}, token)")],
