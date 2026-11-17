@@ -12,7 +12,7 @@ SOLO.Chat is a private browser chat backed by a Cloudflare Worker and a durable 
 - Agent workspace: GitHub Contents API tools for listing, reading, and writing files in the configured repository and branch.
 - Local computer pairing: read-only companion requests are queued through the same Durable Object.
 
-Chat history is not written to the public source repository or public GitHub Issues. Cloudflare serves the site and keeps credentials server-side. The browser receives only the access password entered by the user for authenticated requests.
+Chat history is not written to the public source repository or public GitHub Issues. Cloudflare serves the site and keeps credentials server-side. The browser uses a remembered-device session cookie after successful login; the password is not stored in browser storage.
 
 ## Region-independent access requirement
 
@@ -139,3 +139,10 @@ Workflow `.github/workflows/chat-autonomous-repair.yml` listens for a failed **G
 The Worker must also have `GITHUB_TOKEN` with contents read/write on `CSSBC_CHAT_COMMUNITY` (the configured `GITHUB_WORK_REPO`) and `OPENAI_API_KEY`/Workers AI configured. The chat agent's repository workspace must point at `desdesyo/CSS-Bot-Community`, branch `github-chat-prototype`, with a suitable `GITHUB_WORK_ROOT`.
 
 The workflow is an **external autonomous repair loop**, not a push into the currently open ChatGPT web conversation. Its result is recorded in the Actions run and in the agent's GitHub conversation history. The currently open ChatGPT session cannot receive unsolicited messages from GitHub; to make that happen requires a separate supported inbox/notification integration. Repair is only activated after those secrets are configured and the Worker is deployed.
+
+
+## Canonical SOLO.Chat link
+
+- The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev`.
+- Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
+- Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
