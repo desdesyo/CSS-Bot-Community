@@ -1467,7 +1467,7 @@ LEARNING FROM CORRECTIONS
       }
       const resultDiagnostic = result as any;
       const transcript = await this.harness.session(sessionId).messages().catch(() => [] as any[]);
-      const assistantMessage = transcript.slice().reverse().flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).findLast((message: any) => message?.role === "assistant") || null;
+      const assistantMessage = transcript.slice().reverse().flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
       const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
       const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
       const assistantDiagnostics = assistantMessage ? {
@@ -2117,8 +2117,10 @@ LEARNING FROM CORRECTIONS
             await this.harness.session(id).reset();
           }
           const pi = await this.harness.pi();
-          const conversation = await pi.conversation(Number(id), BACKGROUND_CONTEXT);
-          await conversation.configure({ modelTools }, BACKGROUND_CONTEXT);
+          const conversation = await pi.conversation(id as any, BACKGROUND_CONTEXT);
+          if (!conversation) throw new Error("Diagnostic Pi conversation could not be loaded");
+          const registrations = this.registry.snapshot().tools().filter(({ tool }) => modelTools.includes(tool.name));
+          await conversation.configure({ modelTools: registrations }, BACKGROUND_CONTEXT);
         };
         const runProbe = async (threadKey: string, nonce: string, modelTools: string[]) => {
           await ensureSession(threadKey, modelTools);
