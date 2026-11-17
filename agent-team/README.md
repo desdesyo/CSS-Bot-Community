@@ -43,7 +43,7 @@ A task is never marked done solely because the builder returned a message. The r
 
 ## Live interface updates
 
-The browser polls the authenticated Worker version endpoint every 30 seconds. When the Cloudflare version changes, it reloads after the current generation ends and the composer is empty. It preserves the current conversation and any unsent draft. The agent dashboard reads actual GitHub Actions runs and shows links to the runs; it does not simulate green status.
+The browser polls the authenticated Worker version endpoint every 30 seconds. When the Cloudflare version changes, it reloads after the current generation ends and the composer is empty. It preserves the current conversation and any unsent draft. The agent dashboard reads actual GitHub Actions runs, shows links to the runs, flags stale heartbeats, and displays real queued/in-progress/review/done issue counts; it does not simulate green status.
 
 ## Safety and limits
 
