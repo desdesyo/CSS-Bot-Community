@@ -8,6 +8,8 @@ on:
   workflow_run:
     workflows: ["GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
     types: [completed]
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       task:
@@ -25,6 +27,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+
+  process-chat-feedback:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain SOLO.Chat feedback inbox into agent tasks
+        env:
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD repository secret"; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$CHAT_ENDPOINT/api/agent/feedback" > feedback.json
+          jq -c '.items[]' feedback.json | while read -r RECORD; do
+            ID="$(jq -r '.id' <<<"$RECORD")"
+            RATING="$(jq -r '.rating' <<<"$RECORD")"
+            THREAD="$(jq -r '.threadId' <<<"$RECORD")"
+            OP="$(jq -r '.operationId' <<<"$RECORD")"
+            USER_TEXT="$(jq -r '.userMessage' <<<"$RECORD")"
+            ASSISTANT_TEXT="$(jq -r '.assistantReply' <<<"$RECORD")"
+            NOTE="$(jq -r '.note' <<<"$RECORD")"
+            TITLE="[SOLO.Chat feedback] $RATING · thread $THREAD"
+            BODY="$(jq -n --arg id "$ID" --arg rating "$RATING" --arg thread "$THREAD" --arg op "$OP" --arg user "$USER_TEXT" --arg answer "$ASSISTANT_TEXT" --arg note "$NOTE" '{body:("Feedback ID: "+$id+"\nRating: "+$rating+"\nThread: "+$thread+"\nOperation: "+$op+"\n\nUSER REQUEST\n"+$user+"\n\nASSISTANT RESPONSE\n"+$answer+"\n\nFEEDBACK / ERROR\n"+$note+"\n\nRequired: reproduce, inspect source and runtime evidence, implement a safe fix, add regression tests, verify. Promote reusable skills only after independent verification on at least two cases. Never expose secrets. Report commit/test evidence.")}' | jq -r '.body')"
+            ISSUE_URL="$(gh issue create --repo "$SOURCE_REPO" --title "$TITLE" --body "$BODY" --label agent-task)"
+            curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data "$(jq -n --arg id "$ID" --arg url "$ISSUE_URL" '{id:$id,issueUrl:$url}')" "$CHAT_ENDPOINT/api/agent/feedback/ack" >/dev/null
+            echo "- $ID → $ISSUE_URL" >> "$GITHUB_STEP_SUMMARY"
+          done
+
   dispatch-to-llm:
     if: >-
       github.event_name == 'workflow_dispatch' ||
