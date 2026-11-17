@@ -84,7 +84,11 @@ jobs:
             CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
             if [[ "$CODE" == "200" ]] && jq -e '.ok == true' health.json >/dev/null; then
               curl --fail-with-body --silent --show-error --max-time 20 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/version" | jq '{version,tag,timestamp}'
-              echo "Post-deploy smoke test passed."
+              curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" | jq -e '.roles | length >= 6' >/dev/null
+              jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
+              curl --fail-with-body --silent --show-error --max-time 240 -o model-smoke-response.json -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat"
+              jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null
+              echo "Post-deploy health, agent dashboard and live model smoke tests passed."
               exit 0
             fi
             echo "Health attempt $attempt/12 returned HTTP $CODE; waiting for deployment propagation."
