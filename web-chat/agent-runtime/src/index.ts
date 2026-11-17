@@ -2,6 +2,9 @@ import { DurableObject } from "cloudflare:workers";
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { googleProvider } from "@earendil-works/pi-ai/providers/google";
+import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
+import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
+import { groqProvider } from "@earendil-works/pi-ai/providers/groq";
 import { Harness, createRegistry } from "@earendil-works/pi-durable";
 import { obj, str } from "@earendil-works/pi-schema";
 import { PiHarness } from "agents/harness/pi";
@@ -167,15 +170,22 @@ export class AgentSession extends DurableObject<Env> {
   readonly registry = createRegistry();
   readonly ai = createAI({ binding: this.env.AI, requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } });
   readonly google = googleProvider();
+  readonly openrouter = openrouterProvider();
+  readonly openai = openaiProvider();
+  readonly groq = groqProvider();
   readonly harness = new PiHarness({
     harness: async ({ storage, context, onWake }) => {
       const credentials = new InMemoryCredentialStore();
-      if (this.env.GEMINI_API_KEY) {
-        await credentials.modify("google", async () => ({ type: "api_key", key: this.env.GEMINI_API_KEY }));
-      }
+      if (this.env.GEMINI_API_KEY) await credentials.modify("google", async () => ({ type: "api_key", key: this.env.GEMINI_API_KEY }));
+      if (this.env.OPENROUTER_API_KEY) await credentials.modify("openrouter", async () => ({ type: "api_key", key: this.env.OPENROUTER_API_KEY }));
+      if (this.env.OPENAI_API_KEY) await credentials.modify("openai", async () => ({ type: "api_key", key: this.env.OPENAI_API_KEY }));
+      if (this.env.GROQ_API_KEY) await credentials.modify("groq", async () => ({ type: "api_key", key: this.env.GROQ_API_KEY }));
       const models = createModels({ credentials });
       models.setProvider(this.ai.provider);
+      models.setProvider(this.openrouter);
+      models.setProvider(this.openai);
       models.setProvider(this.google);
+      models.setProvider(this.groq);
       return Harness.open(storage, {
         models, registry: this.registry, onWake,
         settings: { retry: { maxRetries: 2, baseDelayMs: 700 } }
@@ -183,8 +193,14 @@ export class AgentSession extends DurableObject<Env> {
     },
     defaults: {
       model: this.env.GEMINI_API_KEY
-        ? this.google.getModels().find(model => model.id === "gemini-flash-latest")!
-        : this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")
+        ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-flash-latest")) || this.google.getModels()[0]!)
+        : this.env.OPENROUTER_API_KEY
+          ? (this.openrouter.getModels().find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || this.openrouter.getModels()[0]!)
+          : this.env.OPENAI_API_KEY
+            ? (this.openai.getModels().find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1")) || this.openai.getModels()[0]!)
+            : this.env.GROQ_API_KEY
+              ? (this.groq.getModels().find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || this.groq.getModels()[0]!)
+              : this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")
     }
   });
   readonly lifecycle = Lifecycle.install(this).use(this.harness).use(this.mcp);
@@ -283,6 +299,17 @@ TROUBLESHOOTING AND REPORTS
 DOMAIN PREFERENCES — APPLY ONLY WHEN RELEVANT
 - Music/lyrics: preserve original wording, rhythm, sung/rap phrasing and intentionally shifted stress accents. Do not rewrite merely to enforce conventional meter/rhyme. Changes must fit the existing flow and emotional intent.
 - FL Studio/audio: when asked to teach, explain controls practically and provide concrete diagnostics. Sound design should avoid muddy, horror-like, excessively ethereal or generic "vanilla forest" presets; respect the user's named reference and target. Never claim audio was generated/auditioned unless a real file was created and checked.
+PROJECT BASELINE — CSS OVERHAUL / COUNTER-STRIKE: SOURCE V34
+- The user's existing game installation is C:\\Games\\Counter-Strike Source v34. Never ask for this path again.
+- Existing Overhaul source workspace: desdesyo/modhaul, branch main. Shared portable CSSBC core and SDK work: desdesyo/CSS-Bot-Community, branch sdk-foundation. SOLO.Chat itself: desdesyo/CSS-Bot-Community, branch github-chat-prototype. These are different workspaces; never substitute one for another.
+- The current modhaul repository contains a compiled cssbc.smx and a minimal native Metamod bootstrap, but the original SourcePawn source (.sp/.inc) has not been recovered from the repository tree. Never pretend the binary can be rebuilt from source or decompile it as if that recovered authoritative source.
+- The sdk-foundation branch contains BotRuntime::OnWeaponShot() and an ABI contract, but no verified CCSBot/GameDLL event hook or proven v34 SDK integration. Portable C++ code is not proof of an in-game mechanic.
+- Known SourceMod failure history: MetaMod was made to load, but after a map change `meta list` showed plugin [04] <error>; `sourcemod_mm.dll` existed but SourceMod did not load. `plugin_print` returned an empty loaded-plugin list. Preserve this evidence and do not repeat unverified fixes.
+- The game is legacy x86. Verify the exact engine build, SDK headers, ABI, compiler architecture, plugin interfaces and actual in-game load before claiming success. Never replace engine.dll or other protected core binaries without a verified same-build source.
+- For local game inspection use the paired computer bridge and exact path. If no paired device or token exists, state that precise blocker; do not pretend local files were inspected. For source changes, use GitHub and CI; the user explicitly does not want Python for this project.
+- Before any mod task, read docs/LOCAL_FILE_EDITING_SPEC.md, relevant AGENTS.md, modhaul README/source and the applicable sdk-foundation files. Trace definitions, call sites, hooks, dependencies and runtime evidence before editing.
+
+- SOLO.Chat interface self-maintenance: call `solo_ui_inspect` first when asked to inspect or change the live interface; it returns the latest browser-collected DOM geometry, computed styles and overflow/clipping diagnostics (not conversation content). Then read the current `web-chat/public/index.html`, make a focused edit with `solo_ui_write_file`, add regression tests, and verify exact-SHA CI/deployment. The UI editor only changes the public interface directory.
 - SOLO.Chat interface self-maintenance: use the dedicated solo_ui_write_file tool for changes to web-chat/public/index.html and other public HTML/CSS/JS/JSON UI files in desdesyo/CSS-Bot-Community/github-chat-prototype. This is explicit permission to adjust layout, colors, typography, spacing, responsive/mobile behavior, panels, controls and UI settings without asking the user for each ordinary visual change. Read the current file first, make focused changes, preserve existing behavior, add/update tests, and require passing exact-SHA CI plus successful exact-SHA deployment before reporting completion. The tool is restricted to web-chat/public/ and cannot modify runtime secrets or backend code.
 - SOLO.Chat self-maintenance: the default GitHub workspace points to desdesyo/modhaul/main. For SOLO.Chat source, ALWAYS use github_project_list_files / github_project_read_file / github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype. For SDK foundation use the same repo and branch=sdk-foundation; for core-runtime work use the same repo and branch=main. For Overhaul use desdesyo/modhaul/main. These explicit project tools enforce an allowlist; never confuse workspaces.
 - Media and artifacts: if the user requests an image, call generate_image and save the actual image; for a song/music, call generate_music; for spoken voice, call generate_speech; for a 3D asset, call generate_3d_model then check_3d_model until a GLB is saved; for downloadable text/code/data assets, call create_text_artifact. Never answer a file-generation request with only a prompt or code snippet when an artifact tool can create the file. Return the actual /api/files/<id> download URL from the tool result. If a provider is unavailable, report the exact missing provider/billing/secret; do not fabricate output.
@@ -402,6 +429,17 @@ LEARNING FROM CORRECTIONS
               })
             });
             return textOutput({ written: true, repository, branch, path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url });
+          }
+        },
+        {
+          name: "solo_ui_inspect",
+          description: "Inspect the latest real SOLO.Chat browser UI snapshot: viewport size, visible interface elements, bounding boxes, computed styles, stacking, overflow and clipping diagnostics. The browser sends a privacy-filtered snapshot automatically after login; conversation contents and typed text are excluded.",
+          parameters: obj({}),
+          replay: "safe",
+          async execute() {
+            const snapshot = await storage.get<any>("solo:ui:inspection");
+            if (!snapshot) return textOutput({ available: false, reason: "No browser inspection snapshot yet. Open the deployed SOLO.Chat page and sign in; it reports its visible interface automatically." });
+            return textOutput(snapshot);
           }
         },
         {
@@ -1327,7 +1365,7 @@ LEARNING FROM CORRECTIONS
     const workersAiCircuit = await this.ctx.storage.get<number>("provider:circuit:workers-ai");
     let harnessFailure = "";
     try {
-      if (workersAiCircuit && workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY) throw new Error("Workers AI quota circuit is open; bypassing Pi harness only because no Gemini tool-capable provider is configured");
+      if (workersAiCircuit && workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open and no external tool-capable provider is configured");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
@@ -1449,6 +1487,50 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/health" && req.method === "GET") {
         await this.requirePassword(req);
         return json({ ok: true, service: "SOLO.Chat", checkedAt: new Date().toISOString() });
+      }
+      if (url.pathname === "/api/ui/inspection" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json() as any;
+        const elements = (Array.isArray(body.elements) ? body.elements : []).slice(0, 120).map((item: any) => ({
+          tag: String(item.tag || "").slice(0, 24),
+          id: String(item.id || "").slice(0, 80),
+          className: String(item.className || "").slice(0, 180),
+          label: String(item.label || "").slice(0, 100),
+          rect: {
+            x: Math.round(Number(item.rect?.x) || 0), y: Math.round(Number(item.rect?.y) || 0),
+            width: Math.round(Number(item.rect?.width) || 0), height: Math.round(Number(item.rect?.height) || 0)
+          },
+          style: {
+            display: String(item.style?.display || "").slice(0, 24),
+            position: String(item.style?.position || "").slice(0, 24),
+            zIndex: String(item.style?.zIndex || "").slice(0, 24),
+            overflow: String(item.style?.overflow || "").slice(0, 48),
+            color: String(item.style?.color || "").slice(0, 48),
+            background: String(item.style?.background || "").slice(0, 100),
+            fontSize: String(item.style?.fontSize || "").slice(0, 24),
+            backdropFilter: String(item.style?.backdropFilter || "").slice(0, 80),
+            transform: String(item.style?.transform || "").slice(0, 80)
+          },
+          visible: item.visible === true
+        }));
+        const snapshot = {
+          capturedAt: new Date().toISOString(),
+          viewport: {
+            width: Math.max(0, Math.min(10000, Number(body.viewport?.width) || 0)),
+            height: Math.max(0, Math.min(10000, Number(body.viewport?.height) || 0)),
+            documentWidth: Math.max(0, Math.min(20000, Number(body.viewport?.documentWidth) || 0)),
+            documentHeight: Math.max(0, Math.min(30000, Number(body.viewport?.documentHeight) || 0)),
+            devicePixelRatio: Math.max(0.5, Math.min(4, Number(body.viewport?.devicePixelRatio) || 1))
+          },
+          diagnostics: (Array.isArray(body.diagnostics) ? body.diagnostics : []).slice(0, 40).map((x: any) => String(x).slice(0, 240)),
+          elements
+        };
+        await this.ctx.storage.put("solo:ui:inspection", snapshot);
+        return json({ ok: true, capturedAt: snapshot.capturedAt, elements: elements.length });
+      }
+      if (url.pathname === "/api/ui/inspection" && req.method === "GET") {
+        await this.requirePassword(req);
+        return json(await this.ctx.storage.get<any>("solo:ui:inspection") || { available: false });
       }
       if (url.pathname === "/api/version" && req.method === "GET") {
         await this.requirePassword(req);
@@ -1966,7 +2048,20 @@ LEARNING FROM CORRECTIONS
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
         await this.requirePassword(req);
-        return json({ pending: await this.harness.pending(), mcpServers: this.mcp.listServers(), mcpTools: this.mcp.listTools() });
+        return json({
+          pending: await this.harness.pending(),
+          mcpServers: this.mcp.listServers(),
+          mcpTools: this.mcp.listTools(),
+          registeredTools: this.registry.snapshot().tools().map(({ tool }) => tool.name),
+          providers: {
+            gemini: Boolean(this.env.GEMINI_API_KEY),
+            openrouter: Boolean(this.env.OPENROUTER_API_KEY),
+            openai: Boolean(this.env.OPENAI_API_KEY),
+            groq: Boolean(this.env.GROQ_API_KEY),
+            workersAi: true,
+            githubToken: Boolean(this.env.GITHUB_TOKEN)
+          }
+        });
       }
       return json({ error: "Not found" }, 404);
     } catch (error) {
@@ -1980,7 +2075,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
