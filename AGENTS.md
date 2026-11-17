@@ -82,3 +82,19 @@ The C# Local CSS Bridge is a read-only scanner. The separate Node PC companion n
 - A successful CI build proves compilation/package creation only; it does not prove compatibility with the user's exact v34 game.
 - A source commit is not an installed mod. A package is not an applied patch. A successful write is not proof that gameplay works.
 - For every deliverable, link the exact commit, successful CI run, artifact or deployment that was verified.
+
+
+## 7. SOLO.Chat autonomous agent team and self-repair
+
+The agent team runs in GitHub Actions workflow `.github/workflows/agent-orchestrator.yml` and uses three separate durable chat sessions per task:
+1. **Orchestrator/planner** inspects project instructions and creates a scoped plan; it must not edit files.
+2. **Implementer** executes the plan and commits changes using the explicit allowlisted `github_project_*` tools. The default workspace remains `desdesyo/modhaul/main`; SOLO.Chat self-maintenance must explicitly target `desdesyo/CSS-Bot-Community/github-chat-prototype`.
+3. **Independent tester** is read-only, inspects the current branch and implementation, and returns PASS/REJECT. One bounded repair pass and re-test are allowed. Code review is not a substitute for CI or live runtime tests.
+
+The separate **Agent Supervisor Audit** is the final gate. It may mark a task done only after an independent review, successful GitHub Chat checks for the exact current branch SHA, and a successful deployment run for that exact SHA whenever `web-chat/**` changed. The implementer and orchestrator must never label a task done themselves.
+
+The task generator creates queued issues from `agent-team/TASK_QUEUE.md`. Health and model monitors periodically exercise authenticated health and real model inference; on failure they create deduplicated repair tasks. CI/deploy failures are sent back through the orchestrator. The browser polls Cloudflare version metadata every 15 seconds and refreshes the UI without discarding an active generation, unsent draft, selected thread, or scroll position; it also refreshes agent telemetry every 30 seconds and on tab focus.
+
+Dashboard role states are read from actual GitHub Actions workflow/job steps and issue labels, not hard-coded success flags. A workflow being queued, cancelled, skipped, or missing is not a successful agent run. The planner, implementer and tester share the same configured model provider but have isolated task sessions and different permissions/prompts; they are role-separated agent passes, not three independently hosted model providers.
+
+Required for autonomous repository edits: Worker secret `GITHUB_TOKEN` (deployment source: repository secret `CSSBC_GITHUB_TOKEN`) with Contents read/write on the allowlisted project repositories and Issues/Actions read as needed. The workflow can still run the model without it, but project file tools will fail closed. Never expose the token to the browser.
