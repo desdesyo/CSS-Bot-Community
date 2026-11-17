@@ -72,9 +72,10 @@ jobs:
             else
               TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
             fi
-            EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=all&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
+            EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg prefix "[Self-Heal] $RUN_NAME failed (" --arg target "$TARGET_REPO@$TARGET_BRANCH" '[.[]|select(.pull_request==null and (.title|startswith($prefix)) and ((.body//"")|contains("Agent-Target: "+$target)))][0].number // empty')"
             if [[ -n "$EXISTING" ]]; then
-              echo "Repair task for failed run $RUN_ID already tracked by issue #$EXISTING."
+              gh issue comment "$EXISTING" --repo "$SOURCE_REPO" --body "Repeated failure detected. Workflow run: $GITHUB_SERVER_URL/$SOURCE_REPO/actions/runs/$RUN_ID\nBranch: $RUN_BRANCH\nCommit: $RUN_SHA\nFailed jobs/steps: $FAILED"
+              echo "Aggregated repeated failure run $RUN_ID into issue #$EXISTING."
               continue
             fi
             JOBS="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID/jobs?per_page=100")"
@@ -98,6 +99,7 @@ jobs:
           for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
           gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --remove-label status:review --remove-label status:done --add-label status:queued
           gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body "Correction received. Task returned to the serial builder queue."
+          gh workflow run agent-orchestrator.yml --repo "$SOURCE_REPO" --ref main
 
   dispatch-to-llm:
     concurrency:
@@ -145,6 +147,13 @@ jobs:
             echo "::notice::Agent team paused: latest SOLO.Chat Worker code has not been successfully deployed yet."
             exit 0
           fi
+          STALE_CUTOFF="$(date -u -d '150 minutes ago' +%s)"
+          gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --argjson cutoff "$STALE_CUTOFF" '[.[]|select(.pull_request==null and (.labels|any(.name=="agent-task")) and (.labels|any(.name=="status:in-progress")) and ((.updated_at|fromdateiso8601) < $cutoff))|.number][]' | while read -r STALE_ISSUE; do
+            [[ -n "$STALE_ISSUE" ]] || continue
+            gh issue edit "$STALE_ISSUE" --repo "$SOURCE_REPO" --remove-label status:in-progress --add-label status:queued
+            gh issue comment "$STALE_ISSUE" --repo "$SOURCE_REPO" --body "Stale task recovery: no active builder completion was recorded within 150 minutes. Returned to the serial queue; the next run will re-check current code and evidence."
+            echo "Re-queued stale issue #$STALE_ISSUE."
+          done
           TARGET_REPO="$DEFAULT_REPO"
           TARGET_BRANCH="$DEFAULT_BRANCH"
           ISSUE_NUMBER=""
