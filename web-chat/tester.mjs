@@ -7,7 +7,7 @@ const checks = [
  ["Worker validates APP_PASSWORD", /async function auth\(req,env\)[\s\S]*?safeEqual\(h,"Bearer "\+env\.APP_PASSWORD\)/.test(worker)],
  ["Health endpoint exists", /\/api\/health/.test(worker)],
  ["Worker runtime exposes immutable Cloudflare version metadata", runtime.includes('url.pathname === "/api/version"') && runtime.includes("CF_VERSION_METADATA")],
- ["Agent dashboard reports real GitHub Actions workflow states", runtime.includes('url.pathname === "/api/agents/status"') && runtime.includes("CSSBC Agent Orchestrator") && runtime.includes("Agent Supervisor Audit") && runtime.includes("GitHub Chat checks") && runtime.includes("SOLO.Chat Health Monitor") && runtime.includes("SOLO.Chat Model Monitor")],
+ ["Agent dashboard reports real GitHub Actions workflow states", runtime.includes('url.pathname === "/api/agents/status"') && runtime.includes("CSSBC Agent Orchestrator") && runtime.includes("Agent Supervisor Audit") && runtime.includes("GitHub Chat checks") && runtime.includes("SOLO.Chat Health Monitor") && runtime.includes("SOLO.Chat Model Monitor") && runtime.includes("GitHub Chat live end-to-end test")],
  ["Agent dashboard exposes real queued, running, review, done and review-needed issue counts", runtime.includes("issuesResponse") && runtime.includes("reviewNeeded") && html.includes("Очередь задач:")],
  ["Browser automatically polls for a new deployed version", html.includes('setInterval(checkLiveVersion,30000)') && html.includes('api("/api/version")')],
  ["Live update preserves unsent draft and waits for active generation", html.includes("preserveForReload") && html.includes("applyPendingVersion") && html.includes("if(!pendingVersion||busy||$(\"prompt\").value.trim()||attachedFiles.length)return")],
