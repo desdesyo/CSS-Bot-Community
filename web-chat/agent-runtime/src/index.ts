@@ -458,12 +458,16 @@ LEARNING FROM CORRECTIONS
       });
       let reply = "";
       let consumedFollowups = 0;
+      let firstPass = true;
       try {
         while (true) {
-          const prompt = consumedFollowups === 0
-            ? job.prompt
+          const pendingFollowups = (job.followups || []).slice(consumedFollowups);
+          const prompt = firstPass
+            ? job.prompt + (pendingFollowups.length ? "\n\nAdditional user instructions received while starting:\n" + pendingFollowups.map((message, index) => (index + 1) + ". " + message).join("\n") : "")
             : "The user sent additional instructions while you were working. Incorporate them into the task and produce the updated complete answer.\n\n" +
-              job.followups.slice(consumedFollowups).map((message, index) => (index + 1) + ". " + message).join("\n");
+              pendingFollowups.map((message, index) => (index + 1) + ". " + message).join("\n");
+          consumedFollowups += pendingFollowups.length;
+          firstPass = false;
           const result = await Promise.race([
             this.runChat(String(job.threadId), prompt, job.operationId + (consumedFollowups ? "-update-" + consumedFollowups : "")),
             timeout
@@ -479,7 +483,6 @@ LEARNING FROM CORRECTIONS
           const latest = await this.ctx.storage.get<BrowserChatJob>(jobKey);
           const followups = latest?.followups || [];
           if (followups.length > consumedFollowups) {
-            consumedFollowups = followups.length;
             job.followups = followups;
             job.status = "running";
             job.updatedAt = Date.now();
