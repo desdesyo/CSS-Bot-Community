@@ -1019,9 +1019,14 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       console.error("[SOLO.Chat] agent harness failed; trying direct Workers AI fallback", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
     }
+    const agentRole = await this.ctx.storage.get<string>("agent:role") || "user";
+    if (agentRole !== "user") {
+      throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; требуется восстановить Pi agent harness.");
+    }
+    const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + prompt;
     try {
-      const fallback = await this.runDirectModel(prompt);
-      return { reply: fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
+      const fallback = await this.runDirectModel(fallbackPrompt);
+      return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: "workers-ai-direct-fallback", model: fallback.model };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
       throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
