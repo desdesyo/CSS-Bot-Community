@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
+import { googleProvider } from "@earendil-works/pi-ai/providers/google";
 import { Harness, createRegistry } from "@earendil-works/pi-durable";
 import { obj, str } from "@earendil-works/pi-schema";
 import { PiHarness } from "agents/harness/pi";
@@ -164,13 +166,26 @@ export class AgentSession extends DurableObject<Env> {
   readonly mcp = new MCPClientManager("cssbc-agent-chat", "1.0.0");
   readonly registry = createRegistry();
   readonly ai = createAI({ binding: this.env.AI, requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } });
+  readonly google = googleProvider();
   readonly harness = new PiHarness({
-    harness: ({ storage, context, onWake }) => {
-      const models = createModels();
+    harness: async ({ storage, context, onWake }) => {
+      const credentials = new InMemoryCredentialStore();
+      if (this.env.GEMINI_API_KEY) {
+        await credentials.modify("google", async () => ({ type: "api_key", key: this.env.GEMINI_API_KEY }));
+      }
+      const models = createModels({ credentials });
       models.setProvider(this.ai.provider);
-      return Harness.open(storage, { models, registry: this.registry, onWake }, context);
+      models.setProvider(this.google);
+      return Harness.open(storage, {
+        models, registry: this.registry, onWake,
+        settings: { retry: { maxRetries: 2, baseDelayMs: 700 } }
+      }, context);
     },
-    defaults: { model: this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", { fallback: ["@cf/google/gemma-4-26b-a4b-it"], requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } }) }
+    defaults: {
+      model: this.env.GEMINI_API_KEY
+        ? this.google.getModels().find(model => model.id === "gemini-flash-latest")!
+        : this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")
+    }
   });
   readonly lifecycle = Lifecycle.install(this).use(this.harness).use(this.mcp);
 
@@ -188,6 +203,20 @@ export class AgentSession extends DurableObject<Env> {
       if (["planner", "tester", "supervisor"].includes(role)) throw new Error("Read-only agent role cannot perform write-capable tools: " + role);
     };
     const workspaceTools: any[] = []; // Free Workers plan: no Dynamic Workers code sandbox.
+    this.registry.install({
+      name: "solo-harness-diagnostics",
+      tools: [{
+        name: "solo_harness_probe",
+        description: "Internal diagnostic tool. Execute only when the user explicitly asks to verify that SOLO.Chat can call tools.",
+        parameters: obj({ nonce: str() }),
+        replay: "safe",
+        async execute({ nonce }: { nonce: string }) {
+          if (!/^[a-zA-Z0-9_-]{8,80}$/.test(nonce)) throw new Error("Invalid diagnostic nonce");
+          await storage.put("harness-probe:" + nonce, { executedAt: Date.now() });
+          return { output: [{ type: "text", text: "SOLO_CHAT_TOOL_OK:" + nonce }] };
+        }
+      }]
+    });
     this.registry.install({
       name: "workspace-and-connectors",
       sections: [{
@@ -1393,7 +1422,26 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agents/status" && req.method === "GET") {
         await this.requirePassword(req);
         const cached = await this.ctx.storage.get<any>("agents:status-cache");
-        if (cached && Date.now() - cached.checkedAt < 20000) return json({ ...cached.data, cached: true });
+        if (cached && Date.now() - cached.checkedAt < 300000) return json({ ...cached.data, cached: true });
+        const unavailable = (upstreamStatus: number, reason: string) => {
+          const data = cached?.data || {
+            roles: [
+              { id: "orchestrator", label: "Агент 1 · Оркестратор", status: "unknown" },
+              { id: "implementer", label: "Агент 2 · Разработчик", status: "unknown" },
+              { id: "tester", label: "Агент 3 · Независимый тестировщик", status: "unknown" },
+              { id: "supervisor", label: "Агент 4 · Контролёр", status: "unknown" },
+              { id: "task-generator", label: "Генератор заданий", status: "unknown" },
+              { id: "health-monitor", label: "Монитор здоровья", status: "unknown" },
+              { id: "model-monitor", label: "Монитор модели", status: "unknown" },
+              { id: "deploy", label: "Автодеплой", status: "unknown" },
+              { id: "e2e", label: "Проверка E2E", status: "unknown" }
+            ],
+            queue: null,
+            source: "GitHub Actions + Issues",
+            checkedAt: null
+          };
+          return json({ ...data, stale: true, statusUnavailable: true, upstreamStatus, statusError: reason.slice(0, 240) });
+        };
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
         const githubRead = async (url: string) => {
@@ -1408,11 +1456,17 @@ LEARNING FROM CORRECTIONS
           return result;
         };
         const response = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100");
-        if (!response.ok) return json({ error: "GitHub Actions status unavailable", upstreamStatus: response.status }, 502);
+        if (!response.ok) {
+          const detail: any = await response.clone().json().catch(() => ({}));
+          return unavailable(response.status, String(detail.message || "GitHub Actions status unavailable"));
+        }
         const payload: any = await response.json();
         const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
         const issuesResponse = await githubRead("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100");
-        if (!issuesResponse.ok) return json({ error: "GitHub task queue status unavailable", upstreamStatus: issuesResponse.status }, 502);
+        if (!issuesResponse.ok) {
+          const detail: any = await issuesResponse.clone().json().catch(() => ({}));
+          return unavailable(issuesResponse.status, String(detail.message || "GitHub task queue status unavailable"));
+        }
         const issues: any[] = await issuesResponse.json();
         const queue = { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 };
         for (const issue of issues) {
@@ -1832,6 +1886,28 @@ LEARNING FROM CORRECTIONS
           const detail = error instanceof Error ? error.message : "Unknown model provider error";
           console.error("[SOLO.Chat] provider-chain model check failed", JSON.stringify({ error: detail }));
           return json({ ok: false, error: detail.slice(0, 900) }, 502);
+        }
+      }
+      if (url.pathname === "/api/agent/harness-check" && req.method === "GET") {
+        await this.requirePassword(req);
+        const nonce = randomToken(12);
+        await this.ctx.storage.put("agent:role", "user");
+        const threadKey = "harness-check-" + nonce;
+        try {
+          const result = await this.runChat(
+            threadKey,
+            "This is a real tool-execution diagnostic. You MUST call solo_harness_probe exactly once with nonce \"" + nonce + "\". After the tool returns, reply with exactly SOLO_CHAT_HARNESS_OK:" + nonce + ". Do not guess or claim success without the tool result.",
+            "harness-check-" + nonce,
+            "user"
+          );
+          const executed = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + nonce);
+          await this.ctx.storage.delete("harness-probe:" + nonce);
+          if (!executed) return json({ ok: false, toolExecution: false, provider: result.provider, error: "Pi harness returned without executing the diagnostic tool." }, 503);
+          return json({ ok: true, toolExecution: true, provider: result.provider, model: result.model, reply: result.reply });
+        } catch (error) {
+          await this.ctx.storage.delete("harness-probe:" + nonce);
+          const detail = error instanceof Error ? error.message : "Harness diagnostic failed";
+          return json({ ok: false, toolExecution: false, error: detail.slice(0, 900) }, 503);
         }
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
