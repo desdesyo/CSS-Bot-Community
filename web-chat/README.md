@@ -27,7 +27,10 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 - `APP_PASSWORD` — private chat access password. Deployment synchronizes this from the GitHub Actions secret `CSSBC_CHAT_APP_PASSWORD`.
 - `GITHUB_TOKEN` — fine-grained GitHub token for the configured workspace repository (Contents read/write).
 - `BRAVE_SEARCH_API_KEY` — optional; enables the agent's live web-search tool.
-- `OPENAI_API_KEY` — optional; used only by the separate external-expert consultation tool.
+- `OPENAI_API_KEY` — optional; used only by the separate external-expert consultation tool.- `CSSBC_OPENAI_API_KEY` — optional GitHub Actions repository secret. The deploy workflow syncs it to Worker secret `OPENAI_API_KEY`; required for automatic expert escalation.
+
+To enable SOLO.Chat's automatic expert escalation, add `CSSBC_OPENAI_API_KEY` under the repository's **Settings → Secrets and variables → Actions**. Do not paste the key into chat or commit it. Without this secret, the agent must report that external expert help is unavailable instead of pretending to consult it.
+
 
 Worker variables in `wrangler.toml`:
 
