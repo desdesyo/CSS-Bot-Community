@@ -477,11 +477,14 @@ LEARNING FROM CORRECTIONS
 
           // Close the intake window before the final read. Any message accepted
           // before this transition is persisted and will be included in another pass.
-          job.status = "finalizing";
-          job.updatedAt = Date.now();
-          await this.ctx.storage.put(jobKey, job);
-          const latest = await this.ctx.storage.get<BrowserChatJob>(jobKey);
-          const followups = latest?.followups || [];
+          const followups = await this.ctx.blockConcurrencyWhile(async () => {
+            const latest = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+            if (!latest) throw new Error("Задача не найдена");
+            latest.status = "finalizing";
+            latest.updatedAt = Date.now();
+            await this.ctx.storage.put(jobKey, latest);
+            return latest.followups || [];
+          });
           if (followups.length > consumedFollowups) {
             job.followups = followups;
             job.status = "running";
@@ -708,23 +711,29 @@ LEARNING FROM CORRECTIONS
         const message = String(body.message || "").trim();
         if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId)) return json({ error: "Invalid operation ID" }, 400);
         if (!message || message.length > 12000) return json({ error: "Message must be 1–12000 characters" }, 400);
-        const jobKey = "browser-chat:job:" + operationId;
-        const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
-        if (!job) return json({ error: "Operation not found" }, 404);
-        if (job.status !== "queued" && job.status !== "running") return json({ error: "Ответ уже завершается. Дополнение не принято — отправьте его следующим сообщением." }, 409);
-        const followups = job.followups || [];
-        if (followups.length >= 20) return json({ error: "Для одного ответа можно добавить не более 20 сообщений." }, 429);
-        followups.push(message);
-        job.followups = followups;
-        job.updatedAt = Date.now();
-        await this.ctx.storage.put(jobKey, job);
-        const threadKey = "browser-chat:thread:" + job.threadId;
-        const thread = await this.ctx.storage.get<any>(threadKey);
-        if (!thread) return json({ error: "Диалог не найден" }, 404);
-        thread.messages.push({ role: "user", content: message, files: [], operationId, followup: true });
-        thread.updatedAt = Date.now();
-        await this.ctx.storage.put(threadKey, thread);
-        return json({ accepted: true, status: job.status, followups: followups.length }, 202);
+        const accepted = await this.ctx.blockConcurrencyWhile(async () => {
+          const jobKey = "browser-chat:job:" + operationId;
+          const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+          if (!job) return { error: "Operation not found", status: 404 };
+          if (job.status !== "queued" && job.status !== "running") {
+            return { error: "Ответ уже завершается. Дополнение не принято — отправьте его следующим сообщением.", status: 409 };
+          }
+          const followups = job.followups || [];
+          if (followups.length >= 20) return { error: "Для одного ответа можно добавить не более 20 сообщений.", status: 429 };
+          const threadKey = "browser-chat:thread:" + job.threadId;
+          const thread = await this.ctx.storage.get<any>(threadKey);
+          if (!thread) return { error: "Диалог не найден", status: 404 };
+          followups.push(message);
+          thread.messages.push({ role: "user", content: message, files: [], operationId, followup: true });
+          thread.updatedAt = Date.now();
+          job.followups = followups;
+          job.updatedAt = Date.now();
+          await this.ctx.storage.put(threadKey, thread);
+          await this.ctx.storage.put(jobKey, job);
+          return { accepted: true, status: job.status, followups: followups.length };
+        });
+        if ("error" in accepted) return json({ error: accepted.error }, accepted.status);
+        return json(accepted, 202);
       }
       if (url.pathname === "/api/chat/status" && req.method === "GET") {
         await this.requirePassword(req);
