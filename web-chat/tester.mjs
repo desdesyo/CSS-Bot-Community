@@ -160,6 +160,7 @@ const checks = [
  [ "Exact duplicate conversations are pruned with memory indexes", runtime.includes("duplicatesRemoved") && runtime.includes("memory:indexed:")],
  [ "Duplicate cleanup skips unfinished conversations", runtime.includes('signatureSource[signatureSource.length - 1].role === "assistant"')],
  [ "Search history can be cleared without deleting conversations", runtime.includes('url.pathname === "/api/search-history"') && runtime.includes('"search:history:"') && html.includes('id="clearSearchHistory"') && html.includes('api("/api/search-history",{method:"DELETE"})')],
+ [ "SOLO.Chat system contract teaches end-to-end GitHub feature self-development with regression tests and exact-SHA deployment verification", runtime.includes("SOLO.Chat feature self-development through GitHub") && runtime.includes("github_project_read_file") && runtime.includes("github_project_write_file") && runtime.includes("solo_ui_inspect") && runtime.includes("solo_ui_write_file") && runtime.includes("exact-SHA CI") && runtime.includes("post-deploy smoke/E2E checks") && runtime.includes("Do not weaken role write restrictions")],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
