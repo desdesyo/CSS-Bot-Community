@@ -19,7 +19,7 @@ The team is an auditable GitHub Actions orchestration pipeline backed by SOLO.Ch
 
 3. **Tester** (`GitHub Chat checks`, `CSSBC Core CI`, deploy smoke test)
    - Runs regression tests and type checks.
-   - Deploy workflow performs an authenticated live health/version check after deployment.
+   - Deploy workflow performs an authenticated live health/version check after deployment and automatically rolls back the previous Worker version if the new version fails the smoke test.
    - Failed checks trigger the orchestrator repair path.
 
 4. **Supervisor / Reviewer** (`.github/workflows/agent-supervisor.yml`)
