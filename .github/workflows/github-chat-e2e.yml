@@ -43,7 +43,7 @@ jobs:
             echo "::error::GitHub workspace check returned HTTP $GH_CODE: $(head -c 500 github-check.json)"
             exit 1
           fi
-          jq -e '.ok == true and any(.files[]; .name=="worker.js")' github-check.json >/dev/null
+          jq -e '.ok == true and any(.files[]; .name=="PCBridge") and any(.files[]; .name=="client.dll")' github-check.json >/dev/null
 
           echo "3/5 Verify the orchestrator agent chat endpoint..."
           jq -n --arg prompt "Reply with exactly this marker: CSSBC_AGENT_E2E_${GITHUB_RUN_ID}" \
