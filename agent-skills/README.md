@@ -29,3 +29,8 @@ The agent accumulates durable, version-controlled procedures and test evidence. 
 - The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev`.
 - Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
 - Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
+
+
+## Project context skills
+
+- `css-v34-project-context.md` — authoritative repositories/branches, CS:S v34 native GameDLL build, integration hook, artifacts, optional SourceMod prototype, known gaps and required verification. Load before any CSSBC/CS:S v34/mod task.
