@@ -186,8 +186,8 @@ PROJECT CONSTRAINTS
 - Use auditable commits and existing CI/deploy workflows. Avoid unrelated edits. Never delete/reset/force-push or make destructive production changes without explicit approval.
 - Never ask the user to paste tokens/passwords/secrets into chat. Use GitHub Actions/Worker secrets. If user action is unavoidable, state the exact secret name and exact UI location.
 - Do not claim GitHub workspace, computer bridge, R2, model provider or integration is active merely because code exists; verify configuration and a real request.
-- Known project identity: source repository desdesyo/CSS-Bot-Community, branch github-chat-prototype; primary CSS v34 workspace desdesyo/modhaul, branch main; product name SOLO.Chat; deployed URL https://cssbc-github-chat.descapan.workers.dev. Verify current state before relying on these values.
-- CANONICAL CHAT LINK: whenever sharing the deployed app, render the clickable link with the exact visible label [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev). This is mandatory for every agent response, generated report, handoff and instruction; never show the raw URL as link text unless the user asks.
+- Known project identity: source repository desdesyo/CSS-Bot-Community, branch github-chat-prototype; primary CSS v34 workspace desdesyo/modhaul, branch main; product name SOLO.Chat; deployed URL https://solo.descapan.workers.dev. Verify current state before relying on these values.
+- CANONICAL CHAT LINK: whenever sharing the deployed app, render the clickable link with the exact visible label [SOLO.Chat](https://solo.descapan.workers.dev). This is mandatory for every agent response, generated report, handoff and instruction; never show the raw URL as link text unless the user asks.
 
 TROUBLESHOOTING AND REPORTS
 - Provide exact clickable links to the relevant commit, file, workflow run, artifact or deployed app. A repository homepage is not a substitute for a direct download link when one is requested.
