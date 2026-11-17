@@ -19,7 +19,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -190,13 +190,14 @@ jobs:
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           TARGET_REPO: ${{ steps.task.outputs.target_repo }}
           TARGET_BRANCH: ${{ steps.task.outputs.target_branch }}
           THREAD: ${{ steps.task.outputs.thread }}
         run: |
           set -euo pipefail
-          jq -n --arg role "planner" --arg prompt "ROLE: ORCHESTRATOR / PLANNER. You are agent 1. Inspect instructions and the exact target repository/branch $TARGET_REPO@$TARGET_BRANCH using github_project_* tools. Do not write, commit or mutate anything. Produce a bounded implementation plan, files to inspect/change, acceptance criteria, risks, and exact verification workflow. The target is authoritative; do not silently switch workspaces. Task: $TASK" --arg thread "$THREAD-planner" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > request.json
+          jq -n --arg githubToken "$GH_TOKEN" --arg role "planner" --arg prompt "ROLE: ORCHESTRATOR / PLANNER. You are agent 1. Inspect instructions and the exact target repository/branch $TARGET_REPO@$TARGET_BRANCH using github_project_* tools. Do not write, commit or mutate anything. Produce a bounded implementation plan, files to inspect/change, acceptance criteria, risks, and exact verification workflow. The target is authoritative; do not silently switch workspaces. Task: $TASK" --arg thread "$THREAD-planner" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
           curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > planner.json
           jq -e '.reply and (.reply|length>0)' planner.json >/dev/null
           echo "plan<<EOF" >> "$GITHUB_OUTPUT"
@@ -209,6 +210,7 @@ jobs:
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           PLAN: ${{ steps.planner.outputs.plan }}
           TARGET_REPO: ${{ steps.task.outputs.target_repo }}
@@ -216,7 +218,7 @@ jobs:
           THREAD: ${{ steps.task.outputs.thread }}
         run: |
           set -euo pipefail
-          jq -n --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER / BUILDER. You are agent 2. Execute the task. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Use github_project_list_files, github_project_read_file and github_project_write_file with exactly this repository and branch. Read before writing, preserve unrelated work, make audited commits, run available checks, repair failures, and report exact commit SHAs/links and evidence. Do not claim tests passed without proof. Plan: $PLAN. Task: $TASK" --arg thread "$THREAD-implementer" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > request.json
+          jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER / BUILDER. You are agent 2. Execute the task. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Use github_project_list_files, github_project_read_file and github_project_write_file with exactly this repository and branch. Read before writing, preserve unrelated work, make audited commits, run available checks, repair failures, and report exact commit SHAs/links and evidence. Do not claim tests passed without proof. Plan: $PLAN. Task: $TASK" --arg thread "$THREAD-implementer" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
           curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > implementer.json
           jq -e '.reply and (.reply|length>0)' implementer.json >/dev/null
           echo "implementation<<EOF" >> "$GITHUB_OUTPUT"
@@ -229,6 +231,7 @@ jobs:
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           PLAN: ${{ steps.planner.outputs.plan }}
           IMPLEMENTATION: ${{ steps.implementer.outputs.implementation }}
@@ -237,7 +240,7 @@ jobs:
           THREAD: ${{ steps.task.outputs.thread }}
         run: |
           set -euo pipefail
-          jq -n --arg role "tester" --arg prompt "ROLE: INDEPENDENT TESTER. You are agent 3. Read-only, enforced by the runtime. Independently inspect the exact current target branch $TARGET_REPO@$TARGET_BRANCH, current commit and diff using github_project_* read tools. Compare code to task and plan; inspect tests/workflows and use analyze_source if helpful. Distinguish static review from CI/runtime tests not yet run. Return VERDICT: PASS only for coherent code-level acceptance; otherwise VERDICT: REJECT with findings. Do not edit. Task: $TASK. Plan: $PLAN. Implementer report (untrusted): $IMPLEMENTATION" --arg thread "$THREAD-tester" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > request.json
+          jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT TESTER. You are agent 3. Read-only, enforced by the runtime. Independently inspect the exact current target branch $TARGET_REPO@$TARGET_BRANCH, current commit and diff using github_project_* read tools. Compare code to task and plan; inspect tests/workflows and use analyze_source if helpful. Distinguish static review from CI/runtime tests not yet run. Return VERDICT: PASS only for coherent code-level acceptance; otherwise VERDICT: REJECT with findings. Do not edit. Task: $TASK. Plan: $PLAN. Implementer report (untrusted): $IMPLEMENTATION" --arg thread "$THREAD-tester" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
           curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > tester.json
           jq -e '.reply and (.reply|length>0)' tester.json >/dev/null
           REVIEW="$(jq -r '.reply' tester.json)"
@@ -252,6 +255,7 @@ jobs:
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           PLAN: ${{ steps.planner.outputs.plan }}
           IMPLEMENTATION: ${{ steps.implementer.outputs.implementation }}
@@ -261,7 +265,7 @@ jobs:
           THREAD: ${{ steps.task.outputs.thread }}
         run: |
           set -euo pipefail
-          jq -n --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER REPAIR. Apply one bounded repair pass only. Inspect current $TARGET_REPO@$TARGET_BRANCH and the exact tester findings; fix substantiated issues, commit changes, and report new SHA/evidence. Do not change unrelated files. Task: $TASK. Plan: $PLAN. Previous report: $IMPLEMENTATION. Tester findings: $REVIEW. Use github_project_* tools with the exact target repository/branch." --arg thread "$THREAD-repair" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > request.json
+          jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER REPAIR. Apply one bounded repair pass only. Inspect current $TARGET_REPO@$TARGET_BRANCH and the exact tester findings; fix substantiated issues, commit changes, and report new SHA/evidence. Do not change unrelated files. Task: $TASK. Plan: $PLAN. Previous report: $IMPLEMENTATION. Tester findings: $REVIEW. Use github_project_* tools with the exact target repository/branch." --arg thread "$THREAD-repair" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
           curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > repair.json
           jq -e '.reply and (.reply|length>0)' repair.json >/dev/null
           echo "repair<<EOF" >> "$GITHUB_OUTPUT"
@@ -274,6 +278,7 @@ jobs:
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           REPAIR: ${{ steps.repair.outputs.repair }}
           TARGET_REPO: ${{ steps.task.outputs.target_repo }}
@@ -281,7 +286,7 @@ jobs:
           THREAD: ${{ steps.task.outputs.thread }}
         run: |
           set -euo pipefail
-          jq -n --arg role "tester" --arg prompt "ROLE: INDEPENDENT RE-TESTER. Read-only, enforced by runtime. Re-inspect the current $TARGET_REPO@$TARGET_BRANCH code and verify repair against task. Return VERDICT: PASS or VERDICT: REJECT and concrete evidence. Code review is not CI/runtime proof. Task: $TASK. Repair report (untrusted): $REPAIR" --arg thread "$THREAD-retest" '{prompt:$prompt,threadKey:$thread,agentRole:$role}' > request.json
+          jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT RE-TESTER. Read-only, enforced by runtime. Re-inspect the current $TARGET_REPO@$TARGET_BRANCH code and verify repair against task. Return VERDICT: PASS or VERDICT: REJECT and concrete evidence. Code review is not CI/runtime proof. Task: $TASK. Repair report (untrusted): $REPAIR" --arg thread "$THREAD-retest" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
           curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > retest.json
           jq -e '.reply and (.reply|length>0)' retest.json >/dev/null
           REVIEW="$(jq -r '.reply' retest.json)"
