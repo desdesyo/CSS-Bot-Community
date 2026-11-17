@@ -21,6 +21,7 @@ interface Env {
   OPENAI_API_KEY?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
+  CF_VERSION_METADATA?: { id: string; tag?: string; timestamp?: string };
 }
 interface ComputerTask {
   id: string;
@@ -987,8 +988,37 @@ LEARNING FROM CORRECTIONS
         return await this.logoutDevice(req);
       }
       if (url.pathname === "/api/health" && req.method === "GET") {
-        await await this.requirePassword(req);
-        return json({ ok: true });
+        await this.requirePassword(req);
+        return json({ ok: true, service: "SOLO.Chat", checkedAt: new Date().toISOString() });
+      }
+      if (url.pathname === "/api/version" && req.method === "GET") {
+        await this.requirePassword(req);
+        const version = this.env.CF_VERSION_METADATA;
+        return json({ version: version?.id || "development", tag: version?.tag || "", timestamp: version?.timestamp || "" });
+      }
+      if (url.pathname === "/api/agents/status" && req.method === "GET") {
+        await this.requirePassword(req);
+        const cached = await this.ctx.storage.get<any>("agents:status-cache");
+        if (cached && Date.now() - cached.checkedAt < 20000) return json({ ...cached.data, cached: true });
+        const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+        if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
+        const response = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?branch=github-chat-prototype&per_page=40", { headers });
+        if (!response.ok) return json({ error: "GitHub Actions status unavailable", upstreamStatus: response.status }, 502);
+        const payload: any = await response.json();
+        const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
+        const roles = [
+          { id: "orchestrator", label: "Оркестратор", workflow: "CSSBC Agent Orchestrator" },
+          { id: "tester", label: "Тестировщик", workflow: "GitHub Chat checks" },
+          { id: "supervisor", label: "Контролёр", workflow: "Agent Supervisor Audit" },
+          { id: "task-generator", label: "Планировщик", workflow: "Agent Task Generator" },
+          { id: "deploy", label: "Деплой", workflow: "Deploy GitHub Chat to Cloudflare" }
+        ].map(role => {
+          const run = runs.find(item => item.name === role.workflow);
+          return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null };
+        });
+        const data = { roles, checkedAt: Date.now(), source: "GitHub Actions" };
+        await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
+        return json(data);
       }
       if (url.pathname === "/api/threads" && req.method === "GET") {
         await this.requirePassword(req);
@@ -1321,7 +1351,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/files"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/files"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
