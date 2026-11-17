@@ -37,6 +37,7 @@ jobs:
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
           echo "2/5 Verify GitHub workspace credentials and repository access..."
+          echo "Target workspace: desdesyo/modhaul@main"
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
             -H "$AUTH" "$ENDPOINT/api/agent/github-check")"
           if [[ "$GH_CODE" != "200" ]]; then
