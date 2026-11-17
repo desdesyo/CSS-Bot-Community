@@ -45,10 +45,10 @@ jobs:
             echo "::error::Missing CSSBC_CHAT_APP_PASSWORD in CSS-Bot-Community repository secrets."
             exit 1
           fi
-          if [ -z "$CHAT_GITHUB_TOKEN" ]; then
-            echo "::error::Missing CSSBC_GITHUB_TOKEN. Add a fine-grained PAT with Contents read/write access to desdesyo/modhaul."
-            exit 1
-          fi
           printf '%s' "$CHAT_APP_PASSWORD" | npx wrangler versions secret put APP_PASSWORD
-          printf '%s' "$CHAT_GITHUB_TOKEN" | npx wrangler versions secret put GITHUB_TOKEN
+          if [ -n "$CHAT_GITHUB_TOKEN" ]; then
+            printf '%s' "$CHAT_GITHUB_TOKEN" | npx wrangler versions secret put GITHUB_TOKEN
+          else
+            echo "CSSBC_GITHUB_TOKEN is not set; deploying chat without GitHub workspace write tools."
+          fi
           npx wrangler deploy --config wrangler.toml
