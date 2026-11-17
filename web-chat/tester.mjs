@@ -50,6 +50,11 @@ const checks = [
  [ "Local computer writes require exact SHA-256 and 256 KB bound", /new TextEncoder\(\)\.encode\(content\)\.length > 256 \* 1024/.test(runtime) && /expectedSha256 !== "NEW"/.test(runtime)],
  [ "SourceMod plugin install tool is restricted to approved GitHub sources and plugin path", runtime.includes('name: "computer_install_smx"') && runtime.includes("packageSha256") && runtime.includes("cstrike/addons/sourcemod/plugins/")],
  [ "Local task schema includes SourceMod plugin install", /"install_smx"/.test(runtime) && /status: "waiting for local download verification and APPLY approval"/.test(runtime)],
+ [ "Text agent has a provider fallback chain", runtime.includes('fallback: ["@cf/google/gemma-4-26b-a4b-it"]') && runtime.includes('@cf/zai-org/glm-4.7-flash')],
+ [ "Agent can create downloadable text artifacts in private storage", runtime.includes('name: "create_text_artifact"') && runtime.includes('this.saveGeneratedArtifact(name, mimeType')],
+ [ "Agent has real FLUX image generation and persists PNG artifacts", runtime.includes('name: "generate_image"') && runtime.includes('@cf/black-forest-labs/flux-1-schnell')],
+ [ "Agent has MiniMax music generation and persists MP3 artifacts", runtime.includes('name: "generate_music"') && runtime.includes('minimax/music-2.6')],
+ [ "Agent has Russian-capable Grok speech generation and persists MP3 artifacts", runtime.includes('name: "generate_speech"') && runtime.includes('xai/grok-tts') && runtime.includes('language: "ru"')],
  [ "Binary plugin current hash can be inspected without uploading file contents", /"hash_file"/.test(runtime) && runtime.includes("hash_file") && /Only regular files up to 50 MB can be hashed/.test(await readFile(new URL("../computer-bridge/agent.mjs", import.meta.url), "utf8"))],
 
 
