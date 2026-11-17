@@ -104,14 +104,13 @@ const checks = [
  [ "Computer task results can be polled after local approval", runtime.includes('name: "computer_task_result"') && runtime.includes('"computer:result:" + taskId')],
  [ "Cross-chat continuity and canonical SOLO.Chat URL are in the agent prompt", runtime.includes("CROSS-CHAT CONTINUITY — ABSOLUTE REQUIREMENT") && runtime.includes("https://cssbc-github-chat.descapan.workers.dev/")],
 
+
+ ["Workers AI fallback is configured on the selected model, not on the createAI factory", runtime.includes('createAI({ binding: this.env.AI, requestTimeoutMs') && runtime.includes('this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", { fallback: ["@cf/google/gemma-4-26b-a4b-it"]')],
+ ["Primary and fallback model requests have bounded retries and timeouts", runtime.includes("maxAttempts: 3") && runtime.includes("requestTimeoutMs: 120000")],
+ ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", runtime.includes("const fileBuffer = new ArrayBuffer(bytes.byteLength)") && runtime.includes("new File([fileBuffer]")],
+ ["Model operation failures log operation identifiers and return a localized diagnostic", runtime.includes("[SOLO.Chat] AI operation failed") && runtime.includes("Не удалось получить ответ от ИИ-модели")],
+ ["Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes('status == "done"')],
 ];
-[
- ["Workers AI fallback is configured on the selected model, not on the createAI factory", /createAI\\(\\{ binding: this\\.env\\.AI, requestTimeoutMs/.test(runtime) && /this\\.ai\\(this\\.env\\.PI_MODEL[\\s\\S]*fallback: \\[\"@cf\\/google\\/gemma-4-26b-a4b-it\"\\]/.test(runtime)],
- ["Primary and fallback model requests have bounded retries and timeouts", /maxAttempts: 3/.test(runtime) && /requestTimeoutMs: 120000/.test(runtime)],
- ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", /const fileBuffer = new ArrayBuffer\\(bytes\\.byteLength\\)/.test(runtime) && /new File\\(\\[fileBuffer\\]/.test(runtime)],
- ["Model operation failures log operation identifiers and return a localized diagnostic", /\\[SOLO\\.Chat\\] AI operation failed/.test(runtime) && /Не удалось получить ответ от ИИ-модели/.test(runtime)],
- [ "Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("status == \"done\"") ],
-],
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
 console.log(`\nTester result: ${checks.length-failed}/${checks.length} checks passed`);
