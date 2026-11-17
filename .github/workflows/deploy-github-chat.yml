@@ -9,10 +9,6 @@ on:
       - "web-chat/**"
       - ".github/workflows/deploy-github-chat.yml"
 
-concurrency:
-  group: solo-chat-deploy-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
