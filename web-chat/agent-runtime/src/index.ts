@@ -31,7 +31,8 @@ interface BrowserChatJob {
   operationId: string;
   threadId: number;
   prompt: string;
-  status: "queued" | "running" | "done" | "failed";
+  status: "queued" | "running" | "finalizing" | "done" | "failed";
+  followups?: string[];
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
@@ -447,6 +448,7 @@ LEARNING FROM CORRECTIONS
     job.status = "running";
     job.startedAt = Date.now();
     job.updatedAt = Date.now();
+    job.followups = job.followups || [];
     await this.ctx.storage.put(jobKey, job);
 
     try {
@@ -454,17 +456,41 @@ LEARNING FROM CORRECTIONS
       const timeout = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 3 минуты. Попробуйте отправить запрос ещё раз.")), 180000);
       });
-      let result: { reply: string };
+      let reply = "";
+      let consumedFollowups = 0;
       try {
-        result = await Promise.race([
-          this.runChat(String(job.threadId), job.prompt, job.operationId),
-          timeout
-        ]);
+        while (true) {
+          const prompt = consumedFollowups === 0
+            ? job.prompt
+            : "The user sent additional instructions while you were working. Incorporate them into the task and produce the updated complete answer.\n\n" +
+              job.followups.slice(consumedFollowups).map((message, index) => (index + 1) + ". " + message).join("\n");
+          const result = await Promise.race([
+            this.runChat(String(job.threadId), prompt, job.operationId + (consumedFollowups ? "-update-" + consumedFollowups : "")),
+            timeout
+          ]);
+          reply = String(result.reply || "").trim();
+          if (!reply) throw new Error("AI вернул пустой ответ");
+
+          // Close the intake window before the final read. Any message accepted
+          // before this transition is persisted and will be included in another pass.
+          job.status = "finalizing";
+          job.updatedAt = Date.now();
+          await this.ctx.storage.put(jobKey, job);
+          const latest = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+          const followups = latest?.followups || [];
+          if (followups.length > consumedFollowups) {
+            consumedFollowups = followups.length;
+            job.followups = followups;
+            job.status = "running";
+            job.updatedAt = Date.now();
+            await this.ctx.storage.put(jobKey, job);
+            continue;
+          }
+          break;
+        }
       } finally {
         clearTimeout(timeoutId!);
       }
-      const reply = String(result.reply || "").trim();
-      if (!reply) throw new Error("AI вернул пустой ответ");
 
       const threadKey = "browser-chat:thread:" + job.threadId;
       const thread = await this.ctx.storage.get<any>(threadKey);
@@ -672,6 +698,31 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.setAlarm(Date.now() + 250);
         return json({ thread: threadId, title: item.title, operationId, status: job.status }, 202);
       }
+      if (url.pathname === "/api/chat/followup" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json() as any;
+        const operationId = String(body.operationId || "");
+        const message = String(body.message || "").trim();
+        if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId)) return json({ error: "Invalid operation ID" }, 400);
+        if (!message || message.length > 12000) return json({ error: "Message must be 1–12000 characters" }, 400);
+        const jobKey = "browser-chat:job:" + operationId;
+        const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+        if (!job) return json({ error: "Operation not found" }, 404);
+        if (job.status !== "queued" && job.status !== "running") return json({ error: "Ответ уже завершается. Дополнение не принято — отправьте его следующим сообщением." }, 409);
+        const followups = job.followups || [];
+        if (followups.length >= 20) return json({ error: "Для одного ответа можно добавить не более 20 сообщений." }, 429);
+        followups.push(message);
+        job.followups = followups;
+        job.updatedAt = Date.now();
+        await this.ctx.storage.put(jobKey, job);
+        const threadKey = "browser-chat:thread:" + job.threadId;
+        const thread = await this.ctx.storage.get<any>(threadKey);
+        if (!thread) return json({ error: "Диалог не найден" }, 404);
+        thread.messages.push({ role: "user", content: message, files: [], operationId, followup: true });
+        thread.updatedAt = Date.now();
+        await this.ctx.storage.put(threadKey, thread);
+        return json({ accepted: true, status: job.status, followups: followups.length }, 202);
+      }
       if (url.pathname === "/api/chat/status" && req.method === "GET") {
         await this.requirePassword(req);
         const operationId = String(url.searchParams.get("operationId") || "");
@@ -792,7 +843,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/status", "/api/threads", "/api/messages"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
