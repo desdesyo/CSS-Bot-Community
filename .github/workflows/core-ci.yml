@@ -2,6 +2,10 @@ name: CSSBC Core CI
 on:
   push:
   pull_request:
+concurrency:
+  group: cssbc-core-ci
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
