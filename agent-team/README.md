@@ -30,7 +30,7 @@ The team is an auditable GitHub Actions orchestration pipeline backed by SOLO.Ch
    - The reviewer uses the same SOLO.Chat runtime/provider and credentials, but a separate durable conversation. This is role separation, not a security-isolated second model.
 
 5. **Health Monitor** (`.github/workflows/agent-health-monitor.yml`)
-   - Checks the authenticated deployed health endpoint every 10 minutes and after relevant workflow runs.
+   - Checks the authenticated deployed health endpoint every 10 minutes and after relevant workflow runs; runs a live model smoke test once per hour.
    - Creates or updates one deduplicated self-heal task when the service is unavailable.
    - If the app itself is offline, the monitor can report/queue a task but cannot call the unavailable in-app model; recovery then depends on GitHub Actions and available deployment credentials.
 
