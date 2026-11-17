@@ -1,10 +1,6 @@
 name: GitHub Chat live end-to-end test
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/github-chat-e2e.yml"
   workflow_run:
     workflows: ["Deploy GitHub Chat to Cloudflare"]
     types: [completed]
@@ -16,7 +12,7 @@ permissions:
 
 jobs:
   live-chat:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
