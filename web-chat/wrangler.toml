@@ -27,6 +27,6 @@ tag = "agent-v1"
 new_sqlite_classes = ["AgentSession"]
 
 
-[[r2_buckets]]
+[[kv_namespaces]]
 binding = "FILES"
-bucket_name = "solo-chat-files"
+id = "KV_NAMESPACE_ID"
