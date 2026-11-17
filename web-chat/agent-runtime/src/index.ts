@@ -1123,7 +1123,7 @@ LEARNING FROM CORRECTIONS
           const step = teamSteps.find(item => item.name === stepName);
           return {
             id, label, workflow: "CSSBC Agent Orchestrator",
-            status: step?.status || (teamRun?.status === "queued" || teamRun?.status === "in_progress" ? "queued" : "not_started"),
+            status: step?.status || (["queued", "pending", "in_progress"].includes(teamRun?.status || "") ? "queued" : "not_started"),
             conclusion: step?.conclusion || null,
             url: teamRun?.html_url || null,
             updatedAt: step?.completedAt || step?.startedAt || teamRun?.updated_at || teamRun?.created_at || null,
