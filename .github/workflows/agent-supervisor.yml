@@ -2,13 +2,10 @@ name: Agent Supervisor Audit
 
 on:
   schedule:
-    - cron: "43 */4 * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
   issues:
     types: [opened, edited, labeled]
-  workflow_run:
-    workflows: ["GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
-    types: [completed]
 
 permissions:
   actions: read
@@ -23,7 +20,6 @@ jobs:
   audit-and-review:
     if: >-
       (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'agent-task') && (github.event.action == 'opened' || github.event.action == 'edited' || (github.event.action == 'labeled' && (github.event.label.name == 'status:queued' || github.event.label.name == 'status:review' || github.event.label.name == 'status:done')))) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

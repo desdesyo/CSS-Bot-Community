@@ -5,9 +5,6 @@ on:
     types: [opened, labeled]
   issue_comment:
     types: [created]
-  workflow_run:
-    workflows: ["GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
-    types: [completed]
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -55,36 +52,38 @@ jobs:
           done
 
   queue-ci-failure:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && (github.event.workflow_run.head_branch == 'github-chat-prototype' || github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Convert failed CI/deploy runs into queued repair issues
+      - name: Scan recent CI/deploy failures and enqueue deduplicated repair tasks
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
-          RUN="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID")"
-          RUN_NAME="$(jq -r .name <<<"$RUN")"
-          RUN_BRANCH="$(jq -r .head_branch <<<"$RUN")"
-          if [[ "$RUN_BRANCH" == "github-chat-prototype" || "$RUN_NAME" == "GitHub Chat checks" || "$RUN_NAME" == "Deploy GitHub Chat to Cloudflare" || "$RUN_NAME" == "GitHub Chat live end-to-end test" ]]; then
-            TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
-          elif [[ "$RUN_NAME" == "CSSBC Core CI" && "$RUN_BRANCH" == "main" ]]; then
-            TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="main"; TARGET_LABEL="agent-core-runtime"
-          else
-            TARGET_REPO="desdesyo/modhaul"; TARGET_BRANCH="main"; TARGET_LABEL="agent-overhaul"
-          fi
-          EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
-          if [[ -n "$EXISTING" ]]; then
-            echo "Repair issue #$EXISTING already exists for failed run $RUN_ID."
-            exit 0
-          fi
-          for name in agent-task agent-generated agent-chat-runtime agent-core-runtime agent-overhaul status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
-          BODY="$(printf 'Task-Key: AUTO-RUN-%s\nAgent-Target: %s@%s\n\n## Objective\nRepair failed workflow %s on branch %s.\n\n## Acceptance criteria\n- Identify the root cause from the exact workflow logs.\n- Implement the smallest safe fix in the target repository.\n- Run relevant checks and deployment verification.\n- Preserve user data and never expose secrets.\n\n## Evidence\n- Failed run: %s\n- Implementation: pending\n- Verification run: pending\n' "$RUN_ID" "$TARGET_REPO" "$TARGET_BRANCH" "$RUN_NAME" "$RUN_BRANCH" "$(jq -r .html_url <<<"$RUN")")"
-          gh issue create --repo "$SOURCE_REPO" --title "[Self-Heal] $RUN_NAME failed ($RUN_ID)" --body "$BODY" --label agent-task --label agent-generated --label "$TARGET_LABEL" --label status:queued
-          echo "Queued repair issue for $TARGET_REPO@$TARGET_BRANCH."
-
+          RUNS="$(gh api "repos/$SOURCE_REPO/actions/runs?per_page=100")"
+          jq -c '.workflow_runs[] | select(.status=="completed" and .conclusion=="failure" and ((.name=="GitHub Chat checks" and .head_branch=="github-chat-prototype") or (.name=="Deploy GitHub Chat to Cloudflare" and .head_branch=="github-chat-prototype") or (.name=="GitHub Chat live end-to-end test") or (.name=="CSSBC Core CI" and (.head_branch=="main" or .head_branch=="sdk-foundation"))))' <<<"$RUNS" | while IFS= read -r RUN; do
+            RUN_ID="$(jq -r .id <<<"$RUN")"
+            RUN_NAME="$(jq -r .name <<<"$RUN")"
+            RUN_BRANCH="$(jq -r .head_branch <<<"$RUN")"
+            RUN_SHA="$(jq -r .head_sha <<<"$RUN")"
+            if [[ "$RUN_NAME" == "CSSBC Core CI" ]]; then
+              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="$RUN_BRANCH"; TARGET_LABEL="agent-core-runtime"
+            else
+              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
+            fi
+            EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=all&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
+            if [[ -n "$EXISTING" ]]; then
+              echo "Repair task for failed run $RUN_ID already tracked by issue #$EXISTING."
+              continue
+            fi
+            JOBS="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID/jobs?per_page=100")"
+            FAILED="$(jq -c '[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name]}]' <<<"$JOBS")"
+            for name in agent-task agent-generated "$TARGET_LABEL" status:queued status:in-progress status:review status:done agent-review-needed; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+            BODY="$(printf 'Task-Key: AUTO-RUN-%s\nAgent-Target: %s@%s\n\n## Objective\nRepair failed workflow %s on branch %s at commit %s.\n\n## Acceptance criteria\n- Identify the root cause from exact failed job/step logs.\n- Implement the smallest safe fix in the target repository and branch.\n- Add regression coverage where practical.\n- Run target-specific CI and, for SOLO.Chat changes, verify deployment of the exact current app code.\n- Preserve user data and never expose credentials.\n\n## Failure evidence\n- Workflow run: %s\n- Failed jobs and steps: %s\n\n## Evidence\n- Implementation: pending\n- Verification run: pending\n' "$RUN_ID" "$TARGET_REPO" "$TARGET_BRANCH" "$RUN_NAME" "$RUN_BRANCH" "$RUN_SHA" "$(jq -r .html_url <<<"$RUN")" "$FAILED")"
+            URL="$(gh issue create --repo "$SOURCE_REPO" --title "[Self-Heal] $RUN_NAME failed ($RUN_ID)" --body "$BODY" --label agent-task --label agent-generated --label "$TARGET_LABEL" --label status:queued)"
+            echo "Queued $TARGET_REPO@$TARGET_BRANCH repair for run $RUN_ID: $URL"
+          done
   queue-user-correction:
     if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'agent-task') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')
     runs-on: ubuntu-latest
