@@ -1640,6 +1640,8 @@ LEARNING FROM CORRECTIONS
         const candidate = attempts[attempt];
         const attemptId = attempt === 0 ? operationId : operationId + "-provider-" + attempt;
         try {
+          const previousTranscript = await session.messages().catch(() => [] as any[]);
+          const previousMessageCount = previousTranscript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).length;
           if (candidate) await session.setModel(candidate);
           const receipt = await session.submit(effectivePrompt, { operationId: attemptId });
           const result = await this.harness.wait(receipt.operationId, { session: sessionId });
@@ -1655,7 +1657,8 @@ LEARNING FROM CORRECTIONS
           }
           const resultDiagnostic = result as any;
           const transcript = await session.messages().catch(() => [] as any[]);
-          const assistantMessage = transcript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).reverse().find((message: any) => message?.role === "assistant") || null;
+          const newMessages = transcript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).slice(previousMessageCount);
+          const assistantMessage = newMessages.slice().reverse().find((message: any) => message?.role === "assistant") || null;
           const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
           const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
           const toolCalls = Array.isArray(assistantMessage?.content) ? assistantMessage.content.filter((part: any) => part?.type === "toolCall").map((part: any) => part.name).slice(0, 12) : [];
