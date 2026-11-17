@@ -30,4 +30,4 @@
 - Post-install comparison using the implemented previous-scan snapshot; stronger verification against a trusted clean reference remains pending.
 - Real-game launch testing after a repair is prepared and manually installed.
 
-The current deliverable is a CI-built read-only scanner, not an autonomous repair system. No claim is made that the game has been repaired or launched successfully.
+The C# LocalCssBridge deliverable remains a CI-built read-only scanner, not an autonomous repair system. The separate Node.js computer-bridge has an approval-gated UTF-8 text/config writer; it is implemented in source but not yet paired or verified on the user's PC. No claim is made that the game has been repaired or launched successfully.
