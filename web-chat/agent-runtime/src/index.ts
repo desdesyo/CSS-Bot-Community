@@ -1967,7 +1967,12 @@ LEARNING FROM CORRECTIONS
           const response = await githubRead(url);
           if (!response.ok) {
             const detail: any = await response.clone().json().catch(() => ({}));
-            throw Object.assign(new Error(String(detail.message || "GitHub API request failed")), { status: response.status });
+            throw Object.assign(new Error(String(detail.message || "GitHub API request failed")), {
+              status: response.status,
+              retryAfterMs: Math.max(0, Number(response.headers.get("retry-after") || 0) * 1000),
+              rateLimitResetAt: Math.max(0, Number(response.headers.get("x-ratelimit-reset") || 0) * 1000),
+              rateLimitRemaining: response.headers.get("x-ratelimit-remaining")
+            });
           }
           return response.json();
         };
@@ -2084,7 +2089,13 @@ LEARNING FROM CORRECTIONS
           await this.ctx.storage.put("agents:status-cache", { checkedAt, data });
           await this.ctx.storage.delete("agents:status-retry");
         } else {
-          const retryUntil = checkedAt + 5 * 60_000;
+          const providerRetryTimes = upstreamFailures
+            .map((error: any) => Math.max(
+              checkedAt + Number(error?.retryAfterMs || 0),
+              Number(error?.rateLimitResetAt || 0)
+            ))
+            .filter((value: number) => value > checkedAt);
+          const retryUntil = Math.max(checkedAt + 5 * 60_000, ...providerRetryTimes);
           const fallback = cached?.data || data;
           await this.ctx.storage.put("agents:status-cache", { checkedAt: cached?.checkedAt || checkedAt, data: fallback });
           await this.ctx.storage.put("agents:status-retry", {
