@@ -22,3 +22,10 @@ The agent accumulates durable, version-controlled procedures and test evidence. 
 - Do not preserve destructive actions as reusable defaults.
 - Keep human approval for external side effects and sensitive operations.
 - Prefer deterministic tests and observable outcomes over subjective claims.
+
+
+## Canonical SOLO.Chat link
+
+- The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev`.
+- Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
+- Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
