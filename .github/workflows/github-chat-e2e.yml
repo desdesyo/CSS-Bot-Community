@@ -36,7 +36,20 @@ jobs:
             -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
-          echo "2/4 Send a real message through the same API used by the browser..."
+          echo "2/5 Verify the orchestrator API and GitHub workspace access..."
+          jq -n --arg prompt "Call github_list_files with path web-chat. Return the actual filenames from the tool result and include worker.js if it is present. Do not guess." \
+            --arg threadKey "e2e-github-${GITHUB_RUN_ID}" \
+            '{prompt:$prompt,threadKey:$threadKey}' > agent-payload.json
+          AGENT_CODE="$(curl --silent --show-error --max-time 900 -w '%{http_code}' -o agent-response.json \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            --data @agent-payload.json "$ENDPOINT/api/agent/chat")"
+          if [[ "$AGENT_CODE" != "200" ]]; then
+            echo "::error::Agent API returned HTTP $AGENT_CODE: $(head -c 500 agent-response.json)"
+            exit 1
+          fi
+          jq -e '.reply|type=="string" and length>0 and contains("worker.js")' agent-response.json >/dev/null
+
+          echo "3/5 Send a real message through the browser chat API..."
           MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
           jq -n --arg message "Connection test. Reply with the exact marker $MARKER" \
             '{message:$message,webSearch:false,files:[]}' > payload.json
@@ -51,16 +64,16 @@ jobs:
           THREAD="$(jq -r '.thread' chat-response.json)"
           echo "AI replied and created conversation #$THREAD."
 
-          echo "3/4 Verify user and assistant messages were persisted..."
+          echo "4/5 Verify user and assistant messages were persisted..."
           curl --fail-with-body --silent --show-error --max-time 60 \
             -H "$AUTH" "$ENDPOINT/api/messages?thread=$THREAD" > history.json
           jq -e --arg marker "$MARKER" \
             '([.messages[]|select(.role=="user" and (.content|contains($marker)))]|length)>0 and ([.messages[]|select(.role=="assistant" and (.content|length>0))]|length)>0' \
             history.json >/dev/null
 
-          echo "4/4 Verify conversation appears in the chat sidebar..."
+          echo "5/5 Verify conversation appears in the chat sidebar..."
           curl --fail-with-body --silent --show-error --max-time 60 \
             -H "$AUTH" "$ENDPOINT/api/threads" > threads.json
           jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
 
-          echo "PASS: browser chat API, password authentication, AI generation, GitHub persistence, history reload, and sidebar listing all work."
+          echo "PASS: orchestrator API, GitHub workspace tools, browser chat, password authentication, AI generation, durable history reload, and sidebar listing all work."
