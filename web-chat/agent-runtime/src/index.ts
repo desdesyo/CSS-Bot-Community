@@ -1295,6 +1295,7 @@ LEARNING FROM CORRECTIONS
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuit = await this.ctx.storage.get<number>("provider:circuit:workers-ai");
+    let harnessFailure = "";
     try {
       if (workersAiCircuit && workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY) throw new Error("Workers AI quota circuit is open; bypassing Pi harness only because no Gemini tool-capable provider is configured");
       if (!sessionId) {
@@ -1310,9 +1311,11 @@ LEARNING FROM CORRECTIONS
         if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
       }
       const reason = String(result.reason || result.status || "empty assistant response");
+      harnessFailure = reason.slice(0, 900);
       console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
     } catch (error) {
-      console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
+      harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
+      console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
       throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; требуется восстановить Pi agent harness.");
@@ -1320,7 +1323,7 @@ LEARNING FROM CORRECTIONS
     const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + effectivePrompt;
     try {
       const fallback = await this.runDirectModel(fallbackPrompt);
-      return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model };
+      return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model, fallbackReason: harnessFailure };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
       throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
@@ -1902,7 +1905,7 @@ LEARNING FROM CORRECTIONS
           );
           const executed = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + nonce);
           await this.ctx.storage.delete("harness-probe:" + nonce);
-          if (!executed) return json({ ok: false, toolExecution: false, provider: result.provider, error: "Pi harness returned without executing the diagnostic tool." }, 503);
+          if (!executed) return json({ ok: false, toolExecution: false, provider: result.provider, error: "Pi harness returned without executing the diagnostic tool.", fallbackReason: result.fallbackReason || null }, 503);
           return json({ ok: true, toolExecution: true, provider: result.provider, model: result.model, reply: result.reply });
         } catch (error) {
           await this.ctx.storage.delete("harness-probe:" + nonce);
