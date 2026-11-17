@@ -78,6 +78,22 @@ function ghBase(env: Env) {
   if (!env.GITHUB_TOKEN || !env.GITHUB_WORK_REPO?.includes("/")) throw new Error("GitHub workspace is not configured");
   return "https://api.github.com/repos/" + env.GITHUB_WORK_REPO;
 }
+function safeProjectPath(value: string, allowRoot = false) {
+  const raw = String(value ?? "").trim();
+  const path = raw.replace(/^\\/+|\\/+$/g, "");
+  if (!path && allowRoot) return "";
+  if (!path || path.split("/").some(p => !p || p === "." || p === ".." || !/^[a-zA-Z0-9._ -]+$/.test(p))) throw new Error("Invalid project repository path");
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+function projectWorkspace(env: Env, repository: string, branch: string) {
+  const allowed: Record<string, string[]> = {
+    "desdesyo/CSS-Bot-Community": ["github-chat-prototype", "sdk-foundation"],
+    "desdesyo/modhaul": ["main"]
+  };
+  if (!env.GITHUB_TOKEN) throw new Error("GitHub workspace token is not configured");
+  if (!allowed[repository]?.includes(branch)) throw new Error("Repository/branch pair is not in the SOLO.Chat project allowlist");
+  return { base: "/repos/" + repository, branch };
+}
 async function github(env: Env, path: string, init: RequestInit = {}) {
   const r = await fetch("https://api.github.com" + path, {
     ...init,
@@ -222,7 +238,8 @@ TROUBLESHOOTING AND REPORTS
 DOMAIN PREFERENCES — APPLY ONLY WHEN RELEVANT
 - Music/lyrics: preserve original wording, rhythm, sung/rap phrasing and intentionally shifted stress accents. Do not rewrite merely to enforce conventional meter/rhyme. Changes must fit the existing flow and emotional intent.
 - FL Studio/audio: when asked to teach, explain controls practically and provide concrete diagnostics. Sound design should avoid muddy, horror-like, excessively ethereal or generic "vanilla forest" presets; respect the user's named reference and target. Never claim audio was generated/auditioned unless a real file was created and checked.
-- Media and artifacts: if the user requests an image, call generate_image and save the actual PNG; for a song/music, call generate_music; for spoken voice, call generate_speech; for a 3D asset, call generate_3d_model then check_3d_model until a GLB is saved; for downloadable text/code/data assets, call create_text_artifact. Never answer a file-generation request with only a prompt or code snippet when an artifact tool can create the file. Return the actual /api/files/<id> download URL from the tool result. If a provider is unavailable, report the exact missing provider/billing/secret; do not fabricate output.
+- SOLO.Chat self-maintenance: the default GitHub workspace points to desdesyo/modhaul/main. For SOLO.Chat source, ALWAYS use github_project_list_files / github_project_read_file / github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype. For SDK foundation use the same repo and branch=sdk-foundation. For Overhaul use desdesyo/modhaul/main. These explicit project tools enforce an allowlist; never confuse workspaces.
+- Media and artifacts: if the user requests an image, call generate_image and save the actual image; for a song/music, call generate_music; for spoken voice, call generate_speech; for a 3D asset, call generate_3d_model then check_3d_model until a GLB is saved; for downloadable text/code/data assets, call create_text_artifact. Never answer a file-generation request with only a prompt or code snippet when an artifact tool can create the file. Return the actual /api/files/<id> download URL from the tool result. If a provider is unavailable, report the exact missing provider/billing/secret; do not fabricate output.
 - Cooking: use tablespoons/teaspoons and household measures rather than requiring scales. Account for a weak electric hotplate and older tabletop oven when relevant. Favor strong, piquant, hearty flavors. Avoid overly creamy dinners and fresh garlic in sauces unless requested.
 - Games/PC: consider the older HP laptop and preference for low-storage, straightforward, story-driven games when relevant. Do not default to space games.
 - Do not inject unrelated personal details into other domains.
@@ -285,6 +302,58 @@ LEARNING FROM CORRECTIONS
               })
             });
             return textOutput({ written: true, path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url });
+          }
+        },
+        {
+          name: "github_project_list_files",
+          description: "List files in an explicitly allowlisted SOLO.Chat project repository/branch. Use desdesyo/CSS-Bot-Community with github-chat-prototype for SOLO.Chat itself, or sdk-foundation for the SDK; use desdesyo/modhaul with main for the CSS Overhaul workspace.",
+          parameters: obj({ repository: str(), branch: str(), directory: str() }),
+          replay: "safe",
+          async execute({ repository, branch, directory }: { repository: string; branch: string; directory: string }) {
+            const ws = projectWorkspace(env, repository, branch);
+            const path = safeProjectPath(directory, true);
+            const data = await github(env, ws.base + "/contents" + (path ? "/" + path : "") + "?ref=" + encodeURIComponent(ws.branch));
+            return textOutput((Array.isArray(data) ? data : [data]).map((x: any) => ({ name: x.name, path: x.path, type: x.type, size: x.size })));
+          }
+        },
+        {
+          name: "github_project_read_file",
+          description: "Read a UTF-8 file from an explicitly allowlisted project repository and branch. Use this for CSS-Bot-Community self-maintenance rather than the default modhaul workspace.",
+          parameters: obj({ repository: str(), branch: str(), path: str() }),
+          replay: "safe",
+          async execute({ repository, branch, path }: { repository: string; branch: string; path: string }) {
+            const ws = projectWorkspace(env, repository, branch);
+            const safe = safeProjectPath(path);
+            const data = await github(env, ws.base + "/contents/" + safe + "?ref=" + encodeURIComponent(ws.branch));
+            if (data.type !== "file" || !data.content) throw new Error("Path is not a readable text file");
+            const content = decodeBase64(data.content);
+            if (content.length > 120000) throw new Error("File exceeds 120 KB read limit");
+            return textOutput({ repository, branch, path: data.path, sha: data.sha, content });
+          }
+        },
+        {
+          name: "github_project_write_file",
+          description: "Create or update a UTF-8 text file in an explicitly allowlisted project repository/branch, committing the change. Read the current file first; preserve its contents and make focused edits. Use for SOLO.Chat self-repair in CSS-Bot-Community/github-chat-prototype.",
+          parameters: obj({ repository: str(), branch: str(), path: str(), content: str(), message: str() }),
+          replay: "unsafe",
+          async execute({ repository, branch, path, content, message }: { repository: string; branch: string; path: string; content: string; message: string }) {
+            const ws = projectWorkspace(env, repository, branch);
+            const safe = safeProjectPath(path);
+            if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
+            const endpoint = ws.base + "/contents/" + safe;
+            let existing: any = null;
+            try { existing = await github(env, endpoint + "?ref=" + encodeURIComponent(ws.branch)); }
+            catch (error) { if (!(error instanceof Error) || !error.message.includes("404")) throw error; }
+            const result = await github(env, endpoint, {
+              method: "PUT",
+              body: JSON.stringify({
+                message: String(message || "Update project file").slice(0, 180),
+                content: encodeBase64(content),
+                branch: ws.branch,
+                ...(existing?.sha ? { sha: existing.sha } : {})
+              })
+            });
+            return textOutput({ written: true, repository, branch, path: result.content?.path, commit: result.commit?.sha, url: result.content?.html_url });
           }
         },
         {
