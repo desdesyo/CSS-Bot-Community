@@ -1,6 +1,6 @@
-# GitHub Chat
+# SOLO.Chat
 
-A private browser chat backed by a Cloudflare Worker and a durable AI agent. The browser uses one HTTPS page; authentication, model access, GitHub tools, and conversation storage stay server-side.
+SOLO.Chat is a private browser chat backed by a Cloudflare Worker and a durable AI agent. The browser uses one HTTPS page; authentication, model access, GitHub tools, and conversation storage stay server-side.
 
 ## Architecture
 
