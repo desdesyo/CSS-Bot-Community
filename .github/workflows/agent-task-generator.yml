@@ -1,0 +1,62 @@
+name: Agent Task Generator
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: github-chat-prototype
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const queue = fs.readFileSync('agent-team/TASK_QUEUE.md','utf8');
+            const lines = queue.split(/\r?\n/).filter(x => x.startsWith('- '));
+            const tasks = lines.map(line => {
+              const p = line.slice(2).split('|').map(x=>x.trim());
+              return {key:p[0], title:p[1], objective:p[2], criteria:p[3]};
+            }).filter(t=>t.key && t.title && t.objective && t.criteria);
+            const {owner,repo} = context.repo;
+            for(const name of ['agent-task','agent-generated','status:queued','status:in-progress','status:review','status:done','agent-review-needed']){
+              try{await github.rest.issues.getLabel({owner,repo,name});}
+              catch(e){if(e.status===404) await github.rest.issues.createLabel({owner,repo,name,color:'1d76db'});else throw e;}
+            }
+            const open = await github.paginate(github.rest.issues.listForRepo,{owner,repo,state:'open',per_page:100});
+            const existing = new Set(open.filter(i=>!i.pull_request).map(i=>i.body||'').flatMap(b=>[...b.matchAll(/Task-Key: ([A-Z0-9-]+)/g)].map(m=>m[1])));
+            const task = tasks.find(t=>!existing.has(t.key));
+            if (!task) { core.info('All queued tasks already have open issues.'); return; }
+            const body = [
+              `Task-Key: ${task.key}`,
+              '',
+              '## Objective', task.objective,
+              '',
+              '## Acceptance criteria', task.criteria,
+              '',
+              '## Agent execution contract',
+              '- Inspect current code and relevant skills before changes.',
+              '- Implement, run checks, and repair failures.',
+              '- Link commit(s), changed files, and successful verification.',
+              '- If blocked, report exact blocker and evidence; do not mark done.',
+              '',
+              '## Evidence',
+              '- Implementation: _pending_',
+              '- Verification run: _pending_',
+              '',
+              '## Supervisor checklist',
+              '- [ ] Acceptance criteria satisfied',
+              '- [ ] Evidence links supplied',
+              '- [ ] Relevant CI/test run successful',
+              '- [ ] No unapproved destructive action'
+            ].join('\n');
+            const issue = await github.rest.issues.create({owner,repo,title:`[Agent Task ${task.key}] ${task.title}`,body,labels:['agent-task','agent-generated','status:queued']});
+            core.notice(`Created task ${task.key}: ${issue.data.html_url}`);
