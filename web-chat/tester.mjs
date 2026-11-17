@@ -52,7 +52,7 @@ const checks = [
  [ "Local task schema includes SourceMod plugin install", /"install_smx"/.test(runtime) && /status: "waiting for local download verification and APPLY approval"/.test(runtime)],
  [ "Text agent has a provider fallback chain", runtime.includes('fallback: ["@cf/google/gemma-4-26b-a4b-it"]') && runtime.includes('@cf/zai-org/glm-4.7-flash')],
  [ "Agent can create downloadable text artifacts in private storage", runtime.includes('name: "create_text_artifact"') && runtime.includes('this.saveGeneratedArtifact(name, mimeType')],
- [ "Agent has real FLUX image generation and persists PNG artifacts", runtime.includes('name: "generate_image"') && runtime.includes('@cf/black-forest-labs/flux-1-schnell')],
+ [ "Agent has real FLUX image generation and persists PNG artifacts", runtime.includes('name: "generate_image"') && runtime.includes('black-forest-labs/flux-2-pro-preview') && runtime.includes('@cf/black-forest-labs/flux-1-schnell')],
  [ "Agent has MiniMax music generation and persists MP3 artifacts", runtime.includes('name: "generate_music"') && runtime.includes('minimax/music-2.6')],
  [ "Agent has Russian-capable Grok speech generation and persists MP3 artifacts", runtime.includes('name: "generate_speech"') && runtime.includes('xai/grok-tts') && runtime.includes('language: "ru"')],
  [ "Agent can start and complete Meshy 7.1 text-to-3D tasks", runtime.includes('name: "generate_3d_model"') && runtime.includes('name: "check_3d_model"') && runtime.includes('meshy-7.1') && runtime.includes('MESHY_API_KEY')],
