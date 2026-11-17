@@ -686,7 +686,7 @@ export class AgentSession extends DurableObject<Env> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/chat", "/api/threads", "/api/messages"].includes(url.pathname)) {
+    if (url.pathname.startsWith("/api/agent/") || ["/api/health", "/api/chat", "/api/chat/status", "/api/threads", "/api/messages"].includes(url.pathname)) {
       const id = env.AGENT_SESSIONS.idFromName("shared-agent");
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
