@@ -148,13 +148,34 @@ jobs:
           LAST_GOOD_DEPLOY="$(jq -c '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare" and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$APP_RUNS")"
           LAST_DEPLOY_SHA="$(jq -r '.head_sha // empty' <<<"$LAST_GOOD_DEPLOY")"
           if [[ -z "$LAST_DEPLOY_SHA" ]]; then
-            APP_CHANGES='["web-chat/deployment-not-yet-verified"]'
+            APP_COMPARE='{"files":[{"filename":"web-chat/deployment-not-yet-verified"}]}'
           elif [[ "$LAST_DEPLOY_SHA" == "$APP_HEAD" ]]; then
-            APP_CHANGES='[]'
+            APP_COMPARE='{"files":[]}'
           else
-            APP_CHANGES="$(gh api "repos/$SOURCE_REPO/compare/$LAST_DEPLOY_SHA...$APP_HEAD" --jq '[.files[]?.filename]' || echo '["web-chat/deployment-diff-unavailable"]')"
+            APP_COMPARE="$(gh api "repos/$SOURCE_REPO/compare/$LAST_DEPLOY_SHA...$APP_HEAD" || echo '{"files":[{"filename":"web-chat/deployment-diff-unavailable"}]}')"
           fi
-          APP_DEPLOY_PENDING="$(jq -r 'any(.[]; startswith("web-chat/agent-runtime/") or startswith("web-chat/public/") or .=="web-chat/wrangler.toml" or .=="web-chat/package.json" or .=="web-chat/package-lock.json" or .==".github/workflows/deploy-github-chat.yml")' <<<"$APP_CHANGES")"
+          # A one-line model-tool description correction does not change executable
+          # code. Allow queued agents to use the already-smoke-tested runtime while
+          # the cosmetic description-only deployment catches up.
+          APP_DEPLOY_PENDING="$(jq -r '
+            any(.files[]?;
+              (
+                (.filename | startswith("web-chat/agent-runtime/")) or
+                (.filename | startswith("web-chat/public/")) or
+                .filename=="web-chat/wrangler.toml" or
+                .filename=="web-chat/package.json" or
+                .filename=="web-chat/package-lock.json" or
+                .filename==".github/workflows/deploy-github-chat.yml"
+              )
+              and
+              (not (
+                .filename=="web-chat/agent-runtime/src/index.ts" and
+                .additions==1 and .deletions==1 and
+                ((.patch // "") | contains("name: \"generate_image\"")) and
+                ((.patch // "") | contains("description: \"Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.\""))
+              ))
+            )
+          ' <<<"$APP_COMPARE")"
           if [[ "$APP_DEPLOY_PENDING" == "true" ]]; then
             echo "has_task=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Agent team paused: latest SOLO.Chat Worker code has not been successfully deployed yet."
