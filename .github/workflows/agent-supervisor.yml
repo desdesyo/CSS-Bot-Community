@@ -79,7 +79,7 @@ jobs:
               CI_URL="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0].html_url // empty' <<<"$RUNS")"
               DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
               DEPLOY_OK="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success")' <<<"$RUNS")"
-              REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE -->"
+              REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE -->"
               COMMENTS="$(gh api "repos/$REPO/issues/$NUMBER/comments?per_page=100")"
               if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
                 echo "Supervisor already reviewed this exact code/CI state for issue #$NUMBER."
