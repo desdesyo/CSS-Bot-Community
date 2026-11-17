@@ -522,7 +522,7 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "solo_ui_inspect",
-          description: "Inspect the latest real SOLO.Chat browser UI snapshot: viewport size, visible interface elements, bounding boxes, computed styles, stacking, overflow and clipping diagnostics. The browser sends a privacy-filtered snapshot automatically after login; conversation contents and typed text are excluded.",
+          description: "Inspect the latest privacy-filtered visual layout map of the actual SOLO.Chat browser viewport. It includes message bubble geometry (never message text), key visible interface elements, computed colors/background images/borders/shadows/typography/flex/grid, before/after pseudo-elements, CSS variables, viewport and scroll metrics, media rectangles, stacking, overflow and clipping diagnostics. Use this before changing the UI; do not infer appearance from source CSS alone. This is a structured rendered-layout inspection, not a literal pixel screenshot; chat text and typed input are excluded.",
           parameters: obj({}),
           replay: "safe",
           async execute() {
@@ -1739,7 +1739,7 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/ui/inspection" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
-        const elements = (Array.isArray(body.elements) ? body.elements : []).slice(0, 120).map((item: any) => ({
+        const elements = (Array.isArray(body.elements) ? body.elements : []).slice(0, 220).map((item: any) => ({
           tag: String(item.tag || "").slice(0, 24),
           id: String(item.id || "").slice(0, 80),
           className: String(item.className || "").slice(0, 180),
@@ -1748,21 +1748,35 @@ LEARNING FROM CORRECTIONS
             x: Math.round(Number(item.rect?.x) || 0), y: Math.round(Number(item.rect?.y) || 0),
             width: Math.round(Number(item.rect?.width) || 0), height: Math.round(Number(item.rect?.height) || 0)
           },
-          style: {
-            display: String(item.style?.display || "").slice(0, 24),
-            position: String(item.style?.position || "").slice(0, 24),
-            zIndex: String(item.style?.zIndex || "").slice(0, 24),
-            overflow: String(item.style?.overflow || "").slice(0, 48),
-            color: String(item.style?.color || "").slice(0, 48),
-            background: String(item.style?.background || "").slice(0, 100),
-            fontSize: String(item.style?.fontSize || "").slice(0, 24),
-            backdropFilter: String(item.style?.backdropFilter || "").slice(0, 80),
-            transform: String(item.style?.transform || "").slice(0, 80)
-          },
+          role: String(item.role || "").slice(0, 32),
+          style: Object.fromEntries(["display","visibility","position","zIndex","overflow","color","backgroundColor","backgroundImage","border","borderRadius","boxShadow","fontSize","fontFamily","lineHeight","textAlign","padding","margin","gap","flex","grid","backdropFilter","transform","opacity"].map(key => [key, String(item.style?.[key] || "").slice(0, 220)])),
+          pseudo: Object.fromEntries(["before","after"].map(key => [key, {
+            content: String(item.pseudo?.[key]?.content || "").slice(0, 100),
+            display: String(item.pseudo?.[key]?.display || "").slice(0, 24),
+            position: String(item.pseudo?.[key]?.position || "").slice(0, 24),
+            background: String(item.pseudo?.[key]?.background || "").slice(0, 220),
+            border: String(item.pseudo?.[key]?.border || "").slice(0, 160),
+            opacity: String(item.pseudo?.[key]?.opacity || "").slice(0, 24),
+            transform: String(item.pseudo?.[key]?.transform || "").slice(0, 80)
+          }])),
           visible: item.visible === true
         }));
         const snapshot = {
           capturedAt: new Date().toISOString(),
+          captureMode: String(body.captureMode || "legacy-layout").slice(0, 80),
+          visual: body.visual && typeof body.visual === "object" ? {
+            messageCount: Math.max(0, Math.min(10000, Number(body.visual.messageCount) || 0)),
+            userBubbles: Math.max(0, Math.min(10000, Number(body.visual.userBubbles) || 0)),
+            assistantBubbles: Math.max(0, Math.min(10000, Number(body.visual.assistantBubbles) || 0)),
+            composerFocused: body.visual.composerFocused === true,
+            scrollTop: Math.max(0, Math.min(10000000, Number(body.visual.scrollTop) || 0)),
+            messagesScrollHeight: Math.max(0, Math.min(10000000, Number(body.visual.messagesScrollHeight) || 0)),
+            messagesClientHeight: Math.max(0, Math.min(10000000, Number(body.visual.messagesClientHeight) || 0)),
+            documentScrollWidth: Math.max(0, Math.min(20000, Number(body.visual.documentScrollWidth) || 0)),
+            documentScrollHeight: Math.max(0, Math.min(30000, Number(body.visual.documentScrollHeight) || 0)),
+            activeMedia: (Array.isArray(body.visual.activeMedia) ? body.visual.activeMedia : []).slice(0, 20).map((m: any) => ({tag: String(m.tag || "").slice(0, 16), rect: {x: Math.round(Number(m.rect?.x) || 0), y: Math.round(Number(m.rect?.y) || 0), width: Math.round(Number(m.rect?.width) || 0), height: Math.round(Number(m.rect?.height) || 0)}}))
+          } : null,
+          cssVariables: body.cssVariables && typeof body.cssVariables === "object" ? Object.fromEntries(["background","panel","panel2","line","text","accent"].map(key => [key, String(body.cssVariables[key] || "").slice(0, 80)])) : {},
           viewport: {
             width: Math.max(0, Math.min(10000, Number(body.viewport?.width) || 0)),
             height: Math.max(0, Math.min(10000, Number(body.viewport?.height) || 0)),
