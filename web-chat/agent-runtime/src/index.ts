@@ -1438,7 +1438,7 @@ LEARNING FROM CORRECTIONS
             ],
             queue: null,
             source: "GitHub Actions + Issues",
-            checkedAt: Date.now()
+            checkedAt: null
           };
           return json({ ...data, stale: true, statusUnavailable: true, upstreamStatus, statusError: reason.slice(0, 240) });
         };
