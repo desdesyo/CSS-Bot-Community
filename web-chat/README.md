@@ -45,7 +45,7 @@ Text chat and durable conversation history do not require a separate `GITHUB_REP
 
 `.github/workflows/agent-orchestrator.yml` is the LLM dispatcher: it forwards newly opened `agent-task` issues, queued tasks, manual prompts, and failed `GitHub Chat checks` / `CSSBC Core CI` runs into the deployed Durable Agent at `/api/agent/chat` (JSON `prompt`, not legacy `/api/chat` `message`). The durable agent uses its GitHub tools to inspect, implement, commit, and verify work. `agent-supervisor.yml` independently audits task issue structure/evidence and labels review-needed; it is a policy/evidence audit, not a second code executor. CI is the tester and its failure is routed back to the agent for repair.
 
-The orchestrator uses the deployed Worker URL `https://cssbc-github-chat.descapan.workers.dev` and the repository secret `CSSBC_CHAT_APP_PASSWORD`. Deployment copies that password into the Worker as `APP_PASSWORD`; the value is never printed. The live end-to-end workflow checks the authenticated agent route, GitHub workspace access, browser chat, AI replies, and durable history.
+The orchestrator uses the deployed Worker URL `https://solo.descapan.workers.dev` and the repository secret `CSSBC_CHAT_APP_PASSWORD`. Deployment copies that password into the Worker as `APP_PASSWORD`; the value is never printed. The live end-to-end workflow checks the authenticated agent route, GitHub workspace access, browser chat, AI replies, and durable history.
 
 ## Expert escalation and persistent learning
 
@@ -143,6 +143,6 @@ The workflow is an **external autonomous repair loop**, not a push into the curr
 
 ## Canonical SOLO.Chat link
 
-- The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev`.
-- Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
+- The canonical user-facing application URL is `https://solo.descapan.workers.dev`.
+- Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://solo.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
 - Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
