@@ -676,6 +676,22 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.put("feedback:ids", ids.slice(-500));
         return json({ accepted: true, id, status: "queued" }, 202);
       }
+      if (url.pathname === "/api/feedback/error" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json() as any;
+        const operationId = String(body.operationId || "").slice(0, 120);
+        const threadId = Number(body.threadId || 0);
+        const error = String(body.error || "Unknown chat error").slice(0, 2000);
+        const userMessage = String(body.userMessage || "").slice(0, 12000);
+        if (!operationId || !Number.isSafeInteger(threadId) || threadId < 1) return json({ error: "Invalid error feedback payload" }, 400);
+        const id = "err-" + crypto.randomUUID();
+        const record = { id, rating: "error", operationId, threadId, userMessage, assistantReply: "", note: error, createdAt: Date.now(), status: "queued" };
+        await this.ctx.storage.put("feedback:item:" + id, record);
+        const ids = await this.ctx.storage.get<string[]>("feedback:ids") || [];
+        ids.push(id);
+        await this.ctx.storage.put("feedback:ids", ids.slice(-500));
+        return json({ accepted: true, id, status: "queued" }, 202);
+      }
       if (url.pathname === "/api/agent/feedback" && req.method === "GET") {
         await this.requirePassword(req);
         const ids = await this.ctx.storage.get<string[]>("feedback:ids") || [];
