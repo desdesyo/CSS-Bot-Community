@@ -137,14 +137,14 @@ function analyzeSource(source: string, language: string) {
 export class AgentSession extends DurableObject<Env> {
   readonly mcp = new MCPClientManager("cssbc-agent-chat", "1.0.0");
   readonly registry = createRegistry();
-  readonly ai = createAI({ binding: this.env.AI });
+  readonly ai = createAI({ binding: this.env.AI, fallback: ["@cf/google/gemma-4-26b-a4b-it"] });
   readonly harness = new PiHarness({
     harness: ({ storage, context, onWake }) => {
       const models = createModels();
       models.setProvider(this.ai.provider);
       return Harness.open(storage, { models, registry: this.registry, onWake }, context);
     },
-    defaults: { model: this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-5.3-flash") }
+    defaults: { model: this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash") }
   });
   readonly lifecycle = Lifecycle.install(this).use(this.harness).use(this.mcp);
 
@@ -290,6 +290,74 @@ LEARNING FROM CORRECTIONS
           replay: "safe",
           async execute({ source, language }: { source: string; language: string }) {
             return textOutput(analyzeSource(source, language));
+          }
+        },
+        {
+          name: "create_text_artifact",
+          description: "Create a real downloadable text-based file in the user's private SOLO.Chat file library. Use for Markdown, TXT, CSV, JSON, XML, HTML, CSS, JS, TS, SQL, OBJ, MTL, SVG, and source/config files. Return the artifact URL in your final answer.",
+          parameters: obj({ name: str(), mimeType: str(), content: str() }),
+          replay: "unsafe",
+          async execute({ name, mimeType, content }: { name: string; mimeType: string; content: string }) {
+            if (!name || name.length > 120 || /[\\/\\\\]/.test(name)) throw new Error("Use a simple file name without folders");
+            if (!content || new TextEncoder().encode(content).length > 1024 * 1024) throw new Error("Text artifact must contain 1 byte to 1 MB");
+            const metadata = await this.saveGeneratedArtifact(name, mimeType || "text/plain;charset=utf-8", new TextEncoder().encode(content));
+            return textOutput({ created: true, artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+          }
+        },
+        {
+          name: "generate_image",
+          description: "Generate an actual PNG image with Cloudflare Workers AI FLUX. Use this tool whenever the user asks to create or edit an image. Save the generated image to the private artifact library and return its download URL. This is real image generation, not a text prompt or placeholder.",
+          parameters: obj({ prompt: str(), filename: str() }),
+          replay: "unsafe",
+          async execute({ prompt, filename }: { prompt: string; filename: string }) {
+            if (!prompt.trim() || prompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
+            const result: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim() });
+            const encoded = result?.image || result?.result?.image;
+            if (typeof encoded !== "string" || !encoded.length) throw new Error("Image model returned no image bytes");
+            const binary = atob(encoded.replace(/^data:image\/png;base64,/i, ""));
+            const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+            const safeName = (filename || "solo-generated-image.png").toLowerCase().endsWith(".png") ? filename : (filename || "solo-generated-image") + ".png";
+            const metadata = await this.saveGeneratedArtifact(safeName, "image/png", bytes);
+            return textOutput({ created: true, provider: "@cf/black-forest-labs/flux-1-schnell", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+          }
+        },
+        {
+          name: "generate_music",
+          description: "Generate a real full-length song or instrumental track with MiniMax Music 2.6 through Cloudflare AI Gateway Unified Billing. Save the returned MP3 in the private artifact library. Paid provider billing/Unified access may be required.",
+          parameters: obj({ prompt: str(), lyrics: str(), mode: str() }),
+          replay: "unsafe",
+          async execute({ prompt, lyrics, mode }: { prompt: string; lyrics: string; mode: string }) {
+            if (!prompt.trim() || prompt.length > 2000 || lyrics.length > 3500) throw new Error("Music prompt or lyrics exceed the provider limits");
+            const instrumental = mode.toLowerCase() === "instrumental";
+            const result: any = await this.env.AI.run("minimax/music-2.6", {
+              prompt: prompt.trim(),
+              ...(lyrics.trim() ? { lyrics: lyrics.trim() } : {}),
+              is_instrumental: instrumental,
+              lyrics_optimizer: !instrumental && !lyrics.trim(),
+              format: "mp3"
+            });
+            const url = result?.result?.audio || result?.audio;
+            if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Music provider returned no downloadable audio URL");
+            const metadata = await this.saveRemoteArtifact(url, "solo-generated-music.mp3", "audio/mpeg");
+            return textOutput({ created: true, provider: "MiniMax Music 2.6", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+          }
+        },
+        {
+          name: "generate_speech",
+          description: "Generate natural spoken audio from text using xAI Grok TTS. Russian is supported. Save the MP3 in the private artifact library and return its download URL.",
+          parameters: obj({ text: str(), voice: str() }),
+          replay: "unsafe",
+          async execute({ text: speechText, voice }: { text: string; voice: string }) {
+            if (!speechText.trim() || speechText.length > 15000) throw new Error("Speech text must contain 1–15000 characters");
+            const selectedVoice = ["eve", "ara", "rex", "sal", "leo"].includes(voice.toLowerCase()) ? voice.toLowerCase() : "ara";
+            const result: any = await this.env.AI.run("xai/grok-tts", {
+              text: speechText.trim(), language: "ru", voice_id: selectedVoice,
+              output_format: { codec: "mp3", sample_rate: 44100, bit_rate: 192000 }
+            });
+            const url = result?.result?.audio || result?.audio;
+            if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Speech provider returned no downloadable audio URL");
+            const metadata = await this.saveRemoteArtifact(url, "solo-generated-speech.mp3", "audio/mpeg");
+            return textOutput({ created: true, provider: "xAI Grok TTS", language: "ru", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
         {
@@ -633,6 +701,24 @@ LEARNING FROM CORRECTIONS
       throw error;
     }
     return metadata;
+  }
+  private async saveGeneratedArtifact(name: string, mime: string, bytes: Uint8Array) {
+    if (!bytes.byteLength || bytes.byteLength > 15 * 1024 * 1024) throw new Error("Generated artifact must be between 1 byte and 15 MB");
+    const safeName = String(name || "generated-file.bin").replace(/[\\/\u0000-\u001f\u007f]/g, "_").slice(0, 120) || "generated-file.bin";
+    const safeMime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(mime) ? mime : "application/octet-stream";
+    const file = new File([bytes], safeName, { type: safeMime });
+    return this.saveStoredAttachment(file);
+  }
+  private async saveRemoteArtifact(url: string, name: string, mime: string) {
+    const parsed = new URL(url);
+    const allowedHosts = ["minimax-algeng-chat-tts-us.oss-us-east-1.aliyuncs.com", "examples.aig.cloudflare.com"];
+    if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("Generated media URL is not from an approved provider host");
+    const response = await fetch(parsed.toString(), { redirect: "error" });
+    if (!response.ok) throw new Error("Generated media download failed: HTTP " + response.status);
+    const declared = Number(response.headers.get("content-length") || 0);
+    if (declared > 15 * 1024 * 1024) throw new Error("Generated media exceeds the 15 MB storage limit");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return this.saveGeneratedArtifact(name, mime, bytes);
   }
   private async prepareAttachments(ids: string[]) {
     if (!ids.length) return { files: [] as any[], context: "" };
