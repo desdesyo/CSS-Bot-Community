@@ -553,7 +553,23 @@ export class AgentSession extends DurableObject<Env> {
             requestId: response.headers.get("x-github-request-id")
           };
           if (!response.ok) return json({ ok: false, repo, branch, error: body.message || "GitHub API request failed", diagnostics }, 503);
-          return json({ ok: true, repo, branch, files: Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [], diagnostics });
+          const files = Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [];
+          const ref = await github(this.env, "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(branch));
+          const checkBranch = "cssbc-agent-check-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+          await github(this.env, "/repos/" + repo + "/git/refs", {
+            method: "POST",
+            body: JSON.stringify({ ref: "refs/heads/" + checkBranch, sha: ref.object.sha })
+          });
+          let branchRemoved = false;
+          try {
+            await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" });
+            branchRemoved = true;
+          } finally {
+            if (!branchRemoved) {
+              try { await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }); } catch (_) {}
+            }
+          }
+          return json({ ok: true, read: true, write: true, temporaryBranchRemoved: branchRemoved, repo, branch, files, diagnostics });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
           return json({ ok: false, error: detail }, 503);
