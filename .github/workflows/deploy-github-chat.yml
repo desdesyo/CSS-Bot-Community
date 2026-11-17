@@ -105,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
-          curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" | jq -e '.roles | length >= 7' >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" | jq -e '.roles | length >= 8' >/dev/null
           jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
           curl --fail-with-body --silent --show-error --max-time 240 -o model-smoke-response.json -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat"
           jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null
