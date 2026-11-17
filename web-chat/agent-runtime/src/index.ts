@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { googleProvider } from "@earendil-works/pi-ai/providers/google";
@@ -2104,25 +2105,48 @@ LEARNING FROM CORRECTIONS
       }
       if (url.pathname === "/api/agent/harness-check" && req.method === "GET") {
         await this.requirePassword(req);
-        const nonce = randomToken(12);
         await this.ctx.storage.put("agent:role", "user");
-        const threadKey = "harness-check-" + nonce;
-        try {
-          const result = await this.runChat(
+        const ensureSession = async (threadKey: string, modelTools: string[]) => {
+          const storageKey = "chat:session:" + threadKey;
+          let id = await this.ctx.storage.get<string>(storageKey);
+          if (!id) {
+            const created = await this.harness.sessions.create();
+            id = created.id;
+            await this.ctx.storage.put(storageKey, id);
+          } else {
+            await this.harness.session(id).reset();
+          }
+          const pi = await this.harness.pi();
+          const conversation = await pi.conversation(Number(id), BACKGROUND_CONTEXT);
+          await conversation.configure({ modelTools }, BACKGROUND_CONTEXT);
+        };
+        const runProbe = async (threadKey: string, nonce: string, modelTools: string[]) => {
+          await ensureSession(threadKey, modelTools);
+          return this.runChat(
             threadKey,
             "This is a real tool-execution diagnostic. You MUST call solo_harness_probe exactly once with nonce \"" + nonce + "\". After the tool returns, reply with exactly SOLO_CHAT_HARNESS_OK:" + nonce + ". Do not guess or claim success without the tool result.",
             "harness-check-" + nonce,
             "user"
           );
-          const executed = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + nonce);
-          await this.ctx.storage.delete("harness-probe:" + nonce);
-          if (!executed) return json({ ok: false, toolExecution: false, provider: result.provider, error: "Pi harness returned without executing the diagnostic tool.", fallbackReason: result.fallbackReason || null }, 503);
-          return json({ ok: true, toolExecution: true, provider: result.provider, model: result.model, reply: result.reply });
-        } catch (error) {
-          await this.ctx.storage.delete("harness-probe:" + nonce);
-          const detail = error instanceof Error ? error.message : "Harness diagnostic failed";
-          return json({ ok: false, toolExecution: false, error: detail.slice(0, 900) }, 503);
+        };
+        const minimalNonce = randomToken(12);
+        const fullNonce = randomToken(12);
+        const minimalThread = "harness-check-minimal";
+        const fullThread = "harness-check-full";
+        const minimalProbe = await runProbe(minimalThread, minimalNonce, ["solo_harness_probe"]).catch(error => ({ reply: "", provider: "", fallbackReason: String(error instanceof Error ? error.message : error) }));
+        const minimalExecuted = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + minimalNonce);
+        await this.ctx.storage.delete("harness-probe:" + minimalNonce);
+        if (!minimalExecuted) {
+          return json({ ok: false, toolExecution: false, minimalToolExecution: false, fullToolExecution: false, failureStage: "minimal-probe", provider: minimalProbe.provider || null, error: "Even the isolated diagnostic tool could not execute.", fallbackReason: minimalProbe.fallbackReason || null }, 503);
         }
+        const allToolNames = this.registry.snapshot().tools().map(({ tool }) => tool.name);
+        const fullProbe = await runProbe(fullThread, fullNonce, allToolNames).catch(error => ({ reply: "", provider: "", fallbackReason: String(error instanceof Error ? error.message : error) }));
+        const fullExecuted = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + fullNonce);
+        await this.ctx.storage.delete("harness-probe:" + fullNonce);
+        if (!fullExecuted) {
+          return json({ ok: false, toolExecution: false, minimalToolExecution: true, fullToolExecution: false, failureStage: "full-tool-registry", provider: fullProbe.provider || null, error: "The isolated probe works, but the complete registered tool loadout fails.", fallbackReason: fullProbe.fallbackReason || null, registeredToolCount: allToolNames.length, registeredTools: allToolNames }, 503);
+        }
+        return json({ ok: true, toolExecution: true, minimalToolExecution: true, fullToolExecution: true, provider: fullProbe.provider, reply: fullProbe.reply, registeredToolCount: allToolNames.length });
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
