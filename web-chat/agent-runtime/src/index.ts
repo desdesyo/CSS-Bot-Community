@@ -791,7 +791,7 @@ LEARNING FROM CORRECTIONS
           async execute({ goal, evidence, attempts, errors, constraints }: { goal: string; evidence: string; attempts: string; errors: string; constraints: string }) {
             await assertAgentCanWrite();
             const ws = projectWorkspace(env, "desdesyo/CSS-Bot-Community", "github-chat-prototype");
-            const clean = (value: string, limit: number) => String(value || "").replace(/(?:Bearer\\s+)[A-Za-z0-9._~-]+/gi, "[REDACTED TOKEN]").replace(/(?:api[_-]?key|secret|password)\\s*[:=]\\s*[^\\s,;]+/gi, "$1=[REDACTED]").slice(0, limit);
+            const clean = (value: string, limit: number) => String(value || "").replace(/(?:Bearer\s+)[A-Za-z0-9._~-]+/gi, "[REDACTED TOKEN]").replace(/(api[_-]?key|secret|password)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(0, limit);
             const id = new Date().toISOString().replace(/[:.]/g, "-") + "-" + randomToken(4);
             const handoffPath = "agent-handoffs/pending/" + id + ".md";
             const content = [
