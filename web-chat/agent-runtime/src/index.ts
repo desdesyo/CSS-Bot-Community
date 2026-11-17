@@ -119,7 +119,12 @@ async function github(env: Env, path: string, init: RequestInit = {}, tokenOverr
     }
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error("GitHub API " + r.status + ": " + (body as any).message);
+  if (!r.ok) {
+    const accepted = r.headers.get("X-Accepted-GitHub-Permissions") || r.headers.get("x-accepted-github-permissions") || "";
+    const requestId = r.headers.get("X-GitHub-Request-Id") || "";
+    const detail = "GitHub API " + r.status + ": " + String((body as any).message || "Request failed");
+    throw new Error(detail + (accepted ? " | X-Accepted-GitHub-Permissions: " + accepted : "") + (requestId ? " | request-id: " + requestId : ""));
+  }
   return body as any;
 }
 function decodeBase64(value: string) {
@@ -211,7 +216,8 @@ export class AgentSession extends DurableObject<Env> {
     const storage = this.ctx.storage;
     const agent = this;
     const agentGithub = async (path: string, init: RequestInit = {}) => {
-      const token = env.GITHUB_TOKEN || await storage.get<string>("agent:githubToken");
+      // Prefer the short-lived GitHub Actions token scoped to this task; the persistent Worker PAT is only a fallback.
+      const token = await storage.get<string>("agent:githubToken") || env.GITHUB_TOKEN;
       return github(env, path, init, token);
     };
     const assertAgentCanWrite = async () => {
@@ -435,6 +441,43 @@ LEARNING FROM CORRECTIONS
           }
         },
         {
+          name: "solo_github_write_check",
+          description: "Verify actual GitHub Contents write permission without changing a project file: create a uniquely named temporary branch from CSS-Bot-Community/github-chat-prototype, commit a temporary probe file, then delete the temporary branch. Returns the commit URL and cleanup status, or the exact GitHub permission error and X-Accepted-GitHub-Permissions header. Never returns the token.",
+          parameters: obj({}),
+          replay: "unsafe",
+          async execute() {
+            await assertAgentCanWrite();
+            const token = await storage.get<string>("agent:githubToken") || env.GITHUB_TOKEN;
+            if (!token) return textOutput({ ok: false, blocked: "GitHub token is not configured in the Worker." });
+            const base = "/repos/desdesyo/CSS-Bot-Community";
+            const sourceBranch = "github-chat-prototype";
+            const nonce = randomToken(8).toLowerCase();
+            const probeBranch = "solo-write-check-" + nonce;
+            let branchCreated = false, commitUrl = "", cleanupWarning = "";
+            try {
+              const head = await github(env, base + "/git/ref/heads/" + sourceBranch, {}, token);
+              await github(env, base + "/git/refs", { method: "POST", body: JSON.stringify({ ref: "refs/heads/" + probeBranch, sha: head.object.sha }) }, token);
+              branchCreated = true;
+              const written = await github(env, base + "/contents/.solo-chat-check/" + nonce + ".txt", {
+                method: "PUT", body: JSON.stringify({ message: "SOLO.Chat temporary GitHub write-permission probe", content: encodeBase64("Temporary permission probe. No project source changed."), branch: probeBranch })
+              }, token);
+              commitUrl = written.commit?.html_url || "";
+            } catch (error) {
+              const detail = error instanceof Error ? error.message : String(error);
+              if (branchCreated) {
+                try { await github(env, base + "/git/refs/heads/" + probeBranch, { method: "DELETE" }, token); branchCreated = false; }
+                catch (cleanupError) { cleanupWarning = cleanupError instanceof Error ? cleanupError.message : String(cleanupError); }
+              }
+              return textOutput({ ok: false, branchCreated, error: detail, cleanupWarning: cleanupWarning || null, requiredPermission: "Contents: Read and write on desdesyo/CSS-Bot-Community" });
+            }
+            if (branchCreated) {
+              try { await github(env, base + "/git/refs/heads/" + probeBranch, { method: "DELETE" }, token); branchCreated = false; }
+              catch (error) { cleanupWarning = error instanceof Error ? error.message : String(error); }
+            }
+            return textOutput({ ok: true, repository: "desdesyo/CSS-Bot-Community", sourceBranch, probeBranch, commitUrl, branchDeleted: !branchCreated, cleanupWarning: cleanupWarning || null });
+          }
+        },
+        {
           name: "solo_capability_check",
           description: "Run a real SOLO.Chat self-diagnostic. Reports registered tools, configured tool-capable AI providers, GitHub write-token presence, paired Windows computer status, Cloudflare quota circuit state, and whether a live UI snapshot exists. Never returns secret values.",
           parameters: obj({}),
@@ -455,7 +498,12 @@ LEARNING FROM CORRECTIONS
                 workersAi: true,
                 workersAiQuotaCircuitOpen: Boolean(circuit && circuit > Date.now())
               },
-              github: { tokenConfigured: Boolean(githubToken), publicRepositoryRead: true, repositoryWrite: Boolean(githubToken) },
+              github: {
+                tokenConfigured: Boolean(githubToken),
+                tokenSource: (await storage.get<string>("agent:githubToken")) ? "task-scoped GitHub Actions token" : env.GITHUB_TOKEN ? "Worker secret CSSBC_GITHUB_TOKEN" : "none",
+                publicRepositoryRead: true,
+                repositoryWrite: "not verified; call solo_github_write_check"
+              },
               computer: { paired: devices.length > 0, deviceCount: devices.length },
               ui: { liveInspectionAvailable: Boolean(snapshot), capturedAt: snapshot?.capturedAt || null }
             });
