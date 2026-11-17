@@ -2119,7 +2119,7 @@ LEARNING FROM CORRECTIONS
           const pi = await this.harness.pi();
           const conversation = await pi.conversation(id as any, BACKGROUND_CONTEXT);
           if (!conversation) throw new Error("Diagnostic Pi conversation could not be loaded");
-          const registrations = this.registry.snapshot().tools().filter(({ tool }) => modelTools.includes(tool.name));
+          const registrations = this.registry.snapshot().tools().filter(({ tool }) => modelTools.includes(tool.name)).map(({ tool }) => tool);
           await conversation.configure({ modelTools: registrations }, BACKGROUND_CONTEXT);
         };
         const runProbe = async (threadKey: string, nonce: string, modelTools: string[]) => {
