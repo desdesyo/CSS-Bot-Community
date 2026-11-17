@@ -309,19 +309,40 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "generate_image",
-          description: "Generate an actual JPEG image with Cloudflare Workers AI FLUX using the maximum supported 8 steps. Use this tool whenever the user asks to create an image. Save the generated image to the private artifact library and return its download URL. This is real image generation, not a text prompt or placeholder.",
+          description: "Generate a real high-quality image using production FLUX.2 Pro Preview through Cloudflare AI Gateway Unified Billing. If premium access is unavailable, fall back to FLUX.1 Schnell. Save the actual JPEG in private artifact storage and return its download URL.",
           parameters: obj({ prompt: str(), filename: str() }),
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
             if (!prompt.trim() || prompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
-            const result: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim(), steps: 8 });
-            const encoded = result?.image || result?.result?.image;
-            if (typeof encoded !== "string" || !encoded.length) throw new Error("Image model returned no image bytes");
-            const binary = atob(encoded.replace(/^data:image\/png;base64,/i, ""));
-            const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-            const safeName = (filename || "solo-generated-image.jpg").toLowerCase().endsWith(".jpg") || (filename || "").toLowerCase().endsWith(".jpeg") ? filename : (filename || "solo-generated-image") + ".jpg";
-            const metadata = await agent.saveGeneratedArtifact(safeName, "image/jpeg", bytes);
-            return textOutput({ created: true, provider: "@cf/black-forest-labs/flux-1-schnell", format: "image/jpeg", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+            const safeName = (filename || "solo-generated-image") + ".jpg";
+            let metadata: any = null;
+            let provider = "";
+            let premiumError = "";
+            try {
+              const premium: any = await env.AI.run("black-forest-labs/flux-2-pro-preview", {
+                prompt: prompt.trim(), width: 1024, height: 1024, output_format: "jpeg"
+              });
+              const image = premium?.result?.image || premium?.image;
+              if (typeof image !== "string" || !image.length) throw new Error("FLUX.2 Pro returned no image");
+              if (image.startsWith("https://")) {
+                metadata = await agent.saveRemoteArtifact(image, safeName, "image/jpeg");
+              } else {
+                const binary = atob(image);
+                metadata = await agent.saveGeneratedArtifact(safeName, "image/jpeg", Uint8Array.from(binary, c => c.charCodeAt(0)));
+              }
+              provider = "FLUX.2 Pro Preview";
+            } catch (error) {
+              premiumError = error instanceof Error ? error.message : String(error);
+            }
+            if (!metadata) {
+              const fast: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim(), steps: 8 });
+              const encoded = fast?.image || fast?.result?.image;
+              if (typeof encoded !== "string" || !encoded.length) throw new Error("Premium and fallback image providers both failed. Premium error: " + premiumError);
+              const binary = atob(encoded);
+              metadata = await agent.saveGeneratedArtifact(safeName, "image/jpeg", Uint8Array.from(binary, c => c.charCodeAt(0)));
+              provider = "FLUX.1 Schnell fallback";
+            }
+            return textOutput({ created: true, provider, format: "image/jpeg", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true, premiumFallbackReason: premiumError || undefined });
           }
         },
         {
