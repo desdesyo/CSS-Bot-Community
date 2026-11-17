@@ -1497,6 +1497,9 @@ LEARNING FROM CORRECTIONS
             if (indexed.size) await this.ctx.storage.delete(Array.from(indexed.keys()));
           }
         }
+        if (duplicates.length) {
+          for (let i = threads.length - 1; i >= 0; i--) if (duplicates.includes(threads[i].number)) threads.splice(i, 1);
+        }
         threads.sort((a, b) => b.updated_at - a.updated_at);
         return json({ threads, duplicatesRemoved: duplicates.length });
       }
