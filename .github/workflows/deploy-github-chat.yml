@@ -53,6 +53,7 @@ jobs:
           CHAT_GEMINI_API_KEY: ${{ secrets.CSSBC_GEMINI_API_KEY }}
           CHAT_GROQ_API_KEY: ${{ secrets.CSSBC_GROQ_API_KEY }}
           CHAT_MESHY_API_KEY: ${{ secrets.CSSBC_MESHY_API_KEY }}
+          CHAT_IMAGE_PROVIDER_ORDER: ${{ secrets.CSSBC_IMAGE_PROVIDER_ORDER }}
         run: |
           set -euo pipefail
           if [ -z "$CHAT_APP_PASSWORD" ]; then
@@ -89,6 +90,11 @@ jobs:
             printf '%s' "$CHAT_MESHY_API_KEY" | npx wrangler secret put MESHY_API_KEY
           else
             echo "CSSBC_MESHY_API_KEY is not set; 3D generation will report unavailable."
+          fi
+          if [ -n "$CHAT_IMAGE_PROVIDER_ORDER" ]; then
+            printf '%s' "$CHAT_IMAGE_PROVIDER_ORDER" | npx wrangler secret put IMAGE_PROVIDER_ORDER
+          else
+            echo "IMAGE_PROVIDER_ORDER is unset; image generation remains Cloudflare FLUX.1 Schnell only (no paid fallback)."
           fi
           npx wrangler deploy --config wrangler.toml
 
