@@ -9,6 +9,10 @@ on:
       - "web-chat/**"
       - ".github/workflows/deploy-github-chat.yml"
 
+concurrency:
+  group: solo-chat-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -35,27 +39,6 @@ jobs:
       - name: Run chat regression tests
         working-directory: web-chat
         run: npm test
-
-      - name: Ensure private attachment KV namespace exists
-        working-directory: web-chat
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
-          headers=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
-          listing="$(curl -fsS "${headers[@]}" "$api")"
-          namespace_id="$(jq -r '.result[] | select(.title == "SOLO_CHAT_FILES") | .id' <<< "$listing" | head -n1)"
-          if [ -z "$namespace_id" ] || [ "$namespace_id" = "null" ]; then
-            created="$(curl -fsS -X POST "${headers[@]}" "$api" --data '{"title":"SOLO_CHAT_FILES"}')"
-            namespace_id="$(jq -r '.result.id // empty' <<< "$created")"
-          fi
-          if [ -z "$namespace_id" ] || [ "$namespace_id" = "null" ]; then
-            echo "::error::Could not create or locate the SOLO_CHAT_FILES KV namespace."
-            exit 1
-          fi
-          sed -i "s/KV_NAMESPACE_ID/$namespace_id/" wrangler.toml
 
       - name: Sync chat password and deploy Worker
         working-directory: web-chat
