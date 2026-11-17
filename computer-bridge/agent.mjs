@@ -46,9 +46,18 @@ async function pair() {
   console.log("Allowed roots in config.json:", config.allowedRoots.join(", "));
   console.log("Start the agent with: node agent.mjs");
 }
+async function getAllowedRoots(config) {
+  const roots = [];
+  for (const configured of (config.allowedRoots || [])) {
+    try { roots.push(await realpath(resolve(configured))); }
+    catch (error) { if (error?.code !== "ENOENT") throw error; }
+  }
+  if (!roots.length) throw new Error("None of the configured allowed roots currently exists on this computer");
+  return roots;
+}
 async function resolveAllowedPath(config, input) {
   if (!input) throw new Error("A path is required");
-  const roots = await Promise.all(config.allowedRoots.map(p => realpath(resolve(p))));
+  const roots = await getAllowedRoots(config);
   const candidates = isAbsolute(input) ? [resolve(input)] : roots.map(root => resolve(root, input));
   for (const candidate of candidates) {
     try {
@@ -65,7 +74,7 @@ async function resolveAllowedPath(config, input) {
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 async function resolveAllowedTarget(config, input) {
   if (!input || input.length > 1024) throw new Error("A valid destination path is required");
-  const roots = await Promise.all(config.allowedRoots.map(p => realpath(resolve(p))));
+  const roots = await getAllowedRoots(config);
   const candidates = isAbsolute(input) ? [resolve(input)] : roots.map(root => resolve(root, input));
   for (const candidate of candidates) {
     const parent = dirname(candidate);
