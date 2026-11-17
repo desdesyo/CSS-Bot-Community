@@ -584,62 +584,11 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "generate_image",
-          description: "Create and save a real image. ALWAYS call this tool when the user asks to generate, draw, create, render or edit an image; never answer with a prompt alone. Primary premium model: Black Forest Labs FLUX.2 Pro Preview (1024x1024 JPEG). On premium failure, use FLUX.1 Schnell as a fallback. The result is stored in private artifact storage and returned as a downloadable /api/files URL.",
+          description: "Create and save an image using SOLO.Chat FLUX.2 Pro with FLUX.1 Schnell fallback.",
           parameters: obj({ prompt: str(), filename: str() }),
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
-            await assertAgentCanWrite();
-            const cleanPrompt = String(prompt || "").trim();
-            if (!cleanPrompt || cleanPrompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
-            const baseName = String(filename || "solo-generated-image").replace(/\.(?:jpe?g|png|webp)$/i, "").replace(/[\/\u0000-\u001f\u007f]/g, "_").slice(0, 100) || "solo-generated-image";
-            const safeName = baseName + ".jpg";
-            let metadata: any = null;
-            let provider = "";
-            let premiumError = "";
-            const storeImage = async (value: unknown, name: string) => {
-              if (typeof value !== "string" || !value.trim()) throw new Error("Image provider returned an empty image payload");
-              const payload = value.trim();
-              if (/^https:\/\//i.test(payload)) return await agent.saveRemoteArtifact(payload, name, "image/jpeg");
-              const encoded = payload.replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, "").replace(/\s/g, "");
-              const binary = atob(encoded);
-              const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-              if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error("Generated image must be between 1 byte and 15 MB");
-              const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-              const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-              const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
-              if (!isJpeg && !isPng && !isWebp) throw new Error("Image provider returned data that is not a recognized JPEG, PNG or WebP image");
-              const mime = isPng ? "image/png" : isWebp ? "image/webp" : "image/jpeg";
-              const extension = isPng ? ".png" : isWebp ? ".webp" : ".jpg";
-              return await agent.saveGeneratedArtifact(name.replace(/\.jpg$/i, extension), mime, bytes);
-            };
-            try {
-              const premium: any = await env.AI.run("black-forest-labs/flux-2-pro-preview", {
-                prompt: cleanPrompt, width: 1024, height: 1024, output_format: "jpeg", safety_tolerance: 2
-              });
-              if (premium?.state && String(premium.state).toLowerCase() !== "completed") {
-                throw new Error("FLUX.2 Pro job state: " + String(premium.state));
-              }
-              metadata = await storeImage(premium?.result?.image || premium?.image, safeName);
-              provider = "Black Forest Labs FLUX.2 Pro Preview";
-            } catch (error) {
-              premiumError = (error instanceof Error ? error.message : String(error)).slice(0, 700);
-            }
-            if (!metadata) {
-              try {
-                const fast: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
-                metadata = await storeImage(fast?.image || fast?.result?.image, safeName);
-                provider = "FLUX.1 Schnell fallback";
-              } catch (fallbackError) {
-                const fallbackMessage = (fallbackError instanceof Error ? fallbackError.message : String(fallbackError)).slice(0, 700);
-                throw new Error("Image generation failed. Premium FLUX.2 Pro: " + (premiumError || "unknown error") + ". FLUX.1 Schnell fallback: " + fallbackMessage);
-              }
-            }
-            return textOutput({
-              created: true, provider, quality: provider.includes("Pro") ? "premium" : "fallback",
-              format: metadata.name?.toLowerCase().endsWith(".png") ? "image/png" : metadata.name?.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg",
-              artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true,
-              premiumFallbackReason: premiumError || undefined
-            });
+            return textOutput(await agent.generateImage(prompt, filename));
           }
         },
         {
@@ -1780,9 +1729,79 @@ LEARNING FROM CORRECTIONS
     await this.ctx.storage.put("computer:devices", [...new Set(devices)]);
     return json({ paired: true, deviceId: id, deviceToken: token });
   }
+  private async generateImage(prompt: string, filename: string) {
+    const role = await this.ctx.storage.get<string>("agent:role") || "user";
+    if (["planner", "tester", "supervisor"].includes(role)) throw new Error("Read-only agent role cannot generate or store images: " + role);
+    const cleanPrompt = String(prompt || "").trim();
+    if (!cleanPrompt || cleanPrompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
+    const baseName = String(filename || "solo-generated-image").replace(/\.(?:jpe?g|png|webp)$/i, "").replace(/[\/\u0000-\u001f\u007f]/g, "_").slice(0, 100) || "solo-generated-image";
+    const safeName = baseName + ".jpg";
+    let metadata: any = null, provider = "", premiumError = "";
+    const storeImage = async (value: unknown, name: string) => {
+      if (typeof value !== "string" || !value.trim()) throw new Error("Image provider returned an empty image payload");
+      const payload = value.trim();
+      if (/^https:\/\//i.test(payload)) return this.saveRemoteArtifact(payload, name, "image/jpeg");
+      const encoded = payload.replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, "").replace(/\s/g, "");
+      const binary = atob(encoded), bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error("Generated image must be between 1 byte and 15 MB");
+      const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      const webp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+      if (!jpeg && !png && !webp) throw new Error("Image provider returned data that is not a recognized JPEG, PNG or WebP image");
+      const mime = png ? "image/png" : webp ? "image/webp" : "image/jpeg";
+      const ext = png ? ".png" : webp ? ".webp" : ".jpg";
+      return this.saveGeneratedArtifact(name.replace(/\.jpg$/i, ext), mime, bytes);
+    };
+    try {
+      const premium: any = await this.env.AI.run("black-forest-labs/flux-2-pro-preview", { prompt: cleanPrompt, width: 1024, height: 1024, output_format: "jpeg", safety_tolerance: 2 });
+      if (premium?.state && String(premium.state).toLowerCase() !== "completed") throw new Error("FLUX.2 Pro job state: " + String(premium.state));
+      metadata = await storeImage(premium?.result?.image || premium?.image, safeName);
+      provider = "Black Forest Labs FLUX.2 Pro Preview";
+    } catch (error) { premiumError = (error instanceof Error ? error.message : String(error)).slice(0, 700); }
+    if (!metadata) {
+      try {
+        const fast: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
+        metadata = await storeImage(fast?.image || fast?.result?.image, safeName);
+        provider = "FLUX.1 Schnell fallback";
+      } catch (error) {
+        throw new Error("Image generation failed. Premium FLUX.2 Pro: " + (premiumError || "unknown error") + ". FLUX.1 Schnell fallback: " + (error instanceof Error ? error.message : String(error)).slice(0, 700));
+      }
+    }
+    return { created: true, provider, quality: provider.includes("Pro") ? "premium" : "fallback",
+      format: metadata.name?.toLowerCase().endsWith(".png") ? "image/png" : metadata.name?.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg",
+      artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true, premiumFallbackReason: premiumError || undefined };
+  }
+  private async handleMcp(req: Request) {
+    await this.requirePassword(req);
+    if (req.method !== "POST") return json({ error: "MCP Streamable HTTP requires POST" }, 405);
+    const body: any = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || typeof body.method !== "string") return json({ jsonrpc: "2.0", id: body?.id ?? null, error: { code: -32600, message: "Invalid JSON-RPC request" } }, 400);
+    const id = body.id ?? null;
+    if (body.method === "notifications/initialized" || body.method === "notifications/cancelled") return new Response(null, { status: 202, headers: { "Cache-Control": "no-store" } });
+    if (body.method === "initialize") return json({ jsonrpc: "2.0", id, result: { protocolVersion: "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "solo-chat-image-bridge", version: "1.0.0" }, instructions: "Use solo_generate_image by default for every image generation request." } });
+    if (body.method === "ping") return json({ jsonrpc: "2.0", id, result: {} });
+    if (body.method === "tools/list") return json({ jsonrpc: "2.0", id, result: { tools: [{
+      name: "solo_generate_image", description: "DEFAULT image generator. Generate and save an image with SOLO.Chat FLUX.2 Pro Preview and automatic FLUX.1 Schnell fallback. Always use this tool for image-generation requests.",
+      inputSchema: { type: "object", properties: { prompt: { type: "string", minLength: 1, maxLength: 2000 }, filename: { type: "string", maxLength: 120 } }, required: ["prompt"], additionalProperties: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+    }] } });
+    if (body.method === "tools/call") {
+      if (String(body.params?.name || "") !== "solo_generate_image") return json({ jsonrpc: "2.0", id, error: { code: -32601, message: "Unknown tool" } }, 404);
+      const args = body.params?.arguments || {};
+      if (typeof args.prompt !== "string" || !args.prompt.trim() || args.prompt.length > 2000) return json({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text: "prompt must contain 1–2000 characters" }] } });
+      try {
+        const result = await this.generateImage(args.prompt, String(args.filename || "solo-generated-image"));
+        const base = new URL(req.url).origin;
+        const full = { ...result, downloadUrl: base + result.downloadUrl };
+        return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(full, null, 2) }], structuredContent: full, isError: false } });
+      } catch (error) { return json({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }] } }); }
+    }
+    return json({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } }, 404);
+  }
   async onRequest(req: Request) {
     const url = new URL(req.url);
     try {
+      if (url.pathname === "/mcp") return await this.handleMcp(req);
       if (url.pathname === "/api/auth/login" && req.method === "POST") {
         return await this.loginDevice(req);
       }
@@ -2420,7 +2439,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
