@@ -55,6 +55,7 @@ const checks = [
  [ "Agent has real FLUX image generation and persists PNG artifacts", runtime.includes('name: "generate_image"') && runtime.includes('@cf/black-forest-labs/flux-1-schnell')],
  [ "Agent has MiniMax music generation and persists MP3 artifacts", runtime.includes('name: "generate_music"') && runtime.includes('minimax/music-2.6')],
  [ "Agent has Russian-capable Grok speech generation and persists MP3 artifacts", runtime.includes('name: "generate_speech"') && runtime.includes('xai/grok-tts') && runtime.includes('language: "ru"')],
+ [ "Agent can start and complete Meshy 7.1 text-to-3D tasks", runtime.includes('name: "generate_3d_model"') && runtime.includes('name: "check_3d_model"') && runtime.includes('meshy-7.1') && runtime.includes('MESHY_API_KEY')],
  [ "Binary plugin current hash can be inspected without uploading file contents", /"hash_file"/.test(runtime) && runtime.includes("hash_file") && /Only regular files up to 50 MB can be hashed/.test(await readFile(new URL("../computer-bridge/agent.mjs", import.meta.url), "utf8"))],
 
 
