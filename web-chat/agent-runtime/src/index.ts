@@ -543,7 +543,7 @@ LEARNING FROM CORRECTIONS
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        "Set-Cookie": "solo_device=" + token + "; Max-Age=2592000; Path=/api; HttpOnly; Secure; SameSite=Strict"
+        "Set-Cookie": "solo_device=" + token + (body.rememberDevice === false ? "" : "; Max-Age=2592000") + "; Path=/api; HttpOnly; Secure; SameSite=Strict"
       }
     });
   }
