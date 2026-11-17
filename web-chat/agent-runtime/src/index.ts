@@ -412,7 +412,7 @@ LEARNING FROM CORRECTIONS
           async execute({ path, content, message }: { path: string; content: string; message: string }) {
             await assertAgentCanWrite();
             const safe = safeProjectPath(path);
-            if (!/^web-chat\\/public\\/[A-Za-z0-9._/-]+\\.(?:html|css|js|json)$/i.test(safe) || safe.includes("..")) {
+            if (!safe.startsWith("web-chat/public/") || safe.includes("..") || !/\.(?:html|css|js|json)$/i.test(safe)) {
               throw new Error("SOLO UI editor is limited to web-chat/public HTML, CSS, JS and JSON files");
             }
             if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
