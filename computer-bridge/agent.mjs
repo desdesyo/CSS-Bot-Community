@@ -4,7 +4,7 @@ import { resolve, relative, isAbsolute, dirname, extname, sep } from "node:path"
 import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { isInside, validateWriteRequest } from "./file-policy.mjs";
+import { isInside, validateWriteRequest, validateSmxInstallRequest } from "./file-policy.mjs";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -157,11 +157,105 @@ async function applyApprovedTextFile(config, task) {
     throw error;
   }
 }
+const allowedGitHubHosts = new Set(["raw.githubusercontent.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
+async function downloadGitHubPackage(sourceUrl) {
+  let url = new URL(sourceUrl);
+  for (let hop = 0; hop < 6; hop++) {
+    if (url.protocol !== "https:" || !allowedGitHubHosts.has(url.hostname.toLowerCase()) || url.username || url.password || (url.port && url.port !== "443"))
+      throw new Error("Plugin download URL or redirect is not an approved GitHub HTTPS host");
+    const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(30000) });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (!location) throw new Error("GitHub redirect did not provide a destination");
+      url = new URL(location, url);
+      continue;
+    }
+    if (!response.ok) throw new Error("Plugin download failed: HTTP " + response.status);
+    const declared = Number(response.headers.get("content-length") || 0);
+    if (declared > 10 * 1024 * 1024) throw new Error("Plugin package exceeds 10 MB");
+    if (!response.body) throw new Error("Plugin download returned an empty body");
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      total += part.value.byteLength;
+      if (total > 10 * 1024 * 1024) { await reader.cancel(); throw new Error("Plugin package exceeds 10 MB"); }
+      chunks.push(Buffer.from(part.value));
+    }
+    if (!total) throw new Error("Plugin download is empty");
+    return { bytes: Buffer.concat(chunks), finalUrl: url.toString() };
+  }
+  throw new Error("Too many GitHub download redirects");
+}
+async function applyApprovedSmx(config, task) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required; refusing unattended plugin installation.");
+  const gameRoot = await realpath(resolve(config.gameRoot || config.allowedRoots?.[0] || ""));
+  const relativeTarget = String(task.path || "");
+  const targetPath = resolve(gameRoot, ...relativeTarget.split("/"));
+  if (!isInside(gameRoot, targetPath)) throw new Error("Plugin destination escapes the configured game root");
+  const { target } = await resolveAllowedTarget(config, targetPath);
+  const beforeInfo = await stat(target).catch(e => { if (e?.code === "ENOENT") return null; throw e; });
+  if (beforeInfo && (!beforeInfo.isFile() || beforeInfo.size > 10 * 1024 * 1024)) throw new Error("Existing plugin must be a regular file no larger than 10 MB");
+  const beforeBytes = beforeInfo ? await readFile(target) : null;
+  const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
+  validateSmxInstallRequest({ relativeTarget, sourceUrl: task.sourceUrl, expectedSha256: task.expectedSha256, currentSha256: beforeHash, contentBytes: 1 });
+  const downloaded = await downloadGitHubPackage(task.sourceUrl);
+  validateSmxInstallRequest({ relativeTarget, sourceUrl: downloaded.finalUrl, expectedSha256: task.expectedSha256, currentSha256: beforeHash, contentBytes: downloaded.bytes.length });
+  const packageHash = sha256(downloaded.bytes);
+  if (packageHash.toLowerCase() !== String(task.packageSha256 || "").toLowerCase())
+    throw new Error("Downloaded plugin SHA-256 does not match the package manifest. No file was changed.");
+  const afterHash = packageHash;
+  const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = beforeInfo ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
+  console.log("\nSOURCE MOD PLUGIN INSTALL REQUEST");
+  console.log("Target: " + target);
+  console.log("Source host: " + new URL(downloaded.finalUrl).hostname);
+  console.log("Current SHA-256: " + beforeHash);
+  console.log("Package SHA-256: " + afterHash);
+  console.log("Backup will be created and verified at: " + (backupPath || "(not needed; new file)"));
+  console.log("Only this .smx plugin will be changed. No command or script will be executed.");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let answer = "";
+  try { answer = await rl.question("Type APPLY to install this exact plugin (anything else cancels): "); }
+  finally { rl.close(); }
+  if (answer.trim() !== "APPLY") return { ok: false, cancelled: true, path: target, beforeHash, afterHash };
+  if (beforeInfo) {
+    await mkdir(backupRoot, { recursive: true });
+    await copyFile(target, backupPath);
+    if (sha256(await readFile(backupPath)) !== beforeHash) throw new Error("Plugin backup verification failed; original file was not changed.");
+  }
+  const temp = target + ".solo-" + randomUUID() + ".tmp";
+  try {
+    const handle = await open(temp, "wx");
+    try { await handle.writeFile(downloaded.bytes); await handle.sync(); }
+    finally { await handle.close(); }
+    const currentNow = await stat(target).then(async () => sha256(await readFile(target))).catch(e => { if (e?.code === "ENOENT") return "NEW"; throw e; });
+    if (currentNow.toLowerCase() !== beforeHash.toLowerCase()) throw new Error("Plugin changed after approval; refusing to overwrite a newer version.");
+    await rename(temp, target);
+    const verified = sha256(await readFile(target));
+    if (verified !== afterHash) {
+      if (backupPath) await copyFile(backupPath, target);
+      else await unlink(target).catch(() => {});
+      throw new Error("Installed plugin SHA-256 verification failed; rollback was attempted.");
+    }
+    const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
+    await mkdir(auditRoot, { recursive: true });
+    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, sourceHost: new URL(downloaded.finalUrl).hostname, status: "verified_smx_installed" }) + "\n", "utf8");
+    return { ok: true, path: target, beforeHash, afterHash, backupPath, status: "smx_installed_and_verified" };
+  } catch (error) {
+    await unlink(temp).catch(() => {});
+    throw error;
+  }
+}
 async function runTask(config, task) {
   if (task.action === "system_info") {
     return { ok: true, platform: os.platform(), release: os.release(), arch: os.arch(), node: process.version, cpuCount: os.cpus().length, totalMemoryBytes: os.totalmem(), freeMemoryBytes: os.freemem() };
   }
   if (task.action === "write_text_file") return await applyApprovedTextFile(config, task);
+  if (task.action === "install_smx") return await applyApprovedSmx(config, task);
   const path = await resolveAllowedPath(config, task.path);
   if (task.action === "list_directory") {
     const entries = await readdir(path, { withFileTypes: true });
