@@ -9,6 +9,12 @@
 button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 13px}button:hover{border-color:#6977bd}button:disabled{opacity:.5;cursor:wait}
 .app{height:100%;display:grid;grid-template-columns:270px 1fr}.side{background:#14161a;border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;min-height:0}.brand{font-weight:700;font-size:17px;letter-spacing:.2px;margin:4px 0 18px}.brand span{color:var(--accent)}.new{width:100%;text-align:left;margin-bottom:14px}.threads{overflow:auto;display:flex;flex-direction:column;gap:5px}.thread{border:0;text-align:left;background:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c5cad3}.thread.active,.thread:hover{background:var(--panel2)}.sidefoot{margin-top:auto;padding-top:14px;color:var(--muted);font-size:12px}.main{display:flex;flex-direction:column;min-width:0;min-height:0}.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;color:var(--muted)}.messages{flex:1;overflow:auto;padding:28px max(20px,calc((100% - 850px)/2));display:flex;flex-direction:column;gap:22px}.welcome{margin:auto;text-align:center;max-width:600px;color:var(--muted)}.welcome h1{color:var(--text);font-size:30px;margin:0 0 8px}.msg{max-width:100%;display:flex;gap:12px;align-items:flex-start}.avatar{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--panel2);flex:none;font-size:12px;font-weight:700}.msg.user .avatar{background:#303b5b}.body{min-width:0;white-space:normal;overflow-wrap:anywhere;padding-top:2px}.body p{margin:0 0 12px}.body p:last-child{margin-bottom:0}.body h1,.body h2,.body h3,.body h4{line-height:1.25;margin:18px 0 9px}.body ul,.body ol{padding-left:24px;margin:8px 0}.body blockquote{margin:10px 0;padding:4px 12px;border-left:3px solid #6977bd;color:#c2c8d5}.body a{color:#aebaff}.body code{font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#252832;border-radius:5px;padding:2px 5px}.body pre{white-space:pre;overflow:auto;background:#101216;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}.body pre code{display:block;background:transparent;padding:0}.code-head{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;margin-bottom:8px}.code-head button,.message-actions button{font-size:11px;padding:3px 8px}.message-actions{display:flex;gap:6px;margin-top:8px;opacity:.65}.message-actions button{background:transparent}.msg.user .body{background:var(--user);padding:11px 14px;border-radius:13px}.composer-wrap{padding:12px 20px 22px}.toolrow{max-width:850px;margin:0 auto 8px;display:flex;gap:8px;align-items:center}.toolrow button{font-size:12px;padding:6px 10px}.toolrow button[aria-pressed="true"]{border-color:var(--accent);background:#29314b}.toolrow span{font-size:11px;color:var(--muted)}.attachments{max-width:850px;margin:0 auto 8px;display:flex;gap:6px;flex-wrap:wrap}.file-chip{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px}.message-files{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.file-library{max-width:850px;margin:0 auto 10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.file-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px}.file-row:last-child{border-bottom:0}.file-row .file-name{flex:1;overflow-wrap:anywhere}.file-row button{font-size:11px;padding:4px 7px}.composer{max-width:850px;margin:auto;border:1px solid #3a3f4a;background:var(--panel);border-radius:16px;padding:10px;display:flex;gap:10px;align-items:flex-end}.composer textarea{flex:1;resize:none;min-height:44px;max-height:180px;border:0;outline:0;background:transparent;color:var(--text);padding:9px}.send{background:#dce1ff;color:#171923;border:0;font-weight:700;min-width:72px}.hint{text-align:center;color:var(--muted);font-size:11px;margin-top:8px}.mobile{display:none}
 #gate{position:fixed;inset:0;background:#101114;display:grid;place-items:center;padding:20px;z-index:5}.gatebox{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px}.gatebox h2{margin:0 0 8px}.gatebox p{color:var(--muted);font-size:13px}.gatebox input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#101114;color:var(--text);margin:10px 0}.gatebox button{width:100%;background:#dce1ff;color:#171923;font-weight:700}.status{display:none}
+.thinking{display:flex;align-items:center;gap:8px;color:var(--muted);padding:6px 0}
+.thinking-dots{display:inline-flex;gap:3px}
+.thinking-dots i{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:thinkPulse 1.2s infinite ease-in-out}
+.thinking-dots i:nth-child(2){animation-delay:.18s}.thinking-dots i:nth-child(3){animation-delay:.36s}
+.thinking-time{font-size:11px;color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums}
+@keyframes thinkPulse{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 @media(max-width:700px){.app{grid-template-columns:1fr}.side{display:none}.mobile{display:inline-block}.top{padding:0 14px}.messages{padding:20px 14px}.composer-wrap{padding:10px 10px 16px}}
 </style>
 </head>
@@ -51,6 +57,17 @@ function renderMarkdown(src){
 }
 function addMessage(role,text,files=[]){const empty=$("messages").querySelector(".welcome");if(empty)empty.remove();const row=document.createElement("article");row.className="msg "+role;const av=document.createElement("div");av.className="avatar";av.textContent=role==="user"?"YOU":"AI";const body=document.createElement("div");body.className="body";if(role==="assistant"){body.innerHTML=renderMarkdown(text);const actions=document.createElement("div");actions.className="message-actions";const copy=document.createElement("button");copy.type="button";copy.textContent="Copy";copy.onclick=()=>navigator.clipboard?.writeText(text);const save=document.createElement("button");save.type="button";save.textContent="Save as .md";save.onclick=()=>{const blob=new Blob([text],{type:"text/markdown;charset=utf-8"}),a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download="assistant-response.md";a.click();URL.revokeObjectURL(u);save.textContent="Downloaded"};actions.append(copy,save);body.append(actions)}else body.textContent=text;if(files&&files.length){const box=document.createElement("div");box.className="message-files";for(const file of files){const tag=document.createElement("span");tag.className="file-chip";tag.textContent="📎 "+(file.name||"attachment");box.append(tag)}body.append(box)}row.append(av,body);$("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight;return row}
 function showWelcome(){ $("messages").innerHTML='<div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved to GitHub so the conversation can be reopened later.</div></div>'; }
+function addThinkingMessage(){
+ const row=document.createElement("article");row.className="msg assistant";
+ const av=document.createElement("div");av.className="avatar";av.textContent="AI";
+ const body=document.createElement("div");body.className="body";
+ const status=document.createElement("div");status.className="thinking";
+ const label=document.createElement("span");label.textContent="Думаю над ответом";
+ const dots=document.createElement("span");dots.className="thinking-dots";dots.innerHTML="<i></i><i></i><i></i>";
+ const elapsed=document.createElement("span");elapsed.className="thinking-time";elapsed.textContent="0:00";
+ status.append(label,dots,elapsed);body.append(status);row.append(av,body);$("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight;
+ return {row,update(seconds,connection){elapsed.textContent=Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0");label.textContent=connection||"Думаю над ответом";}};
+}
 async function loadThreads(){const d=await api("/api/threads");$("threads").innerHTML="";for(const t of d.threads){const b=document.createElement("button");b.className="thread"+(t.number===thread?" active":"");b.textContent=t.title;b.title=t.title;b.onclick=()=>openThread(t.number);$("threads").append(b)}$("connection").textContent="Connected · "+d.threads.length+" conversations"}
 async function openThread(n){thread=n;localStorage.setItem("ghchat_thread",String(n));setStatus("Loading history…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=d.title||("Conversation #"+n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content,m.files||[]);await loadThreads();setStatus("Saved · #"+n)}
 function newChat(){thread=null;localStorage.removeItem("ghchat_thread");$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("New conversation")}
@@ -89,17 +106,52 @@ async function uploadSelected(files){
 }
 async function send(){
  const message=$("prompt").value.trim();if(!message||busy)return;
- busy=true;$("send").disabled=true;$("prompt").readOnly=true;$("prompt").value="";
- const bubble=addMessage("user",message,attachedFiles);let completed=false;
+ busy=true;$("send").disabled=true;$("prompt").value="";
+ const bubble=addMessage("user",message,attachedFiles);
+ const thinking=addThinkingMessage();
+ const operationId="browser-"+crypto.randomUUID();
+ const started=Date.now();
+ let operationThread=thread;
  try{
-  let d,last;
-  for(let attempt=0;attempt<5;attempt++){
-   try{d=await api("/api/chat",{method:"POST",body:JSON.stringify({thread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled})});completed=true;break}
-   catch(e){last=e;if(e.message==="Unauthorized")break;await new Promise(r=>setTimeout(r,700*Math.pow(2,attempt)))}
+  const accepted=await api("/api/chat",{method:"POST",body:JSON.stringify({thread:operationThread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled,operationId})});
+  thread=accepted.thread;operationThread=accepted.thread;localStorage.setItem("ghchat_thread",String(thread));
+  $("chatTitle").textContent=accepted.title||("Conversation #"+thread);
+  attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";
+  let result=null,lastNetworkError=null;
+  while(Date.now()-started<210000){
+   try{
+    result=await api("/api/chat/status?operationId="+encodeURIComponent(operationId));
+    lastNetworkError=null;
+    const seconds=Math.floor((Date.now()-started)/1000);
+    if(result.status==="done")break;
+    if(result.status==="failed")throw Error(result.error||"Не удалось получить ответ");
+    thinking.update(seconds,result.status==="queued"?"Запрос в очереди":"Думаю над ответом");
+   }catch(e){
+    if(e.message==="Unauthorized"||e.message==="Operation not found")throw e;
+    lastNetworkError=e;
+    thinking.update(Math.floor((Date.now()-started)/1000),"Связь восстанавливается…");
+   }
+   await new Promise(resolve=>setTimeout(resolve,1200));
   }
-  if(completed){thread=d.thread;localStorage.setItem("ghchat_thread",String(thread));$("chatTitle").textContent=d.title;addMessage("assistant",d.reply);attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";try{await loadThreads()}catch(_){}}
-  else{bubble.remove();$("prompt").value=message;if(last?.message==="Unauthorized"){token="";sessionStorage.removeItem("ghchat_password");$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";addMessage("assistant","**Сессия истекла или пароль изменён.** Введите пароль заново.");}else{addMessage("assistant","**Не удалось отправить сообщение.** "+(last?.message||"Сервис не ответил. Проверьте подключение и повторите попытку."));}$("toolFeedback").textContent="Ошибка отправки"}
- }finally{busy=false;$("send").disabled=false;$("prompt").readOnly=false;$("prompt").focus()}
+  if(!result||result.status!=="done"){
+   const detail=lastNetworkError?.message;
+   throw new Error(detail?"Потеряна связь с чатом. Ответ мог продолжить готовиться; откройте диалог повторно.":"Ответ всё ещё готовится. Сообщение сохранено — откройте диалог позже.");
+  }
+  thinking.row.remove();addMessage("assistant",result.reply||"");
+  try{await loadThreads()}catch(_){}
+  setStatus("Готово · #"+thread);
+ }catch(e){
+  thinking.row.remove();
+  if(e.message==="Unauthorized"){
+   token="";sessionStorage.removeItem("ghchat_password");$("gate").style.display="flex";$("gateError").textContent="Сессия не авторизована. Введите актуальный пароль чата.";
+   addMessage("assistant","**Сессия истекла.** Введите пароль заново.");
+  }else{
+   addMessage("assistant","**"+escapeHtml(e.message||"Ошибка чата")+"**");
+   $("toolFeedback").textContent="Ответ не получен";
+  }
+ }finally{
+  busy=false;$("send").disabled=false;$("prompt").focus();
+ }
 }
 async function unlock(){token=$("password").value.trim();try{await api("/api/health");sessionStorage.setItem("ghchat_password",token);$("gate").style.display="none";await loadThreads();if(thread)try{await openThread(thread)}catch(_){thread=null;localStorage.removeItem("ghchat_thread")}}catch(e){$("gateError").textContent=e.message;token=""}}
 $("messages").addEventListener("click",e=>{const b=e.target.closest(".copy-code");if(!b)return;const code=b.closest("pre")?.querySelector("code")?.textContent||"";navigator.clipboard?.writeText(code);b.textContent="Скопировано";setTimeout(()=>b.textContent="Копировать код",1200)});$("attach").onclick=()=>$("filePicker").click();$("computerConnect").onclick=async()=>{const b=$("computerConnect"),f=$("toolFeedback");b.disabled=true;try{const d=await api("/api/agent/computer/pair-code",{method:"POST",body:JSON.stringify({})});const msg="Код сопряжения: "+d.code+" (valid 5 minutes). Run: node agent.mjs pair "+location.origin+" "+d.code;f.textContent=msg;try{await navigator.clipboard.writeText(msg)}catch(_){}}catch(e){f.textContent="Computer pairing unavailable: "+e.message}finally{b.disabled=false}};$("myFiles").onclick=()=>{const p=$("fileLibrary");if(p.hidden)loadFileLibrary();else p.hidden=true};$("filePicker").addEventListener("change",e=>uploadSelected([...e.target.files]));$("webSearch").onclick=()=>{webSearchEnabled=!webSearchEnabled;$("webSearch").setAttribute("aria-pressed",String(webSearchEnabled));$("webSearch").textContent="⌕ Поиск в интернете: "+(webSearchEnabled?"on":"off")};$("unlock").onclick=unlock;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")unlock()});$("send").onclick=send;$("newChat").onclick=newChat;$("mobileNew").onclick=newChat;$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"});
