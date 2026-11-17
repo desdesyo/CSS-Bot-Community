@@ -39,6 +39,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           CHAT_GITHUB_TOKEN: ${{ secrets.CSSBC_GITHUB_TOKEN }}
+          CHAT_OPENAI_API_KEY: ${{ secrets.CSSBC_OPENAI_API_KEY }}
         run: |
           set -euo pipefail
           if [ -z "$CHAT_APP_PASSWORD" ]; then
@@ -50,5 +51,10 @@ jobs:
             printf '%s' "$CHAT_GITHUB_TOKEN" | npx wrangler versions secret put GITHUB_TOKEN
           else
             echo "CSSBC_GITHUB_TOKEN is not set; deploying chat without GitHub workspace write tools."
+          fi
+          if [ -n "$CHAT_OPENAI_API_KEY" ]; then
+            printf '%s' "$CHAT_OPENAI_API_KEY" | npx wrangler versions secret put OPENAI_API_KEY
+          else
+            echo "CSSBC_OPENAI_API_KEY is not set; automatic external-expert escalation will report unavailable."
           fi
           npx wrangler deploy --config wrangler.toml
