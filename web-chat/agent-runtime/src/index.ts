@@ -1104,7 +1104,7 @@ LEARNING FROM CORRECTIONS
           if (labels.includes("status:done")) queue.done++;
           if (labels.includes("agent-review-needed")) queue.reviewNeeded++;
         }
-        const teamRun = runs.find(item => item.name === "CSSBC Agent Orchestrator");
+        const teamRun = runs.find(item => item.name === "CSSBC Agent Orchestrator" && item.event !== "workflow_run") || runs.find(item => item.name === "CSSBC Agent Orchestrator");
         let teamSteps: any[] = [];
         if (teamRun?.id) {
           try {
