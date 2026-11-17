@@ -46,6 +46,11 @@ const checks = [
  [ "Text attachments are added to the model prompt", /ПРИКРЕПЛЁННЫЕ ФАЙЛЫ/.test(runtime) && /ТЕКСТОВЫЙ ФАЙЛ/.test(runtime)],
  [ "Browser exposes file picker and paste/drop upload", /id="attach" title="Прикрепить фотографии и документы"/.test(html) && /clipboardData\?\.files/.test(html) && /dataTransfer\?\.files/.test(html)],
  [ "Image previews are rendered in chat history", /className="message-image"/.test(html) && /\?inline=1/.test(html)],
+ [ "Paired computer can create/edit local text files only through the approval-gated tool", runtime.includes('name: "computer_write_text_file"') && runtime.includes('expectedSha256') && runtime.includes('status: "waiting for local approval in the Windows companion"')],
+ [ "Local computer writes require exact SHA-256 and 256 KB bound", /new TextEncoder\(\)\.encode\(content\)\.length > 256 \* 1024/.test(runtime) && /expectedSha256 !== "NEW"/.test(runtime)],
+ [ "Computer task results can be polled after local approval", runtime.includes('name: "computer_task_result"') && runtime.includes('"computer:result:" + taskId')],
+ [ "Cross-chat continuity and canonical SOLO.Chat URL are in the agent prompt", runtime.includes("CROSS-CHAT CONTINUITY — ABSOLUTE REQUIREMENT") && runtime.includes("https://cssbc-github-chat.descapan.workers.dev/")],
+
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
