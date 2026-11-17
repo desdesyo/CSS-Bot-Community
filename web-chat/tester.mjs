@@ -36,6 +36,14 @@ const checks = [
  ["Sidebar replaces CJK and mojibake titles with readable fallback", /function safeThreadTitle/.test(html) && /cjk>Math\.max/.test(html) && /Диалог #/.test(html)],
  ["Sidebar has an explicit empty state", /Здесь появятся ваши диалоги/.test(html)],
  ["Sidebar history buttons have accessible labels", /setAttribute\("aria-label","Открыть "\+label\)/.test(html)],
+
+ [ "File upload endpoint is authenticated and backed by private R2", /url\.pathname === "\/api\/files" && req\.method === "POST"/.test(runtime) && /this\.env\.FILES\.put\("files\/" \+ id/.test(runtime)],
+ [ "File download and deletion routes are available", /url\.pathname\.startsWith\("\/api\/files\/"\)/.test(runtime) && /method === "DELETE"/.test(runtime)],
+ [ "Chat accepts uploaded file IDs", /const fileIds = Array\.isArray\(body\.files\)/.test(runtime) && /prepareAttachments\(fileIds\)/.test(runtime)],
+ [ "Image attachments are analyzed with Workers AI vision", /llama-3\.2-11b-vision-instruct/.test(runtime) && /image: Array\.from\(bytes\)/.test(runtime)],
+ [ "Text attachments are added to the model prompt", /ПРИКРЕПЛЁННЫЕ ФАЙЛЫ/.test(runtime) && /ТЕКСТОВЫЙ ФАЙЛ/.test(runtime)],
+ [ "Browser exposes file picker and paste/drop upload", /id="attach" title="Прикрепить фотографии и документы"/.test(html) && /clipboardData\?\.files/.test(html) && /dataTransfer\?\.files/.test(html)],
+ [ "Image previews are rendered in chat history", /className="message-image"/.test(html) && /\?inline=1/.test(html)],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
