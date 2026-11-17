@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdir, readdir, realpath, stat } from "node:fs/promises";
+import { readFile, writeFile, appendFile, mkdir, readdir, realpath, stat, lstat, copyFile, rename, unlink, open } from "node:fs/promises";
 import { resolve, relative, isAbsolute, dirname, extname, sep } from "node:path";
 import os from "node:os";
+import { createHash, randomUUID } from "node:crypto";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +60,101 @@ async function resolveAllowedPath(config, input) {
   }
   throw new Error("Path is outside configured allowed roots or does not exist");
 }
+
+const writableExtensions = new Set([".txt",".md",".json",".xml",".cfg",".ini",".vdf",".kv",".res",".rc",".cpp",".h",".c",".sp",".inc",".sma",".js",".ts",".html",".css",".yaml",".yml",".toml",".sql"]);
+const sha256 = value => createHash("sha256").update(value).digest("hex");
+function isInside(root, candidate) {
+  const rel = relative(root, candidate);
+  return rel === "" || (rel !== ".." && !rel.startsWith(".." + sep) && !isAbsolute(rel));
+}
+async function resolveAllowedTarget(config, input) {
+  if (!input || input.length > 1024) throw new Error("A valid destination path is required");
+  const roots = await Promise.all(config.allowedRoots.map(p => realpath(resolve(p))));
+  const candidates = isAbsolute(input) ? [resolve(input)] : roots.map(root => resolve(root, input));
+  for (const candidate of candidates) {
+    const parent = dirname(candidate);
+    try {
+      const actualParent = await realpath(parent);
+      const root = roots.find(r => isInside(r, actualParent));
+      if (!root) continue;
+      const name = candidate.slice(parent.length + (parent.endsWith(sep) ? 0 : 1));
+      if (!name || name === "." || name === ".." || name.includes(sep)) continue;
+      const target = resolve(actualParent, name);
+      try {
+        const info = await lstat(target);
+        if (info.isSymbolicLink() || !info.isFile()) throw new Error("Destination must be a regular file, not a symlink or directory");
+        const actual = await realpath(target);
+        if (!isInside(root, actual)) throw new Error("Destination escapes the configured root");
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      return { target, root };
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  throw new Error("Destination parent must already exist inside a configured allowed root");
+}
+async function applyApprovedTextFile(config, task) {
+  if (typeof task.content !== "string") throw new Error("Text content is missing");
+  const data = Buffer.from(task.content, "utf8");
+  if (data.length > 256 * 1024) throw new Error("Text file write is limited to 256 KB");
+  if (data.includes(0)) throw new Error("NUL bytes are not allowed in a text-file write");
+  const { target } = await resolveAllowedTarget(config, task.path);
+  const extension = extname(target).toLowerCase();
+  if (!writableExtensions.has(extension)) throw new Error("This file type is not allowed for text writes. Binary plugins and DLLs require a separate verified package installer.");
+  const blockedNames = new Set(["server.dll","client.dll","engine.dll","tier0.dll","vstdlib.dll","filesystem_steam.dll","vphysics.dll"]);
+  if (blockedNames.has(target.split(sep).pop().toLowerCase())) throw new Error("Core game binaries are protected from direct writes");
+  const beforeExists = await stat(target).then(x => x.isFile()).catch(e => { if (e?.code === "ENOENT") return false; throw e; });
+  const beforeBytes = beforeExists ? await readFile(target) : null;
+  const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
+  const expected = String(task.expectedSha256 || "");
+  if (beforeHash.toLowerCase() !== expected.toLowerCase()) throw new Error("SHA-256 conflict: expected " + expected + ", actual " + beforeHash + ". No file was changed.");
+  const afterHash = sha256(data);
+  const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = beforeExists ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required; refusing unattended file modification.");
+  console.log("\\nLOCAL FILE CHANGE REQUEST");
+  console.log("Target: " + target);
+  console.log("Operation: " + (beforeExists ? "replace existing file" : "create new file"));
+  console.log("Current SHA-256: " + beforeHash);
+  console.log("New SHA-256:     " + afterHash);
+  console.log("Verified backup: " + (backupPath || "(not needed; new file)"));
+  console.log("Only this file will be changed. No command or script will be executed.");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let answer = "";
+  try { answer = await rl.question("Type APPLY to approve this exact change (anything else cancels): "); }
+  finally { rl.close(); }
+  if (answer.trim() !== "APPLY") return { ok: false, cancelled: true, path: target, beforeHash, afterHash };
+  if (beforeExists) {
+    await mkdir(backupRoot, { recursive: true });
+    await copyFile(target, backupPath);
+    if (sha256(await readFile(backupPath)) !== beforeHash) throw new Error("Backup verification failed; original file was not changed.");
+  }
+  const temp = target + ".solo-" + randomUUID() + ".tmp";
+  try {
+    const handle = await open(temp, "wx");
+    try { await handle.writeFile(data); await handle.sync(); }
+    finally { await handle.close(); }
+    const currentNow = await stat(target).then(async () => sha256(await readFile(target))).catch(e => { if (e?.code === "ENOENT") return "NEW"; throw e; });
+    if (currentNow.toLowerCase() !== beforeHash.toLowerCase()) throw new Error("File changed after approval; refusing to overwrite a newer version.");
+    await rename(temp, target);
+    const verified = sha256(await readFile(target));
+    if (verified !== afterHash) {
+      if (backupPath) await copyFile(backupPath, target);
+      else await unlink(target).catch(() => {});
+      throw new Error("Post-write SHA-256 verification failed; rollback was attempted.");
+    }
+    const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
+    await mkdir(auditRoot, { recursive: true });
+    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, status: "verified" }) + "\\n", "utf8");
+    return { ok: true, path: target, beforeHash, afterHash, backupPath, status: "written_and_verified" };
+  } catch (error) {
+    await unlink(temp).catch(() => {});
+    throw error;
+  }
+}
 async function runTask(config, task) {
   if (task.action === "system_info") {
     return { ok: true, platform: os.platform(), release: os.release(), arch: os.arch(), node: process.version, cpuCount: os.cpus().length, totalMemoryBytes: os.totalmem(), freeMemoryBytes: os.freemem() };
@@ -74,12 +171,12 @@ async function runTask(config, task) {
     if (!allowed.has(extname(path).toLowerCase())) throw new Error("File extension is not allowed for reading");
     return { ok: true, path, content: await readFile(path, "utf8") };
   }
-  throw new Error("Unsupported task action");
+  if (task.action === "write_text_file") return await applyApprovedTextFile(config, task);\n  throw new Error("Unsupported task action");
 }
 async function main() {
   const config = await loadConfig();
   if (!config.deviceToken) throw new Error("Device is not paired. Follow computer-bridge/README.md");
-  console.log("Computer bridge connected. Read-only mode. Press Ctrl+C to stop.");
+  console.log("Computer bridge connected. Read operations are automatic; file writes require exact local APPLY approval. No shell execution. Press Ctrl+C to stop.");
   while (true) {
     try {
       const { task } = await api(config, "/api/agent/computer/poll", {});
