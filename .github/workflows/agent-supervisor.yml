@@ -69,7 +69,8 @@ jobs:
             gh issue edit "$NUMBER" --repo "$REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
             if grep -qx 'status:review' <<<"$LABELS"; then
               if [[ -z "$CHAT_ENDPOINT" || -z "$CHAT_APP_PASSWORD" ]]; then
-                gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor AI review skipped: CSSBC_CHAT_ENDPOINT or CSSBC_CHAT_APP_PASSWORD is missing. Structural audit only; this is not an approval." >/dev/null
+                gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor AI review skipped: CSSBC_CHAT_APP_PASSWORD is missing. Structural audit only; this is not an approval." >/dev/null
+                gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
                 continue
               fi
               HEAD_SHA="$(gh api "repos/$REPO/commits/github-chat-prototype" --jq .sha)"
