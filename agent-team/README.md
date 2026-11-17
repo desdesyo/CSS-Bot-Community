@@ -39,7 +39,7 @@ The team is an auditable GitHub Actions orchestration pipeline backed by SOLO.Ch
 
 `queued → in-progress → review → done`
 
-A task is never marked done solely because the builder returned a message. The independent reviewer must return PASS with evidence; the task still remains in review until a verified completion policy is satisfied. Failed tests/deployments create a new repair task. CI is authoritative for automated checks, not agent self-report.
+A task is never marked done solely because the builder returned a message. The reviewer must return PASS, the exact current commit must pass GitHub Chat checks, and the latest deployment smoke test must succeed. Only then does the supervisor add status:done and attach implementation/verification links. The issue remains open to prevent the task generator from issuing the same key again. Failed tests/deployments create a new repair task. CI is authoritative for automated checks, not agent self-report.
 
 ## Live interface updates
 
