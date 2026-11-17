@@ -45,7 +45,7 @@ jobs:
           GITHUB_WORKSPACE_OK="false"
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
             -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
-          if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true' github-check.json >/dev/null; then
+          if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
             GITHUB_WORKSPACE_OK="true"
             echo "GitHub workspace read/write access verified."
           else
