@@ -75,7 +75,7 @@ function safePath(env: Env, value: string, allowRoot = false) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 function ghBase(env: Env) {
-  if (!env.GITHUB_TOKEN || !env.GITHUB_WORK_REPO?.includes("/")) throw new Error("GitHub workspace is not configured");
+  if (!env.GITHUB_WORK_REPO?.includes("/")) throw new Error("GitHub workspace is not configured");
   return "https://api.github.com/repos/" + env.GITHUB_WORK_REPO;
 }
 function safeProjectPath(value: string, allowRoot = false) {
@@ -90,16 +90,17 @@ function projectWorkspace(env: Env, repository: string, branch: string) {
     "desdesyo/CSS-Bot-Community": ["github-chat-prototype", "sdk-foundation", "main"],
     "desdesyo/modhaul": ["main"]
   };
-  if (!env.GITHUB_TOKEN) throw new Error("GitHub workspace token is not configured");
   if (!allowed[repository]?.includes(branch)) throw new Error("Repository/branch pair is not in the SOLO.Chat project allowlist");
   return { base: "/repos/" + repository, branch };
 }
-async function github(env: Env, path: string, init: RequestInit = {}) {
+async function github(env: Env, path: string, init: RequestInit = {}, tokenOverride?: string) {
+  const token = tokenOverride || env.GITHUB_TOKEN;
+  if (!token) throw new Error("GitHub workspace token is not configured");
   const r = await fetch("https://api.github.com" + path, {
     ...init,
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: "Bearer " + env.GITHUB_TOKEN,
+      Authorization: "Bearer " + token,
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
       ...(init.headers || {})
@@ -171,6 +172,10 @@ export class AgentSession extends DurableObject<Env> {
     const mcp = this.mcp;
     const storage = this.ctx.storage;
     const agent = this;
+    const agentGithub = async (path: string, init: RequestInit = {}) => {
+      const token = env.GITHUB_TOKEN || await storage.get<string>("agent:githubToken");
+      return github(env, path, init, token);
+    };
     const assertAgentCanWrite = async () => {
       const role = await storage.get<string>("agent:role") || "user";
       if (["planner", "tester", "supervisor"].includes(role)) throw new Error("Read-only agent role cannot perform write-capable tools: " + role);
@@ -265,7 +270,7 @@ LEARNING FROM CORRECTIONS
           async execute({ directory }: { directory: string }) {
             const path = safePath(env, directory, true);
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
-            const data = await github(env, ghBase(env).replace("https://api.github.com", "") + "/contents" + (path ? "/" + path : "") + ref);
+            const data = await agentGithub( ghBase(env).replace("https://api.github.com", "") + "/contents" + (path ? "/" + path : "") + ref);
             return textOutput((Array.isArray(data) ? data : [data]).map((x: any) => ({ name: x.name, path: x.path, type: x.type, size: x.size })));
           }
         },
@@ -277,7 +282,7 @@ LEARNING FROM CORRECTIONS
           async execute({ path }: { path: string }) {
             const safe = safePath(env, path);
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
-            const data = await github(env, ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe + ref);
+            const data = await agentGithub( ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe + ref);
             if (data.type !== "file" || !data.content) throw new Error("Path is not a readable text file");
             const content = decodeBase64(data.content);
             if (content.length > 120000) throw new Error("File exceeds 120 KB read limit");
@@ -296,8 +301,8 @@ LEARNING FROM CORRECTIONS
             const endpoint = ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe;
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
             let existing: any = null;
-            try { existing = await github(env, endpoint + ref); } catch (e) { if (!(e instanceof Error) || !e.message.includes("404")) throw e; }
-            const result = await github(env, endpoint, {
+            try { existing = await agentGithub( endpoint + ref); } catch (e) { if (!(e instanceof Error) || !e.message.includes("404")) throw e; }
+            const result = await agentGithub( endpoint, {
               method: "PUT",
               body: JSON.stringify({
                 message: message.slice(0, 180),
@@ -317,7 +322,7 @@ LEARNING FROM CORRECTIONS
           async execute({ repository, branch, directory }: { repository: string; branch: string; directory: string }) {
             const ws = projectWorkspace(env, repository, branch);
             const path = safeProjectPath(directory, true);
-            const data = await github(env, ws.base + "/contents" + (path ? "/" + path : "") + "?ref=" + encodeURIComponent(ws.branch));
+            const data = await agentGithub( ws.base + "/contents" + (path ? "/" + path : "") + "?ref=" + encodeURIComponent(ws.branch));
             return textOutput((Array.isArray(data) ? data : [data]).map((x: any) => ({ name: x.name, path: x.path, type: x.type, size: x.size })));
           }
         },
@@ -329,7 +334,7 @@ LEARNING FROM CORRECTIONS
           async execute({ repository, branch, path }: { repository: string; branch: string; path: string }) {
             const ws = projectWorkspace(env, repository, branch);
             const safe = safeProjectPath(path);
-            const data = await github(env, ws.base + "/contents/" + safe + "?ref=" + encodeURIComponent(ws.branch));
+            const data = await agentGithub( ws.base + "/contents/" + safe + "?ref=" + encodeURIComponent(ws.branch));
             if (data.type !== "file" || !data.content) throw new Error("Path is not a readable text file");
             const content = decodeBase64(data.content);
             if (content.length > 120000) throw new Error("File exceeds 120 KB read limit");
@@ -348,9 +353,9 @@ LEARNING FROM CORRECTIONS
             if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
             const endpoint = ws.base + "/contents/" + safe;
             let existing: any = null;
-            try { existing = await github(env, endpoint + "?ref=" + encodeURIComponent(ws.branch)); }
+            try { existing = await agentGithub( endpoint + "?ref=" + encodeURIComponent(ws.branch)); }
             catch (error) { if (!(error instanceof Error) || !error.message.includes("404")) throw error; }
-            const result = await github(env, endpoint, {
+            const result = await agentGithub( endpoint, {
               method: "PUT",
               body: JSON.stringify({
                 message: String(message || "Update project file").slice(0, 180),
@@ -597,7 +602,7 @@ LEARNING FROM CORRECTIONS
             if (!path.startsWith("agent-skills/") || path.includes("..")) throw new Error("Skill path must be inside agent-skills/");
             const safe = safePath(env, path);
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
-            const data = await github(env, ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe + ref);
+            const data = await agentGithub( ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe + ref);
             if (data.type !== "file" || !data.content) throw new Error("Skill file not found");
             const content = decodeBase64(data.content);
             if (content.length > 40000) throw new Error("Skill exceeds 40 KB");
@@ -625,8 +630,8 @@ LEARNING FROM CORRECTIONS
             const endpoint = ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe;
             const ref = env.GITHUB_WORK_BRANCH ? "?ref=" + encodeURIComponent(env.GITHUB_WORK_BRANCH) : "";
             let existing: any = null;
-            try { existing = await github(env, endpoint + ref); } catch (e) { if (!(e instanceof Error) || !e.message.includes("404")) throw e; }
-            const result = await github(env, endpoint, {
+            try { existing = await agentGithub( endpoint + ref); } catch (e) { if (!(e instanceof Error) || !e.message.includes("404")) throw e; }
+            const result = await agentGithub( endpoint, {
               method: "PUT",
               body: JSON.stringify({ message: "Learn reusable agent skill: " + id, content: encodeBase64(content), ...(env.GITHUB_WORK_BRANCH ? { branch: env.GITHUB_WORK_BRANCH } : {}), ...(existing?.sha ? { sha: existing.sha } : {}) })
             });
@@ -1463,11 +1468,18 @@ LEARNING FROM CORRECTIONS
         const body = await req.json() as any;
         const requestedRole = String(body.agentRole || "user");
         const agentRole = ["planner", "implementer", "tester", "supervisor"].includes(requestedRole) ? requestedRole : "user";
-        await this.ctx.storage.put("agent:role", agentRole);
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
-        const result = await this.runChat(String(body.threadKey || "default"), prompt, String(body.operationId || crypto.randomUUID()));
-        return json(result);
+        const requestToken = String(body.githubToken || "").trim();
+        if (requestToken.length > 500) return json({ error: "Invalid scoped GitHub token" }, 400);
+        await this.ctx.storage.put("agent:role", agentRole);
+        if (requestToken) await this.ctx.storage.put("agent:githubToken", requestToken);
+        try {
+          const result = await this.runChat(String(body.threadKey || "default"), prompt, String(body.operationId || crypto.randomUUID()));
+          return json(result);
+        } finally {
+          if (requestToken) await this.ctx.storage.delete("agent:githubToken");
+        }
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
         await this.requirePassword(req);
