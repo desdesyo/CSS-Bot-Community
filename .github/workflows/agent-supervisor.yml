@@ -60,7 +60,16 @@ jobs:
                 gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor AI review skipped: CSSBC_CHAT_ENDPOINT or CSSBC_CHAT_APP_PASSWORD is missing. Structural audit only; this is not an approval." >/dev/null
                 continue
               fi
-              PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in $REPO. Do not edit files, create commits, open PRs, or change issue labels. Fetch the issue, acceptance criteria, current github-chat-prototype diff/commits, and relevant successful GitHub Actions logs. Check that implementation really meets each criterion, that the exact commit was tested, that no required workflow is queued/failed/skipped, and that the report does not overclaim. Return exactly: VERDICT: PASS or VERDICT: REJECT; then criterion-by-criterion evidence with links; then missing evidence/blockers. If the evidence is insufficient, REJECT. Do not treat your own reasoning as a test."
+              HEAD_SHA="$(gh api "repos/$REPO/commits/github-chat-prototype" --jq .sha)"
+              RUNS="$(gh api "repos/$REPO/actions/runs?branch=github-chat-prototype&per_page=40")"
+              CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
+              REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE -->"
+              COMMENTS="$(gh api "repos/$REPO/issues/$NUMBER/comments?per_page=100")"
+              if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
+                echo "Supervisor already reviewed this exact code/CI state for issue #$NUMBER."
+                continue
+              fi
+              PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in $REPO. Current branch head is $HEAD_SHA. Latest GitHub Chat checks state is $CI_STATE. Do not edit files, create commits, open PRs, or change issue labels. Fetch the issue, acceptance criteria, exact current commit diff, and relevant successful GitHub Actions logs. Check that implementation really meets each criterion, that the exact commit was tested, that no required workflow is queued/failed/skipped, and that the report does not overclaim. Return exactly: VERDICT: PASS or VERDICT: REJECT; then criterion-by-criterion evidence with links; then missing evidence/blockers. If the evidence is insufficient, REJECT. Do not treat your own reasoning as a test."
               jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" '{prompt:$prompt,threadKey:$thread}' > reviewer.json
               CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
               if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
@@ -68,7 +77,7 @@ jobs:
                 gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
                 continue
               fi
-              jq -r '.reply' review.json > review-report.md
+              { printf '%s\n\n' "$REVIEW_MARKER"; jq -r '.reply' review.json; } > review-report.md
               gh issue comment "$NUMBER" --repo "$REPO" --body-file review-report.md >/dev/null
               if grep -q 'VERDICT: PASS' review-report.md; then
                 gh issue edit "$NUMBER" --repo "$REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
