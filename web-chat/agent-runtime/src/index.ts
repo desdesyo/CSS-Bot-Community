@@ -1088,9 +1088,9 @@ LEARNING FROM CORRECTIONS
       if (indexed >= limit) break;
       const thread = await this.ctx.storage.get<any>("browser-chat:thread:" + threadId);
       if (!thread || !Array.isArray(thread.messages)) continue;
-      const operationIds = [...new Set(thread.messages
+      const operationIds: string[] = Array.from(new Set<string>(thread.messages
         .filter((message: any) => message?.role === "user" && message.operationId)
-        .map((message: any) => String(message.operationId)))].reverse();
+        .map((message: any) => String(message.operationId)))).reverse();
       for (const operationId of operationIds) {
         if (indexed >= limit) break;
         if (await this.indexMemoryExchange(threadId, thread, operationId)) indexed++;
@@ -1153,7 +1153,6 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       console.error("[SOLO.Chat] agent harness failed; trying direct Workers AI fallback", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
     }
-    const agentRole = await this.ctx.storage.get<string>("agent:role") || "user";
     if (agentRole !== "user") {
       throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; требуется восстановить Pi agent harness.");
     }
