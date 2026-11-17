@@ -40,9 +40,13 @@ jobs:
           MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
           jq -n --arg message "Connection test. Reply with the exact marker $MARKER" \
             '{message:$message,webSearch:false,files:[]}' > payload.json
-          curl --fail-with-body --silent --show-error --max-time 900 \
+          HTTP_CODE="$(curl --silent --show-error --max-time 900 -w '%{http_code}' -o chat-response.json \
             -H "$AUTH" -H "Content-Type: application/json" \
-            --data @payload.json "$ENDPOINT/api/chat" > chat-response.json
+            --data @payload.json "$ENDPOINT/api/chat")"
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::error::Chat API returned HTTP $HTTP_CODE: $(head -c 500 chat-response.json)"
+            exit 1
+          fi
           jq -e '.thread and (.reply|type=="string" and length>0)' chat-response.json >/dev/null
           THREAD="$(jq -r '.thread' chat-response.json)"
           echo "AI replied and created conversation #$THREAD."
