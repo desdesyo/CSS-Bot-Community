@@ -69,3 +69,25 @@ jobs:
             echo "CSSBC_MESHY_API_KEY is not set; 3D generation will report unavailable."
           fi
           npx wrangler deploy --config wrangler.toml
+
+      - name: Verify the deployed Worker health and version
+        env:
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing CSSBC_CHAT_ENDPOINT for post-deploy smoke test"; exit 1; }
+          test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD for post-deploy smoke test"; exit 1; }
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          for attempt in $(seq 1 12); do
+            CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
+            if [[ "$CODE" == "200" ]] && jq -e '.ok == true' health.json >/dev/null; then
+              curl --fail-with-body --silent --show-error --max-time 20 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/version" | jq '{version,tag,timestamp}'
+              echo "Post-deploy smoke test passed."
+              exit 0
+            fi
+            echo "Health attempt $attempt/12 returned HTTP $CODE; waiting for deployment propagation."
+            sleep 5
+          done
+          echo "::error::Deployed SOLO.Chat did not pass authenticated health check."
+          exit 1
