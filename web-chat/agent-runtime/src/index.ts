@@ -1458,11 +1458,21 @@ LEARNING FROM CORRECTIONS
         if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
       }
       const resultDiagnostic = result as any;
-      const assistantMessage = Array.isArray(resultDiagnostic.messages) ? resultDiagnostic.messages.filter((message: any) => message?.role === "assistant").at(-1) : null;
+      const transcript = await this.harness.session(sessionId).messages().catch(() => [] as any[]);
+      const assistantMessage = transcript.slice().reverse().flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).findLast((message: any) => message?.role === "assistant") || null;
       const eventErrors = Array.isArray(resultDiagnostic.events) ? resultDiagnostic.events.filter((event: any) => String(event?.type || "").toLowerCase().includes("error")).map((event: any) => ({ type: event.type, message: event.error?.message || event.message || event.reason || null })).slice(0, 3) : [];
       const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
-      harnessFailure = JSON.stringify({ status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), assistantStopReason: assistantMessage?.stopReason || null, assistantError: assistantMessage?.errorMessage || null, eventErrors }).slice(0, 900);
-      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), eventErrors }));
+      const assistantDiagnostics = assistantMessage ? {
+        provider: assistantMessage.provider || null,
+        model: assistantMessage.model || null,
+        api: assistantMessage.api || null,
+        stopReason: assistantMessage.stopReason || null,
+        errorMessage: assistantMessage.errorMessage || null,
+        contentTypes: Array.isArray(assistantMessage.content) ? assistantMessage.content.map((part: any) => part?.type).slice(0, 12) : [],
+        toolCalls: Array.isArray(assistantMessage.content) ? assistantMessage.content.filter((part: any) => part?.type === "toolCall").map((part: any) => part.name).slice(0, 12) : []
+      } : null;
+      harnessFailure = JSON.stringify({ status: result.status, reason, resultKeys: Object.keys(resultDiagnostic).slice(0, 20), assistant: assistantDiagnostics, eventErrors }).slice(0, 1400);
+      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason, assistant: assistantDiagnostics, eventErrors }));
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
