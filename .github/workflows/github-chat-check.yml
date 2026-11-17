@@ -6,10 +6,16 @@ on:
     paths:
       - "web-chat/**"
       - ".github/workflows/github-chat-check.yml"
+      - ".github/workflows/agent-*.yml"
+      - ".github/workflows/deploy-github-chat.yml"
+      - "agent-team/**"
   pull_request:
     paths:
       - "web-chat/**"
       - ".github/workflows/github-chat-check.yml"
+      - ".github/workflows/agent-*.yml"
+      - ".github/workflows/deploy-github-chat.yml"
+      - "agent-team/**"
 
 permissions:
   contents: read
