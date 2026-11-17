@@ -1,7 +1,8 @@
 {
-  "serverUrl": "https://YOUR-DEPLOYED-CHAT-DOMAIN",
+  "serverUrl": "https://cssbc-github-chat.descapan.workers.dev",
   "deviceToken": "",
   "allowedRoots": [
-    "C:\\Games\\Counter-Strike Source v34"
+    "C:\\Games\\Counter-Strike Source v34",
+    "C:\\Users\\Aleksey\\Desktop\\overhaul\\compiled"
   ]
 }
