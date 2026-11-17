@@ -1039,7 +1039,7 @@ LEARNING FROM CORRECTIONS
     } else failures.push("OpenAI: CSSBC_OPENAI_API_KEY is not configured");
 
     if (this.env.GEMINI_API_KEY) {
-      try { return await runCompatible("gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", this.env.GEMINI_API_KEY, this.env.GEMINI_MODEL || "gemini-2.5-flash"); }
+      try { return await runCompatible("gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", this.env.GEMINI_API_KEY, this.env.GEMINI_MODEL || "gemini-3.8-flash"); }
       catch (error) { failures.push("Gemini: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
     } else failures.push("Gemini: CSSBC_GEMINI_API_KEY is not configured");
 
