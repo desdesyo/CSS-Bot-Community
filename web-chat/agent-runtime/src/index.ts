@@ -107,16 +107,23 @@ function projectWorkspace(env: Env, repository: string, branch: string) {
 }
 async function github(env: Env, path: string, init: RequestInit = {}, tokenOverride?: string) {
   const token = tokenOverride || env.GITHUB_TOKEN;
-  if (!token) throw new Error("GitHub workspace token is not configured");
+  const method = String(init.method || "GET").toUpperCase();
+  // The SOLO.Chat source repository is public: allow unauthenticated reads so the
+  // agent can inspect code even before a persistent Worker token is provisioned.
+  // Every mutation remains blocked without a credential.
+  if (!token && !["GET", "HEAD"].includes(method)) {
+    throw new Error("GitHub write access is not configured. Add the fine-grained GITHUB_TOKEN Worker secret with Contents: Read and write.");
+  }
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string> || {})
+  };
+  if (token) headers.Authorization = "Bearer " + token;
   const r = await fetch("https://api.github.com" + path, {
     ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: "Bearer " + token,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Content-Type": "application/json",
-      ...(init.headers || {})
-    }
+    headers
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
