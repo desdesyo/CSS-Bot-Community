@@ -87,7 +87,7 @@ function safeProjectPath(value: string, allowRoot = false) {
 }
 function projectWorkspace(env: Env, repository: string, branch: string) {
   const allowed: Record<string, string[]> = {
-    "desdesyo/CSS-Bot-Community": ["github-chat-prototype", "sdk-foundation"],
+    "desdesyo/CSS-Bot-Community": ["github-chat-prototype", "sdk-foundation", "main"],
     "desdesyo/modhaul": ["main"]
   };
   if (!env.GITHUB_TOKEN) throw new Error("GitHub workspace token is not configured");
@@ -242,7 +242,7 @@ TROUBLESHOOTING AND REPORTS
 DOMAIN PREFERENCES — APPLY ONLY WHEN RELEVANT
 - Music/lyrics: preserve original wording, rhythm, sung/rap phrasing and intentionally shifted stress accents. Do not rewrite merely to enforce conventional meter/rhyme. Changes must fit the existing flow and emotional intent.
 - FL Studio/audio: when asked to teach, explain controls practically and provide concrete diagnostics. Sound design should avoid muddy, horror-like, excessively ethereal or generic "vanilla forest" presets; respect the user's named reference and target. Never claim audio was generated/auditioned unless a real file was created and checked.
-- SOLO.Chat self-maintenance: the default GitHub workspace points to desdesyo/modhaul/main. For SOLO.Chat source, ALWAYS use github_project_list_files / github_project_read_file / github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype. For SDK foundation use the same repo and branch=sdk-foundation. For Overhaul use desdesyo/modhaul/main. These explicit project tools enforce an allowlist; never confuse workspaces.
+- SOLO.Chat self-maintenance: the default GitHub workspace points to desdesyo/modhaul/main. For SOLO.Chat source, ALWAYS use github_project_list_files / github_project_read_file / github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype. For SDK foundation use the same repo and branch=sdk-foundation; for core-runtime work use the same repo and branch=main. For Overhaul use desdesyo/modhaul/main. These explicit project tools enforce an allowlist; never confuse workspaces.
 - Media and artifacts: if the user requests an image, call generate_image and save the actual image; for a song/music, call generate_music; for spoken voice, call generate_speech; for a 3D asset, call generate_3d_model then check_3d_model until a GLB is saved; for downloadable text/code/data assets, call create_text_artifact. Never answer a file-generation request with only a prompt or code snippet when an artifact tool can create the file. Return the actual /api/files/<id> download URL from the tool result. If a provider is unavailable, report the exact missing provider/billing/secret; do not fabricate output.
 - Cooking: use tablespoons/teaspoons and household measures rather than requiring scales. Account for a weak electric hotplate and older tabletop oven when relevant. Favor strong, piquant, hearty flavors. Avoid overly creamy dinners and fresh garlic in sauces unless requested.
 - Games/PC: consider the older HP laptop and preference for low-storage, straightforward, story-driven games when relevant. Do not default to space games.
