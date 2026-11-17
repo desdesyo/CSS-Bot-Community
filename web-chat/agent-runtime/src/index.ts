@@ -2068,7 +2068,7 @@ LEARNING FROM CORRECTIONS
         // previously useful snapshot, and never serve a five-minute-old snapshot as live.
         if (runsOk || issuesOk) await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
         if (!runsOk && !issuesOk && cached?.data) {
-          return json({ ...cached.data, stale: true, statusUnavailable: true, sources, checkedAt: cached.checkedAt });
+          return json({ ...cached.data, stale: true, statusUnavailable: true, partialUnavailable: true, statusError, upstreamStatus, sources, checkedAt: cached.checkedAt });
         }
         return json(data);
       }
