@@ -159,7 +159,12 @@ jobs:
             cat agent-status.json
             exit 1
           fi
-          echo "Live agent dashboard, direct model inference and agent chat inference passed."
+          if jq -e '.statusUnavailable == true' agent-status.json >/dev/null; then
+            echo "::warning::Dashboard endpoint is healthy, but GitHub Actions status data is unavailable (HTTP $(jq -r '.upstreamStatus // "unknown"' agent-status.json)). The UI will show this as degraded, not as healthy."
+          else
+            echo "Live agent dashboard data is available."
+          fi
+          echo "Direct model inference, agent chat inference and Pi tool execution passed."
           
       - name: Automatic rollback if the core health/version check fails
         id: rollback
