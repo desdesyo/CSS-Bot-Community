@@ -655,6 +655,50 @@ LEARNING FROM CORRECTIONS
         if (!item) return json({ error: "Conversation not found" }, 404);
         return json({ title: item.title, messages: item.messages || [], thread: id });
       }
+      if (url.pathname === "/api/feedback" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json() as any;
+        const rating = body.rating === "negative" ? "negative" : body.rating === "positive" ? "positive" : "";
+        const operationId = String(body.operationId || "").slice(0, 120);
+        const threadId = Number(body.threadId || 0);
+        const note = String(body.note || "").trim().slice(0, 2000);
+        if (!rating || !operationId || !Number.isSafeInteger(threadId) || threadId < 1) return json({ error: "Invalid feedback payload" }, 400);
+        const thread = await this.ctx.storage.get<any>("browser-chat:thread:" + threadId);
+        if (!thread) return json({ error: "Conversation not found" }, 404);
+        const assistant = (thread.messages || []).find((m: any) => m.role === "assistant" && m.operationId === operationId);
+        if (!assistant) return json({ error: "Assistant response not found" }, 404);
+        const userMessage = [...(thread.messages || [])].reverse().find((m: any) => m.role === "user" && m.operationId === operationId);
+        const id = "fb-" + crypto.randomUUID();
+        const record = { id, rating, operationId, threadId, userMessage: String(userMessage?.content || "").slice(0, 12000), assistantReply: String(assistant.content || "").slice(0, 16000), note, createdAt: Date.now(), status: "queued" };
+        await this.ctx.storage.put("feedback:item:" + id, record);
+        const ids = await this.ctx.storage.get<string[]>("feedback:ids") || [];
+        ids.push(id);
+        await this.ctx.storage.put("feedback:ids", ids.slice(-500));
+        return json({ accepted: true, id, status: "queued" }, 202);
+      }
+      if (url.pathname === "/api/agent/feedback" && req.method === "GET") {
+        await this.requirePassword(req);
+        const ids = await this.ctx.storage.get<string[]>("feedback:ids") || [];
+        const items = [];
+        for (const id of ids) {
+          const item = await this.ctx.storage.get<any>("feedback:item:" + id);
+          if (item && item.status === "queued") items.push(item);
+          if (items.length >= 20) break;
+        }
+        return json({ items });
+      }
+      if (url.pathname === "/api/agent/feedback/ack" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json() as any;
+        const id = String(body.id || "");
+        const item = await this.ctx.storage.get<any>("feedback:item:" + id);
+        if (!item) return json({ error: "Feedback item not found" }, 404);
+        item.status = "processed";
+        item.processedAt = Date.now();
+        item.issueUrl = String(body.issueUrl || "").slice(0, 500);
+        await this.ctx.storage.put("feedback:item:" + id, item);
+        return json({ acknowledged: true, id });
+      }
       if (url.pathname === "/api/chat" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
