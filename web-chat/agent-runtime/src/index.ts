@@ -591,7 +591,7 @@ LEARNING FROM CORRECTIONS
             await assertAgentCanWrite();
             const cleanPrompt = String(prompt || "").trim();
             if (!cleanPrompt || cleanPrompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
-            const baseName = String(filename || "solo-generated-image").replace(/\\.(?:jpe?g|png|webp)$/i, "").replace(/[\\/\\u0000-\\u001f\\u007f]/g, "_").slice(0, 100) || "solo-generated-image";
+            const baseName = String(filename || "solo-generated-image").replace(/\.(?:jpe?g|png|webp)$/i, "").replace(/[\/\u0000-\u001f\u007f]/g, "_").slice(0, 100) || "solo-generated-image";
             const safeName = baseName + ".jpg";
             let metadata: any = null;
             let provider = "";
@@ -599,8 +599,8 @@ LEARNING FROM CORRECTIONS
             const storeImage = async (value: unknown, name: string) => {
               if (typeof value !== "string" || !value.trim()) throw new Error("Image provider returned an empty image payload");
               const payload = value.trim();
-              if (/^https:\\/\\//i.test(payload)) return await agent.saveRemoteArtifact(payload, name, "image/jpeg");
-              const encoded = payload.replace(/^data:image\\/(?:jpeg|jpg|png|webp);base64,/i, "").replace(/\\s/g, "");
+              if (/^https:\/\//i.test(payload)) return await agent.saveRemoteArtifact(payload, name, "image/jpeg");
+              const encoded = payload.replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, "").replace(/\s/g, "");
               const binary = atob(encoded);
               const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
               if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error("Generated image must be between 1 byte and 15 MB");
@@ -610,7 +610,7 @@ LEARNING FROM CORRECTIONS
               if (!isJpeg && !isPng && !isWebp) throw new Error("Image provider returned data that is not a recognized JPEG, PNG or WebP image");
               const mime = isPng ? "image/png" : isWebp ? "image/webp" : "image/jpeg";
               const extension = isPng ? ".png" : isWebp ? ".webp" : ".jpg";
-              return await agent.saveGeneratedArtifact(name.replace(/\\.jpg$/i, extension), mime, bytes);
+              return await agent.saveGeneratedArtifact(name.replace(/\.jpg$/i, extension), mime, bytes);
             };
             try {
               const premium: any = await env.AI.run("black-forest-labs/flux-2-pro-preview", {
@@ -619,8 +619,7 @@ LEARNING FROM CORRECTIONS
               if (premium?.state && String(premium.state).toLowerCase() !== "completed") {
                 throw new Error("FLUX.2 Pro job state: " + String(premium.state));
               }
-              const image = premium?.result?.image || premium?.image;
-              metadata = await storeImage(image, safeName);
+              metadata = await storeImage(premium?.result?.image || premium?.image, safeName);
               provider = "Black Forest Labs FLUX.2 Pro Preview";
             } catch (error) {
               premiumError = (error instanceof Error ? error.message : String(error)).slice(0, 700);
@@ -819,7 +818,7 @@ LEARNING FROM CORRECTIONS
               "",
               "## Request to ChatGPT",
               "Independently diagnose this task, identify a safe implementation, and return concrete next actions. Do not assume the task was solved."
-            ].join("\\n");
+            ].join("\n");
             const result = await agentGithub(ws.base + "/contents/" + safeProjectPath(handoffPath), {
               method: "PUT",
               body: JSON.stringify({
