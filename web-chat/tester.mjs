@@ -110,7 +110,9 @@ const checks = [
  ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", runtime.includes("const fileBuffer = new ArrayBuffer(bytes.byteLength)") && runtime.includes("new File([fileBuffer]")],
  ["Model operation failures log operation identifiers and return a localized diagnostic", runtime.includes("[SOLO.Chat] AI operation failed") && runtime.includes("Не удалось получить ответ от ИИ-модели")],
  ["Live E2E test polls the asynchronous browser chat job until it completes", (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes("/api/chat/status?operationId=") && (await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8")).includes('[[ "$STATUS" == "done" ]]')],
- ["Authenticated direct model diagnostic isolates Pi AI inference from the agent harness", runtime.includes('url.pathname === "/api/agent/model-check"') && runtime.includes("this.ai.complete(model")],
+ ["Authenticated direct model diagnostic uses the Workers AI binding and exposes fallback errors", runtime.includes('url.pathname === "/api/agent/model-check"') && runtime.includes('this.env.AI.run(modelId as any') && runtime.includes("fallbackError")],
+ ["Agent chat falls back to direct Workers AI when the Pi harness fails", runtime.includes("private async runDirectModel(prompt: string)") && runtime.includes('provider: "workers-ai-direct-fallback"')],
+ ["Mobile navigation opens a real conversation drawer with backdrop and Escape close", html.includes('id="mobileMenu"') && html.includes('id="mobileBackdrop"') && html.includes("side.mobile-open") && html.includes('e.key==="Escape"')],
 ];
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
