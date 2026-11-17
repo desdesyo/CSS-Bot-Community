@@ -1,18 +1,18 @@
 # GitHub Chat
 
-A small browser chat UI with conversation history stored in GitHub Issues and AI replies generated through the OpenAI Responses API. It is designed as a separate workspace alongside CSS Bot Community.
+A private browser chat backed by a Cloudflare Worker and a durable AI agent. The browser uses one HTTPS page; authentication, model access, GitHub tools, and conversation storage stay server-side.
 
 ## Architecture
 
-See [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md) for the target universal-agent architecture, security boundaries, and staged implementation plan.
-
 - Browser UI: `public/index.html`
-- API and authentication: Cloudflare Worker in `worker.js`
-- Conversation persistence: GitHub Issues with the `github-chat` label; each user/assistant turn is a comment.
-- Model: OpenAI Responses API. Default is `gpt-4.1-mini`; override with `OPENAI_MODEL`.
-- Agent workspace: optional GitHub Contents API integration for listing, reading, creating, and updating real repository files with auditable commits. It is restricted to a configured workspace root.
+- API, password authentication, and chat protocol: `agent-runtime/src/index.ts`
+- Agent runtime: Cloudflare Durable Object `AgentSession` with Pi Durable.
+- Conversation history: Durable Object SQLite storage. Each browser conversation and its user/assistant messages are persisted separately; each agent session also retains its durable model transcript.
+- Model: Cloudflare Workers AI, selected by `PI_MODEL` in `wrangler.toml` (currently `@cf/zai-org/glm-4.7-flash`).
+- Agent workspace: GitHub Contents API tools for listing, reading, and writing files in the configured repository and branch.
+- Local computer pairing: read-only companion requests are queued through the same Durable Object.
 
-The public CSS Bot Community repository stores the application source only. Conversation records must go to a separate **private** GitHub repository. Cloudflare Workers serves the site and keeps API credentials server-side. A static GitHub Pages-only site is deliberately not used for API calls because it would expose secrets in browser code.
+Chat history is not written to the public source repository or public GitHub Issues. Cloudflare serves the site and keeps credentials server-side. The browser receives only the access password entered by the user for authenticated requests.
 
 ## Region-independent access requirement
 
@@ -22,37 +22,27 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 
 **Honest availability boundary:** no application can guarantee access from literally every network or country. A government/network may block the domain or Cloudflare, GitHub may be unreachable, or a model provider may restrict API access from the server's egress region. These are upstream/network restrictions, not a reason to ask the user to use a VPN. For resilience, deploy the app on a stable domain and configure at least one independent, legally available server-side model provider endpoint; test the complete path from the intended hosting environment. Never claim worldwide availability until tested from multiple networks.
 
-## Required Worker secrets
+## Required Worker secrets and variables
 
-Set these with `wrangler secret put NAME`:
+- `APP_PASSWORD` — private chat access password. Deployment synchronizes this from the GitHub Actions secret `CSSBC_CHAT_APP_PASSWORD`.
+- `GITHUB_TOKEN` — fine-grained GitHub token for the configured workspace repository (Contents read/write).
+- `BRAVE_SEARCH_API_KEY` — optional; enables the agent's live web-search tool.
+- `OPENAI_API_KEY` — optional; used only by the separate external-expert consultation tool.
 
-- `APP_PASSWORD` — a long, unique password for access to this private chat.
-- `GITHUB_TOKEN` — fine-grained GitHub token with Issues read/write permission on the private chat-history repository and Contents read/write permission on the configured workspace repository.
-- `OPENAI_API_KEY` — API key for model responses and Responses API tool calling.
-- `BRAVE_SEARCH_API_KEY` — Brave Search API key for live web research. Without it, web search tools are unavailable.
+Worker variables in `wrangler.toml`:
 
-Create the private R2 bucket before deployment:
+- `GITHUB_WORK_REPO` — repository the agent's GitHub tools can access.
+- `GITHUB_WORK_BRANCH` — branch used by those tools.
+- `GITHUB_WORK_ROOT` — optional path restriction.
+- `PI_MODEL` — Workers AI model identifier.
 
-```sh
-wrangler r2 bucket create cssbc-chat-files
-```
-
-The `FILES` R2 binding stores private uploads and generated artifacts. Do not make this bucket public.
-
-Set Worker variables:
-
-- `GITHUB_REPO` — required; set to a separate private repository such as `your-account/private-chat-history`. Do not point this at the public CSS Bot Community repository.
-- `GITHUB_WORK_REPO` — set to `desdesyo/CSS-Bot-Community` for this project. Grant the Worker token Contents read/write access to this repository.
-- `GITHUB_WORK_BRANCH` — set to the existing development branch `github-chat-prototype`.
-- `GITHUB_WORK_ROOT` — optional allowed directory prefix. Leave unset to allow the agent to work across the configured repository; set a subdirectory to restrict access.
-- `OPENAI_MODEL` — defaults to `gpt-4.1-mini`.
-- `ALLOWED_ORIGIN` — optional exact origin for CORS; leave unset for same-origin deployment. This is a browser security setting, not a geographic restriction.
+Text chat and durable conversation history do not require a separate `GITHUB_REPO`, R2 bucket, or GitHub Issues storage. File upload/library routes are not part of the current text-chat release.
 
 ## Automated agent orchestration
 
 `.github/workflows/agent-orchestrator.yml` is the LLM dispatcher: it forwards newly opened `agent-task` issues, queued tasks, manual prompts, and failed `GitHub Chat checks` / `CSSBC Core CI` runs into the deployed Durable Agent at `/api/agent/chat` (JSON `prompt`, not legacy `/api/chat` `message`). The durable agent uses its GitHub tools to inspect, implement, commit, and verify work. `agent-supervisor.yml` independently audits task issue structure/evidence and labels review-needed; it is a policy/evidence audit, not a second code executor. CI is the tester and its failure is routed back to the agent for repair.
 
-For GitHub Actions dispatch, configure repository secrets `CSSBC_CHAT_ENDPOINT` (Worker base URL, e.g. `https://your-worker.workers.dev`) and `CSSBC_CHAT_APP_PASSWORD` (exact same value as Worker `APP_PASSWORD`). These are write-only GitHub secrets; the workflow never prints them. If either is missing/wrong, orchestration fails clearly rather than pretending the agent ran.
+The orchestrator uses the deployed Worker URL `https://cssbc-github-chat.descapan.workers.dev` and the repository secret `CSSBC_CHAT_APP_PASSWORD`. Deployment copies that password into the Worker as `APP_PASSWORD`; the value is never printed. The live end-to-end workflow checks the authenticated agent route, GitHub workspace access, browser chat, AI replies, and durable history.
 
 ## Expert escalation and persistent learning
 
