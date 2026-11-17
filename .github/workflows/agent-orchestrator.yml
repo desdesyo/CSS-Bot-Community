@@ -39,7 +39,7 @@ jobs:
     steps:
       - name: Build task and send to durable LLM agent
         env:
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
@@ -50,7 +50,7 @@ jobs:
           BRANCH: github-chat-prototype
         run: |
           set -euo pipefail
-          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing CSSBC_CHAT_ENDPOINT repository secret"; exit 1; }
+          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
           test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD repository secret"; exit 1; }
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             RUN="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
