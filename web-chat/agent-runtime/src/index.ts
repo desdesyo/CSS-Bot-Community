@@ -9,7 +9,6 @@ import { createAI } from "agents/models/pi-ai";
 
 interface Env {
   AI: Ai;
-  FILES?: KVNamespace;
   AGENT_SESSIONS: DurableObjectNamespace<AgentSession>;
   APP_PASSWORD: string;
   PI_MODEL?: string;
@@ -534,23 +533,63 @@ LEARNING FROM CORRECTIONS
   }
 
 
+  private async readStoredAttachment(id: string, metadata?: any) {
+    const meta = metadata || await this.ctx.storage.get<any>("file:meta:" + id);
+    if (!meta) throw new Error("Вложение не найдено: " + id);
+    const chunks: Uint8Array[] = [];
+    for (let i = 0; i < meta.chunks; i++) {
+      const chunk = await this.ctx.storage.get<Uint8Array>("file:chunk:" + id + ":" + i);
+      if (!chunk) throw new Error("Файл повреждён: отсутствует часть " + (i + 1));
+      chunks.push(chunk);
+    }
+    const bytes = new Uint8Array(meta.size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return { metadata: meta, bytes };
+  }
+  private async saveStoredAttachment(file: any) {
+    if (!file || typeof file.arrayBuffer !== "function") throw new Error("Файл не выбран");
+    if (file.size < 1) throw new Error("Пустой файл");
+    if (file.size > 15 * 1024 * 1024) throw new Error("Размер файла превышает 15 МБ");
+    const id = crypto.randomUUID();
+    const name = String(file.name || "upload.bin").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120) || "upload.bin";
+    const type = String(file.type || "application/octet-stream").slice(0, 160);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const chunkSize = 64 * 1024;
+    const chunks = Math.ceil(bytes.length / chunkSize);
+    const metadata = { id, name, type, size: bytes.length, chunks, uploadedAt: new Date().toISOString() };
+    try {
+      for (let start = 0; start < chunks; start += 16) {
+        const batch: Record<string, Uint8Array> = {};
+        for (let i = start; i < Math.min(chunks, start + 16); i++) {
+          batch["file:chunk:" + id + ":" + i] = bytes.slice(i * chunkSize, Math.min(bytes.length, (i + 1) * chunkSize));
+        }
+        await this.ctx.storage.put(batch);
+      }
+      await this.ctx.storage.put("file:meta:" + id, metadata);
+    } catch (error) {
+      const keys = Array.from({ length: chunks }, (_, i) => "file:chunk:" + id + ":" + i);
+      keys.push("file:meta:" + id);
+      await this.ctx.storage.delete(keys);
+      throw error;
+    }
+    return metadata;
+  }
   private async prepareAttachments(ids: string[]) {
     if (!ids.length) return { files: [] as any[], context: "" };
-    if (!this.env.FILES) throw new Error("Хранилище вложений не подключено");
     const files: any[] = [];
     const sections: string[] = [];
     let totalText = 0;
     for (const id of ids) {
       if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Некорректный идентификатор вложения");
-      const object = await this.env.FILES.getWithMetadata("files/" + id, "arrayBuffer");
-      if (!object.value) throw new Error("Вложение не найдено: " + id);
-      const metadata: any = object.metadata || {};
+      const stored = await this.readStoredAttachment(id);
+      const metadata: any = stored.metadata;
+      const bytes = stored.bytes;
       const name = String(metadata.name || "attachment");
       const type = String(metadata.type || "application/octet-stream");
-      const size = Number(metadata.size || (object.value as ArrayBuffer).byteLength || 0);
+      const size = Number(metadata.size || bytes.byteLength || 0);
       files.push({ id, name, type, size });
       if (type.startsWith("image/")) {
-        const bytes = new Uint8Array(object.value as ArrayBuffer);
         let binary = "";
         for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         const imageData = "data:" + type + ";base64," + btoa(binary);
@@ -566,7 +605,6 @@ LEARNING FROM CORRECTIONS
         sections.push("ИЗОБРАЖЕНИЕ: " + name + "\nОписание и видимый текст:\n" + description.slice(0, 12000));
       } else if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
         if (this.env.OPENAI_API_KEY) {
-          const bytes = new Uint8Array(object.value as ArrayBuffer);
           let binary = "";
           for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
           const base64 = btoa(binary);
@@ -595,7 +633,7 @@ LEARNING FROM CORRECTIONS
         const textLike = type.startsWith("text/") || /^(json|csv|xml|javascript)$/.test(type.split("/").pop() || "") ||
           /^(txt|md|csv|json|xml|log|js|ts|py|html|css|yaml|yml|toml|ini|sql|sh|diff)$/.test(ext);
         if (textLike) {
-          const content = new TextDecoder().decode(object.value as ArrayBuffer);
+          const content = new TextDecoder().decode(bytes);
           const remaining = 100000 - totalText;
           if (remaining <= 0) throw new Error("Суммарный объём текстовых вложений превышает лимит анализа");
           const clipped = content.slice(0, Math.min(40000, remaining));
@@ -734,57 +772,40 @@ LEARNING FROM CORRECTIONS
       }
       if (url.pathname === "/api/files" && req.method === "GET") {
         await this.requirePassword(req);
-        if (!this.env.FILES) return json({ error: "Хранилище вложений не подключено" }, 503);
-        const files: any[] = [];
-        let cursor: string | undefined;
-        for (let page = 0; page < 100; page++) {
-          const listed = await this.env.FILES.list({ prefix: "files/", limit: 1000, cursor });
-          files.push(...listed.keys.map((item: any) => ({
-            id: item.name.slice(6), name: item.metadata?.name || item.name.slice(6),
-            type: item.metadata?.type || "application/octet-stream", size: item.metadata?.size || 0,
-            uploaded: item.metadata?.uploadedAt || null
-          })));
-          cursor = listed.list_complete ? undefined : listed.cursor;
-          if (!cursor) break;
-        }
+        const listed = await this.ctx.storage.list<any>({ prefix: "file:meta:" });
+        const files = Array.from(listed.entries()).map(([key, metadata]) => ({
+          id: key.slice("file:meta:".length), name: metadata.name, type: metadata.type,
+          size: metadata.size, uploaded: metadata.uploadedAt
+        })).sort((a, b) => String(b.uploaded || "").localeCompare(String(a.uploaded || "")));
         return json({ files });
       }
       if (url.pathname === "/api/files" && req.method === "POST") {
         await this.requirePassword(req);
-        if (!this.env.FILES) return json({ error: "Хранилище вложений не подключено" }, 503);
         const form = await req.formData();
         const file: any = form.get("file");
-        if (!file || typeof file.arrayBuffer !== "function") return json({ error: "Файл не выбран" }, 400);
-        if (file.size < 1) return json({ error: "Пустой файл" }, 400);
-        if (file.size > 15 * 1024 * 1024) return json({ error: "Размер файла превышает 15 МБ" }, 413);
-        const id = crypto.randomUUID();
-        const name = String(file.name || "upload.bin").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120) || "upload.bin";
-        const type = String(file.type || "application/octet-stream").slice(0, 160);
-        await this.env.FILES.put("files/" + id, await file.arrayBuffer(), {
-          metadata: { name, type, size: file.size, uploadedAt: new Date().toISOString() }
-        });
-        return json({ id, name, type, size: file.size }, 201);
+        const metadata = await this.saveStoredAttachment(file);
+        return json(metadata, 201);
       }
       if (url.pathname.startsWith("/api/files/")) {
         await this.requirePassword(req);
-        if (!this.env.FILES) return json({ error: "Хранилище вложений не подключено" }, 503);
         const id = url.pathname.slice("/api/files/".length);
         if (!/^[a-f0-9-]{36}$/i.test(id)) return json({ error: "Некорректный идентификатор файла" }, 400);
-        const key = "files/" + id;
         if (req.method === "DELETE") {
-          const existing = await this.env.FILES.get(key, "arrayBuffer");
-          if (!existing) return json({ error: "Файл не найден" }, 404);
-          await this.env.FILES.delete(key);
+          const metadata = await this.ctx.storage.get<any>("file:meta:" + id);
+          if (!metadata) return json({ error: "Файл не найден" }, 404);
+          const keys = Array.from({ length: metadata.chunks }, (_, i) => "file:chunk:" + id + ":" + i);
+          keys.push("file:meta:" + id);
+          await this.ctx.storage.delete(keys);
           return json({ ok: true });
         }
         if (req.method === "GET") {
-          const stored = await this.env.FILES.getWithMetadata(key, "arrayBuffer");
-          if (!stored.value) return json({ error: "Файл не найден" }, 404);
-          const metadata: any = stored.metadata || {};
+          const metadata = await this.ctx.storage.get<any>("file:meta:" + id);
+          if (!metadata) return json({ error: "Файл не найден" }, 404);
+          const stored = await this.readStoredAttachment(id, metadata);
           const name = String(metadata.name || "download.bin").replace(/["\\r\\n]/g, "_");
           const type = String(metadata.type || "application/octet-stream");
           const inline = url.searchParams.get("inline") === "1" && type.startsWith("image/");
-          return new Response(stored.value, {
+          return new Response(stored.bytes, {
             headers: {
               "Content-Type": type,
               "Content-Disposition": (inline ? "inline" : "attachment") + '; filename="' + name + '"',
