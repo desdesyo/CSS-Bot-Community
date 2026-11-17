@@ -171,6 +171,10 @@ export class AgentSession extends DurableObject<Env> {
     const mcp = this.mcp;
     const storage = this.ctx.storage;
     const agent = this;
+    const assertAgentCanWrite = async () => {
+      const role = await storage.get<string>("agent:role") || "user";
+      if (["planner", "tester", "supervisor"].includes(role)) throw new Error("Read-only agent role cannot perform write-capable tools: " + role);
+    };
     const workspaceTools: any[] = []; // Free Workers plan: no Dynamic Workers code sandbox.
     this.registry.install({
       name: "workspace-and-connectors",
@@ -286,6 +290,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ path: str(), content: str(), message: str() }),
           replay: "unsafe",
           async execute({ path, content, message }: { path: string; content: string; message: string }) {
+            await assertAgentCanWrite();
             const safe = safePath(env, path);
             if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
             const endpoint = ghBase(env).replace("https://api.github.com", "") + "/contents/" + safe;
@@ -337,6 +342,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ repository: str(), branch: str(), path: str(), content: str(), message: str() }),
           replay: "unsafe",
           async execute({ repository, branch, path, content, message }: { repository: string; branch: string; path: string; content: string; message: string }) {
+            await assertAgentCanWrite();
             const ws = projectWorkspace(env, repository, branch);
             const safe = safeProjectPath(path);
             if (new TextEncoder().encode(content).length > 900000) throw new Error("File exceeds 900 KB Contents API limit");
@@ -371,6 +377,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ name: str(), mimeType: str(), content: str() }),
           replay: "unsafe",
           async execute({ name, mimeType, content }: { name: string; mimeType: string; content: string }) {
+            await assertAgentCanWrite();
             if (!name || name.length > 120 || /[\\/\\\\]/.test(name)) throw new Error("Use a simple file name without folders");
             if (!content || new TextEncoder().encode(content).length > 1024 * 1024) throw new Error("Text artifact must contain 1 byte to 1 MB");
             const metadata = await agent.saveGeneratedArtifact(name, mimeType || "text/plain;charset=utf-8", new TextEncoder().encode(content));
@@ -383,6 +390,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ prompt: str(), filename: str() }),
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
+            await assertAgentCanWrite();
             if (!prompt.trim() || prompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
             const safeName = (filename || "solo-generated-image") + ".jpg";
             let metadata: any = null;
@@ -421,6 +429,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ prompt: str(), lyrics: str(), mode: str() }),
           replay: "unsafe",
           async execute({ prompt, lyrics, mode }: { prompt: string; lyrics: string; mode: string }) {
+            await assertAgentCanWrite();
             if (!prompt.trim() || prompt.length > 2000 || lyrics.length > 3500) throw new Error("Music prompt or lyrics exceed the provider limits");
             const instrumental = mode.toLowerCase() === "instrumental";
             const result: any = await env.AI.run("minimax/music-2.6", {
@@ -442,6 +451,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ text: str(), voice: str() }),
           replay: "unsafe",
           async execute({ text: speechText, voice }: { text: string; voice: string }) {
+            await assertAgentCanWrite();
             if (!speechText.trim() || speechText.length > 15000) throw new Error("Speech text must contain 1–15000 characters");
             const selectedVoice = ["eve", "ara", "rex", "sal", "leo"].includes(voice.toLowerCase()) ? voice.toLowerCase() : "ara";
             const result: any = await env.AI.run("xai/grok-tts", {
@@ -460,6 +470,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ prompt: str() }),
           replay: "unsafe",
           async execute({ prompt }: { prompt: string }) {
+            await assertAgentCanWrite();
             if (!env.MESHY_API_KEY) throw new Error("3D generation is not activated: the server secret MESHY_API_KEY is missing");
             if (!prompt.trim() || prompt.length > 1800) throw new Error("3D prompt must contain 1–1800 characters");
             const response = await fetch("https://api.meshy.ai/openapi/v2/text-to-3d", {
@@ -478,6 +489,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ taskId: str() }),
           replay: "safe",
           async execute({ taskId }: { taskId: string }) {
+            await assertAgentCanWrite();
             if (!env.MESHY_API_KEY) throw new Error("3D generation is not activated: MESHY_API_KEY is missing");
             if (!/^[A-Za-z0-9-]{12,80}$/.test(taskId)) throw new Error("Invalid Meshy task ID");
             const response = await fetch("https://api.meshy.ai/openapi/v2/text-to-3d/" + encodeURIComponent(taskId), {
@@ -509,6 +521,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ name: str(), url: str() }),
           replay: "unsafe",
           async execute({ name, url }: { name: string; url: string }) {
+            await assertAgentCanWrite();
             const parsed = new URL(url);
             const allowed = (env.MCP_ALLOWED_HOSTS || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
             if (parsed.protocol !== "https:" || parsed.username || parsed.password || !allowed.includes(parsed.hostname.toLowerCase())) throw new Error("MCP host is not allowlisted or URL is unsafe");
@@ -597,6 +610,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ slug: str(), title: str(), trigger: str(), prerequisites: str(), procedure: str(), verification: str(), evidence: str() }),
           replay: "unsafe",
           async execute({ slug, title, trigger, prerequisites, procedure, verification, evidence }: { slug: string; title: string; trigger: string; prerequisites: string; procedure: string; verification: string; evidence: string }) {
+            await assertAgentCanWrite();
             const id = slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64);
             if (!id || !title.trim() || !procedure.trim() || !verification.trim()) throw new Error("Skill needs slug, title, procedure and verification");
             const content = [
@@ -670,6 +684,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ path: str(), content: str(), expectedSha256: str() }),
           replay: "unsafe",
           async execute({ path, content, expectedSha256 }: { path: string; content: string; expectedSha256: string }) {
+            await assertAgentCanWrite();
             if (!path || path.length > 1024) throw new Error("A valid local file path is required");
             if (new TextEncoder().encode(content).length > 256 * 1024) throw new Error("Local text file write is limited to 256 KB");
             if (expectedSha256 !== "NEW" && !/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Provide the exact expected SHA-256 or NEW for a new file");
@@ -691,6 +706,7 @@ LEARNING FROM CORRECTIONS
           parameters: obj({ path: str(), sourceUrl: str(), packageSha256: str(), expectedSha256: str() }),
           replay: "unsafe",
           async execute({ path, sourceUrl, packageSha256, expectedSha256 }: { path: string; sourceUrl: string; packageSha256: string; expectedSha256: string }) {
+            await assertAgentCanWrite();
             if (!path || path.length > 256 || path.includes("..") || path.includes("\\\\")) throw new Error("Use a safe relative plugin path under cstrike/addons/sourcemod/plugins/");
             if (!sourceUrl.startsWith("https://") || !/^[a-f0-9]{64}$/i.test(packageSha256)) throw new Error("A GitHub HTTPS source URL and package SHA-256 are required");
             if (expectedSha256 !== "NEW" && !/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Provide the exact current plugin SHA-256 or NEW");
@@ -1445,6 +1461,9 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
+        const requestedRole = String(body.agentRole || "user");
+        const agentRole = ["planner", "implementer", "tester", "supervisor"].includes(requestedRole) ? requestedRole : "user";
+        await this.ctx.storage.put("agent:role", agentRole);
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
         const result = await this.runChat(String(body.threadKey || "default"), prompt, String(body.operationId || crypto.randomUUID()));
@@ -1466,7 +1485,15 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/files"].includes(url.pathname)) {
-      const id = env.AGENT_SESSIONS.idFromName("shared-agent");
+      let id = env.AGENT_SESSIONS.idFromName("shared-agent");
+      if (url.pathname === "/api/agent/chat" && request.method === "POST") {
+        const body: any = await request.clone().json().catch(() => ({}));
+        const role = String(body.agentRole || "");
+        const threadKey = String(body.threadKey || "default").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+        if (["planner", "implementer", "tester", "supervisor"].includes(role)) {
+          id = env.AGENT_SESSIONS.idFromName("team-" + role + "-" + (threadKey || "default"));
+        }
+      }
       return env.AGENT_SESSIONS.get(id).fetch(request);
     }
     const legacy = await import("../../worker.js");
