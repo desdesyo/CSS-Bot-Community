@@ -183,7 +183,7 @@ export class AgentSession extends DurableObject<Env> {
     },
     defaults: {
       model: this.env.GEMINI_API_KEY
-        ? this.google.getModels().find(model => model.id === "gemini-2.5-flash")!
+        ? this.google.getModels().find(model => model.id === "gemini-flash-latest")!
         : this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")
     }
   });
