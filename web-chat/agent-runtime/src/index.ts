@@ -58,6 +58,7 @@ interface BrowserChatJob {
   completedAt?: number;
   reply?: string;
   error?: string;
+  attempts?: number;
 }
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 const randomToken = (bytes = 32) => {
@@ -923,8 +924,32 @@ LEARNING FROM CORRECTIONS
   }
 
   private async processNextBrowserChatJob() {
+    const now = Date.now();
     const entries = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
-    const job = Array.from(entries.values())
+    // A Durable Object can be evicted while an alarm-driven request is in flight.
+    // Such a job remains "running" forever unless explicitly recovered on the next wake.
+    for (const stale of entries.values()) {
+      if (stale.status !== "running" && stale.status !== "finalizing") continue;
+      if (now - Number(stale.updatedAt || stale.startedAt || stale.createdAt) < 240000) continue;
+      const staleKey = "browser-chat:job:" + stale.operationId;
+      if (Number(stale.attempts || 0) < 1) {
+        stale.status = "queued";
+        stale.attempts = Number(stale.attempts || 0) + 1;
+        stale.startedAt = undefined;
+        stale.updatedAt = now;
+        await this.ctx.storage.put(staleKey, stale);
+        console.warn("[SOLO.Chat] recovered stale browser chat job", JSON.stringify({ operationId: stale.operationId, threadId: stale.threadId, attempt: stale.attempts }));
+      } else {
+        stale.status = "failed";
+        stale.error = "Задача была прервана сервером и не смогла автоматически восстановиться. Отправьте сообщение повторно.";
+        stale.completedAt = now;
+        stale.updatedAt = now;
+        await this.ctx.storage.put(staleKey, stale);
+        console.error("[SOLO.Chat] stale browser chat job exhausted recovery", JSON.stringify({ operationId: stale.operationId, threadId: stale.threadId }));
+      }
+    }
+    const refreshed = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
+    const job = Array.from(refreshed.values())
       .filter(item => item.status === "queued")
       .sort((a, b) => a.createdAt - b.createdAt)[0];
     if (!job) {
