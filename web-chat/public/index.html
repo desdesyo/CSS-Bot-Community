@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101114"><title>GitHub Chat</title>
+<meta name="theme-color" content="#101114"><title>SOLO.Chat</title>
 <style>
 :root{color-scheme:dark;--bg:#101114;--panel:#17191e;--panel2:#20232a;--line:#2b2f38;--text:#eceef2;--muted:#9299a6;--accent:#8b9cff;--user:#252b3b}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,Segoe UI,sans-serif;height:100dvh}
@@ -19,9 +19,9 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1p
 </style>
 </head>
 <body>
-<div id="gate"><div class="gatebox"><h2>GitHub Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
+<div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
 <div class="app">
-<aside class="side"><div class="brand">GitHub <span>Chat</span></div><button class="new" id="newChat">＋ New conversation</button><div class="threads" id="threads"></div><div class="sidefoot">Conversation history is stored securely and can be reopened later.<br><span id="connection">Not connected</span></div></aside>
+<aside class="side"><div class="brand">SOLO<span>.Chat</span></div><button class="new" id="newChat">＋ New conversation</button><div class="threads" id="threads"></div><div class="sidefoot">Conversation history is stored securely and can be reopened later.<br><span id="connection">Not connected</span></div></aside>
 <main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">New conversation</span></div><div class="status" id="status">Private workspace</div></header><section class="messages" id="messages"><div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved automatically so the conversation can be reopened later.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Connect computer</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Ask, research, or work with the connected GitHub repository…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">Can answer questions, research, work with the connected repository, and inspect your paired computer.</div></div></main>
 </div>
 <script>
