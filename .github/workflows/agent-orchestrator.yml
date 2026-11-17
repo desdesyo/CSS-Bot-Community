@@ -74,7 +74,8 @@ jobs:
             if [[ -n "$MANUAL_TASK" ]]; then
               TASK="$MANUAL_TASK"
             else
-              ISSUE_NUMBER="$(gh issue list --repo "$REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
+              QUEUED_ISSUES="$(gh api "repos/$REPO/issues?state=open&labels=agent-task,status%3Aqueued&per_page=100")"
+              ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null)] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"
               if [[ -z "$ISSUE_NUMBER" ]]; then echo "has_task=false" >> "$GITHUB_OUTPUT"; echo "No queued agent-task issue exists."; exit 0; fi
               ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
               TASK="MANUAL ORCHESTRATOR DISPATCH: issue #$ISSUE_NUMBER. $(jq -r .title <<<"$ISSUE"). $(jq -r .body <<<"$ISSUE"). Implement, verify, commit, and report evidence."
