@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
+import { googleProvider } from "@earendil-works/pi-ai/providers/google";
 import { Harness, createRegistry } from "@earendil-works/pi-durable";
 import { obj, str } from "@earendil-works/pi-schema";
 import { PiHarness } from "agents/harness/pi";
@@ -164,13 +166,26 @@ export class AgentSession extends DurableObject<Env> {
   readonly mcp = new MCPClientManager("cssbc-agent-chat", "1.0.0");
   readonly registry = createRegistry();
   readonly ai = createAI({ binding: this.env.AI, requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } });
+  readonly google = googleProvider();
   readonly harness = new PiHarness({
-    harness: ({ storage, context, onWake }) => {
-      const models = createModels();
+    harness: async ({ storage, context, onWake }) => {
+      const credentials = new InMemoryCredentialStore();
+      if (this.env.GEMINI_API_KEY) {
+        await credentials.modify("google", async () => ({ type: "api_key", key: this.env.GEMINI_API_KEY }));
+      }
+      const models = createModels({ credentials });
       models.setProvider(this.ai.provider);
-      return Harness.open(storage, { models, registry: this.registry, onWake }, context);
+      models.setProvider(this.google);
+      return Harness.open(storage, {
+        models, registry: this.registry, onWake,
+        settings: { retry: { maxRetries: 2, baseDelayMs: 700 } }
+      }, context);
     },
-    defaults: { model: this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", { fallback: ["@cf/google/gemma-4-26b-a4b-it"], requestTimeoutMs: 120000, retries: { maxAttempts: 3, backoff: "exponential", retryDelayMs: 700 } }) }
+    defaults: {
+      model: this.env.GEMINI_API_KEY
+        ? this.google.getModels().find(model => model.id === "gemini-2.5-flash")!
+        : this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")
+    }
   });
   readonly lifecycle = Lifecycle.install(this).use(this.harness).use(this.mcp);
 
@@ -188,6 +203,20 @@ export class AgentSession extends DurableObject<Env> {
       if (["planner", "tester", "supervisor"].includes(role)) throw new Error("Read-only agent role cannot perform write-capable tools: " + role);
     };
     const workspaceTools: any[] = []; // Free Workers plan: no Dynamic Workers code sandbox.
+    this.registry.install({
+      name: "solo-harness-diagnostics",
+      tools: [{
+        name: "solo_harness_probe",
+        description: "Internal diagnostic tool. Execute only when the user explicitly asks to verify that SOLO.Chat can call tools.",
+        parameters: obj({ nonce: str() }),
+        replay: "safe",
+        async execute({ nonce }: { nonce: string }) {
+          if (!/^[a-zA-Z0-9_-]{8,80}$/.test(nonce)) throw new Error("Invalid diagnostic nonce");
+          await storage.put("harness-probe:" + nonce, { executedAt: Date.now() });
+          return { output: [{ type: "text", text: "SOLO_CHAT_TOOL_OK:" + nonce }] };
+        }
+      }]
+    });
     this.registry.install({
       name: "workspace-and-connectors",
       sections: [{
@@ -1821,6 +1850,27 @@ LEARNING FROM CORRECTIONS
           const detail = error instanceof Error ? error.message : "Unknown model provider error";
           console.error("[SOLO.Chat] provider-chain model check failed", JSON.stringify({ error: detail }));
           return json({ ok: false, error: detail.slice(0, 900) }, 502);
+        }
+      }
+      if (url.pathname === "/api/agent/harness-check" && req.method === "GET") {
+        await this.requirePassword(req);
+        const nonce = randomToken(12);
+        const threadKey = "harness-check-" + nonce;
+        try {
+          const result = await this.runChat(
+            threadKey,
+            "This is a real tool-execution diagnostic. You MUST call solo_harness_probe exactly once with nonce \"" + nonce + "\". After the tool returns, reply with exactly SOLO_CHAT_HARNESS_OK:" + nonce + ". Do not guess or claim success without the tool result.",
+            "harness-check-" + nonce,
+            "user"
+          );
+          const executed = await this.ctx.storage.get<{ executedAt: number }>("harness-probe:" + nonce);
+          await this.ctx.storage.delete("harness-probe:" + nonce);
+          if (!executed) return json({ ok: false, toolExecution: false, provider: result.provider, error: "Pi harness returned without executing the diagnostic tool." }, 503);
+          return json({ ok: true, toolExecution: true, provider: result.provider, model: result.model, reply: result.reply });
+        } catch (error) {
+          await this.ctx.storage.delete("harness-probe:" + nonce);
+          const detail = error instanceof Error ? error.message : "Harness diagnostic failed";
+          return json({ ok: false, toolExecution: false, error: detail.slice(0, 900) }, 503);
         }
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
