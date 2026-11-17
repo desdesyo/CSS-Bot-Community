@@ -106,7 +106,9 @@ async function applyApprovedTextFile(config, task) {
   if (data.length > 256 * 1024) throw new Error("Text file write is limited to 256 KB");
   if (data.includes(0)) throw new Error("NUL bytes are not allowed in a text-file write");
   const { target } = await resolveAllowedTarget(config, task.path);
-  const beforeExists = await stat(target).then(x => x.isFile()).catch(e => { if (e?.code === "ENOENT") return false; throw e; });
+  const beforeInfo = await stat(target).catch(e => { if (e?.code === "ENOENT") return null; throw e; });
+  if (beforeInfo && (!beforeInfo.isFile() || beforeInfo.size > 5 * 1024 * 1024)) throw new Error("Existing target must be a regular file no larger than 5 MB");
+  const beforeExists = Boolean(beforeInfo);
   const beforeBytes = beforeExists ? await readFile(target) : null;
   const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
   validateWriteRequest({ targetPath: target, contentBytes: data.length, expectedSha256: task.expectedSha256, actualSha256: beforeHash });
@@ -115,7 +117,7 @@ async function applyApprovedTextFile(config, task) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupPath = beforeExists ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required; refusing unattended file modification.");
-  console.log("\\nLOCAL FILE CHANGE REQUEST");
+  console.log("\nLOCAL FILE CHANGE REQUEST");
   console.log("Target: " + target);
   console.log("Operation: " + (beforeExists ? "replace existing file" : "create new file"));
   console.log("Current SHA-256: " + beforeHash);
@@ -148,7 +150,7 @@ async function applyApprovedTextFile(config, task) {
     }
     const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
     await mkdir(auditRoot, { recursive: true });
-    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, status: "verified" }) + "\\n", "utf8");
+    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, status: "verified" }) + "\n", "utf8");
     return { ok: true, path: target, beforeHash, afterHash, backupPath, status: "written_and_verified" };
   } catch (error) {
     await unlink(temp).catch(() => {});
