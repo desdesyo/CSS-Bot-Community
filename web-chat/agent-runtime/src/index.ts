@@ -1075,12 +1075,50 @@ LEARNING FROM CORRECTIONS
   }
 
   private async embedMemoryText(text: string): Promise<number[] | null> {
-    try {
-      const result: any = await this.env.AI.run("@cf/baai/bge-m3" as any, { text: [String(text || "").slice(0, 6000)] } as any);
-      const raw = Array.isArray(result?.data?.[0]) ? result.data[0] : result?.data;
-      if (!Array.isArray(raw) || raw.length < 128) return null;
-      const vector = raw.map((value: any) => Number(value));
+    const input = String(text || "").slice(0, 6000);
+    const parseVector = (raw: any): number[] | null => {
+      const values = Array.isArray(raw?.[0]) ? raw[0] : raw;
+      if (!Array.isArray(values) || values.length < 128) return null;
+      const vector = values.map((value: any) => Number(value));
       return vector.every(Number.isFinite) ? vector : null;
+    };
+    if (this.env.OPENAI_API_KEY) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "text-embedding-3-small", input })
+        });
+        const data: any = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error("OpenAI embeddings HTTP " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 220));
+        const vector = parseVector(data.data?.[0]?.embedding);
+        if (vector) return vector;
+        throw new Error("OpenAI embeddings returned an invalid vector");
+      } catch (error) {
+        console.warn("[SOLO.Chat] OpenAI semantic embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
+      }
+    }
+    if (this.env.GEMINI_API_KEY) {
+      try {
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + encodeURIComponent(this.env.GEMINI_API_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "models/gemini-embedding-001", content: { parts: [{ text: input }] }, outputDimensionality: 768 })
+        });
+        const data: any = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error("Gemini embeddings HTTP " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 220));
+        const vector = parseVector(data.embedding?.values);
+        if (vector) return vector;
+        throw new Error("Gemini embeddings returned an invalid vector");
+      } catch (error) {
+        console.warn("[SOLO.Chat] Gemini semantic embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
+      }
+    }
+    try {
+      const result: any = await this.env.AI.run("@cf/baai/bge-m3" as any, { text: [input] } as any);
+      const vector = parseVector(result?.data);
+      if (vector) return vector;
+      throw new Error("Workers AI returned an invalid vector");
     } catch (error) {
       console.warn("[SOLO.Chat] semantic memory embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
       return null;
