@@ -72,7 +72,7 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Account/security | Individual identity, sessions, password reset, rate limits, audit trail | Partial: shared password gate; not suitable for multi-user public use; ownership/rate limits pending |
 | Accessibility/mobile | Keyboard navigation, responsive layout, screen-reader labels | Partial: basic responsive layout only |
 | Localization | Russian and English interface, per-user language setting | Planned |
-| Reliability/observability | Health checks, retries, idempotency, queue, backups, error telemetry without leaking content | Implemented in source: authenticated health/version endpoints, 10-minute health monitor, hourly real model monitor, live workflow status API, stale-heartbeat warnings, post-deploy health/model smoke checks, automatic rollback on core health failure; production execution still awaits CI/deploy verification |
+| Reliability/observability | Health checks, retries, idempotency, queue, backups, error telemetry without leaking content | Implemented in source: authenticated health/version endpoints, 10-minute health monitor, hourly real model monitor, 15-second live version polling, 30-second workflow telemetry, three-role planner/implementer/tester workflow with one bounded repair pass, independent supervisor gate, exact-SHA CI/deploy verification, post-deploy health/model smoke checks, and rollback on core health failure; production execution still awaits successful CI/deploy and live tests |
 
 ## Target architecture
 
