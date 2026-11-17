@@ -4,7 +4,7 @@ import { resolve, join } from "node:path";
 import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
-import { isInside, validateWriteRequest } from "../file-policy.mjs";
+import { isInside, validateWriteRequest, validateSmxInstallRequest } from "../file-policy.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 
@@ -65,4 +65,28 @@ test("backup hash can be independently verified", () => {
   const original = Buffer.from("original config\n", "utf8");
   const backup = Buffer.from(original);
   assert.equal(hash(backup), hash(original));
+});
+
+
+test("allows a GitHub-hosted .smx only in the SourceMod plugins directory", () => {
+  assert.equal(validateSmxInstallRequest({
+    relativeTarget: "cstrike/addons/sourcemod/plugins/cssbc.smx",
+    sourceUrl: "https://raw.githubusercontent.com/desdesyo/modhaul/main/cssbc.smx",
+    expectedSha256: "NEW",
+    currentSha256: "NEW",
+    contentBytes: 1024
+  }), true);
+});
+
+test("rejects plugin path traversal, wrong destinations and non-GitHub URLs", () => {
+  const base = { expectedSha256: "NEW", currentSha256: "NEW", contentBytes: 1024 };
+  assert.throws(() => validateSmxInstallRequest({ ...base, relativeTarget: "cstrike/addons/sourcemod/plugins/../../bin/server.dll", sourceUrl: "https://raw.githubusercontent.com/desdesyo/modhaul/main/cssbc.smx" }));
+  assert.throws(() => validateSmxInstallRequest({ ...base, relativeTarget: "cstrike/bin/evil.smx", sourceUrl: "https://raw.githubusercontent.com/desdesyo/modhaul/main/cssbc.smx" }));
+  assert.throws(() => validateSmxInstallRequest({ ...base, relativeTarget: "cstrike/addons/sourcemod/plugins/a.smx", sourceUrl: "https://example.com/a.smx" }));
+});
+
+test("rejects plugin hash conflicts and oversized packages", () => {
+  const base = { relativeTarget: "cstrike/addons/sourcemod/plugins/cssbc.smx", sourceUrl: "https://github.com/desdesyo/modhaul/releases/download/test/cssbc.smx", expectedSha256: "a".repeat(64), currentSha256: "b".repeat(64), contentBytes: 1024 };
+  assert.throws(() => validateSmxInstallRequest(base), /conflict/);
+  assert.throws(() => validateSmxInstallRequest({ ...base, expectedSha256: "NEW", currentSha256: "NEW", contentBytes: 10 * 1024 * 1024 + 1 }), /10 MB/);
 });
