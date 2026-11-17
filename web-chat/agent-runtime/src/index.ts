@@ -1855,6 +1855,7 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agent/harness-check" && req.method === "GET") {
         await this.requirePassword(req);
         const nonce = randomToken(12);
+        await this.ctx.storage.put("agent:role", "user");
         const threadKey = "harness-check-" + nonce;
         try {
           const result = await this.runChat(
