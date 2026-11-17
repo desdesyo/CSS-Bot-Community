@@ -82,16 +82,19 @@ jobs:
             RUNS="$(gh api "repos/$TARGET_REPO/actions/runs?branch=$TARGET_BRANCH&per_page=50")"
             if [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "github-chat-prototype" ]]; then
               CI_NAME="GitHub Chat checks"
+              CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
               CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
               DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
               DEPLOY_OK="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success")' <<<"$RUNS")"
             elif [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "main" ]]; then
               CI_NAME="CSSBC Core CI"
+              CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="CSSBC Core CI")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
               CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
               DEPLOY_STATE="not-required-for-core"
               DEPLOY_OK="true"
             else
               CI_NAME="modhaul workflow"
+              CI_STATE="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.head_sha==$sha)][0] | if . == null then "none" else ((.id|tostring)+":"+.name+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
               CI_RUN="$(jq -c --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
               DEPLOY_STATE="not-required-for-modhaul"
               DEPLOY_OK="true"
@@ -99,7 +102,6 @@ jobs:
             CI_MATCH="false"
             CI_URL=""
             if [[ -n "$CI_RUN" ]]; then CI_MATCH="true"; CI_URL="$(jq -r .html_url <<<"$CI_RUN")"; fi
-            CI_STATE="$(jq -r --arg name "$CI_NAME" '[.workflow_runs[]|select(.name==$name)][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
             REVIEW_MARKER="<!-- supervisor-review:$TARGET_REPO:$TARGET_BRANCH:$HEAD_SHA:$CI_STATE:$DEPLOY_STATE -->"
             COMMENTS="$(gh api "repos/$SOURCE_REPO/issues/$NUMBER/comments?per_page=100")"
             if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
