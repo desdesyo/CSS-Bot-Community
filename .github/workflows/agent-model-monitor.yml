@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
           if [[ -z "$CHAT_APP_PASSWORD" ]]; then
             echo "::warning::Model monitor cannot authenticate because CSSBC_CHAT_APP_PASSWORD is missing."
-            exit 0
+            exit 1
           fi
           ENDPOINT="${CHAT_ENDPOINT%/}"
           HEALTH_CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
