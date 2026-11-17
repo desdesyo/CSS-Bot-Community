@@ -111,7 +111,7 @@ async function applyApprovedTextFile(config, task) {
   console.log("Operation: " + (beforeExists ? "replace existing file" : "create new file"));
   console.log("Current SHA-256: " + beforeHash);
   console.log("New SHA-256:     " + afterHash);
-  console.log("Verified backup: " + (backupPath || "(not needed; new file)"));
+  console.log("Backup will be created and verified at: " + (backupPath || "(not needed; new file)"));
   console.log("Only this file will be changed. No command or script will be executed.");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let answer = "";
@@ -150,6 +150,7 @@ async function runTask(config, task) {
   if (task.action === "system_info") {
     return { ok: true, platform: os.platform(), release: os.release(), arch: os.arch(), node: process.version, cpuCount: os.cpus().length, totalMemoryBytes: os.totalmem(), freeMemoryBytes: os.freemem() };
   }
+  if (task.action === "write_text_file") return await applyApprovedTextFile(config, task);
   const path = await resolveAllowedPath(config, task.path);
   if (task.action === "list_directory") {
     const entries = await readdir(path, { withFileTypes: true });
@@ -158,11 +159,12 @@ async function runTask(config, task) {
   if (task.action === "read_text_file") {
     const info = await stat(path);
     if (!info.isFile() || info.size > 256 * 1024) throw new Error("Only files up to 256 KB can be read");
-    const allowed = new Set([".txt", ".md", ".json", ".log", ".cfg", ".ini", ".vdf", ".kv", ".res", ".rc", ".cpp", ".h", ".c", ".js", ".ts", ".html", ".css", ".yaml", ".yml", ".toml"]);
+    const allowed = new Set([".txt", ".md", ".json", ".log", ".cfg", ".ini", ".vdf", ".kv", ".res", ".rc", ".cpp", ".h", ".c", ".sp", ".inc", ".js", ".ts", ".html", ".css", ".yaml", ".yml", ".toml"]);
     if (!allowed.has(extname(path).toLowerCase())) throw new Error("File extension is not allowed for reading");
-    return { ok: true, path, content: await readFile(path, "utf8") };
+    const bytes = await readFile(path);
+    return { ok: true, path, content: bytes.toString("utf8"), sha256: sha256(bytes), size: bytes.length };
   }
-  if (task.action === "write_text_file") return await applyApprovedTextFile(config, task);\n  throw new Error("Unsupported task action");
+  throw new Error("Unsupported task action");
 }
 async function main() {
   const config = await loadConfig();
