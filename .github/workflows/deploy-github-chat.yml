@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
           echo "Checking direct Pi AI inference and configured model fallback..."
-          curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt
+          curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt || true
           MODEL_CHECK_CODE="$(cat model-check-code.txt)"
           if [[ "$MODEL_CHECK_CODE" != "200" ]] || ! jq -e '.ok == true and (.reply|contains("SOLO_CHAT_MODEL_OK"))' model-check.json >/dev/null; then
             echo "::error::Direct model inference failed with HTTP $MODEL_CHECK_CODE"
