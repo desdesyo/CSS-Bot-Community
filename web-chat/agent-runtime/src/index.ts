@@ -737,7 +737,11 @@ LEARNING FROM CORRECTIONS
     const job = Array.from(entries.values())
       .filter(item => item.status === "queued")
       .sort((a, b) => a.createdAt - b.createdAt)[0];
-    if (!job) return;
+    if (!job) {
+      const indexed = await this.backfillMemoryIndex(6);
+      if (indexed >= 6) await this.ctx.storage.setAlarm(Date.now() + 250);
+      return;
+    }
 
     const jobKey = "browser-chat:job:" + job.operationId;
     job.status = "running";
@@ -818,6 +822,9 @@ LEARNING FROM CORRECTIONS
     const remaining = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
     if (Array.from(remaining.values()).some(item => item.status === "queued")) {
       await this.ctx.storage.setAlarm(Date.now() + 250);
+    } else {
+      const indexed = await this.backfillMemoryIndex(6);
+      if (indexed >= 6) await this.ctx.storage.setAlarm(Date.now() + 250);
     }
   }
 
@@ -1109,7 +1116,7 @@ LEARNING FROM CORRECTIONS
       const query = [currentThread?.title || "", recentContext, String(prompt || "")].filter(Boolean).join("\n").slice(0, 9000);
       const queryVector = await this.embedMemoryText(query);
       const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
-      const entries = Array.from(listed.values()).slice(-800);
+      const entries = Array.from(listed.values()).sort((a: any, b: any) => Number(b.createdAt || 0) - Number(a.createdAt || 0)).slice(0, 1500);
       const ranked = entries.map((entry: any) => {
         const score = queryVector && Array.isArray(entry.vector) && entry.vector.length
           ? this.memoryCosine(queryVector, entry.vector)
