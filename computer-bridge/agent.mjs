@@ -4,6 +4,7 @@ import { resolve, relative, isAbsolute, dirname, extname, sep } from "node:path"
 import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import { isInside, validateWriteRequest } from "./file-policy.mjs";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -61,12 +62,7 @@ async function resolveAllowedPath(config, input) {
   throw new Error("Path is outside configured allowed roots or does not exist");
 }
 
-const writableExtensions = new Set([".txt",".md",".json",".xml",".cfg",".ini",".vdf",".kv",".res",".rc",".cpp",".h",".c",".sp",".inc",".sma",".js",".ts",".html",".css",".yaml",".yml",".toml",".sql"]);
 const sha256 = value => createHash("sha256").update(value).digest("hex");
-function isInside(root, candidate) {
-  const rel = relative(root, candidate);
-  return rel === "" || (rel !== ".." && !rel.startsWith(".." + sep) && !isAbsolute(rel));
-}
 async function resolveAllowedTarget(config, input) {
   if (!input || input.length > 1024) throw new Error("A valid destination path is required");
   const roots = await Promise.all(config.allowedRoots.map(p => realpath(resolve(p))));
@@ -101,15 +97,10 @@ async function applyApprovedTextFile(config, task) {
   if (data.length > 256 * 1024) throw new Error("Text file write is limited to 256 KB");
   if (data.includes(0)) throw new Error("NUL bytes are not allowed in a text-file write");
   const { target } = await resolveAllowedTarget(config, task.path);
-  const extension = extname(target).toLowerCase();
-  if (!writableExtensions.has(extension)) throw new Error("This file type is not allowed for text writes. Binary plugins and DLLs require a separate verified package installer.");
-  const blockedNames = new Set(["server.dll","client.dll","engine.dll","tier0.dll","vstdlib.dll","filesystem_steam.dll","vphysics.dll"]);
-  if (blockedNames.has(target.split(sep).pop().toLowerCase())) throw new Error("Core game binaries are protected from direct writes");
   const beforeExists = await stat(target).then(x => x.isFile()).catch(e => { if (e?.code === "ENOENT") return false; throw e; });
   const beforeBytes = beforeExists ? await readFile(target) : null;
   const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
-  const expected = String(task.expectedSha256 || "");
-  if (beforeHash.toLowerCase() !== expected.toLowerCase()) throw new Error("SHA-256 conflict: expected " + expected + ", actual " + beforeHash + ". No file was changed.");
+  validateWriteRequest({ targetPath: target, contentBytes: data.length, expectedSha256: task.expectedSha256, actualSha256: beforeHash });
   const afterHash = sha256(data);
   const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
