@@ -27,7 +27,7 @@ It does **not** execute shell commands, launch programs, capture the screen, del
 4. In this folder run:
 
 ```powershell
-node agent.mjs pair https://YOUR-DEPLOYED-CHAT-DOMAIN 123456
+node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456
 node agent.mjs
 ```
 
