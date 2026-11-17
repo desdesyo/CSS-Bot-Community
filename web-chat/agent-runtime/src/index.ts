@@ -1932,18 +1932,31 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agents/status" && req.method === "GET") {
         await this.requirePassword(req);
         const cached = await this.ctx.storage.get<any>("agents:status-cache");
-        const cacheAgeMs = cached?.checkedAt ? Date.now() - Number(cached.checkedAt) : Number.POSITIVE_INFINITY;
-        // The browser polls this endpoint frequently. Reuse a fresh Durable Object
-        // snapshot to avoid exhausting the shared GitHub API rate limit.
-        if (cached?.data && cacheAgeMs < 60_000) {
+        const retryState = await this.ctx.storage.get<any>("agents:status-retry");
+        const now = Date.now();
+        const cacheAgeMs = cached?.checkedAt ? now - Number(cached.checkedAt) : Number.POSITIVE_INFINITY;
+        // The UI polls every 30 seconds, but GitHub's unauthenticated API quota is
+        // shared. Keep a 5-minute snapshot and never retry a known total outage on
+        // every browser poll.
+        if (retryState?.until > now && cached?.data) {
+          return json({
+            ...cached.data, stale: true, statusUnavailable: true, partialUnavailable: true,
+            statusError: retryState.error || "GitHub API temporarily unavailable",
+            upstreamStatus: retryState.status || null, retryAfter: retryState.until,
+            checkedAt: cached.checkedAt, cacheHit: true
+          });
+        }
+        if (cached?.data && !cached.data.statusUnavailable && cacheAgeMs < 5 * 60_000) {
           return json({ ...cached.data, cacheHit: true, cacheAgeMs });
         }
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
         const githubRead = async (url: string) => {
           let result = await fetch(url, { headers });
-          // Public repository endpoints can be read anonymously when a token lacks read scopes.
-          if ((result.status === 401 || result.status === 403) && headers.Authorization) {
+          // A 403 commonly means rate limiting or exhausted quota. Retrying
+          // anonymously only burns the same shared quota; retry anonymously only
+          // after 401 (invalid/expired credentials).
+          if (result.status === 401 && headers.Authorization) {
             const publicHeaders = { ...headers };
             delete publicHeaders.Authorization;
             result = await fetch(url, { headers: publicHeaders });
@@ -2064,11 +2077,25 @@ LEARNING FROM CORRECTIONS
             : { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps },
           checkedAt: Date.now(), source: "GitHub Actions runs, per-run job steps and Issues"
         };
-        // Cache successful data only. Never let a transient API failure overwrite a
-        // previously useful snapshot, and never serve a five-minute-old snapshot as live.
-        if (runsOk || issuesOk) await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
-        if (!runsOk && !issuesOk && cached?.data) {
-          return json({ ...cached.data, stale: true, statusUnavailable: true, partialUnavailable: true, statusError, upstreamStatus, sources, checkedAt: cached.checkedAt });
+        // Cache any useful partial result. On a total GitHub outage preserve the
+        // last-known snapshot (or this explicit unknown-state snapshot) and back off.
+        const checkedAt = Date.now();
+        if (runsOk || issuesOk) {
+          await this.ctx.storage.put("agents:status-cache", { checkedAt, data });
+          await this.ctx.storage.delete("agents:status-retry");
+        } else {
+          const retryUntil = checkedAt + 5 * 60_000;
+          const fallback = cached?.data || data;
+          await this.ctx.storage.put("agents:status-cache", { checkedAt: cached?.checkedAt || checkedAt, data: fallback });
+          await this.ctx.storage.put("agents:status-retry", {
+            until: retryUntil, error: statusError || "GitHub API unavailable",
+            status: upstreamStatus || null, failedAt: checkedAt
+          });
+          return json({
+            ...fallback, stale: true, statusUnavailable: true, partialUnavailable: true,
+            statusError, upstreamStatus, retryAfter: retryUntil, sources,
+            checkedAt: cached?.checkedAt || checkedAt
+          });
         }
         return json(data);
       }
