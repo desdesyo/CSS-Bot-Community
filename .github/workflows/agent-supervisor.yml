@@ -90,9 +90,17 @@ jobs:
               CI_NAME="GitHub Chat checks"
               CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
               CI_RUN="$(jq -c --arg name "$CI_NAME" --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name==$name and .head_sha==$sha and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
+              DEPLOY_RUN="$(jq -c '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare" and .status=="completed" and .conclusion=="success")][0] // empty' <<<"$RUNS")"
+              DEPLOY_SHA="$(jq -r '.head_sha // empty' <<<"$DEPLOY_RUN")"
               DEPLOY_STATE="$(jq -r '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
-              CHANGED_FILES="$(gh api "repos/$TARGET_REPO/commits/$HEAD_SHA" --jq '[.files[].filename]')"
-              DEPLOY_REQUIRED="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$CHANGED_FILES")"
+              if [[ -z "$DEPLOY_SHA" ]]; then
+                CHANGED_SINCE_DEPLOY='["web-chat/deployment-not-yet-verified"]'
+              elif [[ "$DEPLOY_SHA" == "$HEAD_SHA" ]]; then
+                CHANGED_SINCE_DEPLOY='[]'
+              else
+                CHANGED_SINCE_DEPLOY="$(gh api "repos/$TARGET_REPO/compare/$DEPLOY_SHA...$HEAD_SHA" --jq '[.files[].filename]' || echo '["web-chat/deployment-diff-unavailable"]')"
+              fi
+              DEPLOY_REQUIRED="$(jq -r 'any(.[]; startswith("web-chat/") or .==".github/workflows/deploy-github-chat.yml")' <<<"$CHANGED_SINCE_DEPLOY")"
               DEPLOY_MATCH="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name=="Deploy GitHub Chat to Cloudflare")][0] | (. != null and .status=="completed" and .conclusion=="success" and .head_sha==$sha)' <<<"$RUNS")"
               DEPLOY_OK="$([[ "$DEPLOY_REQUIRED" == "false" || "$DEPLOY_MATCH" == "true" ]] && echo true || echo false)"
             elif [[ "$TARGET_REPO" == "$SOURCE_REPO" && "$TARGET_BRANCH" == "main" ]]; then
