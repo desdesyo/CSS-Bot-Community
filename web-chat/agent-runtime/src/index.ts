@@ -591,12 +591,18 @@ LEARNING FROM CORRECTIONS
   async onRequest(req: Request) {
     const url = new URL(req.url);
     try {
+      if (url.pathname === "/api/auth/login" && req.method === "POST") {
+        return await this.loginDevice(req);
+      }
+      if (url.pathname === "/api/auth/logout" && req.method === "POST") {
+        return await this.logoutDevice(req);
+      }
       if (url.pathname === "/api/health" && req.method === "GET") {
-        await this.requirePassword(req);
+        await await this.requirePassword(req);
         return json({ ok: true });
       }
       if (url.pathname === "/api/threads" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const ids = await this.ctx.storage.get<number[]>("browser-chat:threads") || [];
         const threads = [];
         for (const id of ids) {
@@ -607,7 +613,7 @@ LEARNING FROM CORRECTIONS
         return json({ threads });
       }
       if (url.pathname === "/api/messages" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const id = Number(url.searchParams.get("thread"));
         if (!Number.isSafeInteger(id) || id < 1) return json({ error: "Invalid conversation" }, 400);
         const item = await this.ctx.storage.get<any>("browser-chat:thread:" + id);
@@ -615,7 +621,7 @@ LEARNING FROM CORRECTIONS
         return json({ title: item.title, messages: item.messages || [], thread: id });
       }
       if (url.pathname === "/api/chat" && req.method === "POST") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const body = await req.json() as any;
         const message = String(body.message || "").trim();
         if (!message || message.length > 12000) return json({ error: "Message must be 1–12000 characters" }, 400);
@@ -667,7 +673,7 @@ LEARNING FROM CORRECTIONS
         return json({ thread: threadId, title: item.title, operationId, status: job.status }, 202);
       }
       if (url.pathname === "/api/chat/status" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const operationId = String(url.searchParams.get("operationId") || "");
         if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId)) return json({ error: "Invalid operation ID" }, 400);
         const job = await this.ctx.storage.get<BrowserChatJob>("browser-chat:job:" + operationId);
@@ -680,7 +686,7 @@ LEARNING FROM CORRECTIONS
         });
       }
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const raw = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
         const code = String(raw).padStart(6, "0");
         await this.ctx.storage.put("computer:pair:" + code, { expiresAt: Date.now() + 5 * 60 * 1000 });
@@ -706,20 +712,20 @@ LEARNING FROM CORRECTIONS
         return json({ saved: true });
       }
       if (url.pathname === "/api/agent/computer/task" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const id = url.searchParams.get("id") || "";
         const result = await this.ctx.storage.get<any>("computer:result:" + id);
         return json(result || { pending: true });
       }
       if (url.pathname === "/api/agent/computer/status" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const ids = await this.ctx.storage.get<string[]>("computer:devices") || [];
         const devices = [];
         for (const id of ids) devices.push(await this.ctx.storage.get<any>("computer:device:" + id));
         return json({ devices: devices.filter(Boolean) });
       }
       if (url.pathname === "/api/agent/github-check" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         try {
           const repo = String(this.env.GITHUB_WORK_REPO || "");
           const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
@@ -764,7 +770,7 @@ LEARNING FROM CORRECTIONS
         }
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         const body = await req.json() as any;
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
@@ -772,7 +778,7 @@ LEARNING FROM CORRECTIONS
         return json(result);
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
-        this.requirePassword(req);
+        await this.requirePassword(req);
         return json({ pending: await this.harness.pending(), mcpServers: this.mcp.listServers(), mcpTools: this.mcp.listTools() });
       }
       return json({ error: "Not found" }, 404);
