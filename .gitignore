@@ -1,3 +1,4 @@
 build/
 out/
 *.log
+\n# Local SOLO.Chat MCP credentials\nweb-chat/mcp-bridge/solo-mcp-bridge.local.json\n
