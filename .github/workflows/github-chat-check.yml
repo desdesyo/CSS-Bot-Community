@@ -9,6 +9,7 @@ on:
       - ".github/workflows/agent-*.yml"
       - ".github/workflows/deploy-github-chat.yml"
       - "agent-team/**"
+      - "AGENTS.md"
   pull_request:
     paths:
       - "web-chat/**"
@@ -16,6 +17,7 @@ on:
       - ".github/workflows/agent-*.yml"
       - ".github/workflows/deploy-github-chat.yml"
       - "agent-team/**"
+      - "AGENTS.md"
 
 permissions:
   contents: read
