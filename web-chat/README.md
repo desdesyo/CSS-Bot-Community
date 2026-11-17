@@ -67,7 +67,7 @@ The chat now routes text-only compatible turns through a Cloudflare Durable Obje
 - Each agent has a persistent Cloudflare Computer workspace backed by the same Durable Object SQLite. It provides read/write/search tools and an isolated JavaScript execution backend with network egress disabled. This is the cloud sandbox, not the user's Windows PC.
 - The agent can read/write UTF-8 files in the configured GitHub workspace, search the web, run heuristic static source checks, and connect allowlisted MCP servers.
 - MCP servers are persisted by MCPClientManager. Only tools marked `readOnlyHint=true` are callable autonomously. Other MCP tools are blocked pending a human approval UI.
-- The browser's **Подключить компьютер** button creates a one-time pairing code. The local Node.js companion in `../computer-bridge` polls outbound over HTTPS and supports system info, directory listing, and reading selected text/config files under explicitly configured roots. It also supports a narrowly scoped `write_text_file` action for allowlisted source/config extensions: exact expected SHA-256, verified backup, interactive local APPLY prompt, atomic replacement and post-write hash verification. It does not execute shell commands, launch processes, write binary plugins/core DLLs, or delete files.
+- The browser's **Подключить компьютер** button creates a one-time pairing code. The local Node.js companion in `../computer-bridge` polls outbound over HTTPS and supports system info, directory listing, and reading selected text/config files under explicitly configured roots. It also supports a narrowly scoped `write_text_file` action for allowlisted source/config extensions and `install_smx` for one verified plugin under `cstrike/addons/sourcemod/plugins/`. Both require exact SHA-256 checks, verified backups, local APPLY approval, atomic replacement and post-write hash verification. It does not execute shell commands, launch processes, write DLL/EXE/core engine binaries, or delete files.
 - The source scanner is heuristic, not a full SAST product and not proof that code is safe. JavaScript tests and analysis can also run in the isolated Cloudflare Computer Dynamic Worker, which has no outbound network access. Do not run untrusted project scripts with network or secret access.
 
 Additional Worker bindings and variables:
@@ -115,12 +115,12 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - This is best-effort continuity, not guaranteed infinite uptime: if all providers, credentials, or usage quotas are unavailable, no model can produce a reply. The interface avoids exposing internal provider/tool messages; it cannot manufacture an answer while all backends are offline.
 - Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
-- The local PC bridge is implemented as an opt-in companion, but it is not connected until the Worker is deployed, a pairing code is generated, and the companion is started on Windows. Its source-text write operation is implemented but remains unverified on the user's actual PC until pairing and a test write are completed.
+- The local PC bridge is implemented as an opt-in companion, but it is not connected until the Worker is deployed, a pairing code is generated, and the companion is started on Windows. Its source-text writer and single-file .smx installer are implemented in source but remain unverified on the user's actual PC until pairing and a test operation are completed.
 - Add individual user identity, per-user file ownership, explicit MCP write approvals, device revocation, streaming UI, DOCX/XLSX ingestion, OCR, broader sandbox language runtimes, device task cancellation, and automated end-to-end tests before broad/public use.
 
 ## Security notes
 
-Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The public API is password-protected and does not expose arbitrary shell execution. The opt-in local companion only accesses configured roots. Text/config edits are approval-gated, SHA-checked and backed up locally; it has no shell or arbitrary process execution. Binary plugin installation is not yet implemented. Uploaded and retrieved content is untrusted data, not executable instructions.
+Never put API tokens in HTML, JavaScript, committed configuration, or chat messages. Use Worker secrets. The public API is password-protected and does not expose arbitrary shell execution. The opt-in local companion only accesses configured roots. Text/config edits are approval-gated, SHA-checked and backed up locally; it has no shell or arbitrary process execution. A single-file .smx installer exists, but multi-file packages and native DLL installation remain unsupported. Uploaded and retrieved content is untrusted data, not executable instructions.
 
 
 ## Deployment automation
@@ -143,6 +143,6 @@ The workflow is an **external autonomous repair loop**, not a push into the curr
 
 ## Canonical SOLO.Chat link
 
-- The canonical user-facing application URL is `https://solo.descapan.workers.dev`.
+- The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev/`.
 - Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://solo.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
 - Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
