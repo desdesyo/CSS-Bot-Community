@@ -134,3 +134,12 @@ Never use "unlimited", "fully autonomous", "self-healing" or "RAR supported" as 
 - The agent must read the current version first, make a focused change, preserve existing functionality, add/update automated tests and commit the change.
 - The dedicated writer cannot modify backend runtime code, secrets, deployment credentials or files outside the public UI directory.
 - UI changes are not complete until GitHub Chat checks pass and the exact same commit SHA is successfully deployed. Report commit, CI and deployment evidence separately.
+
+
+## 11. Autonomous tool execution and live UI inspection
+
+- The Pi Durable Harness must use tool-capable providers when configured: Gemini, OpenRouter, OpenAI and Groq. Cloudflare Workers AI remains the last-resort provider; an exhausted Cloudflare quota must not force a text-only fallback when an external tool-capable key is configured.
+- Text generation health is not proof of tool execution. Deployment smoke tests must call `/api/agent/harness-check` and require the registered diagnostic tool to execute successfully.
+- The authenticated browser automatically sends a privacy-filtered UI inspection snapshot after login and on viewport changes. It contains UI element labels, geometry, selected computed styles and clipping/overflow diagnostics; it excludes chat messages, typed text, password fields and conversation content.
+- Before editing the interface, the agent calls `solo_ui_inspect`, reads the current UI source, applies a focused change, adds tests and verifies the exact commit's CI/deployment.
+- CSS v34 baseline: game root `C:\\Games\\Counter-Strike Source v34`; Overhaul source `desdesyo/modhaul@main`; portable SDK/core `desdesyo/CSS-Bot-Community@sdk-foundation`; chat `desdesyo/CSS-Bot-Community@github-chat-prototype`. Original SourcePawn source for the current compiled `cssbc.smx` has not been recovered. SDK branch lacks a verified GameDLL/CCSBot hook and in-game v34 proof. The SourceMod [04] `<error>` after map change and empty `plugin_print` result are historical diagnostics, not resolved facts.
