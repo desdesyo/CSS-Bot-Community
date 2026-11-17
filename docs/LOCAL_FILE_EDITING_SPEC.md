@@ -21,9 +21,10 @@ Connect the existing SOLO.Chat agent workspace to the existing CSS Overhaul sour
 3. The computer-bridge companion pairs through a single-use code and polls outbound over HTTPS.
 4. The companion can inspect system information, list configured folders and read selected text/config/source files.
 5. A narrow computer_write_text_file agent tool and local write_text_file companion action are implemented in source. They accept allowlisted text/source extensions only, limit writes to 256 KiB, require an exact expected SHA-256 (or NEW for creation), make and verify a backup, display the old/new hashes, require the user to type APPLY in the local console, atomically replace the file and verify the resulting SHA-256. A hash-only audit record is kept locally.
+6. A computer_install_smx tool and install_smx companion action are implemented in source. They download only from approved GitHub HTTPS hosts, accept only .smx files under cstrike/addons/sourcemod/plugins/, verify the package hash and current-file precondition, back up the existing plugin, require local APPLY, atomically replace and verify the installed hash. The package size is capped at 10 MB.
 6. The independent LocalCssBridge C# scanner remains read-only and continues to collect game manifests, hashes and PE/config diagnostics.
 
-The new text writer is not yet verified on the user's PC. It cannot write .smx, .dll, .exe or delete files. Binary mod deployment remains a separate implementation milestone.
+Both local write/install operations are not yet verified on the user's PC. The text writer cannot write binary files; the separate .smx installer supports only a single SourceMod plugin in the exact plugins folder. Native .dll/.exe and core engine file deployment remain unsupported.
 
 ## Mandatory workflow for every Overhaul mechanic
 
@@ -34,7 +35,7 @@ The new text writer is not yet verified on the user's PC. It cannot write .smx, 
 5. Build for the actual target: verify the exact CS:S v34 engine ABI, x86 architecture, SDK branch, SourceMod/Metamod versions and compiler. Do not use a modern x64 binary for a legacy x86 game.
 6. Create a release package: include only necessary files, exact relative destination paths, source commit, toolchain details, SHA-256 manifest, compatibility note, backup/rollback guide and a versioned artifact.
 7. Apply text/config edits: first read the current local file and SHA-256; queue computer_write_text_file with that exact hash; wait for the local agent result. The user approves the precise change by typing APPLY on the paired Windows machine. Never say it was applied while the task is queued or declined.
-8. Apply binary plugin files: only through a future dedicated package installer that verifies a signed/immutable package manifest, allowed destination, engine compatibility, current-file hash, backup and rollback. The text writer must never be used for binary data.
+8. Apply a compiled .smx plugin only through computer_install_smx, with a GitHub-hosted immutable source, package SHA-256, exact current-file hash, allowed SourceMod plugins destination, local backup and APPLY confirmation. The text writer must never be used for binary data. Native .dll/.exe installation remains unsupported until v34 ABI compatibility is proven.
 9. Verify installation: run a new local read-only scan and compare installed hashes to the package manifest.
 10. Verify behavior: test on the exact game build. CI compilation is not a substitute for loading the plugin and exercising the mechanic in-game.
 11. Report evidence: cite exact repository commit, workflow run, artifact, local task result, before/after hashes and any outstanding in-game test.
@@ -53,7 +54,7 @@ The new text writer is not yet verified on the user's PC. It cannot write .smx, 
 
 - Add unit/integration tests for path traversal, symlinks, extension allowlist, hash mismatch, create-only semantics, backup integrity, atomic replace, rollback and unattended refusal.
 - Pair and exercise the companion on the user's actual Windows machine; confirm the configured game root and inspect whether the candidate Overhaul source folder exists.
-- Add a binary .smx artifact installer with immutable manifest, checksum, backup, rollback and post-install scan.
+- Add a full multi-file package installer with immutable manifest, rollback across partial failures and post-install scan. The current .smx installer handles one file per task.
 - Add native .dll installation only after the matching v34 ABI/toolchain and a real compatibility test are established. Core engine DLL replacement remains prohibited by default.
 - Restore or locate authoritative SourcePawn source for the existing cssbc.smx, if available, before editing/recompiling that plugin.
 - Trace and integrate the portable CSSBC C++ core into actual CS:S runtime hooks; do not equate standalone unit tests with in-game behavior.
