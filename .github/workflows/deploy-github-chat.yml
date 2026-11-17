@@ -105,7 +105,6 @@ jobs:
         run: |
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
-          curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" | jq -e '.roles | length >= 8' >/dev/null
           echo "Checking direct Pi AI inference and configured model fallback..."
           curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt
           MODEL_CHECK_CODE="$(cat model-check-code.txt)"
@@ -125,6 +124,13 @@ jobs:
           if ! jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null; then
             echo "::error::Agent chat returned no expected marker"
             cat model-smoke-response.json
+            exit 1
+          fi
+          echo "Checking live agent dashboard..."
+          STATUS_CODE="$(curl --silent --show-error --max-time 30 -o agent-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" || true)"
+          if [[ "$STATUS_CODE" != "200" ]] || ! jq -e '.roles | length >= 8' agent-status.json >/dev/null; then
+            echo "::error::Agent dashboard failed with HTTP $STATUS_CODE"
+            cat agent-status.json
             exit 1
           fi
           echo "Live agent dashboard, direct model inference and agent chat inference passed."
