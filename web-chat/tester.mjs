@@ -92,7 +92,7 @@ const checks = [
  [ "Local computer writes require exact SHA-256 and 256 KB bound", /new TextEncoder\(\)\.encode\(content\)\.length > 256 \* 1024/.test(runtime) && /expectedSha256 !== "NEW"/.test(runtime)],
  [ "SourceMod plugin install tool is restricted to approved GitHub sources and plugin path", runtime.includes('name: "computer_install_smx"') && runtime.includes("packageSha256") && runtime.includes("cstrike/addons/sourcemod/plugins/")],
  [ "Local task schema includes SourceMod plugin install", /"install_smx"/.test(runtime) && /status: "waiting for local download verification and APPLY approval"/.test(runtime)],
- [ "Text agent has a provider fallback chain", runtime.includes('fallback: ["@cf/google/gemma-4-26b-a4b-it"]') && runtime.includes('@cf/zai-org/glm-4.7-flash')],
+ [ "Direct text fallback has an independent server-side provider chain", runtime.includes("private async runDirectModel(prompt: string)") && runtime.includes("OPENROUTER_API_KEY") && runtime.includes("OPENAI_API_KEY") && runtime.includes("GEMINI_API_KEY") && runtime.includes("GROQ_API_KEY") && runtime.includes("@cf/meta/llama-3.3-70b-instruct")],
  [ "Agent can create downloadable text artifacts in private storage", runtime.includes('name: "create_text_artifact"') && runtime.includes('agent.saveGeneratedArtifact(name, mimeType')],
  [ "Agent has real FLUX image generation and persists PNG artifacts", runtime.includes('name: "generate_image"') && runtime.includes('black-forest-labs/flux-2-pro-preview') && runtime.includes('@cf/black-forest-labs/flux-1-schnell')],
  [ "Agent has MiniMax music generation and persists MP3 artifacts", runtime.includes('name: "generate_music"') && runtime.includes('minimax/music-2.6')],
@@ -105,7 +105,8 @@ const checks = [
  [ "Cross-chat continuity and canonical SOLO.Chat URL are in the agent prompt", runtime.includes("CROSS-CHAT CONTINUITY — ABSOLUTE REQUIREMENT") && runtime.includes("https://cssbc-github-chat.descapan.workers.dev/")],
 
 
- ["Workers AI fallback is configured on the selected model, not on the createAI factory", runtime.includes('createAI({ binding: this.env.AI, requestTimeoutMs') && runtime.includes('this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", { fallback: ["@cf/google/gemma-4-26b-a4b-it"]')],
+ ["Workers AI remains the no-Gemini Pi provider while Gemini is the tool-capable primary when configured", runtime.includes("models.setProvider(this.ai.provider)") && runtime.includes("models.setProvider(this.google)") && runtime.includes('this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash")')],
+ ["Direct fallback is explicitly text-only and cannot claim tool execution", runtime.includes("text-only emergency fallback") && runtime.includes("инструменты и операции с файлами/GitHub сейчас недоступны") && runtime.includes("Never claim that you performed or verified an action.")],
  ["Primary and fallback model requests have bounded retries and timeouts", runtime.includes("maxAttempts: 3") && runtime.includes("requestTimeoutMs: 120000")],
  ["Generated artifact bytes are copied to an ArrayBuffer before constructing File", runtime.includes("const fileBuffer = new ArrayBuffer(bytes.byteLength)") && runtime.includes("new File([fileBuffer]")],
  ["Model operation failures log diagnostics and enter the independent provider chain", runtime.includes("trying independent provider chain") && runtime.includes("provider-chain model check failed") && runtime.includes("Не удалось получить ответ от ИИ-модели после основного и резервного способов")],
