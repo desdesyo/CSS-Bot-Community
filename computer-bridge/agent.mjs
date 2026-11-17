@@ -261,6 +261,12 @@ async function runTask(config, task) {
     const entries = await readdir(path, { withFileTypes: true });
     return { ok: true, path, entries: entries.slice(0, 200).map(e => ({ name: e.name, type: e.isDirectory() ? "directory" : e.isFile() ? "file" : "other" })) };
   }
+  if (task.action === "hash_file") {
+    const info = await stat(path);
+    if (!info.isFile() || info.size > 50 * 1024 * 1024) throw new Error("Only regular files up to 50 MB can be hashed");
+    const bytes = await readFile(path);
+    return { ok: true, path, size: bytes.length, sha256: sha256(bytes) };
+  }
   if (task.action === "read_text_file") {
     const info = await stat(path);
     if (!info.isFile() || info.size > 256 * 1024) throw new Error("Only files up to 256 KB can be read");
