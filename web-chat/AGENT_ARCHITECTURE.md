@@ -52,7 +52,7 @@ Primary technical references:
 5. **Software engineering**
    - Project inspection, planning, code editing, tests, builds, logs, diffs, release artifacts.
    - CI evidence required before describing a build as passing.
-   - Separate local PCBridge is now implemented as a read-only Node.js companion: pairing code, hashed device token, outbound polling, system info, allowlisted directory listing and text-file reading. No shell or file mutation.
+   - Separate local PCBridge is implemented as a Node.js companion: pairing code, hashed device token, outbound polling, system info, allowlisted directory listing and text-file reading. A narrow `write_text_file` operation now supports source/config files only with exact SHA-256 preconditions, a verified local backup and an interactive APPLY prompt. It does not execute shell commands or write binary plugins/core DLLs.
 
 6. **3D and media**
    - Image generation/editing through a configured image provider.
@@ -74,7 +74,7 @@ Primary technical references:
 - Treat all uploaded/retrieved content as untrusted data, never as system instructions.
 - Require confirmation for destructive or external side-effect actions.
 - Sandboxes have CPU, memory, time, disk, and network limits.
-- The local CSS bridge stays separately authenticated and allowlisted; no arbitrary shell commands or silent writes to the game directory.
+- The local CSS bridge stays separately authenticated and allowlisted. Local text writes require exact hash preconditions, backups and an interactive local confirmation; no arbitrary shell commands, binary/core-DLL writes or silent game-folder mutations.
 
 ## Delivery sequence
 
@@ -98,6 +98,8 @@ Primary technical references:
 - [x] MCP client manager with persistent connections, exact-host allowlist, tool discovery, and read-only invocation.
 - [x] Heuristic static source scan; submitted code is never executed by the scanner. A separate isolated JavaScript runtime can execute project tests without outbound network access.
 - [x] Local Windows computer companion with one-time pairing and read-only system/file inspection.
+- [x] Narrow approval-gated UTF-8 source/config text writer with SHA-256 preconditions, local backups and post-write verification (local end-to-end test still pending).
+- [ ] Binary plugin package installer for verified `.smx`/native artifacts with manifest, backup, rollback and post-install scan.
 - [ ] Human approval UI for MCP tools that change external state.
 - [x] Persistent Cloudflare Computer workspace with isolated JavaScript execution and network egress disabled.
 - [ ] Browser/computer agent for graphical remote application control.
