@@ -34,6 +34,8 @@ interface Env {
   GROQ_MODEL?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
+  IMAGE_PROVIDER_ORDER?: string;
+  IMAGE_OPENAI_MODEL?: string;
   CF_VERSION_METADATA?: { id: string; tag?: string; timestamp?: string };
 }
 interface ComputerTask {
@@ -1752,15 +1754,55 @@ LEARNING FROM CORRECTIONS
       const ext = png ? ".png" : webp ? ".webp" : ".jpg";
       return this.saveGeneratedArtifact(name.replace(/\.jpg$/i, ext), mime, bytes);
     };
-    try {
-      // Free-tier-safe path: never call the paid FLUX.2 Pro preview model.
-      const fast: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
-      metadata = await storeImage(fast?.image || fast?.result?.image, safeName);
-      provider = "FLUX.1 Schnell (Cloudflare Workers AI free allocation)";
-    } catch (error) {
-      throw new Error("Free FLUX.1 Schnell image generation failed: " + (error instanceof Error ? error.message : String(error)).slice(0, 700));
+    // Cloudflare is the sole default. Paid providers require explicit operator opt-in.
+    const configured = String(this.env.IMAGE_PROVIDER_ORDER || "cloudflare").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+    const order = [...new Set(configured)].filter(x => x === "cloudflare" || x === "openai");
+    if (!order.length) throw new Error("No supported image providers are enabled. Set IMAGE_PROVIDER_ORDER to cloudflare and/or openai.");
+    const failures: string[] = [];
+    for (const selected of order) {
+      if (selected === "openai" && !this.env.OPENAI_API_KEY) {
+        failures.push("openai: OPENAI_API_KEY is not configured");
+        continue;
+      }
+      const circuitKey = "provider:circuit:image:" + selected;
+      const circuitUntil = await this.ctx.storage.get<number>(circuitKey);
+      if (circuitUntil && circuitUntil > Date.now()) {
+        failures.push(selected + ": circuit open until " + new Date(circuitUntil).toISOString());
+        continue;
+      }
+      try {
+        if (selected === "cloudflare") {
+          const result: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: cleanPrompt, steps: 8 });
+          metadata = await storeImage(result?.image || result?.result?.image, safeName);
+          provider = "FLUX.1 Schnell (Cloudflare Workers AI)";
+        } else {
+          const response = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: this.env.IMAGE_OPENAI_MODEL || "gpt-image-1", prompt: cleanPrompt, size: "1024x1024", quality: "low", output_format: "png" })
+          });
+          const data: any = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error("OpenAI Images API HTTP " + response.status + ": " + String(data?.error?.message || "request failed").slice(0, 300));
+          const imageData = data?.data?.[0]?.b64_json;
+          if (typeof imageData !== "string" || !imageData) throw new Error("OpenAI Images API returned no b64_json image");
+          metadata = await storeImage(imageData, baseName + ".png");
+          provider = "OpenAI " + (this.env.IMAGE_OPENAI_MODEL || "gpt-image-1") + " (operator-enabled paid fallback)";
+        }
+        await this.ctx.storage.delete(circuitKey);
+        break;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        failures.push(selected + ": " + detail.slice(0, 500));
+        const isQuota = /daily free allocation|quota|rate.?limit|too many requests|\b429\b|out of capacity/i.test(detail);
+        const cooldown = isQuota && selected === "cloudflare"
+          ? (Math.floor(Date.now() / 86400000) + 1) * 86400000 + 120000
+          : Date.now() + 180000;
+        await this.ctx.storage.put(circuitKey, cooldown);
+      }
     }
-    return { created: true, provider, quality: "free",
+    if (!metadata) throw new Error("All enabled image providers failed: " + failures.join(" | ").slice(0, 1800));
+    return { created: true, provider, quality: provider.includes("paid fallback") ? "operator-enabled" : "free-tier",
+      fallbackUsed: provider.includes("paid fallback"), attemptedProviders: order,
       format: metadata.name?.toLowerCase().endsWith(".png") ? "image/png" : metadata.name?.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg",
       artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true };
   }
