@@ -1006,6 +1006,19 @@ LEARNING FROM CORRECTIONS
         if (!response.ok) return json({ error: "GitHub Actions status unavailable", upstreamStatus: response.status }, 502);
         const payload: any = await response.json();
         const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
+        const issuesResponse = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/issues?state=open&labels=agent-task&per_page=100", { headers });
+        if (!issuesResponse.ok) return json({ error: "GitHub task queue status unavailable", upstreamStatus: issuesResponse.status }, 502);
+        const issues: any[] = await issuesResponse.json();
+        const queue = { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 };
+        for (const issue of issues) {
+          if (issue.pull_request) continue;
+          const labels = (issue.labels || []).map((label: any) => label.name);
+          if (labels.includes("status:queued")) queue.queued++;
+          if (labels.includes("status:in-progress")) queue.inProgress++;
+          if (labels.includes("status:review")) queue.review++;
+          if (labels.includes("status:done")) queue.done++;
+          if (labels.includes("agent-review-needed")) queue.reviewNeeded++;
+        }
         const roles = [
           { id: "orchestrator", label: "Оркестратор", workflow: "CSSBC Agent Orchestrator" },
           { id: "tester", label: "Тестировщик", workflow: "GitHub Chat checks" },
@@ -1018,7 +1031,7 @@ LEARNING FROM CORRECTIONS
           const run = runs.find(item => item.name === role.workflow);
           return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null };
         });
-        const data = { roles, checkedAt: Date.now(), source: "GitHub Actions" };
+        const data = { roles, queue, checkedAt: Date.now(), source: "GitHub Actions + Issues" };
         await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
         return json(data);
       }
