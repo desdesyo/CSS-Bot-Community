@@ -584,7 +584,7 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "generate_image",
-          description: "Create and save an image using SOLO.Chat FLUX.2 Pro with FLUX.1 Schnell fallback.",
+          description: "Create and save an image using free FLUX.1 Schnell through Cloudflare Workers AI. Never call paid image models.",
           parameters: obj({ prompt: str(), filename: str() }),
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
