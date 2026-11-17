@@ -25,8 +25,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: solo-chat-checks
-  cancel-in-progress: true
+  group: solo-chat-checks-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   validate:
