@@ -2,6 +2,8 @@
 
 The team is an auditable GitHub Actions orchestration pipeline backed by SOLO.Chat's Durable Object agent runtime. Roles are separate workflow stages and conversation threads; they are not separate permanently running servers or guaranteed different model instances.
 
+**Deployment layout:** event- and schedule-driven control-plane workflows live on the default `main` branch so GitHub can execute issue and cron events. The SOLO.Chat application/runtime is developed and deployed from `github-chat-prototype`. The task generator checks out that branch to read the queue. The orchestrator routes tasks using the `Agent-Target` field and labels: SOLO.Chat tasks go to CSS-Bot-Community@`github-chat-prototype`, core tasks to CSS-Bot-Community@`main`, and CSS Overhaul tasks to modhaul@`main`. The builder polls the issue queue every five minutes and processes one task at a time to prevent conflicting writes.
+
 ## Roles and actual responsibilities
 
 1. **Task Generator** (`.github/workflows/agent-task-generator.yml`)
