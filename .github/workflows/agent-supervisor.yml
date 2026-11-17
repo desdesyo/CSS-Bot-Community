@@ -22,7 +22,7 @@ concurrency:
 jobs:
   audit-and-review:
     if: >-
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'agent-task')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'agent-task') && (github.event.action == 'opened' || github.event.action == 'edited' || (github.event.action == 'labeled' && (github.event.label.name == 'status:queued' || github.event.label.name == 'status:review' || github.event.label.name == 'status:done')))) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch'
