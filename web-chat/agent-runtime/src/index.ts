@@ -1932,6 +1932,12 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/agents/status" && req.method === "GET") {
         await this.requirePassword(req);
         const cached = await this.ctx.storage.get<any>("agents:status-cache");
+        const cacheAgeMs = cached?.checkedAt ? Date.now() - Number(cached.checkedAt) : Number.POSITIVE_INFINITY;
+        // The browser polls this endpoint frequently. Reuse a fresh Durable Object
+        // snapshot to avoid exhausting the shared GitHub API rate limit.
+        if (cached?.data && cacheAgeMs < 60_000) {
+          return json({ ...cached.data, cacheHit: true, cacheAgeMs });
+        }
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
         const githubRead = async (url: string) => {
@@ -1964,8 +1970,10 @@ LEARNING FROM CORRECTIONS
           ? (runsResult as PromiseFulfilledResult<any>).value.workflow_runs : [];
         const issues: any[] = issuesOk && Array.isArray((issuesResult as PromiseFulfilledResult<any>).value)
           ? (issuesResult as PromiseFulfilledResult<any>).value : [];
-        const queue = issuesOk ? { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 } : null;
-        if (queue) for (const issue of issues) {
+        const queue = issuesOk
+          ? { queued: 0, inProgress: 0, review: 0, done: 0, reviewNeeded: 0 }
+          : (cached?.data?.queue || null);
+        if (issuesOk && queue) for (const issue of issues) {
           if (issue.pull_request) continue;
           const labels = (issue.labels || []).map((label: any) => label.name);
           if (labels.includes("status:queued")) queue.queued++;
@@ -2017,7 +2025,7 @@ LEARNING FROM CORRECTIONS
             maxAgeMinutes
           };
         };
-        const roles = [
+        const liveRoles = [
           stepRole("orchestrator", "Агент 1 · Оркестратор", "Agent 1 — Orchestrator plans and delegates"),
           stepRole("implementer", "Агент 2 · Разработчик", "Agent 2 — Implementer executes the plan"),
           stepRole("tester", "Агент 3 · Независимый тестировщик", "Agent 3 — Independent tester reviews the implementation"),
@@ -2029,16 +2037,31 @@ LEARNING FROM CORRECTIONS
           workflowRole("e2e", "E2E-проверка", "GitHub Chat live end-to-end test", 0),
           workflowRole("ci", "CI / сборка", "GitHub Chat checks", 0)
         ];
+        // If only one GitHub source fails, retain the last known values for that
+        // source instead of painting every corresponding agent as unavailable.
+        const roles = !runsOk && cached?.data?.roles ? cached.data.roles : liveRoles;
         const sources = {
           workflows: { ok: runsOk, error: runsResult.status === "rejected" ? String(runsResult.reason?.message || runsResult.reason).slice(0, 240) : null },
           queue: { ok: issuesOk, error: issuesResult.status === "rejected" ? String(issuesResult.reason?.message || issuesResult.reason).slice(0, 240) : null },
           teamJobs: { ok: !teamRun || !runsOk ? runsOk : !jobsError, error: jobsError }
         };
+        const upstreamFailures = [runsResult, issuesResult]
+          .filter((result: any) => result.status === "rejected")
+          .map((result: any) => result.reason);
+        const statusError = upstreamFailures
+          .map((error: any) => String(error?.message || error).slice(0, 240))
+          .filter(Boolean).join("; ") || null;
+        const upstreamStatus = upstreamFailures
+          .map((error: any) => Number(error?.status) || 0)
+          .find((status: number) => status > 0) || null;
         const data = {
           roles, queue, sources,
           statusUnavailable: !runsOk && !issuesOk,
+          partialUnavailable: !runsOk || !issuesOk,
+          statusError, upstreamStatus,
           stale: false,
-          team: { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps },
+          team: !runsOk && cached?.data?.team ? cached.data.team
+            : { runId: teamRun?.id || null, runStatus: teamRun?.status || "not_started", runConclusion: teamRun?.conclusion || null, steps: teamSteps },
           checkedAt: Date.now(), source: "GitHub Actions runs, per-run job steps and Issues"
         };
         // Cache successful data only. Never let a transient API failure overwrite a
