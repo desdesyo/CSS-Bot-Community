@@ -50,6 +50,8 @@ const checks = [
  [ "Local computer writes require exact SHA-256 and 256 KB bound", /new TextEncoder\(\)\.encode\(content\)\.length > 256 \* 1024/.test(runtime) && /expectedSha256 !== "NEW"/.test(runtime)],
  [ "SourceMod plugin install tool is restricted to approved GitHub sources and plugin path", runtime.includes('name: "computer_install_smx"') && runtime.includes("packageSha256") && runtime.includes("cstrike/addons/sourcemod/plugins/")],
  [ "Local task schema includes SourceMod plugin install", /"install_smx"/.test(runtime) && /status: "waiting for local download verification and APPLY approval"/.test(runtime)],
+ [ "Binary plugin current hash can be inspected without uploading file contents", /"hash_file"/.test(runtime) && runtime.includes("hash_file") && /Only regular files up to 50 MB can be hashed/.test(await readFile(new URL("../computer-bridge/agent.mjs", import.meta.url), "utf8"))],
+
 
  [ "Computer task results can be polled after local approval", runtime.includes('name: "computer_task_result"') && runtime.includes('"computer:result:" + taskId')],
  [ "Cross-chat continuity and canonical SOLO.Chat URL are in the agent prompt", runtime.includes("CROSS-CHAT CONTINUITY — ABSOLUTE REQUIREMENT") && runtime.includes("https://cssbc-github-chat.descapan.workers.dev/")],
