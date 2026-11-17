@@ -872,7 +872,8 @@ LEARNING FROM CORRECTIONS
     const baseMime = String(mime || "").split(";")[0].trim();
     const safeMime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(baseMime) ? baseMime : "application/octet-stream";
     const fileBuffer = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(fileBuffer).set(bytes);\n    const file = new File([fileBuffer], safeName, { type: safeMime });
+    new Uint8Array(fileBuffer).set(bytes);
+    const file = new File([fileBuffer], safeName, { type: safeMime });
     return this.saveStoredAttachment(file);
   }
   private async saveRemoteArtifact(url: string, name: string, mime: string) {
@@ -990,7 +991,10 @@ LEARNING FROM CORRECTIONS
     const receipt = await session.submit(prompt, { operationId });
     const result = await this.harness.wait(receipt.operationId, { session: sessionId });
     if (result.status !== "done") {
-      const reason = String(result.reason || result.status);\n      console.error("[SOLO.Chat] AI operation failed", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));\n      throw new Error("Не удалось получить ответ от ИИ-модели: " + reason + ". Проверьте доступность основной и резервной модели Workers AI.");\n    }
+      const reason = String(result.reason || result.status);
+      console.error("[SOLO.Chat] AI operation failed", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
+      throw new Error("Не удалось получить ответ от ИИ-модели: " + reason + ". Проверьте доступность основной и резервной модели Workers AI.");
+    }
     const reply = String(result.text || "").trim();
     if (!reply) throw new Error("AI operation completed without assistant text");
     return { reply, status: result.status, operationId: receipt.operationId, sessionId };
