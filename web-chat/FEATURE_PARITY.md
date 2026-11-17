@@ -46,15 +46,18 @@ Status vocabulary: Implemented = code path exists; Partial = incomplete or not e
 | Streaming responses | Token streaming, cancel generation, reconnect without duplicate turns | Planned |
 | Message actions | Edit/resend, regenerate, copy, delete, retry failed turn | Planned |
 | Rich text | Safe Markdown, headings, lists, links, inline code, fenced code, copy/save actions | Partial: safe basic Markdown and code blocks; tables and syntax highlighting remain |
-| File creation | Assistant creates real downloadable artifacts from instructions | Partial: server-side create-file tool and save-answer-as-Markdown; format templates/large artifact workflow remain |
+| File creation | Assistant creates real downloadable artifacts from instructions | Partial: private downloadable text artifacts up to 1 MB and media outputs up to 15 MB are stored in Durable Object; R2 migration, binary authoring workflows and broader formats remain |
 | GitHub workspace | Agent lists, reads, creates, and updates repository files with auditable commits | Partial: durable Pi agent has list/read/write tools across the configured repository and development branch; UTF-8 text only, 900 KB Contents API write cap; requires token Contents permission; binary Git API and branch creation pending |
 | Attachments | Upload, download, remove, attach multiple files, size/type validation | Partial: authenticated upload/download/delete, multi-file attach, 15 MB cap, chunked Durable Object storage and file library; verify deployed behavior and expanded document parsing |
 | Document understanding | PDF, text, DOCX/XLSX/CSV and image extraction with citations to uploaded files | Partial: text/CSV/JSON/source files plus PDF input to primary model; DOCX/XLSX/OCR pipeline pending |
 | Image understanding | Attach images and ask questions about them | Partial: image input to primary Responses API model; no image editing/generation |
-| Image generation/editing | Generate and edit images, persist outputs in conversation | Planned; image provider + object storage required |
+| Image generation/editing | Generate and edit images, persist outputs in conversation | Implemented in source: FLUX image generation tool stores real PNG artifacts; live provider test pending |
 | Web search | Server-side search tool, citations, source links, recency controls | Partial: Brave Search server tool + opt-in UI toggle; requires API key and source verification tests |
 | Data analysis | Sandboxed execution, CSV/XLSX analysis, charts, downloadable artifacts | Partial: persistent Cloudflare Computer workspace with isolated JavaScript Codemode backend and network egress disabled; heuristic static source scan and deterministic CSV summaries; XLSX/charts pending |
-| Voice input/output | Speech-to-text, spoken responses, interruption and playback controls | Planned; speech provider/browser support required |
+| Music generation | Generate full-length songs/instrumentals and persist audio | Implemented in source: MiniMax Music 2.6 tool; requires Cloudflare AI Gateway Unified Billing; live provider test pending |
+| Speech generation | Generate spoken audio, including Russian, and persist audio | Implemented in source: xAI Grok TTS tool; requires Cloudflare AI Gateway Unified Billing; live provider test pending |
+| 3D generation | Text-to-3D preview, PBR refinement, downloadable GLB | Implemented in source: Meshy 7.1 task/refine workflow; requires MESHY_API_KEY; live provider test pending |
+| Voice input/output | Speech-to-text, spoken responses, interruption and playback controls | Partial: speech generation tool exists; browser voice input/streaming playback remain planned |
 | Memory | User-controlled durable facts, inspect/update/delete, source and scope controls | Planned; private memory store required |
 | Projects | Group chats/files/instructions by project | Planned |
 | Custom assistants | User-created instruction profiles and knowledge files | Planned |
