@@ -8,6 +8,7 @@ on:
       - ".github/workflows/github-chat-check.yml"
       - ".github/workflows/agent-*.yml"
       - ".github/workflows/deploy-github-chat.yml"
+      - ".github/workflows/github-chat-e2e.yml"
       - "agent-team/**"
       - "AGENTS.md"
   pull_request:
