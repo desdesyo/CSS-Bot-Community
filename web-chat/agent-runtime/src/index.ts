@@ -1828,7 +1828,26 @@ LEARNING FROM CORRECTIONS
         const result = await this.generateImage(args.prompt, String(args.filename || "solo-generated-image"));
         const base = new URL(req.url).origin;
         const full = { ...result, downloadUrl: base + result.downloadUrl };
-        return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(full, null, 2) }], structuredContent: full, isError: false } });
+        // MCP clients need the actual image payload, not only a password-protected
+        // SOLO.Chat download URL. Return a native MCP image content block as well.
+        const artifactId = String((result as any)?.artifact?.id || "");
+        if (!/^[a-f0-9-]{36}$/i.test(artifactId)) throw new Error("Generated image artifact has no valid storage id");
+        const stored = await this.readStoredAttachment(artifactId);
+        if (!stored.metadata.type?.startsWith("image/")) throw new Error("Generated artifact is not an image");
+        if (stored.bytes.byteLength > 8 * 1024 * 1024) throw new Error("Image is saved in SOLO.Chat, but is too large for inline MCP transfer (8 MB limit)");
+        let binary = "";
+        for (let offset = 0; offset < stored.bytes.length; offset += 0x8000) {
+          binary += String.fromCharCode(...stored.bytes.subarray(offset, Math.min(offset + 0x8000, stored.bytes.length)));
+        }
+        const imageData = btoa(binary);
+        return json({ jsonrpc: "2.0", id, result: {
+          content: [
+            { type: "text", text: JSON.stringify(full, null, 2) },
+            { type: "image", data: imageData, mimeType: stored.metadata.type }
+          ],
+          structuredContent: full,
+          isError: false
+        } });
       } catch (error) { return json({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }] } }); }
     }
     return json({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } }, 404);
