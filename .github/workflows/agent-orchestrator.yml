@@ -1,6 +1,10 @@
 name: CSSBC Agent Orchestrator
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/agent-orchestrator.yml"
   issues:
     types: [opened, labeled]
   issue_comment:
@@ -116,6 +120,7 @@ jobs:
       group: cssbc-agent-builder-global
       cancel-in-progress: false
     if: >-
+      github.event_name == 'push' ||
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
