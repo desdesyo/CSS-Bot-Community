@@ -1,44 +1,54 @@
 # Autonomous Agent Team
 
-Three cooperating roles for the GitHub Chat project. This is workflow automation, not three independent LLM instances.
+The team is an auditable GitHub Actions orchestration pipeline backed by SOLO.Chat's Durable Object agent runtime. Roles are separate workflow stages and conversation threads; they are not separate permanently running servers or guaranteed different model instances.
 
-## Roles
+## Roles and actual responsibilities
 
 1. **Task Generator** (`.github/workflows/agent-task-generator.yml`)
-   - Runs on schedule and manual dispatch.
-   - Creates one actionable task Issue from `agent-team/TASK_QUEUE.md`.
-   - Uses labels `agent-task`, `agent-generated`, `status:queued`.
-   - Avoids duplicate open generated tasks by stable task key.
-   - Does not invent scope or modify production code.
-
-2. **Builder + Tester** (GitHub Chat CI and AI Tester Inbox #4)
-   - CI validates code and runs the Chat Tester.
-   - Failure report is posted to Issue #4 with commit/run links.
-   - The chat agent can inspect the failure and implement a fix on the development branch; CI then verifies it.
-
-3. **Supervisor** (`.github/workflows/agent-supervisor.yml`)
    - Runs on schedule/manual dispatch.
-   - Checks task issues for required labels, task key, acceptance criteria and evidence fields.
-   - Adds a supervision report/comment and labels violations `agent-review-needed`.
-   - Does not silently close tasks or approve unverified work.
+   - Converts the next unissued roadmap queue item into a GitHub Issue.
+   - Uses stable task keys to avoid duplicate open tasks.
+   - Does not claim to invent new roadmap work.
+
+2. **Orchestrator / Builder** (`.github/workflows/agent-orchestrator.yml`)
+   - Accepts queued task issues and failed CI/deployment runs.
+   - Moves issues from queued to in-progress.
+   - Sends bounded work to SOLO.Chat using a per-task durable thread.
+   - Collects the execution report and moves non-blocked work to review.
+   - Automatically creates a repair issue for failed build/test/deployment workflows.
+
+3. **Tester** (`GitHub Chat checks`, `CSSBC Core CI`, deploy smoke test)
+   - Runs regression tests and type checks.
+   - Deploy workflow performs an authenticated live health/version check after deployment.
+   - Failed checks trigger the orchestrator repair path.
+
+4. **Supervisor / Reviewer** (`.github/workflows/agent-supervisor.yml`)
+   - Checks issue lifecycle structure and evidence requirements.
+   - On review-state tasks, starts a separate read-only review conversation.
+   - Reviewer inspects acceptance criteria, current branch commit and CI evidence; insufficient evidence is REJECT.
+   - Review results are keyed to the current commit and CI state so later CI completion triggers a fresh review.
+   - The reviewer uses the same SOLO.Chat runtime/provider and credentials, but a separate durable conversation. This is role separation, not a security-isolated second model.
+
+5. **Health Monitor** (`.github/workflows/agent-health-monitor.yml`)
+   - Checks the authenticated deployed health endpoint every 10 minutes and after relevant workflow runs.
+   - Creates or updates one deduplicated self-heal task when the service is unavailable.
+   - If the app itself is offline, the monitor can report/queue a task but cannot call the unavailable in-app model; recovery then depends on GitHub Actions and available deployment credentials.
 
 ## Task lifecycle
 
 `queued → in-progress → review → done`
 
-A task is only done when implementation evidence and a successful relevant check are linked. A failed test returns it to `in-progress` and must link the tester report. The supervisor is a policy checker; it does not pretend to be an AI code reviewer.
+A task is never marked done solely because the builder returned a message. The independent reviewer must return PASS with evidence; the task still remains in review until a verified completion policy is satisfied. Failed tests/deployments create a new repair task. CI is authoritative for automated checks, not agent self-report.
+
+## Live interface updates
+
+The browser polls the authenticated Worker version endpoint every 30 seconds. When the Cloudflare version changes, it reloads after the current generation ends and the composer is empty. It preserves the current conversation and any unsent draft. The agent dashboard reads actual GitHub Actions runs and shows links to the runs; it does not simulate green status.
 
 ## Safety and limits
 
-- Generated tasks are bounded to the roadmap queue; no arbitrary production changes.
-- No secrets are stored in repository files.
-- CI tokens have minimum permissions.
-- A GitHub Actions workflow cannot inject events into this ChatGPT conversation. Issues are the automatic handoff channel; an active assistant session must read and act on them.
-- The current Task Generator selects a queued roadmap item; it does not use an LLM to brainstorm unlimited new work. This keeps tasks reviewable and prevents task spam.
-
-
-## Canonical SOLO.Chat link
-
-- The canonical user-facing application URL is `https://cssbc-github-chat.descapan.workers.dev`.
-- Whenever any agent shares, mentions, documents, or returns a link to the deployed chat, display the clickable link text exactly as **[SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev)**. Do not expose the raw URL as the visible link label unless the user explicitly asks for it.
-- Treat this as a global product convention for every agent, workflow report, generated instruction, README, and handoff. Do not invent alternate chat URLs or rename the product.
+- No self-modifying production deploys without CI and a post-deploy smoke check.
+- No credentials are stored in repository files.
+- The AI reviewer is a separate read-only instruction pass, not a separate permission boundary.
+- GitHub Actions workflows cannot inject events into the user's active ChatGPT conversation; the issue queue is the handoff channel.
+- If the deployed Worker is entirely unreachable, the monitor can create a GitHub repair issue but cannot use the same unavailable Worker to repair itself.
+- Canonical app: [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/).
