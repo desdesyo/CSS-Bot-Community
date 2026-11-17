@@ -714,15 +714,15 @@ LEARNING FROM CORRECTIONS
         const accepted = await this.ctx.blockConcurrencyWhile(async () => {
           const jobKey = "browser-chat:job:" + operationId;
           const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
-          if (!job) return { error: "Operation not found", status: 404 };
+          if (!job) return { error: "Operation not found", httpStatus: 404 };
           if (job.status !== "queued" && job.status !== "running") {
-            return { error: "Ответ уже завершается. Дополнение не принято — отправьте его следующим сообщением.", status: 409 };
+            return { error: "Ответ уже завершается. Дополнение не принято — отправьте его следующим сообщением.", httpStatus: 409 };
           }
           const followups = job.followups || [];
-          if (followups.length >= 20) return { error: "Для одного ответа можно добавить не более 20 сообщений.", status: 429 };
+          if (followups.length >= 20) return { error: "Для одного ответа можно добавить не более 20 сообщений.", httpStatus: 429 };
           const threadKey = "browser-chat:thread:" + job.threadId;
           const thread = await this.ctx.storage.get<any>(threadKey);
-          if (!thread) return { error: "Диалог не найден", status: 404 };
+          if (!thread) return { error: "Диалог не найден", httpStatus: 404 };
           followups.push(message);
           thread.messages.push({ role: "user", content: message, files: [], operationId, followup: true });
           thread.updatedAt = Date.now();
@@ -732,7 +732,7 @@ LEARNING FROM CORRECTIONS
           await this.ctx.storage.put(jobKey, job);
           return { accepted: true, status: job.status, followups: followups.length };
         });
-        if ("error" in accepted) return json({ error: accepted.error }, accepted.status);
+        if ("error" in accepted) return json({ error: accepted.error }, accepted.httpStatus);
         return json(accepted, 202);
       }
       if (url.pathname === "/api/chat/status" && req.method === "GET") {
