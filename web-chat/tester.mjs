@@ -6,6 +6,11 @@ const runtime = await readFile(new URL("./agent-runtime/src/index.ts", import.me
 const checks = [
  ["Worker validates APP_PASSWORD", /async function auth\(req,env\)[\s\S]*?safeEqual\(h,"Bearer "\+env\.APP_PASSWORD\)/.test(worker)],
  ["Health endpoint exists", /\/api\/health/.test(worker)],
+ ["Worker runtime exposes immutable Cloudflare version metadata", runtime.includes('url.pathname === "/api/version"') && runtime.includes("CF_VERSION_METADATA")],
+ ["Agent dashboard reports real GitHub Actions workflow states", runtime.includes('url.pathname === "/api/agents/status"') && runtime.includes("CSSBC Agent Orchestrator") && runtime.includes("Agent Supervisor Audit") && runtime.includes("GitHub Chat checks")],
+ ["Browser automatically polls for a new deployed version", html.includes('setInterval(checkLiveVersion,30000)') && html.includes('api("/api/version")')],
+ ["Live update preserves unsent draft and waits for active generation", html.includes("preserveForReload") && html.includes("applyPendingVersion") && html.includes("if(!pendingVersion||busy||$(\"prompt\").value.trim()||attachedFiles.length)return")],
+ ["Agent dashboard refreshes live workflow statuses", html.includes('api("/api/agents/status")') && html.includes('setInterval(loadAgentStatus,60000)')],
  ["Chat route exists", /\/api\/chat/.test(worker)],
  ["GitHub-backed thread/comment storage", /issues/.test(worker) && /comments/.test(worker)],
  ["Password gate exists", /id="password"/.test(html) && /async function unlock\(/.test(html)],
