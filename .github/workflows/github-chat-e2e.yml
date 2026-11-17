@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Verify deployed chat, authentication, AI reply, and history
         env:
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
         run: |
           set -euo pipefail
