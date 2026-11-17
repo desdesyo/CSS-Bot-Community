@@ -5,6 +5,9 @@ on:
     types: [opened, labeled]
   issue_comment:
     types: [created]
+  workflow_run:
+    workflows: ["GitHub Chat checks", "Deploy GitHub Chat to Cloudflare", "GitHub Chat live end-to-end test", "CSSBC Core CI"]
+    types: [completed]
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -52,16 +55,22 @@ jobs:
           done
 
   queue-ci-failure:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
     runs-on: ubuntu-latest
     steps:
-      - name: Scan recent CI/deploy failures and enqueue deduplicated repair tasks
+      - name: Scan or ingest CI/deploy failures and enqueue deduplicated repair tasks
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_JSON: ${{ toJSON(github.event.workflow_run) }}
         run: |
           set -euo pipefail
-          RUNS="$(gh api "repos/$SOURCE_REPO/actions/runs?per_page=100")"
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            RUNS="$(jq -n --argjson run "$WORKFLOW_RUN_JSON" '{workflow_runs:[$run]}')"
+          else
+            RUNS="$(gh api "repos/$SOURCE_REPO/actions/runs?per_page=100")"
+          fi
           jq -c '.workflow_runs[] | select(.status=="completed" and .conclusion=="failure" and ((.name=="GitHub Chat checks" and .head_branch=="github-chat-prototype") or (.name=="Deploy GitHub Chat to Cloudflare" and .head_branch=="github-chat-prototype") or (.name=="GitHub Chat live end-to-end test") or (.name=="CSSBC Core CI" and (.head_branch=="main" or .head_branch=="sdk-foundation"))))' <<<"$RUNS" | while IFS= read -r RUN; do
             RUN_ID="$(jq -r .id <<<"$RUN")"
             RUN_NAME="$(jq -r .name <<<"$RUN")"
