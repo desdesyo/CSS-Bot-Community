@@ -23,8 +23,10 @@ interface Env {
 }
 interface ComputerTask {
   id: string;
-  action: "system_info" | "list_directory" | "read_text_file";
+  action: "system_info" | "list_directory" | "read_text_file" | "write_text_file";
   path: string;
+  content?: string;
+  expectedSha256?: string;
   createdAt: number;
 }
 interface BrowserChatJob {
@@ -434,6 +436,27 @@ LEARNING FROM CORRECTIONS
             queue.push(task);
             await storage.put(key, queue);
             return textOutput({ queued: true, deviceId, taskId: task.id, action, status: "waiting for local agent" });
+          }
+        },
+        {
+          name: "computer_write_text_file",
+          description: "Request creation or editing of a UTF-8 source/config text file on the paired Windows computer. The local agent checks the exact expected SHA-256, creates a verified backup, displays the target and hashes, and requires the user to type APPLY locally before changing anything. Use expectedSha256='NEW' only when the target must not already exist. No shell execution or binary/core DLL writes.",
+          parameters: obj({ path: str(), content: str(), expectedSha256: str() }),
+          replay: "unsafe",
+          async execute({ path, content, expectedSha256 }: { path: string; content: string; expectedSha256: string }) {
+            if (!path || path.length > 1024) throw new Error("A valid local file path is required");
+            if (new TextEncoder().encode(content).length > 256 * 1024) throw new Error("Local text file write is limited to 256 KB");
+            if (expectedSha256 !== "NEW" && !/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Provide the exact expected SHA-256 or NEW for a new file");
+            const devices = await storage.get<string[]>("computer:devices") || [];
+            const deviceId = devices[0];
+            if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to pair the Windows companion first.");
+            const task: ComputerTask = { id: crypto.randomUUID(), action: "write_text_file", path, content, expectedSha256, createdAt: Date.now() };
+            const key = "computer:queue:" + deviceId;
+            const queue = await storage.get<ComputerTask[]>(key) || [];
+            if (queue.length >= 20) throw new Error("Computer task queue is full");
+            queue.push(task);
+            await storage.put(key, queue);
+            return textOutput({ queued: true, deviceId, taskId: task.id, action: "write_text_file", status: "waiting for local approval in the Windows companion", expectedSha256 });
           }
         }
       ]
