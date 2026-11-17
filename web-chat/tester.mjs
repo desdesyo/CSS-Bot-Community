@@ -7,7 +7,9 @@ const wrangler = await readFile(new URL("./wrangler.toml", import.meta.url), "ut
 const deploy = await readFile(new URL("../.github/workflows/deploy-github-chat.yml", import.meta.url), "utf8");
 const e2e = await readFile(new URL("../.github/workflows/github-chat-e2e.yml", import.meta.url), "utf8");
 const projectSkill = await readFile(new URL("../agent-skills/css-v34-project-context.md", import.meta.url), "utf8");
+const githubCheckRoute = runtime.slice(runtime.indexOf('if (url.pathname === "/api/agent/github-check"'), runtime.indexOf('if (url.pathname === "/api/agent/model-check"'));
 const checks = [
+ ["Request-scoped GitHub diagnostic credentials are never persisted", githubCheckRoute.includes("supplied.githubToken") && githubCheckRoute.includes("}, token)") && !githubCheckRoute.includes("storage.put")],
  ["GitHub workspace diagnostic accepts a request-scoped Actions token without persisting it", runtime.includes('req.method === "GET" || req.method === "POST"') && runtime.includes("supplied.githubToken || this.env.GITHUB_TOKEN") && runtime.includes('credentialSource: supplied.githubToken ? "request-scoped GitHub Actions token"') && runtime.includes("}, token)")],
  ["Live E2E proves GitHub Contents writes with a short-lived least-privilege workflow token", e2e.includes("contents: write") && e2e.includes("GH_TOKEN: ${{ github.token }}") && e2e.includes("github-check-request.json") && e2e.includes("--data @github-check-request.json")],
  ["Public GitHub repositories remain readable without a Worker token, while all GitHub mutations require authentication", runtime.includes('if (!token && !["GET", "HEAD"].includes(method))') && runtime.includes('GitHub write access is not configured') && runtime.includes('if (token) headers.Authorization = "Bearer " + token')],
