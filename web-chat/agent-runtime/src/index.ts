@@ -1057,7 +1057,7 @@ LEARNING FROM CORRECTIONS
         }
         const reply = (data.candidates || []).flatMap((candidate: any) => candidate.content?.parts || [])
           .filter((part: any) => typeof part.text === "string" && !part.thought)
-          .map((part: any) => String(part.text)).join("\\n").trim();
+          .map((part: any) => String(part.text)).join("\n").trim();
         if (!reply) throw new Error("Gemini returned no text (finishReason: " + String(data.candidates?.[0]?.finishReason || "unknown") + ")");
         return { reply, model: String(data.modelVersion || model), provider: "gemini" };
       } catch (error) { failures.push("Gemini: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
