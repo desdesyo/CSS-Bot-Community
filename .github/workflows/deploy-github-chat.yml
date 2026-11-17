@@ -32,6 +32,22 @@ jobs:
         working-directory: web-chat
         run: npm run check
 
+      - name: Run chat regression tests
+        working-directory: web-chat
+        run: npm test
+
+      - name: Ensure private attachment bucket exists
+        working-directory: web-chat
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler r2 bucket list --json > /tmp/solo-r2-buckets.json
+          if ! grep -q 'solo-chat-files' /tmp/solo-r2-buckets.json; then
+            npx wrangler r2 bucket create solo-chat-files
+          fi
+
       - name: Sync chat password and deploy Worker
         working-directory: web-chat
         env:
