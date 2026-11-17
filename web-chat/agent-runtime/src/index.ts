@@ -377,8 +377,11 @@ export class AgentSession extends DurableObject<Env> {
     }
     const session = this.harness.session(sessionId);
     const receipt = await session.submit(prompt, { operationId });
-    const result = await this.harness.wait(receipt.operationId);
-    return { reply: result.text || "", status: result.status, operationId: receipt.operationId, sessionId };
+    const result = await this.harness.wait(receipt.operationId, { session: sessionId });
+    if (result.status !== "done") throw new Error("AI operation was not answered: " + String(result.reason || result.status));
+    const reply = String(result.text || "").trim();
+    if (!reply) throw new Error("AI operation completed without assistant text");
+    return { reply, status: result.status, operationId: receipt.operationId, sessionId };
   }
   private requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
