@@ -56,6 +56,10 @@ jobs:
             grep -q '## Evidence' <<<"$BODY" || VIOLATIONS+=("missing Evidence section")
             STATUS_COUNT="$(grep -Ec '^status:' <<<"$LABELS" || true)"
             [[ "$STATUS_COUNT" == "1" ]] || VIOLATIONS+=("exactly one status:* label required")
+            if grep -qx 'status:done' <<<"$LABELS"; then
+              grep -Eq 'Implementation: https?://' <<<"$BODY" || VIOLATIONS+=("done without implementation link")
+              grep -Eq 'Verification run: https?://' <<<"$BODY" || VIOLATIONS+=("done without verification run link")
+            fi
             if [[ "${#VIOLATIONS[@]}" -gt 0 ]]; then
               REPORT="### Supervisor audit — review required"$'\n'"- $(printf '%s\n' "${VIOLATIONS[@]}" | paste -sd '; ' -)"
               gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
@@ -70,7 +74,8 @@ jobs:
               fi
               HEAD_SHA="$(gh api "repos/$REPO/commits/github-chat-prototype" --jq .sha)"
               RUNS="$(gh api "repos/$REPO/actions/runs?branch=github-chat-prototype&per_page=40")"
-              CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")) end' <<<"$RUNS")"
+              CI_STATE="$(jq -r '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | if . == null then "none" else ((.id|tostring)+":"+.status+":" + (.conclusion//"pending")+":"+.head_sha) end' <<<"$RUNS")"
+              CI_MATCH="$(jq -r --arg sha "$HEAD_SHA" '[.workflow_runs[]|select(.name=="GitHub Chat checks")][0] | (. != null and .status=="completed" and .conclusion=="success" and .head_sha==$sha)' <<<"$RUNS")"
               REVIEW_MARKER="<!-- supervisor-review:$HEAD_SHA:$CI_STATE -->"
               COMMENTS="$(gh api "repos/$REPO/issues/$NUMBER/comments?per_page=100")"
               if jq -e --arg marker "$REVIEW_MARKER" 'any(.[]; (.body//"")|contains($marker))' <<<"$COMMENTS" >/dev/null; then
@@ -87,10 +92,13 @@ jobs:
               fi
               { printf '%s\n\n' "$REVIEW_MARKER"; jq -r '.reply' review.json; } > review-report.md
               gh issue comment "$NUMBER" --repo "$REPO" --body-file review-report.md >/dev/null
-              if grep -q 'VERDICT: PASS' review-report.md; then
+              if grep -q 'VERDICT: PASS' review-report.md && [[ "$CI_MATCH" == "true" ]]; then
                 gh issue edit "$NUMBER" --repo "$REPO" --remove-label agent-review-needed >/dev/null 2>&1 || true
               else
                 gh issue edit "$NUMBER" --repo "$REPO" --add-label agent-review-needed >/dev/null
+                if [[ "$CI_MATCH" != "true" ]]; then
+                  gh issue comment "$NUMBER" --repo "$REPO" --body "Supervisor gate: latest GitHub Chat checks are not a successful run for the current branch commit $HEAD_SHA. Reviewer PASS cannot override a missing/mismatched CI result." >/dev/null
+                fi
               fi
             fi
           done
