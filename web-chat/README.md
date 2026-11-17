@@ -181,3 +181,10 @@ The remote MCP endpoint is Streamable HTTP, while the community Web MCP Bridge s
 4. Keep the permission at **Ask every time**. In ChatGPT Web, inject the bridge instructions and ask it to generate an image using `solo-chat`.
 
 The bridge is a community extension, not an OpenAI feature. It requires a desktop browser and the extension running locally; it does not work in the ChatGPT Android app. The adapter only exposes the SOLO.Chat image tool and forwards its result. It does not expose GitHub, shell, filesystem or other SOLO.Chat tools.
+
+
+### Image provider routing and quota recovery
+
+Image generation defaults to Cloudflare Workers AI FLUX.1 Schnell only. The runtime records provider failures in Durable Object storage and opens a circuit after quota/rate-limit failures; Cloudflare quota failures remain bypassed until shortly after the next UTC daily reset. Temporary provider errors use a short cooldown. Generated payloads are still checked against JPEG/PNG/WebP signatures before being stored.
+
+A paid image fallback is deliberately **off by default**. To opt in, configure the repository Actions secret `CSSBC_IMAGE_PROVIDER_ORDER` as `cloudflare,openai` (and ensure `CSSBC_OPENAI_API_KEY` is configured). This enables the OpenAI Images API as a second provider only after Cloudflare fails or is circuit-open. OpenAI image requests may incur charges; the runtime never enables this fallback merely because an OpenAI text key exists. Set the secret to `cloudflare` or leave it unset to remain free-tier-only. The optional Worker secret `IMAGE_OPENAI_MODEL` can override the default image model.
