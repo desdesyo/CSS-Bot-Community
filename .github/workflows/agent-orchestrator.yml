@@ -15,7 +15,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   issues: write
 
@@ -72,7 +72,7 @@ jobs:
             else
               TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
             fi
-            EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg prefix "[Self-Heal] $RUN_NAME failed (" --arg target "$TARGET_REPO@$TARGET_BRANCH" '[.[]|select(.pull_request==null and (.title|startswith($prefix)) and ((.body//"")|contains("Agent-Target: "+$target)))][0].number // empty')"
+            EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg prefix "[Self-Heal] $RUN_NAME failed (" --arg target "$TARGET_REPO@$TARGET_BRANCH" '[.[]|select(.pull_request==null and (.title|startswith($prefix)) and ((.body//"")|contains("Agent-Target: "+$target)) and (.labels|any(.name=="status:queued" or .name=="status:in-progress" or .name=="status:review")))][0].number // empty')"
             if [[ -n "$EXISTING" ]]; then
               REPEAT_BODY="$(printf 'Repeated failure detected.\nWorkflow run: %s/%s/actions/runs/%s\nBranch: %s\nCommit: %s\n' "$GITHUB_SERVER_URL" "$SOURCE_REPO" "$RUN_ID" "$RUN_BRANCH" "$RUN_SHA")"
               gh issue comment "$EXISTING" --repo "$SOURCE_REPO" --body "$REPEAT_BODY"
