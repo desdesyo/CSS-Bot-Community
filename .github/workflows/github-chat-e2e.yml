@@ -36,9 +36,14 @@ jobs:
             -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
-          echo "2/5 Verify the orchestrator API and GitHub workspace access..."
-          jq -n --arg prompt "Call github_list_files with path web-chat. Return the actual filenames from the tool result and include worker.js if it is present. Do not guess." \
-            --arg threadKey "e2e-github-${GITHUB_RUN_ID}" \
+          echo "2/5 Verify GitHub workspace credentials and repository access..."
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "$AUTH" "$ENDPOINT/api/agent/github-check" > github-check.json
+          jq -e '.ok == true and any(.files[]; .name=="worker.js")' github-check.json >/dev/null
+
+          echo "3/5 Verify the orchestrator agent chat endpoint..."
+          jq -n --arg prompt "Reply with exactly this marker: CSSBC_AGENT_E2E_${GITHUB_RUN_ID}" \
+            --arg threadKey "e2e-agent-${GITHUB_RUN_ID}" \
             '{prompt:$prompt,threadKey:$threadKey}' > agent-payload.json
           AGENT_CODE="$(curl --silent --show-error --max-time 900 -w '%{http_code}' -o agent-response.json \
             -H "$AUTH" -H "Content-Type: application/json" \
@@ -47,7 +52,7 @@ jobs:
             echo "::error::Agent API returned HTTP $AGENT_CODE: $(head -c 500 agent-response.json)"
             exit 1
           fi
-          jq -e '.reply|type=="string" and length>0 and contains("worker.js")' agent-response.json >/dev/null
+          jq -e --arg marker "CSSBC_AGENT_E2E_${GITHUB_RUN_ID}" '.reply|type=="string" and contains($marker)' agent-response.json >/dev/null
 
           echo "3/5 Send a real message through the browser chat API..."
           MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
