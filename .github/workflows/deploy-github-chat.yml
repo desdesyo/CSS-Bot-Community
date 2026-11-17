@@ -148,7 +148,7 @@ jobs:
           fi
           echo "Checking actual Pi harness tool execution..."
           HARNESS_CODE="$(curl --silent --show-error --max-time 240 -o harness-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/harness-check" || true)"
-          if [[ "$HARNESS_CODE" != "200" ]] || ! jq -e '.ok == true and .toolExecution == true and (.reply|contains("SOLO_CHAT_HARNESS_OK"))' harness-check.json >/dev/null; then
+          if [[ "$HARNESS_CODE" != "200" ]] || ! jq -e '.ok == true and .toolExecution == true and .minimalToolExecution == true and .fullToolExecution == true and (.reply|contains("SOLO_CHAT_HARNESS_OK"))' harness-check.json >/dev/null; then
             echo "::error::Pi harness tool execution failed with HTTP $HARNESS_CODE"
             cat harness-check.json
             exit 1
