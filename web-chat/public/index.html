@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#101114"><title>SOLO.Chat</title>
@@ -19,10 +19,10 @@ button,input,textarea{font:inherit}button{cursor:pointer;color:inherit;border:1p
 </style>
 </head>
 <body>
-<div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Private access. Enter the chat password configured by the administrator.</p><input id="password" type="password" placeholder="Access password" autocomplete="current-password"><label class="remember-device"><input id="rememberDevice" type="checkbox" checked> Запомнить это устройство на 30 дней</label><button id="unlock">Open chat</button><p id="gateError" role="alert"></p></div></div>
+<div id="gate"><div class="gatebox"><h2>SOLO.Chat</h2><p>Закрытый доступ. Введите пароль для входа.</p><input id="password" type="password" placeholder="Пароль" autocomplete="current-password"><label class="remember-device"><input id="rememberDevice" type="checkbox" checked> Запомнить это устройство на 30 дней</label><button id="unlock">Войти</button><p id="gateError" role="alert"></p></div></div>
 <div class="app">
-<aside class="side"><div class="brand">SOLO<span>.Chat</span></div><button class="new" id="newChat" aria-label="Создать новый диалог"><span class="new-icon" aria-hidden="true">＋</span><span>Новый диалог</span></button><div class="threads-heading">История диалогов</div><div class="threads" id="threads" aria-label="История диалогов"><div class="threads-empty">Здесь появятся ваши диалоги</div></div><div class="sidefoot">Conversation history is stored securely and can be reopened later.<br><span id="connection">Not connected</span></div></aside>
-<main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">New conversation</span></div><div class="status" id="status">Private workspace</div></header><section class="messages" id="messages"><div class="welcome"><h1>What shall we work on?</h1><div>Messages are saved automatically so the conversation can be reopened later.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Connect computer</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Ask, research, or work with the connected GitHub repository…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">Can answer questions, research, work with the connected repository, and inspect your paired computer.</div></div></main>
+<aside class="side"><div class="brand">SOLO<span>.Chat</span></div><button class="new" id="newChat" aria-label="Создать новый диалог"><span class="new-icon" aria-hidden="true">＋</span><span>Новый диалог</span></button><div class="threads-heading">История диалогов</div><div class="threads" id="threads" aria-label="История диалогов"><div class="threads-empty">Здесь появятся ваши диалоги</div></div><div class="sidefoot">История диалогов сохраняется и доступна для повторного открытия.<br><span id="connection">Нет подключения</span></div></aside>
+<main class="main"><header class="top"><div><button class="mobile" id="mobileNew">＋</button> <span id="chatTitle">Новый диалог</span></div><div class="status" id="status">Личное пространство</div></header><section class="messages" id="messages"><div class="welcome"><h1>С чего начнём?</h1><div>Сообщения сохраняются автоматически.</div></div></section><div class="composer-wrap"><div class="toolrow"><input id="filePicker" type="file" multiple hidden><button type="button" id="attach" hidden>＋ Прикрепить файлы</button><button type="button" id="webSearch" aria-pressed="false">⌕ Поиск в интернете: off</button><button type="button" id="myFiles" hidden>Мои файлы</button><button type="button" id="computerConnect">Подключить компьютер</button><span id="toolFeedback"></span></div><div id="fileLibrary" class="file-library" hidden></div><div id="attachments" class="attachments"></div><div class="composer"><textarea id="prompt" rows="1" placeholder="Напишите задачу или вопрос…"></textarea><button class="send" id="send">Отправить</button></div><div class="hint">SOLO.Chat поможет с вопросами, исследованиями и работой над проектами.</div></div></main>
 </div>
 <script>
 const $=id=>document.getElementById(id);let token="",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,activeOperationId=null,attachedFiles=[],webSearchEnabled=false;
@@ -85,8 +85,8 @@ async function loadThreads(){
  }
  $("connection").textContent="Подключено · "+threads.length+" диалогов";
 }
-async function openThread(n){thread=n;localStorage.setItem("ghchat_thread",String(n));setStatus("Loading history…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=safeThreadTitle(d.title,n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content,m.files||[]);await loadThreads();setStatus("Saved · #"+n)}
-function newChat(){thread=null;localStorage.removeItem("ghchat_thread");$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("New conversation")}
+async function openThread(n){thread=n;localStorage.setItem("ghchat_thread",String(n));setStatus("Загружаю историю…");const d=await api("/api/messages?thread="+encodeURIComponent(n));$("chatTitle").textContent=safeThreadTitle(d.title,n);$("messages").innerHTML="";if(!d.messages.length)showWelcome();for(const m of d.messages)addMessage(m.role,m.content,m.files||[]);await loadThreads();setStatus("Сохранено · №"+n)}
+function newChat(){thread=null;localStorage.removeItem("ghchat_thread");$("chatTitle").textContent="New conversation";showWelcome();$("threads").querySelectorAll(".thread").forEach(x=>x.classList.remove("active"));$("prompt").focus();setStatus("Новый диалог")}
 
 
 async function downloadStoredFile(file){
@@ -145,7 +145,7 @@ async function send(){
  try{
   const accepted=await api("/api/chat",{method:"POST",body:JSON.stringify({thread:operationThread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled,operationId})});
   thread=accepted.thread;operationThread=accepted.thread;localStorage.setItem("ghchat_thread",String(thread));
-  $("chatTitle").textContent=accepted.title||("Conversation #"+thread);
+  $("chatTitle").textContent=accepted.title||("Диалог №"+thread);
   attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";
   let result=null,lastNetworkError=null;
   while(Date.now()-started<210000){
