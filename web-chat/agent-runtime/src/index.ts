@@ -1002,7 +1002,7 @@ LEARNING FROM CORRECTIONS
         if (cached && Date.now() - cached.checkedAt < 20000) return json({ ...cached.data, cached: true });
         const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
         if (this.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + this.env.GITHUB_TOKEN;
-        const response = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?branch=github-chat-prototype&per_page=40", { headers });
+        const response = await fetch("https://api.github.com/repos/desdesyo/CSS-Bot-Community/actions/runs?per_page=100", { headers });
         if (!response.ok) return json({ error: "GitHub Actions status unavailable", upstreamStatus: response.status }, 502);
         const payload: any = await response.json();
         const runs: any[] = Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
@@ -1030,7 +1030,7 @@ LEARNING FROM CORRECTIONS
           { id: "e2e", label: "E2E-проверка", workflow: "GitHub Chat live end-to-end test" }
         ].map(role => {
           const run = runs.find(item => item.name === role.workflow);
-          return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null };
+          return { ...role, status: run?.status || "not_started", conclusion: run?.conclusion || null, url: run?.html_url || null, updatedAt: run?.updated_at || run?.created_at || null, commit: run?.head_sha || null, branch: run?.head_branch || null };
         });
         const data = { roles, queue, checkedAt: Date.now(), source: "GitHub Actions + Issues" };
         await this.ctx.storage.put("agents:status-cache", { checkedAt: Date.now(), data });
