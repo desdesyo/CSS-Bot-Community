@@ -530,6 +530,18 @@ export class AgentSession extends DurableObject<Env> {
         for (const id of ids) devices.push(await this.ctx.storage.get<any>("computer:device:" + id));
         return json({ devices: devices.filter(Boolean) });
       }
+      if (url.pathname === "/api/agent/github-check" && req.method === "GET") {
+        this.requirePassword(req);
+        try {
+          const repo = String(this.env.GITHUB_WORK_REPO || "");
+          const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
+          const files = await github(this.env, "/repos/" + repo + "/contents/web-chat?ref=" + encodeURIComponent(branch));
+          return json({ ok: true, repo, branch, files: Array.isArray(files) ? files.map((file: any) => ({ name: file.name, type: file.type })) : [] });
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
+          return json({ ok: false, error: detail }, 503);
+        }
+      }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         this.requirePassword(req);
         const body = await req.json() as any;
