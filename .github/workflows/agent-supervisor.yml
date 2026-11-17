@@ -7,7 +7,7 @@ on:
   issues:
     types: [opened, edited, labeled]
   workflow_run:
-    workflows: ["CSSBC Agent Orchestrator", "GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
+    workflows: ["GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
     types: [completed]
 
 permissions:
