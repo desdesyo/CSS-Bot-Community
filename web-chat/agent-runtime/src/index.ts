@@ -23,7 +23,7 @@ interface Env {
 }
 interface ComputerTask {
   id: string;
-  action: "system_info" | "list_directory" | "read_text_file" | "write_text_file" | "install_smx";
+  action: "system_info" | "list_directory" | "read_text_file" | "write_text_file" | "install_smx" | "hash_file";
   path: string;
   content?: string;
   expectedSha256?: string;
@@ -204,7 +204,7 @@ PROJECT CONSTRAINTS
 - Do not claim GitHub workspace, computer bridge, R2, model provider or integration is active merely because code exists; verify configuration and a real request.
 - For CSS Overhaul source/config changes, inspect modhaul and the game installation first; use GitHub commits for source edits. For local text/config files, use computer_write_text_file only after reading the current file and SHA-256. The Windows companion will display the exact path, create a verified backup, and require local APPLY confirmation. Poll computer_task_result until a real result is returned. Do not report a local edit as complete while it is merely queued.
 - The read_text_file result includes sha256. Use that exact value as expectedSha256 when updating an existing local file; use NEW only after confirming the destination does not exist. For a new file, the destination parent must already exist. After a write, inspect computer_task_result and verify ok=true plus status=written_and_verified; if needed, read the file again and compare SHA-256. If the local user declines APPLY, report cancelled without retrying or bypassing approval.
-- A compiled SourceMod plugin may be installed only with computer_install_smx, only into cstrike/addons/sourcemod/plugins/, from an HTTPS GitHub URL, with a verified package SHA-256 and the exact expected current-file SHA-256 (or NEW). The local companion verifies redirects/hosts, downloads at most 10 MB, backs up the existing plugin, asks for local APPLY, writes atomically and verifies the installed hash. Poll computer_task_result and require status=smx_installed_and_verified. Never use this for DLL/EXE or engine files.
+- Before replacing an existing binary plugin, use computer_request with action=hash_file to obtain its current SHA-256 without uploading the binary. A compiled SourceMod plugin may be installed only with computer_install_smx, only into cstrike/addons/sourcemod/plugins/, from an HTTPS GitHub URL, with a verified package SHA-256 and the exact expected current-file SHA-256 (or NEW). The local companion verifies redirects/hosts, downloads at most 10 MB, backs up the existing plugin, asks for local APPLY, writes atomically and verifies the installed hash. Poll computer_task_result and require status=smx_installed_and_verified. Never use this for DLL/EXE or engine files.
 - Binary .smx/.dll/.exe deployment is NOT supported by the text writer. Build and hash a proper install package first; never rename binary data as text or overwrite core engine DLLs.
 - Known project identity: source repository desdesyo/CSS-Bot-Community, branch github-chat-prototype; primary CSS Overhaul workspace desdesyo/modhaul, branch main; game root C:\\Games\\Counter-Strike Source v34; product name SOLO.Chat. Verify branch/deployment state before relying on it.
 - CANONICAL CHAT LINK: whenever sharing the deployed app, render the clickable link with the exact visible label [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/). This is mandatory for every agent response, generated report, handoff and instruction; never substitute a repository/workflow link.
@@ -436,11 +436,11 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "computer_request",
-          description: "Queue a read-only task for the paired local computer agent. Actions: system_info, list_directory, read_text_file.",
+          description: "Queue a read-only task for the paired local computer agent. Actions: system_info, list_directory, read_text_file, hash_file (hash only, no file contents).",
           parameters: obj({ action: str(), path: str() }),
           replay: "unsafe",
           async execute({ action, path }: { action: string; path: string }) {
-            if (!["system_info", "list_directory", "read_text_file"].includes(action)) throw new Error("Unsupported or write-capable computer action");
+            if (!["system_info", "list_directory", "read_text_file", "hash_file"].includes(action)) throw new Error("Unsupported or write-capable computer action");
             const devices = await storage.get<string[]>("computer:devices") || [];
             const deviceId = devices[0];
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to create a pairing code.");
