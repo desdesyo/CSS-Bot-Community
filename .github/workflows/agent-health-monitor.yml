@@ -41,7 +41,7 @@ jobs:
             exit 0
           fi
           BODY="$(printf 'Task-Key: AUTO-HEALTH\n\n## Objective\nRestore the deployed SOLO.Chat service. Authenticated health endpoint returned HTTP %s.\n\n## Acceptance criteria\n- Identify whether the failure is DNS, TLS, Worker routing, authentication, Durable Object runtime, or deployment propagation.\n- Repair the root cause with the smallest safe change.\n- Run GitHub Chat checks and deploy smoke test successfully.\n- Preserve the last known working user data and never expose credentials.\n\n## Evidence\n- Health endpoint: %s/api/health\n- Response code: %s\n- Body: %s\n- Implementation: pending\n- Verification run: pending\n' "$CODE" "$ENDPOINT" "$CODE" "$(cat health.json 2>/dev/null || echo 'No response body')")"
-          gh label create agent-health-alert --repo "$REPO" --color d73a4a --force >/dev/null 2>&1 || true
+          for name in agent-task agent-generated status:queued agent-health-alert; do gh label create "$name" --repo "$REPO" --color d73a4a --force >/dev/null 2>&1 || true; done
           EXISTING="$(gh api "repos/$REPO/issues?state=open&per_page=100" | jq -r '[.[]|select(.pull_request==null and (.labels|any(.name=="agent-health-alert")))][0].number // empty')"
           if [[ -n "$EXISTING" ]]; then
             gh issue comment "$EXISTING" --repo "$REPO" --body "Health check still failing: HTTP $CODE. Monitor run: $GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" >/dev/null
