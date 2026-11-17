@@ -7,6 +7,7 @@ const wrangler = await readFile(new URL("./wrangler.toml", import.meta.url), "ut
 const deploy = await readFile(new URL("../.github/workflows/deploy-github-chat.yml", import.meta.url), "utf8");
 const projectSkill = await readFile(new URL("../agent-skills/css-v34-project-context.md", import.meta.url), "utf8");
 const checks = [
+ ["Public GitHub repositories remain readable without a Worker token, while all GitHub mutations require authentication", runtime.includes('if (!token && !["GET", "HEAD"].includes(method))') && runtime.includes('GitHub write access is not configured') && runtime.includes('if (token) headers.Authorization = "Bearer " + token')],
  ["Pi harness registers Gemini, OpenRouter, OpenAI and Groq as tool-capable providers", runtime.includes('openrouterProvider') && runtime.includes('openaiProvider') && runtime.includes('groqProvider') && runtime.includes('models.setProvider(this.openrouter)') && runtime.includes('models.setProvider(this.openai)') && runtime.includes('models.setProvider(this.groq)')],
  ["Workers AI quota circuit only bypasses the harness when no external tool-capable provider is configured", runtime.includes('!this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY')],
  ["SOLO.Chat has a privacy-filtered live UI inspection API and model tool", runtime.includes('name: "solo_ui_inspect"') && runtime.includes('/api/ui/inspection') && runtime.includes('solo:ui:inspection')],
