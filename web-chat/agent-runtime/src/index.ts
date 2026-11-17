@@ -1467,13 +1467,48 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/threads" && req.method === "GET") {
         await this.requirePassword(req);
         const ids = await this.ctx.storage.get<number[]>("browser-chat:threads") || [];
-        const threads = [];
+        const threads: Array<{ number: number; title: string; updated_at: number }> = [];
+        const seen = new Map<string, number>(), duplicates: number[] = [];
         for (const id of ids) {
           const item = await this.ctx.storage.get<any>("browser-chat:thread:" + id);
-          if (item) threads.push({ number: id, title: item.title, updated_at: item.updatedAt });
+          if (!item || (item.createdBy && item.createdBy !== "user") || item.origin === "agent" || item.visibility === "internal") continue;
+          const messages = Array.isArray(item.messages) ? item.messages : [];
+          const signatureSource = messages.map((m: any) => ({ role: String(m?.role || ""), content: String(m?.content || "").trim().replace(/\s+/g, " "), files: Array.isArray(m?.files) ? m.files.map((f: any) => String(f?.id || f?.name || "")).sort() : [] }));
+          if (signatureSource.length) {
+            const signature = await sha256(JSON.stringify(signatureSource)), previous = seen.get(signature);
+            if (previous !== undefined) {
+              const prev = await this.ctx.storage.get<any>("browser-chat:thread:" + previous);
+              if (Number(item.updatedAt || item.createdAt || 0) > Number(prev?.updatedAt || prev?.createdAt || 0)) { duplicates.push(previous); seen.set(signature, id); }
+              else duplicates.push(id);
+              continue;
+            }
+            seen.set(signature, id);
+          }
+          threads.push({ number: id, title: item.title, updated_at: Number(item.updatedAt || item.createdAt || 0) });
+        }
+        if (duplicates.length) {
+          await this.ctx.storage.put("browser-chat:threads", ids.filter(id => !duplicates.includes(id)));
+          for (const id of duplicates) await this.ctx.storage.delete("browser-chat:thread:" + id);
+          const memory = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
+          const keys = Array.from(memory.entries()).filter(([, value]: any) => duplicates.includes(Number(value?.threadId))).map(([key]) => key);
+          if (keys.length) await this.ctx.storage.delete(keys);
+          for (const id of duplicates) {
+            const indexed = await this.ctx.storage.list<boolean>({ prefix: "memory:indexed:" + id + ":" });
+            if (indexed.size) await this.ctx.storage.delete(Array.from(indexed.keys()));
+          }
         }
         threads.sort((a, b) => b.updated_at - a.updated_at);
-        return json({ threads });
+        return json({ threads, duplicatesRemoved: duplicates.length });
+      }
+      if (url.pathname === "/api/search-history" && req.method === "DELETE") {
+        await this.requirePassword(req);
+        const prefixes = ["search:history:", "web-search:history:", "browser-search:history:"];
+        let removed = 0;
+        for (const prefix of prefixes) {
+          const entries = await this.ctx.storage.list({ prefix });
+          if (entries.size) { await this.ctx.storage.delete(Array.from(entries.keys())); removed += entries.size; }
+        }
+        return json({ cleared: true, removed, note: "Search history is stored separately from conversation messages." });
       }
       if (url.pathname === "/api/messages" && req.method === "GET") {
         await this.requirePassword(req);
@@ -1619,6 +1654,8 @@ LEARNING FROM CORRECTIONS
           await this.ctx.storage.put("browser-chat:next-id", threadId + 1);
           item = {
             id: threadId,
+            createdBy: "user",
+            visibility: "private",
             title: "Chat: " + visibleMessage.replace(/\s+/g, " ").slice(0, 72),
             createdAt: Date.now(),
             updatedAt: Date.now(),
