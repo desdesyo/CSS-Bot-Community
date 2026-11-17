@@ -32,3 +32,24 @@ export function validateWriteRequest({ targetPath, contentBytes, expectedSha256,
     throw new Error("SHA-256 conflict: expected " + expected + ", actual " + actual + ". No file was changed.");
   return true;
 }
+
+export function validateSmxInstallRequest({ relativeTarget, sourceUrl, expectedSha256, actualSha256, contentBytes }) {
+  if (typeof relativeTarget !== "string" || relativeTarget.includes("\\\\") || relativeTarget.startsWith("/") ||
+      relativeTarget.split("/").some(part => !part || part === "." || part === ".."))
+    throw new Error("Plugin destination must be a clean relative path under cstrike/addons/sourcemod/plugins/");
+  const normalized = relativeTarget.toLowerCase();
+  if (!normalized.startsWith("cstrike/addons/sourcemod/plugins/") || !normalized.endsWith(".smx"))
+    throw new Error("Only .smx files inside cstrike/addons/sourcemod/plugins/ can be installed");
+  if (!Number.isInteger(contentBytes) || contentBytes < 1 || contentBytes > 10 * 1024 * 1024)
+    throw new Error("Compiled plugin size must be between 1 byte and 10 MB");
+  const url = new URL(sourceUrl);
+  const allowedHosts = new Set(["raw.githubusercontent.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
+  if (url.protocol !== "https:" || !allowedHosts.has(url.hostname.toLowerCase()))
+    throw new Error("Plugin source must be an HTTPS GitHub URL");
+  if (!/^[a-f0-9]{64}$/i.test(String(actualSha256 || "")) ||
+      !/^[a-f0-9]{64}$/i.test(String(expectedSha256 || "")) && expectedSha256 !== "NEW")
+    throw new Error("Plugin source and current-file SHA-256 values are required");
+  if (expectedSha256.toLowerCase() !== String(actualSha256 || "").toLowerCase())
+    throw new Error("Current plugin SHA-256 conflict; no file was changed");
+  return true;
+}
