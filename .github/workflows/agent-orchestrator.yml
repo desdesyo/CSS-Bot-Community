@@ -1,19 +1,17 @@
 name: CSSBC Agent Orchestrator
 
 on:
-  issues:
-    types: [opened, labeled]
   issue_comment:
     types: [created]
   workflow_run:
     workflows: ["GitHub Chat checks", "CSSBC Core CI", "GitHub Chat live end-to-end test", "Deploy GitHub Chat to Cloudflare"]
     types: [completed]
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       task:
-        description: Task prompt
+        description: Task prompt (optional; empty means process next queued task)
         required: false
         type: string
 
@@ -23,12 +21,11 @@ permissions:
   issues: write
 
 jobs:
-
   process-chat-feedback:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Drain SOLO.Chat feedback inbox into agent tasks
+      - name: Drain SOLO.Chat feedback inbox into queued agent tasks
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
@@ -55,92 +52,83 @@ jobs:
             echo "- $ID → $ISSUE_URL" >> "$GITHUB_STEP_SUMMARY"
           done
 
+  queue-ci-failure:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && (github.event.workflow_run.head_branch == 'github-chat-prototype' || github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Convert failed CI/deploy runs into queued repair issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          RUN="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID")"
+          RUN_NAME="$(jq -r .name <<<"$RUN")"
+          RUN_BRANCH="$(jq -r .head_branch <<<"$RUN")"
+          if [[ "$RUN_BRANCH" == "github-chat-prototype" || "$RUN_NAME" == "GitHub Chat checks" || "$RUN_NAME" == "Deploy GitHub Chat to Cloudflare" || "$RUN_NAME" == "GitHub Chat live end-to-end test" ]]; then
+            TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
+          elif [[ "$RUN_NAME" == "CSSBC Core CI" && "$RUN_BRANCH" == "main" ]]; then
+            TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="main"; TARGET_LABEL="agent-core-runtime"
+          else
+            TARGET_REPO="desdesyo/modhaul"; TARGET_BRANCH="main"; TARGET_LABEL="agent-overhaul"
+          fi
+          EXISTING="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            echo "Repair issue #$EXISTING already exists for failed run $RUN_ID."
+            exit 0
+          fi
+          for name in agent-task agent-generated agent-chat-runtime agent-core-runtime agent-overhaul status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+          BODY="$(printf 'Task-Key: AUTO-RUN-%s\nAgent-Target: %s@%s\n\n## Objective\nRepair failed workflow %s on branch %s.\n\n## Acceptance criteria\n- Identify the root cause from the exact workflow logs.\n- Implement the smallest safe fix in the target repository.\n- Run relevant checks and deployment verification.\n- Preserve user data and never expose secrets.\n\n## Evidence\n- Failed run: %s\n- Implementation: pending\n- Verification run: pending\n' "$RUN_ID" "$TARGET_REPO" "$TARGET_BRANCH" "$RUN_NAME" "$RUN_BRANCH" "$(jq -r .html_url <<<"$RUN")")"
+          gh issue create --repo "$SOURCE_REPO" --title "[Self-Heal] $RUN_NAME failed ($RUN_ID)" --body "$BODY" --label agent-task --label agent-generated --label "$TARGET_LABEL" --label status:queued
+          echo "Queued repair issue for $TARGET_REPO@$TARGET_BRANCH."
+
+  queue-user-correction:
+    if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'agent-task') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-queue corrected task for the serial builder
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+          gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --remove-label status:review --remove-label status:done --add-label status:queued
+          gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body "Correction received. Task returned to the serial builder queue."
+
   dispatch-to-llm:
     concurrency:
       group: cssbc-agent-builder-global
       cancel-in-progress: false
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' &&
-       github.event.action == 'opened' &&
-       contains(github.event.issue.labels.*.name, 'agent-task') &&
-       !contains(github.event.issue.labels.*.name, 'status:in-progress') &&
-       !contains(github.event.issue.labels.*.name, 'status:review') &&
-       !contains(github.event.issue.labels.*.name, 'status:done')) ||
-      (github.event_name == 'issues' &&
-       github.event.action == 'labeled' &&
-       github.event.label.name == 'status:queued' &&
-       contains(github.event.issue.labels.*.name, 'agent-task')) ||
-      (github.event_name == 'issue_comment' &&
-       github.event.action == 'created' &&
-       github.event.issue.pull_request == null &&
-       contains(github.event.issue.labels.*.name, 'agent-task') &&
-       (github.event.comment.author_association == 'OWNER' ||
-        github.event.comment.author_association == 'MEMBER' ||
-        github.event.comment.author_association == 'COLLABORATOR')) ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'failure' &&
-       (github.event.workflow_run.head_branch == 'github-chat-prototype' ||
-        github.event.workflow_run.head_branch == 'main'))
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Build feedback task and call SOLO.Chat
+      - name: Claim the oldest queued task and execute it with SOLO.Chat
         env:
           CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
           MANUAL_TASK: ${{ inputs.task }}
           SOURCE_REPO: ${{ github.repository }}
-          REPO: desdesyo/modhaul
           DEFAULT_REPO: desdesyo/modhaul
           DEFAULT_BRANCH: main
         run: |
           set -euo pipefail
-          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
           test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD repository secret"; exit 1; }
-
           TARGET_REPO="$DEFAULT_REPO"
           TARGET_BRANCH="$DEFAULT_BRANCH"
-          TARGET_LABEL="agent-overhaul"
-          ISSUE_BODY=""
-          ISSUE_LABELS=""
-          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
-            RUN="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID")"
-            JOBS="$(gh api "repos/$SOURCE_REPO/actions/runs/$RUN_ID/jobs?per_page=100")"
-            RUN_NAME="$(jq -r .name <<<"$RUN")"
-            RUN_BRANCH="$(jq -r .head_branch <<<"$RUN")"
-            if [[ "$RUN_BRANCH" == "github-chat-prototype" || "$RUN_NAME" == "GitHub Chat checks" || "$RUN_NAME" == "Deploy GitHub Chat to Cloudflare" || "$RUN_NAME" == "GitHub Chat live end-to-end test" ]]; then
-              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="github-chat-prototype"; TARGET_LABEL="agent-chat-runtime"
-            elif [[ "$RUN_NAME" == "CSSBC Core CI" && "$RUN_BRANCH" == "main" ]]; then
-              TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="main"; TARGET_LABEL="agent-core-runtime"
-            fi
-            ISSUE_NUMBER="$(gh api "repos/$SOURCE_REPO/issues?state=open&per_page=100" | jq -r --arg marker "AUTO-RUN-$RUN_ID" '[.[]|select(.pull_request==null and ((.body//"")|contains($marker)))][0].number // empty')"
-            if [[ -z "$ISSUE_NUMBER" ]]; then
-              for name in agent-task agent-generated agent-chat-runtime agent-core-runtime agent-overhaul status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
-              BODY="$(printf 'Task-Key: AUTO-RUN-%s\nAgent-Target: %s@%s\n\n## Objective\nRepair failed workflow %s on branch %s.\n\n## Acceptance criteria\nIdentify the root cause from logs, implement the smallest safe fix in the target repository, and pass relevant verification.\n\n## Evidence\n- Failed run: %s\n- Implementation: pending\n- Verification run: pending\n' "$RUN_ID" "$TARGET_REPO" "$TARGET_BRANCH" "$RUN_NAME" "$RUN_BRANCH" "$(jq -r .html_url <<<"$RUN")")"
-              ISSUE_URL="$(gh issue create --repo "$SOURCE_REPO" --title "[Self-Heal] $RUN_NAME failed ($RUN_ID)" --body "$BODY" --label agent-task --label agent-generated --label "$TARGET_LABEL" --label status:in-progress)"
-              ISSUE_NUMBER="${ISSUE_URL##*/}"
-            fi
-            TASK="AUTOMATED CI/DEPLOY FAILURE. Source repo=$SOURCE_REPO workflow=$RUN_NAME run=$(jq -r .html_url <<<"$RUN") source branch=$RUN_BRANCH commit=$(jq -r .head_sha <<<"$RUN"). Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Failed jobs and steps: $(jq -c '[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name]}]' <<<"$JOBS"). Inspect logs and artifacts, reproduce, fix the root cause in the target repository, run relevant tests, and report exact commit and verification links. Never claim success while checks are queued or failed."
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
+          ISSUE_NUMBER=""
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_TASK" ]]; then
             TASK="$MANUAL_TASK Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect, implement, verify, and report evidence."
           else
-            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-              ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
-              if [[ -z "$ISSUE_NUMBER" ]]; then echo "No queued agent-task issue exists."; exit 0; fi
-            fi
+            ISSUE_NUMBER="$(gh issue list --repo "$SOURCE_REPO" --state open --label agent-task --label status:queued --json number --jq '.[0].number // ""')"
+            if [[ -z "$ISSUE_NUMBER" ]]; then echo "No queued agent task; builder is idle."; exit 0; fi
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
             ISSUE_LABELS="$(jq -r '.labels[].name' <<<"$ISSUE")"
-            if [[ "$EVENT_NAME" == "issues" ]] && { grep -qx 'status:in-progress' <<<"$ISSUE_LABELS" || grep -qx 'status:review' <<<"$ISSUE_LABELS" || grep -qx 'status:done' <<<"$ISSUE_LABELS"; }; then
-              echo "Issue #$ISSUE_NUMBER has already been claimed or completed; ignoring duplicate issue event."
-              exit 0
-            fi
             TARGET_LINE="$(grep -m1 '^Agent-Target:' <<<"$ISSUE_BODY" | cut -d' ' -f2- || true)"
             if [[ -n "$TARGET_LINE" && "$TARGET_LINE" == *@* ]]; then
               TARGET_REPO="${TARGET_LINE%@*}"; TARGET_BRANCH="${TARGET_LINE##*@}"
@@ -149,39 +137,26 @@ jobs:
             elif grep -qx 'agent-core-runtime' <<<"$ISSUE_LABELS"; then
               TARGET_REPO="$SOURCE_REPO"; TARGET_BRANCH="main"
             fi
-            if [[ "$EVENT_NAME" == "issue_comment" ]]; then
-              TASK="USER CORRECTION on issue #$ISSUE_NUMBER. Title=$(jq -r .title <<<"$ISSUE"). Body=$ISSUE_BODY. Comment=$COMMENT_BODY. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Reproduce the complaint, inspect evidence, implement a correction, add regression coverage and report evidence."
-            else
-              TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body=$ISSUE_BODY. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect relevant code and skills, implement, run tests, repair failures, commit, and report exact evidence. Do not claim done without verification."
-            fi
-            if [[ -n "$ISSUE_NUMBER" && -z "$TARGET_LINE" ]]; then
+            if [[ -z "$TARGET_LINE" ]]; then
               UPDATED_BODY="$(printf '%s\n\nAgent-Target: %s@%s\n' "$ISSUE_BODY" "$TARGET_REPO" "$TARGET_BRANCH")"
               gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$UPDATED_BODY" >/dev/null
             fi
-          fi
-
-          if [[ -n "$ISSUE_NUMBER" ]]; then
             for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
-            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress >/dev/null 2>&1 || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress
+            TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body=$ISSUE_BODY. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect relevant code and skills, implement, run tests, repair failures, commit, and report exact evidence. Do not claim done without verification."
           fi
           THREAD="cssbc-orchestrator-manual-$GITHUB_RUN_ID"
           if [[ -n "$ISSUE_NUMBER" ]]; then THREAD="cssbc-orchestrator-issue-$ISSUE_NUMBER"; fi
           jq -n --arg prompt "$TASK" --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread}' > payload.json
-          RESPONSE="$(curl --fail-with-body --silent --show-error --max-time 900 \
-            -H "Authorization: Bearer $CHAT_APP_PASSWORD" \
-            -H "Content-Type: application/json" \
-            --data @payload.json "${CHAT_ENDPOINT%/}/api/agent/chat")"
+          RESPONSE="$(curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @payload.json "${CHAT_ENDPOINT%/}/api/agent/chat")"
           printf '%s' "$RESPONSE" | jq -e '.reply and (.reply|length>0)' >/dev/null
           REPLY="$(printf '%s' "$RESPONSE" | jq -r '.reply')"
-          {
-            echo "## SOLO.Chat agent response"
-            echo "$REPLY"
-          } >> "$GITHUB_STEP_SUMMARY"
-
+          echo "## SOLO.Chat agent response" >> "$GITHUB_STEP_SUMMARY"
+          echo "$REPLY" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "$ISSUE_NUMBER" ]]; then
-            gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER/comments" -f body="### SOLO.Chat automated response\n\n$REPLY"
+            gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER/comments" -f body="### SOLO.Chat automated response\n\n$REPLY" >/dev/null
             if grep -Eiq '(^|[^A-Z])BLOCKED([^A-Z]|$)|NOT COMPLETE|не удалось завершить|заблокировано' <<<"$REPLY"; then
-              gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:review --add-label status:in-progress >/dev/null 2>&1 || true
+              gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:review --add-label status:in-progress >/dev/null
             else
               gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --add-label status:review >/dev/null
             fi
