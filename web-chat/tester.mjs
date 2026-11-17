@@ -9,11 +9,11 @@ const checks = [
  ["Chat route exists", /\/api\/chat/.test(worker)],
  ["GitHub-backed thread/comment storage", /issues/.test(worker) && /comments/.test(worker)],
  ["Password gate exists", /id="password"/.test(html) && /async function unlock\(/.test(html)],
- ["Expired device session returns to password gate", /Сессия не авторизована/.test(html) && /gate\"\)\.style\.display=\"flex\"/.test(html)],
+ ["Expired device session returns to password gate", html.includes("Сессия не авторизована") && html.includes('$("gate").style.display="flex"')],
  ["Composer stays editable during generation", /if\(busy\)\{await sendFollowup\(message\);return\}/.test(html) && /activeOperationId/.test(html) && /\$\("prompt"\)\.focus\(\)/.test(html)],
  ["Auth error is shown to user", /Сессия не авторизована/.test(html)],
  ["Durable Agent runtime has chat entrypoint", /class .*Agent|async .*chat|onMessage/.test(runtime)],
- ["Live follow-up API endpoint exists", /url\.pathname === "\\/api\\/chat\\/followup"/.test(runtime)],
+ ["Live follow-up API endpoint exists", runtime.includes('url.pathname === "/api/chat/followup"')],
  ["Follow-ups trigger an updated generation pass", /pendingFollowups/.test(runtime) && /consumedFollowups/.test(runtime) && /Incorporate them into the task/.test(runtime)],
  ["Follow-up messages are saved in conversation history", /followup: true/.test(runtime) && /thread\.messages\.push/.test(runtime)]
 ];
