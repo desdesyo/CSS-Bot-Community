@@ -27,7 +27,7 @@ jobs:
       - name: Audit task lifecycle and run independent reviewer
         env:
           GH_TOKEN: ${{ github.token }}
-          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
           SOURCE_REPO: ${{ github.repository }}
         run: |
