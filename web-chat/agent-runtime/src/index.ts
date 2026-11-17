@@ -1182,7 +1182,9 @@ LEARNING FROM CORRECTIONS
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
+    const workersAiCircuit = await this.ctx.storage.get<number>("provider:circuit:workers-ai");
     try {
+      if (workersAiCircuit && workersAiCircuit > Date.now()) throw new Error("Workers AI quota circuit is open; bypassing Pi harness");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
@@ -1196,9 +1198,9 @@ LEARNING FROM CORRECTIONS
         if (reply) return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness" };
       }
       const reason = String(result.reason || result.status || "empty assistant response");
-      console.error("[SOLO.Chat] AI operation failed; trying direct Workers AI fallback", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
+      console.error("[SOLO.Chat] AI operation failed; trying independent provider chain", JSON.stringify({ operationId: receipt.operationId, sessionId, status: result.status, reason }));
     } catch (error) {
-      console.error("[SOLO.Chat] agent harness failed; trying direct Workers AI fallback", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
+      console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: String(error instanceof Error ? error.message : error).slice(0, 500) }));
     }
     if (agentRole !== "user") {
       throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; требуется восстановить Pi agent harness.");
@@ -1689,25 +1691,13 @@ LEARNING FROM CORRECTIONS
       }
       if (url.pathname === "/api/agent/model-check" && req.method === "GET") {
         await this.requirePassword(req);
-        const modelId = this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash";
         try {
-          const result: any = await this.env.AI.run(modelId as any, {
-            messages: [{ role: "user", content: "Reply exactly with SOLO_CHAT_MODEL_OK and nothing else." }],
-            max_tokens: 64
-          } as any);
-          const reply = String(result?.response || result?.output_text || result?.text || "").trim();
-          if (!reply) throw new Error("Workers AI returned no text: " + JSON.stringify(result).slice(0, 700));
-          return json({ ok: true, model: modelId, reply, provider: "workers-ai-binding" });
+          const result = await this.runDirectModel("Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.");
+          return json({ ok: true, model: result.model, reply: result.reply, provider: result.provider });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "Unknown model provider error";
-          console.error("[SOLO.Chat] direct model check failed", JSON.stringify({ model: modelId, error: detail }));
-          try {
-            const fallback = await this.runDirectModel("Reply exactly with SOLO_CHAT_MODEL_OK and nothing else.");
-            return json({ ok: true, model: fallback.model, reply: fallback.reply, provider: "workers-ai-binding-fallback", primaryError: detail.slice(0, 300) });
-          } catch (fallbackError) {
-            const fallbackDetail = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-            return json({ ok: false, model: modelId, error: detail, fallbackError: fallbackDetail.slice(0, 700) }, 502);
-          }
+          console.error("[SOLO.Chat] provider-chain model check failed", JSON.stringify({ error: detail }));
+          return json({ ok: false, error: detail.slice(0, 900) }, 502);
         }
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
