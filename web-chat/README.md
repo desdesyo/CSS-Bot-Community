@@ -41,6 +41,10 @@ Worker variables in `wrangler.toml`:
 
 Text chat and durable conversation history use Durable Object storage. User attachments are stored as bounded chunks in the authenticated Durable Object; they are not committed to the public source repository.
 
+## Обязательный регламент команды агентов
+
+Операционные роли, последовательность исполнения, критерии PASS/REJECT, самовосстановление и этапы доведения команды до полной работоспособности описаны в [AGENT_TEAM_EXECUTION_PLAYBOOK.md](AGENT_TEAM_EXECUTION_PLAYBOOK.md). Этот регламент обязателен для planner, implementer, tester, supervisor и автоматических мониторов. Документ сам по себе не является доказательством реализации всех этапов.
+
 ## Automated agent orchestration
 
 `.github/workflows/agent-orchestrator.yml` is the LLM dispatcher: it forwards newly opened `agent-task` issues, queued tasks, manual prompts, and failed `GitHub Chat checks` / `CSSBC Core CI` runs into the deployed Durable Agent at `/api/agent/chat` (JSON `prompt`, not legacy `/api/chat` `message`). The durable agent uses its GitHub tools to inspect, implement, commit, and verify work. `agent-supervisor.yml` independently audits task issue structure/evidence and labels review-needed; it is a policy/evidence audit, not a second code executor. CI is the tester and its failure is routed back to the agent for repair.
