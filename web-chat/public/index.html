@@ -97,6 +97,17 @@ body{background:#0b0d13}
 button{transition:border-color .18s,background .18s,transform .18s}
 button:hover{border-color:rgba(109,231,215,.55)}
 @media(max-width:700px){.app{grid-template-columns:1fr}.messages{padding:22px 14px}.welcome{padding:36px 22px}.top{padding:0 14px}.composer-wrap{padding:10px 10px 16px}}
+
+/* Sidebar layout guard: long/new conversation titles must never distort the column */
+.app{grid-template-columns:264px minmax(0,1fr);overflow:hidden}
+.side{width:264px;min-width:264px;max-width:264px;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.threads{width:100%;min-width:0;max-width:100%;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
+.thread{display:block;flex:0 0 auto;width:100%;max-width:100%;min-width:0;height:38px;max-height:38px;line-height:20px;padding:9px 10px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.thread *{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.sidefoot{flex:0 0 auto;max-width:100%;overflow-wrap:anywhere}
+.main{min-width:0;width:100%;overflow:hidden}
+.top,#chatTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){.app{grid-template-columns:minmax(0,1fr)}.side{display:none}}
 </style>
 </head>
 <body>
