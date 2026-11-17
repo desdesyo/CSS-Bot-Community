@@ -1,0 +1,62 @@
+name: GitHub Chat live end-to-end test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/github-chat-e2e.yml"
+  workflow_run:
+    workflows: ["Deploy GitHub Chat to Cloudflare"]
+    types: [completed]
+    branches: [github-chat-prototype]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-chat:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Verify deployed chat, authentication, AI reply, and history
+        env:
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
+          test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD"; exit 1; }
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
+
+          echo "1/4 Verify authenticated Durable Agent..."
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
+          jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
+
+          echo "2/4 Send a real message through the same API used by the browser..."
+          MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
+          jq -n --arg message "Connection test. Reply with the exact marker $MARKER" \
+            '{message:$message,webSearch:false,files:[]}' > payload.json
+          curl --fail-with-body --silent --show-error --max-time 900 \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            --data @payload.json "$ENDPOINT/api/chat" > chat-response.json
+          jq -e '.thread and (.reply|type=="string" and length>0)' chat-response.json >/dev/null
+          THREAD="$(jq -r '.thread' chat-response.json)"
+          echo "AI replied and created conversation #$THREAD."
+
+          echo "3/4 Verify user and assistant messages were persisted..."
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "$AUTH" "$ENDPOINT/api/messages?thread=$THREAD" > history.json
+          jq -e --arg marker "$MARKER" \
+            '([.messages[]|select(.role=="user" and (.content|contains($marker)))]|length)>0 and ([.messages[]|select(.role=="assistant" and (.content|length>0))]|length)>0' \
+            history.json >/dev/null
+
+          echo "4/4 Verify conversation appears in the chat sidebar..."
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "$AUTH" "$ENDPOINT/api/threads" > threads.json
+          jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
+
+          echo "PASS: browser chat API, password authentication, AI generation, GitHub persistence, history reload, and sidebar listing all work."
