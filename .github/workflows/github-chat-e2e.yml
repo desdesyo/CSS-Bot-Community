@@ -41,17 +41,15 @@ jobs:
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
           echo "2/5 Verify GitHub workspace credentials and repository access..."
-          echo "Target workspace: desdesyo/modhaul@main"
+          echo "Target workspace: desdesyo/CSS-Bot-Community@github-chat-prototype"
+          GITHUB_WORKSPACE_OK="false"
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
-            -H "$AUTH" "$ENDPOINT/api/agent/github-check")"
-          if [[ "$GH_CODE" == "200" ]]; then
-            jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true' github-check.json >/dev/null
+            -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
+          if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true' github-check.json >/dev/null; then
+            GITHUB_WORKSPACE_OK="true"
             echo "GitHub workspace read/write access verified."
-          elif [[ "$GH_CODE" == "503" ]] && jq -e '.error == "GitHub workspace is not configured"' github-check.json >/dev/null; then
-            echo "::warning::GitHub workspace token is not configured; validating chat independently."
           else
-            echo "::error::GitHub workspace check returned HTTP $GH_CODE: $(head -c 500 github-check.json)"
-            exit 1
+            echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
           fi
 
           echo "3/4 Queue a real message through the browser chat API..."
@@ -103,4 +101,8 @@ jobs:
             -H "$AUTH" "$ENDPOINT/api/threads" > threads.json
           jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
 
-          echo "PASS: authenticated chat, immediate job acceptance, background AI generation, durable result polling, history reload, and sidebar listing all work."
+          if [[ "$GITHUB_WORKSPACE_OK" != "true" ]]; then
+            echo "::error::Chat and Q&A history passed, but the configured Worker GitHub token cannot complete the repository read/write check. Required target: desdesyo/CSS-Bot-Community@github-chat-prototype with Contents read/write."
+            exit 1
+          fi
+          echo "PASS: authenticated chat, immediate job acceptance, background AI generation, durable result polling, history reload, sidebar listing, and GitHub workspace read/write all work."
