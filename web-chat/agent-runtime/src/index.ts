@@ -517,7 +517,7 @@ LEARNING FROM CORRECTIONS
     const auth = req.headers.get("Authorization") || "";
     if (this.env.APP_PASSWORD && safeEqual(auth, "Bearer " + this.env.APP_PASSWORD)) return;
     const cookie = req.headers.get("Cookie") || "";
-    const match = cookie.match(/(?:^|;\\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
+    const match = cookie.match(/(?:^|;\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
     if (!match) throw new Error("Unauthorized");
     const digest = await sha256(match[1]);
     const session = await this.ctx.storage.get<{ expiresAt: number }>("browser-auth:device:" + digest);
@@ -550,7 +550,7 @@ LEARNING FROM CORRECTIONS
   }
   private async logoutDevice(req: Request) {
     const cookie = req.headers.get("Cookie") || "";
-    const match = cookie.match(/(?:^|;\\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
+    const match = cookie.match(/(?:^|;\s*)solo_device=([A-Za-z0-9_-]{32,128})/);
     if (match) await this.ctx.storage.delete("browser-auth:device:" + await sha256(match[1]));
     return new Response(JSON.stringify({ ok: true }), {
       headers: {
