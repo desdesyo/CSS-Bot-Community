@@ -106,10 +106,28 @@ jobs:
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
           curl --fail-with-body --silent --show-error --max-time 30 -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" | jq -e '.roles | length >= 8' >/dev/null
+          echo "Checking direct Pi AI inference and configured model fallback..."
+          curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt
+          MODEL_CHECK_CODE="$(cat model-check-code.txt)"
+          if [[ "$MODEL_CHECK_CODE" != "200" ]] || ! jq -e '.ok == true and (.reply|contains("SOLO_CHAT_MODEL_OK"))' model-check.json >/dev/null; then
+            echo "::error::Direct model inference failed with HTTP $MODEL_CHECK_CODE"
+            cat model-check.json
+            exit 1
+          fi
+          echo "Direct model inference passed."
           jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
-          curl --fail-with-body --silent --show-error --max-time 240 -o model-smoke-response.json -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat"
-          jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null
-          echo "Live agent dashboard and model inference passed."
+          MODEL_CODE="$(curl --silent --show-error --max-time 240 -o model-smoke-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat" || true)"
+          if [[ "$MODEL_CODE" != "200" ]]; then
+            echo "::error::Agent chat inference failed with HTTP $MODEL_CODE"
+            cat model-smoke-response.json
+            exit 1
+          fi
+          if ! jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null; then
+            echo "::error::Agent chat returned no expected marker"
+            cat model-smoke-response.json
+            exit 1
+          fi
+          echo "Live agent dashboard, direct model inference and agent chat inference passed."
           
       - name: Automatic rollback if the core health/version check fails
         id: rollback
