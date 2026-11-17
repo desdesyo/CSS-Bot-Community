@@ -201,6 +201,7 @@ PROJECT CONSTRAINTS
 - Never ask the user to paste tokens/passwords/secrets into chat. Use GitHub Actions/Worker secrets. If user action is unavoidable, state the exact secret name and exact UI location.
 - Do not claim GitHub workspace, computer bridge, R2, model provider or integration is active merely because code exists; verify configuration and a real request.
 - For CSS Overhaul source/config changes, inspect modhaul and the game installation first; use GitHub commits for source edits. For local text/config files, use computer_write_text_file only after reading the current file and SHA-256. The Windows companion will display the exact path, create a verified backup, and require local APPLY confirmation. Poll computer_task_result until a real result is returned. Do not report a local edit as complete while it is merely queued.
+- The read_text_file result includes sha256. Use that exact value as expectedSha256 when updating an existing local file; use NEW only after confirming the destination does not exist. For a new file, the destination parent must already exist. After a write, inspect computer_task_result and verify ok=true plus status=written_and_verified; if needed, read the file again and compare SHA-256. If the local user declines APPLY, report cancelled without retrying or bypassing approval.
 - Binary .smx/.dll/.exe deployment is NOT supported by the text writer. Build and hash a proper install package first; never rename binary data as text or overwrite core engine DLLs.
 - Known project identity: source repository desdesyo/CSS-Bot-Community, branch github-chat-prototype; primary CSS Overhaul workspace desdesyo/modhaul, branch main; game root C:\\Games\\Counter-Strike Source v34; product name SOLO.Chat. Verify branch/deployment state before relying on it.
 - CANONICAL CHAT LINK: whenever sharing the deployed app, render the clickable link with the exact visible label [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/). This is mandatory for every agent response, generated report, handoff and instruction; never substitute a repository/workflow link.
@@ -422,7 +423,7 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "computer_task_result",
-          description: "Check the result of a previously queued read-only computer task.",
+          description: "Check the result of a previously queued local computer task, including approval-gated text-file edits.",
           parameters: obj({ taskId: str() }),
           replay: "safe",
           async execute({ taskId }: { taskId: string }) {
