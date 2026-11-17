@@ -43,8 +43,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          npx wrangler r2 bucket list --json > /tmp/solo-r2-buckets.json
-          if ! grep -q 'solo-chat-files' /tmp/solo-r2-buckets.json; then
+          npx wrangler r2 bucket list > /tmp/solo-r2-buckets.txt
+          if ! grep -q 'solo-chat-files' /tmp/solo-r2-buckets.txt; then
             npx wrangler r2 bucket create solo-chat-files
           fi
 
