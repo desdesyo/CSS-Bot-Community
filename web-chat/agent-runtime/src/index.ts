@@ -20,6 +20,7 @@ interface Env {
   BRAVE_SEARCH_API_KEY?: string;
   OPENAI_API_KEY?: string;
   EXPERT_MODEL?: string;
+  MESHY_API_KEY?: string;
 }
 interface ComputerTask {
   id: string;
@@ -152,6 +153,7 @@ export class AgentSession extends DurableObject<Env> {
     super(ctx, env);
     const mcp = this.mcp;
     const storage = this.ctx.storage;
+    const agent = this;
     const workspaceTools: any[] = []; // Free Workers plan: no Dynamic Workers code sandbox.
     this.registry.install({
       name: "workspace-and-connectors",
@@ -300,7 +302,7 @@ LEARNING FROM CORRECTIONS
           async execute({ name, mimeType, content }: { name: string; mimeType: string; content: string }) {
             if (!name || name.length > 120 || /[\\/\\\\]/.test(name)) throw new Error("Use a simple file name without folders");
             if (!content || new TextEncoder().encode(content).length > 1024 * 1024) throw new Error("Text artifact must contain 1 byte to 1 MB");
-            const metadata = await this.saveGeneratedArtifact(name, mimeType || "text/plain;charset=utf-8", new TextEncoder().encode(content));
+            const metadata = await agent.saveGeneratedArtifact(name, mimeType || "text/plain;charset=utf-8", new TextEncoder().encode(content));
             return textOutput({ created: true, artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
@@ -311,13 +313,13 @@ LEARNING FROM CORRECTIONS
           replay: "unsafe",
           async execute({ prompt, filename }: { prompt: string; filename: string }) {
             if (!prompt.trim() || prompt.length > 2000) throw new Error("Image prompt must contain 1–2000 characters");
-            const result: any = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim() });
+            const result: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", { prompt: prompt.trim() });
             const encoded = result?.image || result?.result?.image;
             if (typeof encoded !== "string" || !encoded.length) throw new Error("Image model returned no image bytes");
             const binary = atob(encoded.replace(/^data:image\/png;base64,/i, ""));
             const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
             const safeName = (filename || "solo-generated-image.png").toLowerCase().endsWith(".png") ? filename : (filename || "solo-generated-image") + ".png";
-            const metadata = await this.saveGeneratedArtifact(safeName, "image/png", bytes);
+            const metadata = await agent.saveGeneratedArtifact(safeName, "image/png", bytes);
             return textOutput({ created: true, provider: "@cf/black-forest-labs/flux-1-schnell", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
@@ -329,7 +331,7 @@ LEARNING FROM CORRECTIONS
           async execute({ prompt, lyrics, mode }: { prompt: string; lyrics: string; mode: string }) {
             if (!prompt.trim() || prompt.length > 2000 || lyrics.length > 3500) throw new Error("Music prompt or lyrics exceed the provider limits");
             const instrumental = mode.toLowerCase() === "instrumental";
-            const result: any = await this.env.AI.run("minimax/music-2.6", {
+            const result: any = await env.AI.run("minimax/music-2.6", {
               prompt: prompt.trim(),
               ...(lyrics.trim() ? { lyrics: lyrics.trim() } : {}),
               is_instrumental: instrumental,
@@ -338,7 +340,7 @@ LEARNING FROM CORRECTIONS
             });
             const url = result?.result?.audio || result?.audio;
             if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Music provider returned no downloadable audio URL");
-            const metadata = await this.saveRemoteArtifact(url, "solo-generated-music.mp3", "audio/mpeg");
+            const metadata = await agent.saveRemoteArtifact(url, "solo-generated-music.mp3", "audio/mpeg");
             return textOutput({ created: true, provider: "MiniMax Music 2.6", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
@@ -350,14 +352,63 @@ LEARNING FROM CORRECTIONS
           async execute({ text: speechText, voice }: { text: string; voice: string }) {
             if (!speechText.trim() || speechText.length > 15000) throw new Error("Speech text must contain 1–15000 characters");
             const selectedVoice = ["eve", "ara", "rex", "sal", "leo"].includes(voice.toLowerCase()) ? voice.toLowerCase() : "ara";
-            const result: any = await this.env.AI.run("xai/grok-tts", {
+            const result: any = await env.AI.run("xai/grok-tts", {
               text: speechText.trim(), language: "ru", voice_id: selectedVoice,
               output_format: { codec: "mp3", sample_rate: 44100, bit_rate: 192000 }
             });
             const url = result?.result?.audio || result?.audio;
             if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Speech provider returned no downloadable audio URL");
-            const metadata = await this.saveRemoteArtifact(url, "solo-generated-speech.mp3", "audio/mpeg");
+            const metadata = await agent.saveRemoteArtifact(url, "solo-generated-speech.mp3", "audio/mpeg");
             return textOutput({ created: true, provider: "xAI Grok TTS", language: "ru", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
+          }
+        },
+        {
+          name: "generate_3d_model",
+          description: "Start a real text-to-3D model generation with Meshy 7.1. Requires MESHY_API_KEY configured as a Worker secret. Creates a preview task and returns its task ID; use check_3d_model until the textured GLB is generated and stored as a downloadable artifact.",
+          parameters: obj({ prompt: str() }),
+          replay: "unsafe",
+          async execute({ prompt }: { prompt: string }) {
+            if (!env.MESHY_API_KEY) throw new Error("3D generation is not activated: the server secret MESHY_API_KEY is missing");
+            if (!prompt.trim() || prompt.length > 1800) throw new Error("3D prompt must contain 1–1800 characters");
+            const response = await fetch("https://api.meshy.ai/openapi/v2/text-to-3d", {
+              method: "POST",
+              headers: { Authorization: "Bearer " + env.MESHY_API_KEY, "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "preview", prompt: prompt.trim(), ai_model: "meshy-7.1", target_formats: ["glb"] })
+            });
+            const data: any = await response.json().catch(() => ({}));
+            if (!response.ok || !data.result) throw new Error("Meshy 3D preview failed: HTTP " + response.status + " " + String(data.message || data.error || "").slice(0, 300));
+            return textOutput({ accepted: true, provider: "Meshy 7.1", taskId: data.result, stage: "preview", next: "Call check_3d_model with this taskId until the preview is ready; the tool will then start texturing." });
+          }
+        },
+        {
+          name: "check_3d_model",
+          description: "Check a Meshy text-to-3D task. When a preview succeeds, automatically start PBR texturing; when the refine task succeeds, download and persist the GLB in the private SOLO.Chat file library. Call again when status is still PENDING or IN_PROGRESS.",
+          parameters: obj({ taskId: str() }),
+          replay: "safe",
+          async execute({ taskId }: { taskId: string }) {
+            if (!env.MESHY_API_KEY) throw new Error("3D generation is not activated: MESHY_API_KEY is missing");
+            if (!/^[A-Za-z0-9-]{12,80}$/.test(taskId)) throw new Error("Invalid Meshy task ID");
+            const response = await fetch("https://api.meshy.ai/openapi/v2/text-to-3d/" + encodeURIComponent(taskId), {
+              headers: { Authorization: "Bearer " + env.MESHY_API_KEY }
+            });
+            const task: any = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error("Meshy task lookup failed: HTTP " + response.status);
+            if (task.status === "FAILED" || task.status === "CANCELED") throw new Error("Meshy generation failed: " + String(task.task_error?.message || task.task_error?.code || task.status));
+            if (task.status !== "SUCCEEDED") return textOutput({ pending: true, taskId, status: task.status, progress: task.progress || 0, queue: task.preceding_tasks ?? null });
+            if (task.type === "text-to-3d-preview") {
+              const refine = await fetch("https://api.meshy.ai/openapi/v2/text-to-3d", {
+                method: "POST",
+                headers: { Authorization: "Bearer " + env.MESHY_API_KEY, "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: "refine", preview_task_id: taskId, enable_pbr: true, texture_resolution: "2k", target_formats: ["glb"] })
+              });
+              const refined: any = await refine.json().catch(() => ({}));
+              if (!refine.ok || !refined.result) throw new Error("Meshy texturing task failed: HTTP " + refine.status + " " + String(refined.message || "").slice(0, 250));
+              return textOutput({ accepted: true, taskId: refined.result, stage: "refine", next: "Call check_3d_model again with the new taskId to retrieve the textured GLB." });
+            }
+            const url = task.model_urls?.glb;
+            if (typeof url !== "string" || !url.startsWith("https://assets.meshy.ai/")) throw new Error("Meshy task succeeded but no GLB download URL was returned");
+            const metadata = await agent.saveRemoteArtifact(url, "solo-generated-model.glb", "model/gltf-binary");
+            return textOutput({ created: true, provider: "Meshy 7.1", artifact: metadata, downloadUrl: "/api/files/" + metadata.id, verified: true });
           }
         },
         {
@@ -711,7 +762,7 @@ LEARNING FROM CORRECTIONS
   }
   private async saveRemoteArtifact(url: string, name: string, mime: string) {
     const parsed = new URL(url);
-    const allowedHosts = ["minimax-algeng-chat-tts-us.oss-us-east-1.aliyuncs.com", "examples.aig.cloudflare.com"];
+    const allowedHosts = ["minimax-algeng-chat-tts-us.oss-us-east-1.aliyuncs.com", "examples.aig.cloudflare.com", "assets.meshy.ai"];
     if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname.toLowerCase())) throw new Error("Generated media URL is not from an approved provider host");
     const response = await fetch(parsed.toString(), { redirect: "error" });
     if (!response.ok) throw new Error("Generated media download failed: HTTP " + response.status);
