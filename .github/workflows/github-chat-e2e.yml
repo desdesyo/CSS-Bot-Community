@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Verify deployed chat, authentication, AI reply, and history
         env:
-          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
         run: |
           set -euo pipefail
@@ -31,32 +31,56 @@ jobs:
           ENDPOINT="${CHAT_ENDPOINT%/}"
           AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
 
-          echo "1/4 Verify authenticated Durable Agent..."
+          echo "1/5 Verify authenticated health..."
           curl --fail-with-body --silent --show-error --max-time 30 \
-            -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
-          jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
+            -H "$AUTH" "$ENDPOINT/api/health" > health.json
+          jq -e '.ok == true' health.json >/dev/null
 
-          echo "2/4 Send a real message through the same API used by the browser..."
+          echo "2/5 Submit a real message through the browser's asynchronous chat API..."
           MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
           jq -n --arg message "Connection test. Reply with the exact marker $MARKER" \
             '{message:$message,webSearch:false,files:[]}' > payload.json
-          curl --fail-with-body --silent --show-error --max-time 900 \
+          curl --fail-with-body --silent --show-error --max-time 60 \
             -H "$AUTH" -H "Content-Type: application/json" \
-            --data @payload.json "$ENDPOINT/api/chat" > chat-response.json
-          jq -e '.thread and (.reply|type=="string" and length>0)' chat-response.json >/dev/null
-          THREAD="$(jq -r '.thread' chat-response.json)"
-          echo "AI replied and created conversation #$THREAD."
+            --data @payload.json "$ENDPOINT/api/chat" > accepted.json
+          jq -e '.thread and .operationId and (.status == "queued" or .status == "running")' accepted.json >/dev/null
+          THREAD="$(jq -r '.thread' accepted.json)"
+          OPERATION="$(jq -r '.operationId' accepted.json)"
+          echo "Accepted operation $OPERATION in conversation $THREAD."
 
-          echo "3/4 Verify user and assistant messages were persisted..."
+          echo "3/5 Poll the operation until the model finishes..."
+          for attempt in $(seq 1 80); do
+            curl --fail-with-body --silent --show-error --max-time 30 \
+              -H "$AUTH" "$ENDPOINT/api/chat/status?operationId=$OPERATION" > status.json
+            STATUS="$(jq -r '.status // "unknown"' status.json)"
+            if [[ "$STATUS" == "done" ]]; then
+              jq -e '.reply and (.reply|type=="string" and length>0)' status.json >/dev/null
+              break
+            fi
+            if [[ "$STATUS" == "failed" ]]; then
+              echo "::error::AI chat operation failed: $(jq -r '.error // "unknown error"' status.json)"
+              exit 1
+            fi
+            if [[ "$STATUS" != "queued" && "$STATUS" != "running" && "$STATUS" != "finalizing" ]]; then
+              echo "::error::Unexpected chat operation status: $STATUS"
+              cat status.json
+              exit 1
+            fi
+            sleep 3
+          done
+          jq -e '.status == "done" and (.reply|type=="string" and length>0)' status.json >/dev/null
+          echo "Real AI response received."
+
+          echo "4/5 Verify user and assistant messages were persisted..."
           curl --fail-with-body --silent --show-error --max-time 60 \
             -H "$AUTH" "$ENDPOINT/api/messages?thread=$THREAD" > history.json
           jq -e --arg marker "$MARKER" \
             '([.messages[]|select(.role=="user" and (.content|contains($marker)))]|length)>0 and ([.messages[]|select(.role=="assistant" and (.content|length>0))]|length)>0' \
             history.json >/dev/null
 
-          echo "4/4 Verify conversation appears in the chat sidebar..."
+          echo "5/5 Verify the conversation appears in the sidebar..."
           curl --fail-with-body --silent --show-error --max-time 60 \
             -H "$AUTH" "$ENDPOINT/api/threads" > threads.json
           jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
 
-          echo "PASS: browser chat API, password authentication, AI generation, GitHub persistence, history reload, and sidebar listing all work."
+          echo "PASS: authenticated browser chat API, queued operation, live AI inference, status polling, history persistence, and sidebar listing all work."
