@@ -40,7 +40,7 @@ const checks = [
  [ "File upload endpoint is authenticated and backed by private KV", /url\.pathname === "\/api\/files" && req\.method === "POST"/.test(runtime) && /this.env.FILES.put\("files\/" \+ id/.test(runtime)],
  [ "File download and deletion routes are available", /url\.pathname\.startsWith\("\/api\/files\/"\)/.test(runtime) && /method === "DELETE"/.test(runtime)],
  [ "Chat accepts uploaded file IDs", /const fileIds = Array\.isArray\(body\.files\)/.test(runtime) && /prepareAttachments\(fileIds\)/.test(runtime)],
- [ "Image attachments are analyzed with Workers AI vision", /mistralai\\/mistral-small-3\\.1-24b-instruct/.test(runtime) && /type: "image_url"/.test(runtime) && /data:" \\+ type \\+ ";base64,"/.test(runtime)],
+ [ "Image attachments are analyzed with Workers AI vision", runtime.includes("@cf/mistralai/mistral-small-3.1-24b-instruct") && runtime.includes('type: "image_url"') && runtime.includes('data:" + type + ";base64,"')],
  [ "Text attachments are added to the model prompt", /ПРИКРЕПЛЁННЫЕ ФАЙЛЫ/.test(runtime) && /ТЕКСТОВЫЙ ФАЙЛ/.test(runtime)],
  [ "Browser exposes file picker and paste/drop upload", /id="attach" title="Прикрепить фотографии и документы"/.test(html) && /clipboardData\?\.files/.test(html) && /dataTransfer\?\.files/.test(html)],
  [ "Image previews are rendered in chat history", /className="message-image"/.test(html) && /\?inline=1/.test(html)],
