@@ -11,6 +11,8 @@ on:
       - "web-chat/worker.js"
       - "web-chat/wrangler.toml"
       - "web-chat/package.json"
+      - "web-chat/package-lock.json"
+      - "web-chat/tester.mjs"
 
 permissions:
   contents: read
