@@ -23,4 +23,11 @@ test("example config enables restricted mode without granting broad paths", asyn
   assert.equal(config.safeMode, true);
   assert.equal(config.gameRoot, "");
   assert.deepEqual(config.allowedRoots, []);
+  assert.equal(config.gameInspectionRoot, "");
+});
+
+test("read-only game approval helper invokes only the local allow-game-read command", async () => {
+  const helper = await readFile(new URL("ALLOW-GAME-READ.cmd", root), "utf8");
+  assert.match(helper, /node agent\.mjs allow-game-read/);
+  assert.doesNotMatch(helper, /powershell|cmd\.exe \/c|safeMode\s*[:=]\s*false/i);
 });
