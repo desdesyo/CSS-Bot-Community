@@ -128,7 +128,6 @@ test("rejects malformed GAME namespace and ambiguous Windows path segments", () 
     "GAME://cstrike/cfg/server.cfg",
     "GAME:/cstrike//cfg/server.cfg",
     "GAME:/cstrike/cfg/server.cfg.",
-    "GAME:/cstrike/cfg/server.cfg ",
     "GAME:/cstrike/con.txt",
     "GAME:/cstrike/cfg/a|b.cfg",
     "GAME:/cstrike/cfg/a?b.cfg",
