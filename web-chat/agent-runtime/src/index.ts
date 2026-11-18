@@ -1670,7 +1670,7 @@ LEARNING FROM CORRECTIONS
       const raw = error instanceof Error ? error.message : String(error);
       const message = raw
         .replace(/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED]")
-        .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [REDACTED]")
+        .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
         .slice(0, 900);
       const entries = await this.ctx.storage.get<any[]>("runtime:errors") || [];
       entries.push({ id: crypto.randomUUID(), at: Date.now(), source: String(source).slice(0, 80), message });
@@ -1686,7 +1686,7 @@ LEARNING FROM CORRECTIONS
     const now = Date.now();
     const redact = (value: unknown) => String(value ?? "")
       .replace(/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED]")
-      .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [REDACTED]")
+      .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
       .slice(0, 700);
 
     // Reuse an active repair issue instead of flooding the team with duplicates.
@@ -1697,7 +1697,7 @@ LEARNING FROM CORRECTIONS
         const labels = (issue.labels || []).map((label: any) => String(label.name || ""));
         if (issue.state === "open") {
           const age = now - Number(active.createdAt || 0);
-          if (age < 20 * 60 * 1000 || labels.includes("status:queued") || labels.includes("status:in-progress")) {
+          if (age < 70 * 60 * 1000 && (labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review"))) {
             return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Уже есть активная задача восстановления. Повторный запуск не создавался." };
           }
           const nextLabels = [...new Set(labels.filter((label: string) => !label.startsWith("status:")).concat("status:queued"))];
