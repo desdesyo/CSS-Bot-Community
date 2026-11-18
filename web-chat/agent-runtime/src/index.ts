@@ -1683,6 +1683,28 @@ LEARNING FROM CORRECTIONS
     return candidates;
   }
 
+  private async getQuotaState() {
+    const config = await this.ctx.storage.get<any>("quota:config") || { enabled: false, dailyRequests: 0, label: "SOLO free pool" };
+    const day = new Date().toISOString().slice(0, 10);
+    const usage = await this.ctx.storage.get<any>("quota:usage:" + day) || { day, used: 0 };
+    return { config, usage, remaining: config.enabled && Number(config.dailyRequests) > 0 ? Math.max(0, Number(config.dailyRequests) - Number(usage.used || 0)) : null };
+  }
+
+  private async reserveQuota(operationId: string) {
+    const state = await this.getQuotaState();
+    if (!state.config.enabled || !Number(state.config.dailyRequests)) return state;
+    const opKey = "quota:operation:" + operationId.slice(0, 120);
+    if (await this.ctx.storage.get<boolean>(opKey)) return state;
+    const day = new Date().toISOString().slice(0, 10);
+    const usageKey = "quota:usage:" + day;
+    await this.ctx.storage.transaction(async txn => {
+      const used = await txn.get<number>(usageKey) || 0;
+      if (used >= Number(state.config.dailyRequests)) throw new Error("SOLO_INTERNAL_QUOTA_EXHAUSTED: internal SOLO.Chat quota exhausted; increase dailyRequests or disable enabled.");
+      await txn.put(usageKey, used + 1);
+      await txn.put(opKey, true);
+    });
+    return this.getQuotaState();
+  }
   private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user") {
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
@@ -2957,11 +2979,26 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.put("agent:role", agentRole);
         if (requestToken) await this.ctx.storage.put("agent:githubToken", requestToken);
         try {
-          const result = await this.runChat(String(body.threadKey || "default"), prompt, String(body.operationId || crypto.randomUUID()), agentRole);
+          const operationId = String(body.operationId || crypto.randomUUID());
+          await this.reserveQuota(operationId);
+          const result = await this.runChat(String(body.threadKey || "default"), prompt, operationId, agentRole);
           return json(result);
         } finally {
           if (requestToken) await this.ctx.storage.delete("agent:githubToken");
         }
+      }
+      if (url.pathname === "/api/agent/quotas" && (req.method === "GET" || req.method === "PUT")) {
+        await this.requirePassword(req);
+        if (req.method === "PUT") {
+          const body = await req.json() as any;
+          const dailyRequests = Number(body.dailyRequests ?? 0);
+          if (!Number.isInteger(dailyRequests) || dailyRequests < 0 || dailyRequests > 1000000) return json({ error: "dailyRequests must be an integer from 0 to 1000000; 0 means unlimited internal quota" }, 400);
+          const config = { enabled: Boolean(body.enabled), dailyRequests, label: String(body.label || "SOLO free pool").trim().slice(0, 60) || "SOLO free pool", updatedAt: new Date().toISOString() };
+          await this.ctx.storage.put("quota:config", config);
+        }
+        const state = await this.getQuotaState();
+        const tomorrow = new Date(); tomorrow.setUTCHours(24, 0, 0, 0);
+        return json({ ok: true, scope: "SOLO.Chat internal admission quota only", config: state.config, usage: state.usage, remaining: state.remaining, resetAt: tomorrow.toISOString(), note: "This controls SOLO.Chat own request cap only. It cannot create provider capacity or override Cloudflare/Gemini limits. Disabled or dailyRequests=0 means no additional internal cap." });
       }
       if (url.pathname === "/api/agent/status" && req.method === "GET") {
         await this.requirePassword(req);
