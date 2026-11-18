@@ -87,7 +87,7 @@ try {
     const outDir = path.join(ROOT, 'build', 'solo-compute-results');
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, task.task_id + '.json');
-    fs.writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n', { flag: 'wx' });
+    fs.writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n', { flag: 'w' });
     process.stdout.write(JSON.stringify({ status: result.status, result: outPath }, null, 2) + '\n');
     if (result.status !== 'passed') process.exitCode = 1;
   } else {
