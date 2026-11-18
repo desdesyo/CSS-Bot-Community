@@ -11,7 +11,7 @@ const TOKEN = process.env.SOLO_COMPUTE_TOKEN || '';
 const PORT = Number(process.env.SOLO_COMPUTE_PORT || 8787);
 const BIND = process.env.SOLO_COMPUTE_BIND || '127.0.0.1';
 const MAX_BODY = 64 * 1024;
-const LEASE_MS = 12 * 60 * 1000;
+const LEASE_MS = 35 * 60 * 1000;
 const TYPES = new Set(['node-smoke', 'cmake-test']);
 let state = { tasks: [], workers: [] };
 
