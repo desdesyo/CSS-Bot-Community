@@ -65,7 +65,7 @@ test("CHAT-011: conversation Worker owns thread continuity and continuity memory
   const worker = await read("./worker.js");
   assert.ok(worker.includes("/api/messages"), "/api/messages must exist for thread history");
   assert.ok(worker.includes("/api/threads"), "/api/threads must exist for thread listing");
-  assert.match(worker, /async function chain\\(/, "GitHub issue chain must be the authoritative conversation history");
+  assert.match(worker, /async function chain\(/, "GitHub issue chain must be the authoritative conversation history");
   assert.ok(worker.includes("github-chat-active:"), "active continuation pointer must be persisted on the root issue");
   assert.ok(worker.includes("Continuity memory"), "conversation Worker must preserve continuity memory");
   assert.ok(worker.includes("## Continuity memory"), "continuation records must use the documented memory section");
@@ -80,7 +80,7 @@ test("CHAT-011: multi-turn context retention tests in tester.mjs cover thread co
 test("CHAT-011: rollOver carries prior branch memories into the next continuation", async () => {
   const worker = await read("./worker.js");
   assert.match(worker, /async function rollOver\([^)]*chainParts\)/, "rollOver must receive prior conversation branches");
-  assert.match(worker, /const carried\\s*=\\s*chainParts\\.map/, "prior branch memories must be collected");
+  assert.match(worker, /const carried\s*=\s*chainParts\.map/, "prior branch memories must be collected");
   assert.match(worker, /PREVIOUS CONTINUITY MEMORIES/, "prior memories must be included in the consolidation prompt");
   assert.match(worker, /## Continuity memory/, "the new continuation must retain the stable memory section");
 });
