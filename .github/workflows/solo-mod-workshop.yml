@@ -55,4 +55,17 @@ jobs:
           }
           if (-not $rerunFailedSafely) { throw "Initializer should refuse to overwrite an existing project manifest." }
 
-          Write-Host "SOLO Mod Workshop smoke test passed."
+      - name: Run toolchain doctor and validate report
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          ./workshop/Invoke-SoloToolchain.ps1 -Workspace $workspace -Mode doctor
+          $reportPath = Join-Path $workspace ".solo/toolchain.json"
+          if (-not (Test-Path $reportPath)) { throw "Toolchain doctor did not create its report." }
+          $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+          foreach ($name in @("sourcePawnCompiler", "blender", "ffmpeg", "cmake", "dotnet", "git")) {
+            if ($null -eq $report.tools.$name) { throw "Toolchain report is missing key: $name" }
+          }
+          if ($report.mode -ne "doctor") { throw "Unexpected toolchain report mode." }
+          Write-Host "SOLO Mod Workshop smoke tests passed."
