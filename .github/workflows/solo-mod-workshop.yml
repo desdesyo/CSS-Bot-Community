@@ -1,0 +1,58 @@
+name: SOLO Mod Workshop CI
+
+on:
+  push:
+    paths:
+      - "workshop/**"
+      - "docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md"
+      - ".github/workflows/solo-mod-workshop.yml"
+  pull_request:
+    paths:
+      - "workshop/**"
+      - "docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md"
+      - ".github/workflows/solo-mod-workshop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-workspace-smoke-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize workspace and verify inventory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          $fakeGameRoot = Join-Path $env:RUNNER_TEMP "must-not-be-created-game"
+          if (Test-Path $workspace) { Remove-Item $workspace -Recurse -Force }
+          if (Test-Path $fakeGameRoot) { Remove-Item $fakeGameRoot -Recurse -Force }
+
+          ./workshop/Initialize-SoloModWorkspace.ps1 -Path $workspace -ProjectName "CI Smoke Test" -GameRoot $fakeGameRoot
+          if (-not (Test-Path (Join-Path $workspace ".solo/project.json"))) { throw "Project manifest was not created." }
+          if (Test-Path $fakeGameRoot) { throw "Initializer unexpectedly touched the game target." }
+
+          "hello from CI" | Set-Content (Join-Path $workspace "src/configs/sample.cfg") -Encoding UTF8
+          ./workshop/Get-SoloModInventory.ps1 -Path $workspace
+          $inventoryPath = Join-Path $workspace ".solo/inventory.json"
+          $inventory = Get-Content $inventoryPath -Raw | ConvertFrom-Json
+          if ($inventory.fileCount -ne 2) { throw "Expected README and sample.cfg only; got $($inventory.fileCount)." }
+          $sample = $inventory.files | Where-Object { $_.path -eq "src/configs/sample.cfg" }
+          if (-not $sample -or $sample.hashAlgorithm -ne "sha256" -or $sample.sha256.Length -ne 64) {
+            throw "Sample file SHA-256 was not recorded."
+          }
+          if ($inventory.files.path -contains ".solo/project.json" -or $inventory.files.path -contains ".solo/inventory.json") {
+            throw "Internal .solo metadata must not appear in its own inventory."
+          }
+
+          $rerunFailedSafely = $false
+          try {
+            ./workshop/Initialize-SoloModWorkspace.ps1 -Path $workspace
+          } catch {
+            $rerunFailedSafely = $true
+          }
+          if (-not $rerunFailedSafely) { throw "Initializer should refuse to overwrite an existing project manifest." }
+
+          Write-Host "SOLO Mod Workshop smoke test passed."
