@@ -27,6 +27,10 @@
 - `/api/chat/followup`
 - `/api/chat/local-complete`
 - `/api/chat/status`
+- `/api/compute/status`
+- `/api/compute/tasks`
+- `/api/compute/worker/claim`
+- `/api/compute/worker/heartbeat`
 - `/api/feedback`
 - `/api/feedback/error`
 - `/api/files`
@@ -41,12 +45,16 @@
 
 ### Prefix paths
 - `/api/agent/…`
+- `/api/compute/tasks/…`
+- `/api/compute/worker/…`
 - `/api/files/…`
 
 ## Registered agent / MCP tools
 
 - `analyze_source`
 - `check_3d_model`
+- `compute_submit_task`
+- `compute_task_status`
 - `computer_install_smx`
 - `computer_request`
 - `computer_task_result`
@@ -87,6 +95,9 @@
 - `/api/chat`
 - `/api/chat/followup`
 - `/api/chat/local-complete`
+- `/api/compute/status`
+- `/api/compute/tasks`
+- `/api/compute/tasks/`
 - `/api/feedback`
 - `/api/feedback/error`
 - `/api/files`
