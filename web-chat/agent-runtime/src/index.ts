@@ -3045,17 +3045,44 @@ LEARNING FROM CORRECTIONS
         if (!device) throw new Error("Device not found");
         device.lastSeen = Date.now();
         await this.ctx.storage.put("computer:device:" + id, device);
-        const key = "computer:queue:" + id;
-        const queue = await this.ctx.storage.get<ComputerTask[]>(key) || [];
-        const task = queue.shift() || null;
-        await this.ctx.storage.put(key, queue);
-        return json({ task });
+        const queueKey = "computer:queue:" + id;
+        const leaseKey = "computer:lease:" + id;
+        // Claim is transactional. A reconnecting agent receives its existing lease
+        // instead of losing the task or accidentally claiming a second one.
+        const claim = await this.ctx.storage.transaction(async txn => {
+          const lease = await txn.get<{ task: ComputerTask; claimedAt: number }>(leaseKey);
+          if (lease?.task) return { task: lease.task, resumed: true };
+          const queue = await txn.get<ComputerTask[]>(queueKey) || [];
+          const task = queue.shift() || null;
+          await txn.put(queueKey, queue);
+          if (task) await txn.put(leaseKey, { task, claimedAt: Date.now() });
+          return { task, resumed: false };
+        });
+        return json(claim);
       }
       if (url.pathname === "/api/agent/computer/result" && req.method === "POST") {
         const id = await this.deviceFromToken(req);
         const body = await req.json() as any;
-        await this.ctx.storage.put("computer:result:" + String(body.taskId), { deviceId: id, result: body.result, completedAt: Date.now() });
-        return json({ saved: true });
+        const taskId = String(body.taskId || "");
+        if (!/^[a-f0-9-]{20,80}$/i.test(taskId) || !body.result || typeof body.result !== "object")
+          return json({ error: "A valid taskId and result object are required" }, 400);
+        const serialized = JSON.stringify(body.result);
+        if (serialized.length > 512 * 1024) return json({ error: "Computer task result exceeds 512 KB" }, 413);
+        const queueKey = "computer:queue:" + id;
+        const leaseKey = "computer:lease:" + id;
+        const resultKey = "computer:result:" + taskId;
+        const saved = await this.ctx.storage.transaction(async txn => {
+          const previous = await txn.get<any>(resultKey);
+          if (previous?.deviceId === id) return { saved: true, duplicate: true };
+          const lease = await txn.get<{ task: ComputerTask; claimedAt: number }>(leaseKey);
+          if (!lease?.task || lease.task.id !== taskId)
+            return { saved: false, error: "Task lease not found or task does not belong to this device" };
+          await txn.put(resultKey, { deviceId: id, result: body.result, completedAt: Date.now() });
+          await txn.delete(leaseKey);
+          return { saved: true, duplicate: false };
+        });
+        if (!saved.saved) return json({ error: saved.error }, 409);
+        return json(saved);
       }
       if (url.pathname === "/api/agent/computer/task" && req.method === "GET") {
         await this.requirePassword(req);
