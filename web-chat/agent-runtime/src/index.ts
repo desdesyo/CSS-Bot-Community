@@ -1064,6 +1064,18 @@ LEARNING FROM CORRECTIONS
       job.completedAt = Date.now();
       job.updatedAt = Date.now();
       await this.ctx.storage.put(jobKey, job);
+      // Failed user-visible generations must enter the same durable agent repair
+      // pipeline as an explicit /fix request; do not wait for the user to notice.
+      try {
+        const recovery = await this.triggerFixCommand();
+        console.warn("[SOLO.Chat] automatic recovery dispatched after browser chat failure", JSON.stringify({
+          operationId: job.operationId, issueNumber: recovery.issueNumber || null,
+          reused: Boolean(recovery.reused), requeued: Boolean(recovery.requeued), ok: Boolean(recovery.ok)
+        }));
+      } catch (recoveryError) {
+        await this.recordRuntimeError("browser-chat:auto-recovery", recoveryError);
+        console.error("[SOLO.Chat] automatic recovery dispatch failed", String(recoveryError instanceof Error ? recoveryError.message : recoveryError).slice(0, 300));
+      }
     }
 
     const remaining = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
