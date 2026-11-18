@@ -84,3 +84,18 @@ test("CHAT-011: rollOver carries prior branch memories into the next continuatio
   assert.match(worker, /PREVIOUS CONTINUITY MEMORIES/, "prior memories must be included in the consolidation prompt");
   assert.match(worker, /## Continuity memory/, "the new continuation must retain the stable memory section");
 });
+test("Computer bridge tasks are leased transactionally and results are idempotent", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const bridge = await read("../computer-bridge/agent.mjs");
+  const journal = await read("../computer-bridge/task-journal.mjs");
+  assert.match(agent, /computer:lease:/, "server must retain a claimed task lease");
+  assert.match(agent, /storage\.transaction\(async txn/, "claim/result transitions must be atomic");
+  assert.match(agent, /resumed: true/, "reconnecting devices must receive their existing task");
+  assert.match(agent, /duplicate: true/, "duplicate result delivery must be idempotent");
+  assert.match(agent, /512 \* 1024/, "computer result payload must be bounded");
+  assert.match(bridge, /writeJournal\(journalPath, \{ task, claimedAt:/, "agent must persist a task before executing it");
+  assert.match(bridge, /deliverJournal\(config\)/, "agent must retry pending result delivery before polling");
+  assert.match(bridge, /AbortSignal\.timeout\(30000\)/, "network calls must have a bounded timeout");
+  assert.match(journal, /await handle\.sync\(\)/, "journal writes must be flushed before task execution");
+});
+
