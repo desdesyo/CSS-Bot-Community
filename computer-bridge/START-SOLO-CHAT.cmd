@@ -38,13 +38,14 @@ goto START
 echo 1. Open SOLO.Chat in your browser.
 echo 2. Press Connect computer and copy the six-digit code.
 echo.
-set /p PAIRCODE=Paste the six-digit code here, then press Enter: 
-if "%PAIRCODE%"=="" (
+set /p SOLO_PAIR_CODE=Paste the six-digit code here, then press Enter: 
+if not defined SOLO_PAIR_CODE (
   echo No code entered.
   pause
   exit /b 1
 )
-node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev %PAIRCODE%
+node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev
+set "SOLO_PAIR_CODE="
 if errorlevel 1 (
   echo.
   echo Pairing did not complete. Generate a fresh code in SOLO.Chat and try again.
