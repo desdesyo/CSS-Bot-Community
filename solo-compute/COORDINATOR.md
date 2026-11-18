@@ -24,7 +24,18 @@ All `/v1/*` endpoints require `Authorization: Bearer <token>`.
 - `POST /v1/tasks/claim` — claim next queued task. JSON: `{"worker_id":"node-01"}`.
 - `POST /v1/tasks/<task_id>/result` — submit validated result envelope with `worker_id` and `result`.
 
-Leases expire after five minutes; failed/expired tasks are retried at most three times. Task types are a hard-coded allowlist. The coordinator does not accept shell commands, scripts, executable paths, or arbitrary URLs.
+Leases expire after twelve minutes; failed/expired tasks are retried at most three times. Task types are a hard-coded allowlist. The coordinator does not accept shell commands, scripts, executable paths, or arbitrary URLs.
+
+## Connect a worker
+
+On a second checkout of the exact same commit as the queued task, set the same private token and run:
+
+```powershell
+$env:SOLO_COMPUTE_TOKEN = "the-same-long-private-token"
+node .\\solo-compute\\worker.mjs connect https://your-private-coordinator.example node-01
+```
+
+For same-computer testing, use `http://127.0.0.1:8787`. The worker sends a heartbeat, claims one task at a time, runs only its built-in allowlisted command set, and submits the result. It refuses non-HTTPS remote coordinator URLs and refuses tasks whose pinned commit does not match the local checkout.
 
 ## Current security and deployment boundary
 
