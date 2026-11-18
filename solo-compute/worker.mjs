@@ -74,6 +74,13 @@ const [mode, file] = process.argv.slice(2);
 try {
   if (mode === 'doctor') {
     process.stdout.write(JSON.stringify(doctor(), null, 2) + '\n');
+  } else if (mode === 'prepare' && file && Object.hasOwn(TASKS, file)) {
+    const task = { schema_version: 1, task_id: file + '-' + Date.now(), task_type: file, commit_sha: gitHead(), timeout_seconds: DEFAULT_TIMEOUT };
+    const outDir = path.join(ROOT, 'build', 'solo-compute-tasks');
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, task.task_id + '.json');
+    fs.writeFileSync(outPath, JSON.stringify(task, null, 2) + '\\n', { flag: 'wx' });
+    process.stdout.write(outPath + '\\n');
   } else if (mode === 'run' && file) {
     const task = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
     const result = execute(task);
@@ -84,7 +91,7 @@ try {
     process.stdout.write(JSON.stringify({ status: result.status, result: outPath }, null, 2) + '\n');
     if (result.status !== 'passed') process.exitCode = 1;
   } else {
-    process.stderr.write('Usage: node solo-compute/worker.mjs doctor | run <task.json>\n');
+    process.stderr.write('Usage: node solo-compute/worker.mjs doctor | prepare <node-smoke|cmake-test> | run <task.json>\n');
     process.exitCode = 2;
   }
 } catch (error) {
