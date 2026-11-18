@@ -32,3 +32,17 @@ test("Browser UI includes status polling and failure handling", async () => {
   assert.ok(html.includes("/api/chat/status"), "status polling endpoint not referenced");
   assert.match(html, /failed/i, "failed operation state not handled");
 });
+
+test("SOLO Distributed Compute is mounted in the live Durable Object API", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const worker = await read("./compute-worker.mjs");
+  for (const route of ["/api/compute/status", "/api/compute/tasks", "/api/compute/worker/heartbeat", "/api/compute/worker/claim"]) {
+    assert.ok(agent.includes(route), "Compute route missing: " + route);
+  }
+  assert.match(agent, /compute_submit_task/);
+  assert.match(agent, /compute_task_status/);
+  assert.match(worker, /spawnSync/);
+  assert.match(worker, /shell:\\s*false/);
+  assert.match(worker, /node-smoke/);
+  assert.match(worker, /cmake-test/);
+});
