@@ -2,6 +2,15 @@
 
 The coordinator is a small, dependency-free Node.js service for a trusted private network. It provides a persistent task queue, worker heartbeats, task leases, bounded retries, result validation, and a status endpoint.
 
+## Quick start on Windows
+
+1. Extract the repository branch ZIP.
+2. Double-click `Start-SOLO-Compute-Coordinator.bat` and enter a private token of at least 32 characters.
+3. In a second terminal on the same computer, double-click `Start-SOLO-Compute-Worker.bat` and enter the exact same token.
+4. To queue a task, send an authenticated POST to `/v1/tasks` with a supported task type and the exact 40-character commit SHA checked out by the worker.
+
+The launchers keep the token in the process environment only; they do not write it into the repository.
+
 ## Start on the coordinator computer
 
 Node.js 20+ is required. Set a long random token (at least 32 random characters) and start:
