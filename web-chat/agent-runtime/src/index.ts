@@ -2802,8 +2802,14 @@ LEARNING FROM CORRECTIONS
       const message = error instanceof Error ? error.message : "Request failed";
       await this.recordRuntimeError("api:" + req.method + ":" + url.pathname, message);
       console.error("[SOLO.Chat] API request failed", JSON.stringify({ path: url.pathname, method: req.method, error: message }));
+      // Agent workflow callers need to distinguish invalid requests from runtime/provider
+      // failures. Returning 400 for every unexpected exception prevents safe retries and
+      // strands GitHub agent tasks in status:in-progress.
+      const isAgentChat = url.pathname === "/api/agent/chat" && req.method === "POST";
+      const isMalformedRequest = error instanceof SyntaxError || /Prompt must be|Invalid scoped GitHub token/.test(message);
       const status = message === "Unauthorized" ? 401
-        : /Pi harness|tool-capable Pi providers|Gemini|OpenRouter|OpenAI|Groq|Workers AI|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(message) ? 502
+        : /Pi harness|tool-capable Pi providers|Gemini|OpenRouter|OpenAI|Groq|Workers AI|RESOURCE_EXHAUSTED|quota|rate.?limit|timed out|timeout|overloaded|temporarily unavailable/i.test(message) ? 502
+        : isAgentChat && !isMalformedRequest ? 503
         : 400;
       return json({ error: message === "Unauthorized" ? "Unauthorized" : message }, status);
     }
