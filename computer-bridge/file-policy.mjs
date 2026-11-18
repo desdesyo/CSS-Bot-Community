@@ -66,11 +66,24 @@ export function validateGameInspectionInput(input) {
   const value = input.trim();
   if (value.startsWith("\\\\") || value.startsWith("//") || /[<>"]/g.test(value))
     throw new Error("Device, UNC and ambiguous Windows paths are not allowed");
-  const parts = value.replace(/\\/g, "/").split("/");
+  if (/^GAME:/i.test(value) && !/^GAME:[\\/]/i.test(value))
+    throw new Error("Game paths must use the explicit GAME:/ namespace");
+  const normalized = value.replace(/\\/g, "/");
+  const isGameNamespace = /^GAME:\//i.test(normalized);
+  const isDrivePath = /^[a-zA-Z]:\//.test(normalized);
+  const relativePart = isGameNamespace
+    ? normalized.slice(6)
+    : isDrivePath ? normalized.slice(3) : normalized;
+  const parts = relativePart.split("/");
   if (parts.some(part => part === "." || part === ".."))
     throw new Error("Path traversal and dot segments are not allowed");
-  const pathForColonCheck = value.replace(/^GAME:[\\/]/i, "").replace(/^[a-zA-Z]:[\\/]/, "");
-  if (pathForColonCheck.includes(":")) throw new Error("Alternate data streams are not allowed");
+  if ((isGameNamespace && relativePart && (relativePart.startsWith("/") || parts.some(part => !part))) ||
+      (relativePart && parts.some(part => part.endsWith(".") || part.endsWith(" "))))
+    throw new Error("Ambiguous or non-canonical Windows path segments are not allowed");
+  if (parts.some(part => /[<>:"|?*\\x00-\\x1f]/.test(part)))
+    throw new Error("Invalid Windows path characters and alternate data streams are not allowed");
+  if (parts.some(part => /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\.|$)/i.test(part)))
+    throw new Error("Reserved Windows device names are not valid game paths");
   return true;
 }
 
