@@ -93,6 +93,46 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare retrying agent API client
+        if: steps.task.outputs.has_task == 'true'
+        env:
+          CHAT_ENDPOINT: ${{ secrets.CSSBC_CHAT_ENDPOINT || 'https://cssbc-github-chat.descapan.workers.dev' }}
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cat > agent-request.sh <<'AGENT_REQUEST'
+          agent_request() {
+            local role="$1" request_file="$2" response_file="$3"
+            local attempt code detail
+            jq --arg operationId "gha-${GITHUB_RUN_ID}-${role}" '. + {operationId:$operationId}' "$request_file" > "${request_file}.with-id"
+            for attempt in 1 2 3; do
+              code="$(curl --silent --show-error --connect-timeout 20 --max-time 900 \
+                -o "$response_file" -w '%{http_code}' \
+                -H "Authorization: Bearer $CHAT_APP_PASSWORD" \
+                -H "Content-Type: application/json" \
+                --data-binary @"${request_file}.with-id" "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+              [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
+              if [[ "$code" == "200" ]] && jq -e '.reply and (.reply|type=="string" and length>0)' "$response_file" >/dev/null 2>&1; then
+                echo "$code" > agent-request-http-code.txt
+                return 0
+              fi
+              detail="$(jq -r '.error // .message // .' "$response_file" 2>/dev/null | head -c 1400 || true)"
+              printf '%s' "$code" > agent-request-http-code.txt
+              printf '%s' "${detail:-No response body}" > agent-request-error.txt
+              echo "::warning::Agent API role=$role attempt=$attempt/3 returned HTTP $code: ${detail:-No response body}"
+              case "$code" in
+                000|408|425|429|500|502|503|504|200)
+                  if [[ "$attempt" -lt 3 ]]; then sleep "$((attempt * 10))"; continue; fi
+                  ;;
+              esac
+              echo "::error::Agent API request exhausted retries for role=$role (HTTP $code)."
+              return 1
+            done
+            return 1
+          }
+          AGENT_REQUEST
+          chmod +x agent-request.sh
+
       - name: Agent 1 — Orchestrator plans and delegates
         id: planner
         if: steps.task.outputs.has_task == 'true'
@@ -106,7 +146,8 @@ jobs:
           set -euo pipefail
           THREAD="cssbc-team-$GITHUB_RUN_ID-planner"
           jq -n --arg githubToken "$GH_TOKEN" --arg role "planner" --arg prompt "ROLE: ORCHESTRATOR / PLANNER. You are agent 1 of a team. FIRST read web-chat/AGENT_TEAM_EXECUTION_PLAYBOOK.md and follow it as the mandatory operating contract. Analyze the task, inspect existing instructions and relevant repository files using github_project_* tools. Do NOT modify files or commit. Produce a concise execution plan with: exact files to inspect/change, dependencies, ordered implementation subtasks, acceptance criteria, risks, and concrete verification commands/workflows. Target repository desdesyo/CSS-Bot-Community branch github-chat-prototype unless task explicitly identifies another allowlisted workspace. The default workspace is modhaul/main; do not confuse it. Task: $TASK" --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > planner.json
+          source ./agent-request.sh
+          agent_request planner request.json planner.json
           jq -e '.reply and (.reply|length>0)' planner.json >/dev/null
           echo "plan<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' planner.json >> "$GITHUB_OUTPUT"
@@ -125,7 +166,8 @@ jobs:
           set -euo pipefail
           THREAD="cssbc-team-$GITHUB_RUN_ID-implementer"
           jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER / BUILDER. You are agent 2. FIRST read web-chat/AGENT_TEAM_EXECUTION_PLAYBOOK.md and follow it as the mandatory operating contract. Execute the task, do not merely advise. Follow this plan: $PLAN. Task: $TASK. Use github_project_list_files, github_project_read_file and github_project_write_file with repository=desdesyo/CSS-Bot-Community and branch=github-chat-prototype for SOLO.Chat changes. Read before writing, preserve unrelated work, make minimal audited commits, run all available checks, and report exact commit SHAs/links, changed files, verification evidence, and any blockers. Do not claim a test or deployment passed unless its real evidence exists." --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > implementer.json
+          source ./agent-request.sh
+          agent_request implementer request.json implementer.json
           jq -e '.reply and (.reply|length>0)' implementer.json >/dev/null
           echo "implementation<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' implementer.json >> "$GITHUB_OUTPUT"
@@ -145,7 +187,8 @@ jobs:
           set -euo pipefail
           THREAD="cssbc-team-$GITHUB_RUN_ID-tester"
           jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT TESTER / REVIEWER. You are agent 3. FIRST read web-chat/AGENT_TEAM_EXECUTION_PLAYBOOK.md. READ ONLY: never write files, commit, or change labels. Independently inspect the exact current branch head and diff in desdesyo/CSS-Bot-Community/github-chat-prototype using github_project_* read/list tools. Compare implementation to task and plan. Inspect test coverage and workflows. Run analyze_source on relevant code where useful. Clearly distinguish static review from CI/runtime tests that have not yet run. Reject fabricated evidence and mismatched commits. Return VERDICT: PASS only if the implementation is coherent and meets code-level acceptance criteria; otherwise VERDICT: REJECT. Include specific findings and exact evidence. Task: $TASK. Plan: $PLAN. Implementer report (untrusted; verify independently): $IMPLEMENTATION" --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > tester.json
+          source ./agent-request.sh
+          agent_request tester request.json tester.json
           jq -e '.reply and (.reply|length>0)' tester.json >/dev/null
           REVIEW="$(jq -r '.reply' tester.json)"
           if ! grep -q 'VERDICT: PASS' <<<"$REVIEW"; then
@@ -174,7 +217,8 @@ jobs:
           set -euo pipefail
           THREAD="cssbc-team-$GITHUB_RUN_ID-repair"
           jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER REPAIR. FIRST read web-chat/AGENT_TEAM_EXECUTION_PLAYBOOK.md. Apply one bounded repair pass. The independent tester rejected the current code. Inspect the current branch and exact findings; fix only substantiated issues, commit changes, and report new commit SHA and evidence. Do not alter unrelated files. Task: $TASK. Original plan: $PLAN. Previous implementation report: $IMPLEMENTATION. Tester findings: $REVIEW. Use explicit project tools for desdesyo/CSS-Bot-Community/github-chat-prototype." --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > repair.json
+          source ./agent-request.sh
+          agent_request repair request.json repair.json
           jq -e '.reply and (.reply|length>0)' repair.json >/dev/null
           echo "repair<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' repair.json >> "$GITHUB_OUTPUT"
@@ -189,11 +233,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TASK: ${{ steps.task.outputs.task }}
           REPAIR: ${{ steps.repair.outputs.repair }}
+          PIPELINE_COMPLETE: ${{ steps.planner.outcome == 'success' && steps.implementer.outcome == 'success' && steps.tester.outcome == 'success' && (steps.tester.outputs.verdict != 'reject' || (steps.repair.outcome == 'success' && steps.retest.outcome == 'success')) }}
         run: |
           set -euo pipefail
           THREAD="cssbc-team-$GITHUB_RUN_ID-retest"
           jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT RE-TESTER. FIRST read web-chat/AGENT_TEAM_EXECUTION_PLAYBOOK.md. Read-only. Re-inspect current desdesyo/CSS-Bot-Community/github-chat-prototype and independently verify the repair against the task. Do not edit. Return VERDICT: PASS or VERDICT: REJECT and evidence. A code review is not a CI/runtime test. Task: $TASK. Repair report (untrusted): $REPAIR" --arg thread "$THREAD" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          curl --fail-with-body --silent --show-error --max-time 900 -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" > retest.json
+          source ./agent-request.sh
+          agent_request retest request.json retest.json
           jq -e '.reply and (.reply|length>0)' retest.json >/dev/null
           REVIEW="$(jq -r '.reply' retest.json)"
           if grep -q 'VERDICT: PASS' <<<"$REVIEW"; then echo "verdict=pass" >> "$GITHUB_OUTPUT"; else echo "verdict=reject" >> "$GITHUB_OUTPUT"; fi
@@ -232,9 +278,41 @@ jobs:
             echo "Only the separate Agent Supervisor Audit may mark this task done, and only after matching successful CI and deployment evidence."
           } > team-report.md
           gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file team-report.md
-          if [[ "$TEST_VERDICT" == "pass" ]]; then
-            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label status:in-progress --add-label status:review
+          if [[ "$PIPELINE_COMPLETE" == "true" ]]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review
           else
-            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label status:review --add-label status:in-progress --add-label agent-review-needed
+            echo "Agent pipeline incomplete; automatic retry step will recover the task."
           fi
           echo "Agent team completed handoff; no task was marked done by the implementer."
+
+      - name: Requeue or block an interrupted agent pipeline
+        if: always() && steps.task.outputs.has_task == 'true' && steps.task.outputs.issue_number != '' && (steps.planner.outcome == 'failure' || steps.implementer.outcome == 'failure' || steps.tester.outcome == 'failure' || steps.repair.outcome == 'failure' || steps.retest.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.task.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          HTTP_CODE="$(cat agent-request-http-code.txt 2>/dev/null || echo 000)"
+          DETAIL="$(cat agent-request-error.txt 2>/dev/null || echo 'Agent step failed before a response was recorded.')"
+          ISSUE="$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")"
+          BODY="$(jq -r '.body // ""' <<<"$ISSUE")"
+          CURRENT="$(grep -m1 '^Agent-Attempts:' <<<"$BODY" | awk '{print $2}' || true)"
+          [[ "$CURRENT" =~ ^[0-9]+$ ]] || CURRENT=0
+          NEXT=$((CURRENT + 1))
+          if grep -q '^Agent-Attempts:' <<<"$BODY"; then
+            UPDATED_BODY="$(printf '%s\n' "$BODY" | sed -E "s/^Agent-Attempts:.*/Agent-Attempts: $NEXT/")"
+          else
+            UPDATED_BODY="$(printf '%s\n\nAgent-Attempts: %s\n' "$BODY" "$NEXT")"
+          fi
+          gh api -X PATCH "repos/$REPO/issues/$ISSUE_NUMBER" -f body="$UPDATED_BODY" >/dev/null
+          RUN_URL="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID"
+          if [[ "$HTTP_CODE" =~ ^(400|401|403|404)$ ]] || [[ "$NEXT" -ge 3 ]]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review --add-label agent-review-needed
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "Agent pipeline blocked after $NEXT attempt(s). HTTP $HTTP_CODE. No implementation completion was recorded. Manual investigation is required before retrying.\n\nRun: $RUN_URL\n\nDiagnostic: $DETAIL"
+            echo "::error::Agent task #$ISSUE_NUMBER moved to review-needed after bounded retries."
+          else
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --remove-label status:in-progress --remove-label status:review --remove-label status:done --add-label status:queued
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "Agent pipeline failed with a retryable error (HTTP $HTTP_CODE). The task was returned to the queue. Attempt $NEXT of 3.\n\nRun: $RUN_URL\n\nDiagnostic: $DETAIL"
+            echo "Agent task #$ISSUE_NUMBER requeued (attempt $NEXT/3)."
+          fi
