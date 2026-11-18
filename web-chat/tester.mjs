@@ -196,6 +196,16 @@ const checks = [
  [ "MCP and the built-in agent tool share the same FLUX generation and artifact-storage implementation", runtime.includes('private async generateImage(prompt: string, filename: string)') && runtime.includes('return textOutput(await agent.generateImage(prompt, filename))') && runtime.includes('this.generateImage(args.prompt')],
 
 ];
+const fixRuntime = runtime.slice(runtime.indexOf("private async triggerFixCommand"), runtime.indexOf("private async requirePassword"));
+checks.push(
+ ["The /fix slash command is intercepted by the authenticated browser-chat API and never sent to the normal LLM turn", runtime.includes('message.toLowerCase() === "/fix"') && runtime.includes('this.triggerFixCommand()') && runtime.includes('completedJob: BrowserChatJob') && runtime.includes('status: "done"')],
+ ["The /fix collector gathers durable runtime errors, failed/stuck browser jobs, queued error feedback, provider circuits and tool/provider capability state", fixRuntime.includes('"runtime:errors"') && fixRuntime.includes('job.status === "failed"') && fixRuntime.includes('stuckBrowserJobs') && fixRuntime.includes('queuedErrorFeedback') && fixRuntime.includes('providerCircuits') && fixRuntime.includes('registeredTools')],
+ ["Runtime failures are automatically retained in a bounded 100-entry diagnostic ring buffer", runtime.includes('private async recordRuntimeError') && runtime.includes('entries.slice(-100)') && runtime.includes('recordRuntimeError("pi-provider-attempt:') && runtime.includes('recordRuntimeError("browser-chat:')],
+ ["The /fix GitHub task excludes chat prompts, conversation text, attachments and user messages from the public issue payload", fixRuntime.includes('## Privacy') && !fixRuntime.includes('job.prompt') && !fixRuntime.includes('userMessage') && !fixRuntime.includes('assistantReply')],
+ ["The /fix command creates a labeled agent-task issue that triggers the existing GitHub Issues orchestrator", fixRuntime.includes('method: "POST"') && fixRuntime.includes('"/issues"') && fixRuntime.includes('"agent-task", "agent-generated", "agent-chat-runtime", "status:queued"') && orchestrator.includes("github.event.action == 'opened'") && orchestrator.includes("contains(github.event.issue.labels.*.name, 'agent-task')")],
+ ["The /fix command deduplicates active repair tasks and requeues stale issues instead of flooding the queue", fixRuntime.includes('fix:active') && fixRuntime.includes('age < 70 * 60 * 1000') && fixRuntime.includes('status:queued')],
+ ["The chat composer documents the /fix recovery command", html.includes('/fix') && html.includes('собрать ошибки и запустить восстановление')]
+);
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
 console.log(`\nTester result: ${checks.length-failed}/${checks.length} checks passed`);
