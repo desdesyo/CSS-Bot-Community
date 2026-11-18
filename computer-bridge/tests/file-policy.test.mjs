@@ -4,7 +4,7 @@ import { resolve, join } from "node:path";
 import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
-import { isInside, validateWriteRequest, validateSmxInstallRequest } from "../file-policy.mjs";
+import { isInside, validateWriteRequest, validateSmxInstallRequest, validateGameInspectionInput, isSafeGameRelativePath } from "../file-policy.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 
@@ -89,4 +89,31 @@ test("rejects plugin hash conflicts and oversized packages", () => {
   const base = { relativeTarget: "cstrike/addons/sourcemod/plugins/cssbc.smx", sourceUrl: "https://github.com/desdesyo/modhaul/releases/download/test/cssbc.smx", expectedSha256: "a".repeat(64), currentSha256: "b".repeat(64), contentBytes: 1024 };
   assert.throws(() => validateSmxInstallRequest(base), /conflict/);
   assert.throws(() => validateSmxInstallRequest({ ...base, expectedSha256: "NEW", currentSha256: "NEW", contentBytes: 10 * 1024 * 1024 + 1 }), /10 MB/);
+});
+
+
+test("accepts safe game inspection paths and the explicit GAME namespace", () => {
+  assert.equal(validateGameInspectionInput("C:\\Games\\Counter-Strike Source v34\\cstrike\\gameinfo.txt"), true);
+  assert.equal(validateGameInspectionInput("GAME:/cstrike/cfg/server.cfg"), true);
+  assert.equal(isSafeGameRelativePath("cstrike/addons/sourcemod/plugins"), true);
+  assert.equal(isSafeGameRelativePath("cstrike/../bin"), false);
+});
+
+test("rejects game traversal, sibling escapes, UNC, device paths and NTFS streams", () => {
+  for (const value of [
+    "GAME:/../Windows/system.ini",
+    "GAME:/cstrike/../../outside.txt",
+    "C:\\Games\\Counter-Strike Source v34-old\\file.txt",
+    "\\\\server\\share\\game",
+    "\\\\?\\C:\\Games\\game",
+    "C:\\Games\\game\\file.txt:secret",
+    "GAME:/cstrike/./gameinfo.txt"
+  ]) assert.throws(() => validateGameInspectionInput(value));
+});
+
+test("read-only game scope never makes game files writable by policy", () => {
+  assert.throws(() => validateWriteRequest({
+    targetPath: "C:\\Games\\Counter-Strike Source v34\\cstrike\\cfg\\server.cfg",
+    contentBytes: 20, expectedSha256: "NEW", actualSha256: "NEW"
+  }), /SHA-256 conflict|not allowed|protected/);
 });
