@@ -967,6 +967,8 @@ LEARNING FROM CORRECTIONS
           replay: "unsafe",
           async execute({ action, path }: { action: string; path: string }) {
             if (!["system_info", "list_directory", "read_text_file", "hash_file", "inventory_game"].includes(action)) throw new Error("Unsupported or write-capable computer action");
+            if (/^GAME:/i.test(path || "") && !/^GAME:[\\/]/i.test(path)) throw new Error("Game inspection paths must use the explicit GAME:/ namespace");
+            if (action === "inventory_game" && path !== "GAME:/" && path !== "GAME:\\\\") throw new Error("The initial game inventory must start at GAME:/");
             const devices = await storage.get<string[]>("computer:devices") || [];
             const deviceId = devices[0];
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to create a pairing code.");
@@ -991,6 +993,7 @@ LEARNING FROM CORRECTIONS
           async execute({ path, content, expectedSha256 }: { path: string; content: string; expectedSha256: string }) {
             await assertAgentCanWrite();
             if (!path || path.length > 1024) throw new Error("A valid local file path is required");
+            if (/^GAME:/i.test(path) || /[\\/]GAME:/i.test(path)) throw new Error("The game inspection namespace is read-only and cannot be used by the workspace text writer");
             if (new TextEncoder().encode(content).length > 256 * 1024) throw new Error("Local text file write is limited to 256 KB");
             if (expectedSha256 !== "NEW" && !/^[a-f0-9]{64}$/i.test(expectedSha256)) throw new Error("Provide the exact expected SHA-256 or NEW for a new file");
             const devices = await storage.get<string[]>("computer:devices") || [];
