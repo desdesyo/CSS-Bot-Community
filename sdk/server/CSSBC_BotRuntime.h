@@ -1,3 +1,6 @@
+// AGENT SAFETY NOTE: this portable runtime is inert until a verified engine hook
+// constructs snapshots and calls Evaluate()/OnWeaponShot(). Do not report gameplay
+// features active from this class existing or compiling alone.
 #pragma once
 #include "CSSBC_Brain.h"
 #include "CSSBC_Spray.h"
