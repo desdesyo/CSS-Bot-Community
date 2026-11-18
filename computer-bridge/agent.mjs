@@ -5,6 +5,7 @@ import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { isInside, validateWriteRequest, validateSmxInstallRequest } from "./file-policy.mjs";
+import { readJournal, writeJournal, removeJournal } from "./task-journal.mjs";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -279,30 +280,8 @@ async function runTask(config, task) {
   }
   throw new Error("Unsupported task action");
 }
-async function loadJournal() {
-  try {
-    const value = JSON.parse(await readFile(journalPath, "utf8"));
-    if (!value || typeof value !== "object" || !value.task || typeof value.task.id !== "string")
-      throw new Error("Local task journal is invalid; refusing to poll for new work.");
-    return value;
-  } catch (error) {
-    if (error?.code === "ENOENT") return null;
-    throw error;
-  }
-}
-async function saveJournal(value) {
-  await mkdir(dirname(journalPath), { recursive: true });
-  const temporary = journalPath + "." + randomUUID() + ".tmp";
-  const handle = await open(temporary, "wx", 0o600);
-  try { await handle.writeFile(JSON.stringify(value), "utf8"); await handle.sync(); }
-  finally { await handle.close(); }
-  await rename(temporary, journalPath);
-}
-async function clearJournal() {
-  await unlink(journalPath).catch(error => { if (error?.code !== "ENOENT") throw error; });
-}
 async function deliverJournal(config) {
-  const journal = await loadJournal();
+  const journal = await readJournal(journalPath);
   if (!journal) return true;
   if (!journal.result) {
     let result;
@@ -310,11 +289,11 @@ async function deliverJournal(config) {
     catch (error) { result = { ok: false, error: String(error?.message || error).slice(0, 500) }; }
     journal.result = result;
     journal.completedAt = new Date().toISOString();
-    await saveJournal(journal);
+    await writeJournal(journalPath, journal);
   }
   await api(config, "/api/agent/computer/result", { taskId: journal.task.id, result: journal.result });
   console.log(new Date().toISOString(), journal.task.action, journal.task.id, journal.result.ok ? "done" : "error");
-  await clearJournal();
+  await removeJournal(journalPath);
   return true;
 }
 async function main() {
@@ -329,7 +308,7 @@ async function main() {
       const { task } = await api(config, "/api/agent/computer/poll", {});
       if (task) {
         // Persist the claim before doing any local work. A restart can recover this task.
-        await saveJournal({ task, claimedAt: new Date().toISOString(), result: null });
+        await writeJournal(journalPath, { task, claimedAt: new Date().toISOString(), result: null });
         await deliverJournal(config);
       }
     } catch (error) {
