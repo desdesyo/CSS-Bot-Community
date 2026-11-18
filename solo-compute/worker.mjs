@@ -95,7 +95,7 @@ async function connectCoordinator(baseUrl, workerId) {
       catch (error) {
         result = { task_id: claimed.task.task_id, commit_sha: claimed.task.commit_sha, status: 'failed', error: error.message };
       }
-      await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
+      if (Array.isArray(result.steps)) for (const step of result.steps) if (typeof step.output === 'string') step.output = step.output.slice(0, 8000);\n      await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
       process.stdout.write('Task ' + claimed.task.task_id + ': ' + result.status + '\n');
     }
     await new Promise(resolve => setTimeout(resolve, 5000));
