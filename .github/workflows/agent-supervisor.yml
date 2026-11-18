@@ -128,6 +128,8 @@ jobs:
             fi
             BODY="$(printf '%s\n' "$BODY" | sed '/^Agent-Supervisor-Run-ID:/d')"
             BODY="$(printf '%s\n\nAgent-Supervisor-Run-ID: %s\n' "$BODY" "$GITHUB_RUN_ID")"
+            BODY="$(printf '%s\n' "$BODY" | sed '/^Agent-Supervisor-Run-Status:/d')"
+            BODY="$(printf '%s\n\nAgent-Supervisor-Run-Status: running\n' "$BODY")"
             gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$BODY" >/dev/null
             PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and, whenever web-chat/** changed, a successful deployment smoke test for that exact same commit SHA. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
             jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" --arg role "supervisor" --arg githubToken "$GH_TOKEN" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > reviewer.json
@@ -145,12 +147,20 @@ jobs:
             done
             if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
               DETAIL="$(jq -r '.error // .message // .' review.json 2>/dev/null | head -c 1200 || true)"
+              BODY="$(gh api "repos/$SOURCE_REPO/issues/$NUMBER" --jq '.body // ""')"
+              BODY="$(printf '%s\n' "$BODY" | sed '/^Agent-Supervisor-Run-Status:/d')"
+              BODY="$(printf '%s\n\nAgent-Supervisor-Run-Status: failed\n' "$BODY")"
+              gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$BODY" >/dev/null
               gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review failed after bounded retries (HTTP $CODE). Task remains in review; no approval granted. Diagnostic: ${DETAIL:-No response body}" >/dev/null
               gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
               continue
             fi
             { printf '%s\n\n' "$REVIEW_MARKER"; jq -r '.reply' review.json; } > review-report.md
             gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body-file review-report.md >/dev/null
+            BODY="$(gh api "repos/$SOURCE_REPO/issues/$NUMBER" --jq '.body // ""')"
+            BODY="$(printf '%s\n' "$BODY" | sed '/^Agent-Supervisor-Run-Status:/d')"
+            BODY="$(printf '%s\n\nAgent-Supervisor-Run-Status: completed\n' "$BODY")"
+            gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$BODY" >/dev/null
             if grep -q 'VERDICT: PASS' review-report.md && [[ "$CI_MATCH" == "true" ]] && [[ "$DEPLOY_OK" == "true" ]] && [[ -n "$CI_URL" ]]; then
               UPDATED_BODY="$(printf '%s\n' "$BODY" | sed -E "s#- Implementation: _?pending_?#- Implementation: https://github.com/$TARGET_REPO/commit/$HEAD_SHA#" | sed -E "s#- Verification run: _?pending_?#- Verification run: $CI_URL#")"
               gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$UPDATED_BODY" >/dev/null
