@@ -87,15 +87,25 @@ async function connectCoordinator(baseUrl, workerId) {
   };
   process.stdout.write('Worker ' + workerId + ' connected to ' + url.origin + '\n');
   while (true) {
-    await request('/v1/workers/heartbeat', { worker_id: workerId, platform: process.platform, cpu_count: os.cpus().length });
-    const claimed = await request('/v1/tasks/claim', { worker_id: workerId });
+    let claimed;
+    try {
+      await request('/v1/workers/heartbeat', { worker_id: workerId, platform: process.platform, cpu_count: os.cpus().length });
+      claimed = await request('/v1/tasks/claim', { worker_id: workerId });
+    } catch (error) {
+      process.stderr.write('Coordinator unavailable: ' + error.message + '\n');
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      continue;
+    }
     if (claimed.task) {
       let result;
       try { result = execute(claimed.task); }
       catch (error) {
         result = { task_id: claimed.task.task_id, commit_sha: claimed.task.commit_sha, status: 'failed', error: error.message };
       }
-      if (Array.isArray(result.steps)) for (const step of result.steps) if (typeof step.output === 'string') step.output = step.output.slice(0, 8000);\n      await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
+      if (Array.isArray(result.steps)) {
+        for (const step of result.steps) if (typeof step.output === 'string') step.output = step.output.slice(0, 8000);
+      }
+      await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
       process.stdout.write('Task ' + claimed.task.task_id + ': ' + result.status + '\n');
     }
     await new Promise(resolve => setTimeout(resolve, 5000));
