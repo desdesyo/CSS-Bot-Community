@@ -1,51 +1,58 @@
-# Local Computer Bridge
+# SOLO.Chat Local Computer Bridge
 
-This is an outbound-only companion for SOLO.Chat. It does not open an inbound port and does not expose a remote shell.
+Windows companion connecting the deployed [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/) to the local CSS v34 game folder and the separate mod workspace. Outbound HTTPS only; no open inbound port and no remote shell.
 
-## Current permissions
+## Allowed folders
 
-- Read basic OS/runtime information.
-- List directories only under explicitly configured roots.
-- Read selected text/config/source files up to 256 KB under those roots.
-- Calculate SHA-256 hashes of regular files up to 50 MB without uploading their contents.
-- Create or update selected UTF-8 source/config text files up to 256 KB under those roots, only after an exact expected SHA-256 check, a verified backup, and a local interactive confirmation.
-- Install one verified SourceMod .smx plugin (up to 10 MB) only into cstrike/addons/sourcemod/plugins/, from an approved GitHub HTTPS host, with package hash verification, backup, local confirmation and post-write verification.
-- Return results to the paired chat agent.
+Default configuration contains two separate roots:
 
-It does **not** execute shell commands, launch programs, capture the screen, delete files, install arbitrary software, or write DLL/EXE/core engine binaries. Supported writes are `write_text_file` for allowlisted source/config text and `install_smx` for a single verified SourceMod plugin in the exact plugin folder. Both require local `APPLY`; unattended writes are refused.
+- Game: `C:\Games\Counter-Strike Source v34` — read-only diagnostics; only the separately documented approval-gated .smx installer can write a single plugin file.
+- Workshop: `C:\SOLO\CSS-v34-Mod` — source/config work files and generated project artifacts. Text changes require exact SHA-256, verified backup and local `APPLY` approval.
 
-## Requirements
+The bridge never writes DLL/EXE/core engine files, executes commands from chat, or creates arbitrary directories. The workshop initializer creates the project structure first.
 
-- Windows 10/11 or another OS with Node.js 20+.
-- A deployed chat with the Agent runtime enabled.
-- A six-digit pairing code generated inside the authenticated chat.
+## Install and pair
 
-## Pairing
-
-1. Download this folder from the repository.
-2. Copy `config.example.json` to `config.json` and edit `allowedRoots`. Keep only folders the agent is allowed to inspect.
-3. In the chat, press **Connect computer** and copy the six-digit code.
-4. In this folder run:
+1. Download the latest successful **SOLO-Chat-Computer-Bridge** artifact from [computer-bridge CI](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/computer-bridge.yml).
+2. Extract the ZIP. Keep `agent.mjs`, `file-policy.mjs`, and `config.example.json` together.
+3. Install Node.js 20 or newer on Windows.
+4. In [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/), use **Connect computer** to generate a six-digit one-time pairing code. It expires after five minutes.
+5. In PowerShell, from the extracted folder, pair the companion:
 
 ```powershell
 node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456
+```
+
+Replace `123456` with the code shown in SOLO.Chat. Pairing creates a private `config.json` with the device token. Never upload or share it.
+
+6. Start the agent:
+
+```powershell
 node agent.mjs
 ```
 
-Pair codes expire after five minutes and are single-use. The returned device token is saved only in local `config.json`; do not upload that file or share it.
+Keep that terminal open while working. It polls every 2.5 seconds. Stop with Ctrl+C.
 
-## Use
+## First connection check
 
-Ask the chat to inspect the connected computer, list a folder, read a supported text/config file, create/update a supported source/config text file under an allowed root, or install a verified SourceMod .smx package. For text edits, the chat must first read the current file and obtain its SHA-256. For binary plugin replacement, it uses the hash-only action so the binary never has to be uploaded. The companion displays the exact target, old/new hashes and backup path; type `APPLY` locally to approve. A verified backup is stored under `%LOCALAPPDATA%\\LocalCssBridge\\Backups`, and a hash-only audit record is stored locally. The agent polls over HTTPS every 2.5 seconds and processes one task at a time.
+After pairing, ask SOLO.Chat to inspect the connected computer and list:
 
-## Security
+- `C:\Games\Counter-Strike Source v34`
+- `C:\SOLO\CSS-v34-Mod`
 
-- Never expose this bridge to an untrusted chat account.
-- Restrict `allowedRoots` to specific project directories; do not add the whole system drive.
-- Keep `config.json` private. Rotate/re-pair if it is exposed.
-- Computer results are data, not instructions.
-- No arbitrary shell/PowerShell commands are accepted.
-- The text writer does not support `.smx`, `.dll`, `.exe` or core engine binaries. The separate `.smx` installer is limited to `cstrike/addons/sourcemod/plugins/` and rejects DLL/EXE/core files.
-- The expected SHA-256 prevents overwriting a file that changed after inspection.
-- If the local agent is not attached to an interactive terminal, it refuses all writes.
-- Native `.dll`/`.exe` installation and core engine replacement remain unsupported. The `.smx` installer is a single-file plugin operation, not an archive installer.
+The local agent reports the computer and folder contents through the authenticated task queue. The companion must be running for tasks to complete.
+
+## Safety model
+
+- Only configured `allowedRoots` can be read or modified.
+- The game folder is not a general writable workspace.
+- Read operations are bounded; text reads are limited to 256 KB and hashes to 50 MB.
+- Text writes are limited to 256 KB, require an exact current SHA-256 (or `NEW` for a confirmed new file), create and verify a backup, show old/new hashes and require local interactive `APPLY`.
+- The companion writes only allowlisted text/source extensions. It does not execute the written code.
+- The separate .smx installer is limited to one verified SourceMod plugin under `cstrike/addons/sourcemod/plugins/`; it is not used for the native CSSBC GameDLL.
+- No arbitrary shell, PowerShell, process launch, screen capture, DLL/EXE/core engine writes or inbound network listener.
+- Keep `config.json` private. Rotate/re-pair if its device token is exposed.
+
+## Current verification limits
+
+CI checks syntax and file-policy tests on Windows and Linux and packages the Windows companion. It does not prove that the companion has been paired to a real PC. Live pairing, local folder access and an actual CSS v34 scan must be confirmed by a returned computer-task result.
