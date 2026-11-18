@@ -332,6 +332,22 @@ async function sendFixDuringGeneration(){
   $("toolFeedback").textContent="Ошибка /fix: "+detail;
  }
 }
+let soloLocalEnginePromise=null;
+async function generateLocalReply(prompt,thinking){
+ if(!navigator.gpu)throw Error("Локальная модель недоступна: браузер или устройство не поддерживает WebGPU. Откройте SOLO.Chat в браузере с поддержкой WebGPU или подключите компьютер.");
+ if(!soloLocalEnginePromise){
+  soloLocalEnginePromise=(async()=>{
+   const webllm=await import("https://esm.run/@mlc-ai/web-llm@0.2.80");
+   return webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f16_1-MLC",{initProgressCallback:p=>{const percent=Math.round((p.progress||0)*100);thinking.update(0,"Загружаю локальную модель: "+percent+"%");}});
+  })().catch(error=>{soloLocalEnginePromise=null;throw error});
+ }
+ const engine=await soloLocalEnginePromise;
+ thinking.update(0,"Генерирую ответ локально на устройстве…");
+ const completion=await engine.chat.completions.create({messages:[{role:"system",content:"Ты SOLO.Chat — полезный русскоязычный помощник. Отвечай по существу, честно сообщай об ограничениях. У тебя нет доступа к интернету и инструментам в локальном режиме."},{role:"user",content:String(prompt||"").slice(0,10000)}],temperature:0.6,max_tokens:700,stream:false});
+ const answer=String(completion.choices?.[0]?.message?.content||"").trim();
+ if(!answer)throw Error("Локальная модель не вернула текстовый ответ.");
+ return answer;
+}
 async function send(){
  const message=$("prompt").value.trim();if(!message&&!attachedFiles.length)return;
  if(busy){if(message.toLowerCase()==="/fix"){if(attachedFiles.length){$("toolFeedback").textContent="Сначала уберите вложения: /fix запускается без файлов.";return}await sendFixDuringGeneration();return}if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
@@ -353,7 +369,16 @@ async function send(){
     lastNetworkError=null;
     const seconds=Math.floor((Date.now()-started)/1000);
     if(result.status==="done")break;
-    if(result.status==="failed")throw Error(result.error||"Не удалось получить ответ");
+    if(result.status==="failed"){
+     if(String(result.error||"").includes("SOLO_NO_PROVIDER_CAPACITY")&&!attachedFiles.length&&!webSearchEnabled){
+      thinking.update(seconds,"Облачные модели недоступны — запускаю локальную модель");
+      const localReply=await generateLocalReply(result.localPrompt||message,thinking);
+      await api("/api/chat/local-complete",{method:"POST",body:JSON.stringify({operationId,reply:localReply,model:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC"})});
+      result=await api("/api/chat/status?operationId="+encodeURIComponent(operationId));
+      if(result.status==="done")break;
+     }
+     throw Error(result.error||"Не удалось получить ответ");
+    }
     thinking.update(seconds,result.status==="queued"?"Запрос в очереди":"Думаю над ответом");
    }catch(e){
     if(e.message==="Unauthorized"||e.message==="Operation not found"||result?.status==="failed")throw e;
