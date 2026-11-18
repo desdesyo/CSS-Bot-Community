@@ -138,6 +138,6 @@ test("rejects malformed GAME namespace and ambiguous Windows path segments", () 
 
 test("keeps the explicit game root and normal Windows absolute paths valid", () => {
   assert.equal(validateGameInspectionInput("GAME:/"), true);
-  assert.equal(validateGameInspectionInput("GAME:\\\\cstrike\\\\gameinfo.txt"), true);
-  assert.equal(validateGameInspectionInput("C:\\\\Games\\\\Counter-Strike Source v34\\\\cstrike\\\\gameinfo.txt"), true);
+  assert.equal(validateGameInspectionInput("GAME:/cstrike/gameinfo.txt"), true);
+  assert.equal(validateGameInspectionInput("C:/Games/Counter-Strike Source v34/cstrike/gameinfo.txt"), true);
 });
