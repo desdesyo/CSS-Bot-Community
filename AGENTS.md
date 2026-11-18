@@ -1,5 +1,10 @@
 # Repository-wide instructions — SOLO.Chat, CSSBC and CSS v34
 
+
+## Fast navigation for SOLO.Chat work
+
+For any SOLO.Chat-only task, start with [web-chat/AGENTS.md](web-chat/AGENTS.md). It is the concise source map for runtime/UI files, exact test commands, workflow entrypoints, GitHub/Worker permission boundaries and the required verification sequence. Load only the detailed contract relevant to the task; do not dump every large specification into context. The repository-wide instructions below remain binding for cross-project work.
+
 These instructions are binding for every assistant, agent, workflow, generated report and handoff in this repository.
 
 ## 1. Cross-chat continuity: mandatory
