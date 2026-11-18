@@ -34,4 +34,5 @@ jobs:
           node --check solo-code-lab/lab.mjs
           node --check solo-compute/worker.mjs
           node --check solo-compute/coordinator.mjs
+          node --check solo-compute/client.mjs
           node --test solo-code-lab/lab.test.mjs solo-compute/worker.test.mjs solo-compute/coordinator.test.mjs
