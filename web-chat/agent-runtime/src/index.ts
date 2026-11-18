@@ -2411,6 +2411,7 @@ LEARNING FROM CORRECTIONS
         return json({
           queued: items.filter((x: any) => x.status === "queued").length,
           leased: items.filter((x: any) => x.status === "leased").length,
+          paused: items.filter((x: any) => x.status === "paused").length,
           completed: items.filter((x: any) => x.status === "completed").length,
           failed: items.filter((x: any) => x.status === "failed").length,
           workers: [...workers.values()].filter((x: any) => now - Number(x.last_seen) < 90000).length,
