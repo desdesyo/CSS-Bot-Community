@@ -39,6 +39,10 @@ The user's game root is `C:\Games\Counter-Strike Source v34`. Never ask for it a
 
 The current `desdesyo/modhaul@main` tree contains `cssbc.smx` and `native/CSSBC_Native.cpp`. It is not the full source workspace. The SourcePawn prototype in `sdk-foundation/sourcemod/scripting/cssbc.sp` exists, but do not claim it is proven to be the exact source used to build the older modhaul binary unless provenance/build evidence establishes that.
 
+## Read-only game evidence and mod adaptation
+
+The local bridge has a separate `gameInspectionRoot` permission, approved locally with `node agent.mjs allow-game-read`. It keeps `safeMode: true`, preserves `allowedRoots` as `Documents/SOLO-Chat`, and grants only bounded inventory/list/read/hash. Use `GAME:/` paths. The game root is never a generic write target. Load `css-v34-file-forensics.md` for diagnosis and `css-v34-mod-adaptation.md` before designing or packaging any adaptation. Keep source/build outputs in the GitHub project workspace. The bridge's only current game write is a separately approved, hash-verified `.smx` install into the SourceMod plugins directory; native DLL/GameDLL/VSP delivery must use its dedicated build/installer workflow, never the bridge text writer.
+
 ## Installer layout and safety
 
 The installer targets:
