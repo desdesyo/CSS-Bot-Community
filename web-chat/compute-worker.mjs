@@ -105,9 +105,11 @@ async function connect(baseUrl, workerId) {
     return data;
   }
   process.stdout.write("SOLO Compute worker " + workerId + " connected to " + base.origin + "\n");
+  let activeTaskId = null;
   async function heartbeat() {
     await post("/api/compute/worker/heartbeat", {
-      worker_id: workerId, platform: process.platform, arch: process.arch, cpu_count: os.cpus().length
+      worker_id: workerId, platform: process.platform, arch: process.arch,
+      cpu_count: os.cpus().length, ...(activeTaskId ? { active_task_id: activeTaskId } : {})
     });
   }
   async function waitForNetwork() {
@@ -127,6 +129,7 @@ async function connect(baseUrl, workerId) {
         await waitForNetwork();
         await post("/api/compute/worker/" + saved.task.task_id + "/result", { worker_id: workerId, result: saved.result });
         fs.unlinkSync(journal);
+        activeTaskId = null;
         process.stdout.write("Результат доставлен после восстановления сети.\n");
         return;
       } catch (error) {
@@ -138,13 +141,17 @@ async function connect(baseUrl, workerId) {
   while (true) {
     try {
       const saved = readJournal(journal);
+      activeTaskId = saved?.task?.task_id || null;
       if (saved?.result) { await deliverPending(); continue; }
       await waitForNetwork();
       let task = saved?.task || null;
       if (!task) {
         const claim = await post("/api/compute/worker/claim", { worker_id: workerId });
         task = claim.task || null;
-        if (task) writeJournal(journal, { task, result: null, saved_at: new Date().toISOString() });
+        if (task) {
+          activeTaskId = task.task_id;
+          writeJournal(journal, { task, result: null, saved_at: new Date().toISOString() });
+        }
       }
       if (task) {
         let result;
