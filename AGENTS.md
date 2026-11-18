@@ -18,7 +18,7 @@ This branch is the authoritative portable gameplay core and CS:S v34 SDK integra
 
 ## Work protocol
 1. Inspect the feature's current implementation, callers, tests and integration docs before editing.
-2. Identify the exact layer and runtime call path. If there is no caller/hook, mark the feature as not wired rather than adding guessed code.
+2. Identify the exact layer and runtime call path. Trace the actual caller/hook (including `tools/integrate-v34-gamedll.ps1` for the native bot update hook); if a required caller/hook is absent, mark the feature as not wired rather than adding guessed code.
 3. Verify the v34 API, ABI, SDK version, compiler and x86 architecture. Names matching a newer Source SDK do not prove compatibility.
 4. Make a focused source change and a regression test. Do not modify generated binaries by hand.
 5. Run portable CMake build/ctest and the relevant Windows x86 SDK build where applicable.
