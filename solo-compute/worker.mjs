@@ -85,7 +85,7 @@ async function connectCoordinator(baseUrl, workerId) {
     if (!response.ok) throw new Error(data.error || 'Coordinator HTTP ' + response.status);
     return data;
   };
-  process.stdout.write('Worker ' + workerId + ' connected to ' + url.origin + '\\n');
+  process.stdout.write('Worker ' + workerId + ' connected to ' + url.origin + '\n');
   while (true) {
     await request('/v1/workers/heartbeat', { worker_id: workerId, platform: process.platform, cpu_count: os.cpus().length });
     const claimed = await request('/v1/tasks/claim', { worker_id: workerId });
@@ -96,12 +96,13 @@ async function connectCoordinator(baseUrl, workerId) {
         result = { task_id: claimed.task.task_id, commit_sha: claimed.task.commit_sha, status: 'failed', error: error.message };
       }
       await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
-      process.stdout.write('Task ' + claimed.task.task_id + ': ' + result.status + '\\n');
+      process.stdout.write('Task ' + claimed.task.task_id + ': ' + result.status + '\n');
     }
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
 }
-\nconst [mode, file, workerId] = process.argv.slice(2);
+
+const [mode, file, workerId] = process.argv.slice(2);
 try {
   if (mode === 'doctor') {
     process.stdout.write(JSON.stringify(doctor(), null, 2) + '\n');
@@ -112,8 +113,8 @@ try {
     const outDir = path.join(ROOT, 'build', 'solo-compute-tasks');
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, task.task_id + '.json');
-    fs.writeFileSync(outPath, JSON.stringify(task, null, 2) + '\\n', { flag: 'wx' });
-    process.stdout.write(outPath + '\\n');
+    fs.writeFileSync(outPath, JSON.stringify(task, null, 2) + '\n', { flag: 'wx' });
+    process.stdout.write(outPath + '\n');
   } else if (mode === 'run' && file) {
     const task = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
     const result = execute(task);
