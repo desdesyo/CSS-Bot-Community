@@ -74,6 +74,12 @@ const server = http.createServer(async (req, res) => {
         workers: state.workers.filter(w => Date.now() - w.last_seen < 60000).length
       });
     }
+    const taskMatch = req.url.match(/^\\/v1\\/tasks\\/([a-f0-9-]{36})$/);
+    if (req.method === 'GET' && taskMatch) {
+      const task = state.tasks.find(t => t.task_id === taskMatch[1]);
+      if (!task) return send(res, 404, { error: 'task not found' });
+      return send(res, 200, { task });
+    }
     if (req.method === 'POST' && req.url === '/v1/tasks') {
       const input = await body(req);
       if (!TYPES.has(input.task_type)) return send(res, 400, { error: 'task_type is not allowlisted' });
