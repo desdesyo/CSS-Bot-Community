@@ -2,7 +2,11 @@
 
 A small local test runner for the SOLO repository. It replaces GitHub-hosted runner minutes for the checks it can execute on the computer where it is installed.
 
-## Run
+## Run on Windows
+
+Download/extract this repository branch, then double-click `Start-SOLO-Code-Lab.bat` in the repository root. It runs the prerequisite check and starts the test sequence.
+
+## Run manually
 
 Requirements: Git, Node.js 20+, CMake, a C++17 compiler, and (on Windows) PowerShell.
 
