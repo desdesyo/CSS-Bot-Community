@@ -2739,7 +2739,7 @@ LEARNING FROM CORRECTIONS
         await conversation.configure({ modelTools: visibleTools }, BACKGROUND_CONTEXT);
         const probe = await this.runChat(
           threadKey,
-          "This is a real deferred-tool diagnostic. Your initial tools include tool_search only. First call tool_search with query \"internal diagnostic probe that stores a nonce\" and limit 1. Then call the discovered solo_harness_probe exactly once with nonce \"" + nonce + "\". After the tool returns, reply with exactly SOLO_CHAT_DEFERRED_OK:" + nonce + ". Do not guess or claim success without the tool result.",
+          "This is a real deferred-tool diagnostic. Your initial tools include tool_search only. First call tool_search with query \"internal diagnostic probe that stores a nonce\" and limit 1. Then call the discovered solo_harness_probe exactly once with nonce \"" + nonce + "\". After the tool returns, reply with exactly SOLO_CHAT_HARNESS_OK:" + nonce + ". Do not guess or claim success without the tool result.",
           "harness-deferred-" + nonce,
           "user"
         ).catch(error => ({ reply: "", provider: "", fallbackReason: String(error instanceof Error ? error.message : error) }));
@@ -2753,7 +2753,7 @@ LEARNING FROM CORRECTIONS
         const discoveryUsed = calls.includes("tool_search");
         const deferredToolCalled = calls.includes("solo_harness_probe") && Boolean(executed);
         const registeredToolCount = this.registry.snapshot().tools().length;
-        if (!discoveryUsed || !deferredToolCalled || !String(probe.reply || "").includes("SOLO_CHAT_DEFERRED_OK:" + nonce)) {
+        if (!discoveryUsed || !deferredToolCalled || !String(probe.reply || "").includes("SOLO_CHAT_HARNESS_OK:" + nonce)) {
           return json({
             ok: false, toolExecution: deferredToolCalled, minimalToolExecution: discoveryUsed,
             fullToolExecution: deferredToolCalled, deferredToolSearch: discoveryUsed,
