@@ -20,7 +20,7 @@ node solo-compute/worker.mjs doctor
 node solo-compute/worker.mjs run solo-compute/tasks/smoke.json
 ```
 
-The smoke task checks the bridge, Code Lab, worker, and coordinator Node tests. See [COORDINATOR.md](./COORDINATOR.md) for the local task-queue service. The cmake task configures, builds, and runs CTest.
+The smoke task checks the bridge, Code Lab, worker, and coordinator Node tests. See [COORDINATOR.md](./COORDINATOR.md) for the task queue and how to connect workers. The cmake task configures, builds, and runs CTest.
 
 ## Safety boundary
 
