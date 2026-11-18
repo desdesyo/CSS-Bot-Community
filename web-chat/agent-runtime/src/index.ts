@@ -2353,7 +2353,7 @@ LEARNING FROM CORRECTIONS
               commit_sha: task.commit_sha, timeout_seconds: task.timeout_seconds
             } };
           });
-          if (claimed.error) return json({ error: claimed.error }, 409);
+          if ("error" in claimed) return json({ error: claimed.error }, 409);
           return json(claimed);
         }
         const resultMatch = url.pathname.match(/^\/api\/compute\/worker\/([a-f0-9-]{36})\/result$/);
@@ -2377,7 +2377,7 @@ LEARNING FROM CORRECTIONS
             await this.ctx.storage.put(key, task);
             return { ok: true, status: task.status };
           });
-          if (outcome.error) return json({ error: outcome.error }, outcome.status);
+          if ("error" in outcome) return json({ error: outcome.error }, outcome.status);
           return json(outcome);
         }
         return json({ error: "Not found" }, 404);
@@ -3253,7 +3253,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/api/compute/worker/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/compute/status", "/api/compute/tasks", "/api/ui/inspection"].includes(url.pathname)) {
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/api/compute/worker/") || url.pathname.startsWith("/api/compute/tasks/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/compute/status", "/api/compute/tasks", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
