@@ -43,16 +43,16 @@ async function pair() {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Pairing failed");
   const example = JSON.parse(await readFile(resolve(here, "config.example.json"), "utf8"));
-  const preferredGameRoot = resolve(os.homedir(), "Games", "Counter-Strike Source v34");
-  const legacyGameRoot = "C:\\\\Games\\\\Counter-Strike Source v34";
-  const gameRoot = await stat(preferredGameRoot).then(() => preferredGameRoot).catch(() => stat(legacyGameRoot).then(() => legacyGameRoot).catch(() => null));
+  // Safe-by-default: never grant the agent access to the game folder or a broad
+  // user directory during pairing. A dedicated empty workspace is the only
+  // initial scope; expanding it must be a deliberate local configuration change.
   const workspaceRoot = resolve(os.homedir(), "Documents", "SOLO-Chat");
-  const allowedRoot = gameRoot || workspaceRoot;
-  await mkdir(allowedRoot, { recursive: true });
-  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: gameRoot || "", allowedRoots: [allowedRoot] };
+  await mkdir(workspaceRoot, { recursive: true });
+  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: "", allowedRoots: [workspaceRoot] };
   await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
   console.log("Paired. Device ID:", data.deviceId);
-  console.log("Allowed roots in config.json:", config.allowedRoots.join(", "));
+  console.log("SAFE MODE: access is limited to this empty workspace:", config.allowedRoots.join(", "));
+  console.log("Your game folder and other personal folders are NOT accessible.");
   console.log("Start the agent with: node agent.mjs");
 }
 async function getAllowedRoots(config) {
@@ -312,7 +312,9 @@ async function main() {
   const config = await loadConfig();
   if (!config.deviceToken) throw new Error("Device is not paired. Follow computer-bridge/README.md");
   await mkdir(dirname(journalPath), { recursive: true });
-  console.log("Computer bridge connected. Results are journaled locally and retried after reconnect; file writes require exact local APPLY approval. No shell execution. Press Ctrl+C to stop.");
+  console.log("Computer bridge connected in restricted mode.");
+  console.log("Allowed folders: " + (config.allowedRoots || []).join(", "));
+  console.log("File changes require exact local APPLY approval and a verified backup. Shell execution is disabled. Press Ctrl+C to stop.");
   while (true) {
     try {
       // Never claim a second task while a prior result is waiting for server acknowledgement.
