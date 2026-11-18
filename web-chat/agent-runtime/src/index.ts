@@ -1652,7 +1652,16 @@ LEARNING FROM CORRECTIONS
           const previousMessageCount = previousTranscript.flatMap((entry: any) => Array.isArray(entry.model) ? entry.model : []).length;
           if (candidate) await session.setModel(candidate);
           const receipt = await session.submit(effectivePrompt, { operationId: attemptId });
-          const result = await this.harness.wait(receipt.operationId, { session: sessionId });
+          let providerWaitTimer: ReturnType<typeof setTimeout> | undefined;
+          const result = await Promise.race([
+            this.harness.wait(receipt.operationId, { session: sessionId }),
+            new Promise<never>((_, reject) => {
+              providerWaitTimer = setTimeout(
+                () => reject(new Error("SOLO_PI_PROVIDER_TIMEOUT: Pi provider did not finish within 90 seconds")),
+                90_000
+              );
+            })
+          ]).finally(() => clearTimeout(providerWaitTimer!));
           if (result.status === "done") {
             const reply = String(result.text || "").trim();
             if (reply) {
@@ -1690,6 +1699,23 @@ LEARNING FROM CORRECTIONS
         } catch (error) {
           harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 1400);
           if (/tool call already ran/.test(harnessFailure)) throw error;
+          if (/SOLO_PI_PROVIDER_TIMEOUT/.test(harnessFailure)) {
+            try {
+              const pi = await this.harness.pi();
+              const conversation = await pi.conversation(sessionId as any, BACKGROUND_CONTEXT);
+              if (!conversation) throw new Error("Timed-out Pi conversation could not be loaded");
+              // A cancelled wait alone does not stop the underlying generation.
+              // Abort the conversation before trying another provider or the text fallback.
+              await conversation.abort(BACKGROUND_CONTEXT);
+              await this.recordRuntimeError("pi-provider-timeout-abort", {
+                operationId: attemptId, provider: candidate?.provider || null,
+                model: candidate?.id || null, aborted: true
+              });
+            } catch (abortError) {
+              const detail = String(abortError instanceof Error ? abortError.message : abortError).slice(0, 500);
+              throw new Error("SOLO_PI_ABORT_UNCONFIRMED: timed-out provider may still be running; refusing to retry or start a fallback that could duplicate tool actions. " + detail);
+            }
+          }
           const providerKey = candidate?.provider === "google" ? "gemini" : candidate?.provider;
           if (providerKey && /429|RESOURCE_EXHAUSTED|quota|rate.?limit|insufficient credit|billing|401|403|402|503/i.test(harnessFailure)) {
             const quotaExhausted = /RESOURCE_EXHAUSTED|daily.*quota|quota.*exhaust|exceeded.*quota|insufficient credit|billing/i.test(harnessFailure);
@@ -1704,6 +1730,7 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       await this.recordRuntimeError("pi-harness:" + operationId, harnessFailure);
+      if (/SOLO_PI_ABORT_UNCONFIRMED/.test(harnessFailure)) throw error;
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
