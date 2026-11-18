@@ -228,6 +228,10 @@ jobs:
               gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$UPDATED_BODY" >/dev/null
             fi
             for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+            ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
+            ISSUE_BODY="$(printf '%s\\n' "$ISSUE_BODY" | sed '/^Agent-Run-ID:/d')"
+            ISSUE_BODY="$(printf '%s\\n\\nAgent-Run-ID: %s\\n' "$ISSUE_BODY" "$GITHUB_RUN_ID")"
+            gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
             gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress
             TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body=$ISSUE_BODY. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect relevant code and skills, implement, run tests, repair failures, commit, and report exact evidence. Do not claim done without verification."
           fi
