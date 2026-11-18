@@ -968,10 +968,14 @@ LEARNING FROM CORRECTIONS
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to create a pairing code.");
             const task: ComputerTask = { id: crypto.randomUUID(), action: action as ComputerTask["action"], path: path || "", createdAt: Date.now() };
             const key = "computer:queue:" + deviceId;
-            const queue = await storage.get<ComputerTask[]>(key) || [];
-            if (queue.length >= 20) throw new Error("Computer task queue is full");
-            queue.push(task);
-            await storage.put(key, queue);
+            const enqueued = await storage.transaction(async txn => {
+              const queue = await txn.get<ComputerTask[]>(key) || [];
+              if (queue.length >= 20) return false;
+              queue.push(task);
+              await txn.put(key, queue);
+              return true;
+            });
+            if (!enqueued) throw new Error("Computer task queue is full");
             return textOutput({ queued: true, deviceId, taskId: task.id, action, status: "waiting for local agent" });
           }
         },
@@ -990,10 +994,14 @@ LEARNING FROM CORRECTIONS
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to pair the Windows companion first.");
             const task: ComputerTask = { id: crypto.randomUUID(), action: "write_text_file", path, content, expectedSha256, createdAt: Date.now() };
             const key = "computer:queue:" + deviceId;
-            const queue = await storage.get<ComputerTask[]>(key) || [];
-            if (queue.length >= 20) throw new Error("Computer task queue is full");
-            queue.push(task);
-            await storage.put(key, queue);
+            const enqueued = await storage.transaction(async txn => {
+              const queue = await txn.get<ComputerTask[]>(key) || [];
+              if (queue.length >= 20) return false;
+              queue.push(task);
+              await txn.put(key, queue);
+              return true;
+            });
+            if (!enqueued) throw new Error("Computer task queue is full");
             return textOutput({ queued: true, deviceId, taskId: task.id, action: "write_text_file", status: "waiting for local approval in the Windows companion", expectedSha256 });
           }
         },
@@ -1012,10 +1020,14 @@ LEARNING FROM CORRECTIONS
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to pair the Windows companion first.");
             const task: ComputerTask = { id: crypto.randomUUID(), action: "install_smx", path, sourceUrl, packageSha256, expectedSha256, createdAt: Date.now() };
             const key = "computer:queue:" + deviceId;
-            const queue = await storage.get<ComputerTask[]>(key) || [];
-            if (queue.length >= 20) throw new Error("Computer task queue is full");
-            queue.push(task);
-            await storage.put(key, queue);
+            const enqueued = await storage.transaction(async txn => {
+              const queue = await txn.get<ComputerTask[]>(key) || [];
+              if (queue.length >= 20) return false;
+              queue.push(task);
+              await txn.put(key, queue);
+              return true;
+            });
+            if (!enqueued) throw new Error("Computer task queue is full");
             return textOutput({ queued: true, deviceId, taskId: task.id, action: "install_smx", status: "waiting for local download verification and APPLY approval", packageSha256 });
           }
         }
