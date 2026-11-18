@@ -1,0 +1,128 @@
+name: SOLO Repository VM Test Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: CMake build configuration
+        required: true
+        type: choice
+        options: [Release, Debug]
+        default: Release
+  pull_request:
+  push:
+    branches:
+      - github-chat-prototype
+      - feature/solo-mod-workshop-foundation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solo-vm-lab-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vm-test:
+    name: VM test on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Record virtual machine environment
+        shell: bash
+        run: |
+          mkdir -p vm-report
+          {
+            echo "UTC: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "OS: $RUNNER_OS"
+            echo "Image: $ImageOS"
+            echo "Architecture: $RUNNER_ARCH"
+            echo "Runner: $RUNNER_NAME"
+            echo "Commit: $GITHUB_SHA"
+            echo "Ref: $GITHUB_REF"
+            echo
+            uname -a || true
+            echo
+            cmake --version
+            c++ --version || g++ --version || true
+            node --version || true
+            git --version
+          } > vm-report/environment.txt
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            (lscpu; free -h; df -h .) >> vm-report/environment.txt 2>&1 || true
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate bridge JavaScript and tests
+        shell: bash
+        run: |
+          node --check computer-bridge/agent.mjs
+          node --check computer-bridge/file-policy.mjs
+          node --test computer-bridge/tests/file-policy.test.mjs 2>&1 | tee vm-report/node-tests.txt
+          test ${PIPESTATUS[0]} -eq 0
+
+      - name: Configure C++ project
+        run: cmake -S . -B build-vm -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build C++ core
+        run: cmake --build build-vm --config ${{ env.BUILD_TYPE }} --parallel 2
+
+      - name: Run C++ tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build-vm -C ${{ env.BUILD_TYPE }} --output-on-failure 2>&1 | Tee-Object -FilePath vm-report/ctest.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: PowerShell parser and workshop smoke tests (Windows VM)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path vm-report | Out-Null
+          $scripts = @(
+            "Setup-SOLO-Local.ps1",
+            "workshop/Initialize-SoloModWorkspace.ps1",
+            "workshop/Get-SoloModInventory.ps1",
+            "workshop/Invoke-SoloToolchain.ps1",
+            "workshop/New-SoloModPackage.ps1"
+          )
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $script), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { throw "PowerShell parse errors in $script : $($errors | Out-String)" }
+          }
+
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-vm-workspace"
+          $fakeGame = Join-Path $env:RUNNER_TEMP "game-folder-must-not-exist"
+          if (Test-Path $workspace) { Remove-Item $workspace -Recurse -Force }
+          if (Test-Path $fakeGame) { Remove-Item $fakeGame -Recurse -Force }
+          ./Setup-SOLO-Local.ps1 -Workspace $workspace -ProjectName "VM Test Workspace" -GameRoot $fakeGame
+          if (-not (Test-Path (Join-Path $workspace ".solo/project.json"))) { throw "Project manifest missing." }
+          if (-not (Test-Path (Join-Path $workspace ".solo/inventory.json"))) { throw "Initial inventory missing." }
+          if (Test-Path $fakeGame) { throw "Setup touched the fake game folder." }
+          "VM workshop smoke test passed." | Set-Content vm-report/workshop-smoke.txt
+
+      - name: Save VM diagnostics and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solo-vm-report-${{ matrix.os }}
+          path: |
+            vm-report/
+            build-vm/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+          retention-days: 14
