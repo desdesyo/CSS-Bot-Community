@@ -114,3 +114,9 @@ test("rejects game traversal, sibling escapes, UNC, device paths and NTFS stream
 test("the game namespace is not a relative writable workspace path", () => {
   assert.equal(isSafeGameRelativePath("GAME:/cstrike/cfg/server.cfg"), false);
 });
+
+test("GAME namespace accepts root and Windows-style relative separators", () => {
+  assert.equal(validateGameInspectionInput("GAME:/"), true);
+  assert.equal(validateGameInspectionInput("GAME:\\cstrike\\gameinfo.txt"), true);
+  assert.equal(validateGameInspectionInput("d:\\Games\\CSS\\cstrike\\gameinfo.txt"), true);
+});
