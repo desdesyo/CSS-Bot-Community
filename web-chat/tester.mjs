@@ -92,6 +92,7 @@ test("Computer bridge tasks are leased transactionally and results are idempoten
   assert.match(agent, /storage\.transaction\(async txn/, "claim/result transitions must be atomic");
   assert.match(agent, /resumed: true/, "reconnecting devices must receive their existing task");
   assert.match(agent, /duplicate: true/, "duplicate result delivery must be idempotent");
+  assert.equal((agent.match(/const enqueued = await storage\.transaction/g) || []).length, 3, "all three computer task producers must enqueue atomically");
   assert.match(agent, /512 \* 1024/, "computer result payload must be bounded");
   assert.match(bridge, /writeJournal\(journalPath, \{ task, claimedAt:/, "agent must persist a task before executing it");
   assert.match(bridge, /deliverJournal\(config\)/, "agent must retry pending result delivery before polling");
