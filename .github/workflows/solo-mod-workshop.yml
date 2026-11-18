@@ -68,4 +68,25 @@ jobs:
             if ($report.tools.PSObject.Properties.Name -notcontains $name) { throw "Toolchain report is missing key: $name" }
           }
           if ($report.mode -ne "doctor") { throw "Unexpected toolchain report mode." }
+
+      - name: Build package and verify embedded manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          ./workshop/New-SoloModPackage.ps1 -Workspace $workspace -PackageName "ci-smoke"
+          $zip = Get-ChildItem (Join-Path $workspace "build/packages") -Filter "ci-smoke-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Package ZIP was not created." }
+          $extract = Join-Path $env:RUNNER_TEMP "solo-package-check"
+          if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract
+          $manifestPath = Join-Path $extract "package-manifest.json"
+          if (-not (Test-Path $manifestPath)) { throw "Embedded package manifest is missing." }
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          $entry = $manifest.files | Where-Object { $_.path -eq "src/configs/sample.cfg" }
+          if (-not $entry -or $entry.sha256.Length -ne 64) { throw "Package manifest lacks the sample file SHA-256." }
+          $packedFile = Join-Path $extract "src/configs/sample.cfg"
+          $actual = (Get-FileHash -LiteralPath $packedFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $entry.sha256) { throw "Packaged file hash does not match embedded manifest." }
+          if (Test-Path (Join-Path $extract ".solo/project.json")) { throw "Internal workspace state must not be packaged." }
           Write-Host "SOLO Mod Workshop smoke tests passed."
