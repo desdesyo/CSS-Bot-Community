@@ -49,7 +49,7 @@ async function api(config, path, body, token = config.deviceToken) {
 async function pair() {
   const serverUrl = process.argv[3];
   const code = process.env.SOLO_PAIR_CODE || process.argv[4];
-  if (!serverUrl || !/^\\d{6}$/.test(String(code || "")))
+  if (!serverUrl || !/^[0-9]{6}$/.test(String(code || "")))
     throw new Error("Pairing requires a valid six-digit code from SOLO.Chat.");
   const base = new URL(serverUrl);
   if (base.protocol !== "https:") throw new Error("Use the HTTPS URL of your deployed chat");
