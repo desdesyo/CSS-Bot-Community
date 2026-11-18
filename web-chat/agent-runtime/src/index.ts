@@ -2268,7 +2268,7 @@ LEARNING FROM CORRECTIONS
       // Browser/agent calls use the existing SOLO.Chat session; worker calls use a
       // dedicated secret (falling back to APP_PASSWORD for first-run compatibility).
       if (url.pathname.startsWith("/api/compute/worker/")) {
-        const supplied = (req.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+        const supplied = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
         const expected = this.env.SOLO_COMPUTE_WORKER_TOKEN || this.env.APP_PASSWORD || "";
         if (!expected || !safeEqual(supplied, expected)) return json({ error: "Unauthorized" }, 401);
         if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -2318,7 +2318,7 @@ LEARNING FROM CORRECTIONS
           if (claimed.error) return json({ error: claimed.error }, 409);
           return json(claimed);
         }
-        const resultMatch = url.pathname.match(/^\\/api\\/compute\\/worker\\/([a-f0-9-]{36})\\/result$/);
+        const resultMatch = url.pathname.match(/^\/api\/compute\/worker\/([a-f0-9-]{36})\/result$/);
         if (resultMatch) {
           const result = input.result;
           if (!result || !["passed", "failed"].includes(result.status) || result.task_id !== resultMatch[1] || typeof result.commit_sha !== "string") {
@@ -3207,7 +3207,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/compute/status", "/api/compute/tasks", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
