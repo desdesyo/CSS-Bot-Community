@@ -100,7 +100,7 @@ These are investigation categories. Do not state that any one is the cause until
 ## Current project-specific constraints
 
 - User's known target path: `C:\Games\Counter-Strike Source v34`. Confirm the path from the paired computer rather than assuming it is currently present.
-- The computer bridge defaults to safe mode and `Documents\SOLO-Chat`; it does **not** automatically have permission to inspect the game folder. Do not tell the user that the game was scanned unless the bridge has explicit approved read-only access to that exact root and returns evidence.
+- The computer bridge defaults to safe mode and `Documents\SOLO-Chat`; it does **not** automatically have permission to inspect the game folder. The owner may separately approve the exact `C:\Games\Counter-Strike Source v34` folder with `ALLOW-GAME-READ.cmd`; this sets `gameInspectionRoot` while keeping `safeMode: true` and `allowedRoots` unchanged. Use `GAME:/` for inventory/list/read/hash. The inspection scope is read-only; only the dedicated hash-verified `.smx` installer is a narrow game-write exception. Do not tell the user that the game was scanned unless the bridge returns actual evidence.
 - Current bridge supports directory listing, selected text reads and SHA-256, but the default pairing configuration deliberately excludes the game folder. Do not broaden access silently.
 - The bridge does not execute commands, launch the game, capture screenshots, or write DLL/EXE/core engine files. Do not claim automated in-game testing.
 - `.smx` installation is a separate, narrow operation into `cstrike/addons/sourcemod/plugins/`; it is not a general game repair system. Require exact source hash, backup and local APPLY.
