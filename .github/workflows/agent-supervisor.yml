@@ -126,8 +126,8 @@ jobs:
               gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
               continue
             fi
-            BODY="$(printf '%s\\n' "$BODY" | sed '/^Agent-Supervisor-Run-ID:/d')"
-            BODY="$(printf '%s\\n\\nAgent-Supervisor-Run-ID: %s\\n' "$BODY" "$GITHUB_RUN_ID")"
+            BODY="$(printf '%s\n' "$BODY" | sed '/^Agent-Supervisor-Run-ID:/d')"
+            BODY="$(printf '%s\n\nAgent-Supervisor-Run-ID: %s\n' "$BODY" "$GITHUB_RUN_ID")"
             gh api -X PATCH "repos/$SOURCE_REPO/issues/$NUMBER" -f body="$BODY" >/dev/null
             PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and, whenever web-chat/** changed, a successful deployment smoke test for that exact same commit SHA. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
             jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" --arg role "supervisor" --arg githubToken "$GH_TOKEN" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > reviewer.json
