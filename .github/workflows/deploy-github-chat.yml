@@ -189,6 +189,14 @@ jobs:
           fi
           jq '{provider,model,degraded,fallbackReason}' browser-chat-status.json
           echo "Browser chat provider metadata and persisted assistant history passed."
+          {
+            echo "### Live browser chat acceptance"
+            echo "- Queue → Durable Object alarm → status: **PASS**"
+            echo "- Assistant reply persisted in user-visible history: **PASS**"
+            echo "- Provider: `$(jq -r '.provider' browser-chat-status.json)`"
+            echo "- Model: `$(jq -r '.model' browser-chat-status.json)`"
+            echo "- Degraded fallback: `$(jq -r '.degraded // false' browser-chat-status.json)`"
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "Checking direct Pi AI inference and configured model fallback..."
           curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt || true
           MODEL_CHECK_CODE="$(cat model-check-code.txt)"
