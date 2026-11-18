@@ -968,7 +968,7 @@ LEARNING FROM CORRECTIONS
           async execute({ action, path }: { action: string; path: string }) {
             if (!["system_info", "list_directory", "read_text_file", "hash_file", "inventory_game"].includes(action)) throw new Error("Unsupported or write-capable computer action");
             if (/^GAME:/i.test(path || "") && !/^GAME:[\\/]/i.test(path)) throw new Error("Game inspection paths must use the explicit GAME:/ namespace");
-            if (action === "inventory_game" && path !== "GAME:/" && path !== "GAME:\\\\") throw new Error("The initial game inventory must start at GAME:/");
+            if (action === "inventory_game" && path !== "GAME:/") throw new Error("The initial game inventory must start at GAME:/");
             const devices = await storage.get<string[]>("computer:devices") || [];
             const deviceId = devices[0];
             if (!deviceId) throw new Error("No computer is paired. Use the Computer button in the chat to create a pairing code.");
