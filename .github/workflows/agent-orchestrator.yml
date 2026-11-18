@@ -231,7 +231,7 @@ jobs:
             ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
             ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-ID:/d')"
             ISSUE_BODY="$(printf '%s\n\nAgent-Run-ID: %s\n' "$ISSUE_BODY" "$GITHUB_RUN_ID")"
-            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-Status:/d')"
+            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed -e '/^Agent-Run-Status:/d' -e '/^Agent-Supervisor-Run-Status:/d' -e '/^Agent-Supervisor-Run-ID:/d')"
             ISSUE_BODY="$(printf '%s\n\nAgent-Run-Status: running\n' "$ISSUE_BODY")"
             gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
             gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress
