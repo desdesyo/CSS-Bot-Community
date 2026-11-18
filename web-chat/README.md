@@ -34,8 +34,8 @@ To enable SOLO.Chat's automatic expert escalation, add `CSSBC_OPENAI_API_KEY` un
 
 Worker variables in `wrangler.toml`:
 
-- `GITHUB_WORK_REPO` — `desdesyo/modhaul`, the repository the agent's GitHub tools can access.
-- `GITHUB_WORK_BRANCH` — `main`, the branch used by those tools.
+- `GITHUB_WORK_REPO` — `desdesyo/CSS-Bot-Community`, the SOLO.Chat source/workspace repository.
+- `GITHUB_WORK_BRANCH` — `github-chat-prototype`, the isolated development branch used by agent GitHub tools.
 - `GITHUB_WORK_ROOT` — optional path restriction.
 - `PI_MODEL` — Workers AI model identifier.
 
@@ -106,9 +106,7 @@ The local bridge requires Node.js 20+ on the computer and a deployed HTTPS chat 
 
 ## Deploy
 
-First create a separate **private** GitHub repository for conversation history. Create a fine-grained token limited to that private repository, with Issues read/write permission. The chat Worker stores message text in GitHub Issue comments, so anyone with access to that private repository can read it.
-
-Set the `GITHUB_REPO` Worker variable to that private repository before deploying.
+Conversation history is stored in the authenticated Cloudflare Durable Object SQLite storage; the Worker does **not** store chat messages in GitHub Issues and does not require a separate history repository. The GitHub token is used for the agent's source-workspace tools and must be scoped to `desdesyo/CSS-Bot-Community` with the required Contents read/write permission (and Issues permissions if you enable issue-based task orchestration).
 
 Requires Node.js and Wrangler:
 
@@ -118,7 +116,6 @@ npm install
 npx wrangler login
 npx wrangler secret put APP_PASSWORD
 npx wrangler secret put GITHUB_TOKEN
-npx wrangler secret put GITHUB_REPO
 npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put BRAVE_SEARCH_API_KEY
 npx wrangler deploy
@@ -133,11 +130,11 @@ Cloudflare serves `public/index.html` and routes `/api/*` to the Worker. Keep al
 - Durable agent tools: GitHub repository list/read/write, persistent workspace read/write/search, isolated JavaScript execution, heuristic static source analysis, Brave web search, MCP discovery and read-only tool calls, and read-only local computer inspection when paired. GitHub writes create auditable commits on `github-chat-prototype`. The legacy Responses API path remains for PDF/image turns.
 - Live web search uses Brave Search and requires `BRAVE_SEARCH_API_KEY`. Search results are passed to the model for synthesis; users should receive source URLs in the answer.
 - The interface includes file attachment, a web-search toggle, and a save-answer-as-Markdown action.
-- Each conversation is a GitHub Issue; turns are comments. Conversation and comment retrieval is paginated (up to 10,000 issues and 5,000 comments per issue in one retrieval), and continuation ancestry is followed for up to 100 linked segments. The just-submitted user turn is explicitly re-injected when rollover creates a fresh continuation, preventing a boundary-turn loss.
-- One visible conversation is a chain of GitHub Issues. When the context grows beyond the rollover threshold, the Worker creates a continuation automatically and writes a durable summary of goals, decisions, constraints, project facts, and unfinished tasks. The browser keeps the same root conversation ID and does not show a new chat.
-- The Worker retries transient GitHub/model errors and can use an optional OpenAI-compatible backup provider when configured (`FALLBACK_API_URL`, `FALLBACK_API_KEY`, `FALLBACK_MODEL`). The browser silently retries failed requests and preserves the unsent draft instead of displaying infrastructure errors.
+- Each conversation and its user/assistant messages are stored in Cloudflare Durable Object SQLite. The Worker loads and paginates the stored history for the active conversation; it does not use public GitHub Issues as the chat transcript store.
+- The durable agent runtime keeps its own resumable model transcript in Durable Object storage. Agent tasks and GitHub source changes are separate from the user's private conversation history.
+- The Worker retries eligible transient model/GitHub failures and preserves queued chat jobs for durable background processing. The browser preserves an unsent draft when a request fails; it must not silently mark a failed request as delivered.
 - This is best-effort continuity, not guaranteed infinite uptime: if all providers, credentials, or usage quotas are unavailable, no model can produce a reply. The interface avoids exposing internal provider/tool messages; it cannot manufacture an answer while all backends are offline.
-- Chat history is only as private as the dedicated repository. The Worker refuses to operate unless `GITHUB_REPO` is explicitly configured; never use the public source repository for conversation storage.
+- Conversation history is stored in Cloudflare Durable Object SQLite, not the public source repository. GitHub workspace commits are visible to collaborators with access to `desdesyo/CSS-Bot-Community`; never commit passwords, API keys, chat transcripts or private attachments.
 - API usage is billed by the model provider. GitHub/Cloudflare storage does not make model inference unlimited.
 - The local PC bridge is implemented as an opt-in companion, but it is not connected until the Worker is deployed, a pairing code is generated, and the companion is started on Windows. Its source-text writer and single-file .smx installer are implemented in source but remain unverified on the user's actual PC until pairing and a test operation are completed.
 - Add individual user identity, per-user file ownership, explicit MCP write approvals, device revocation, streaming UI, DOCX/XLSX ingestion, OCR, broader sandbox language runtimes, device task cancellation, and automated end-to-end tests before broad/public use.
