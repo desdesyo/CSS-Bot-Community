@@ -84,3 +84,38 @@ test("rejects a corrupt backup without changing the current file", async () => {
     assert.equal(await readFile(target, "utf8"), "current");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+test("rejects symbolic-link targets without modifying the linked file", async t => {
+  const root = await mkdtemp(join(tmpdir(), "solo-symlink-"));
+  try {
+    const real = join(root, "real.cfg");
+    const link = join(root, "linked.cfg");
+    await writeFile(real, "do not change");
+    try { await (await import("node:fs/promises")).symlink(real, link); }
+    catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) return t.skip("Symlink creation is not permitted on this runner");
+      throw error;
+    }
+    await assert.rejects(
+      applyFileTransaction(link, Buffer.from("malicious overwrite"), {
+        expectedBeforeHash: hash("do not change"), backupRoot: join(root, "backups")
+      }),
+      /Symbolic-link targets/
+    );
+    assert.equal(await readFile(real, "utf8"), "do not change");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("preserves UTF-8, Unicode names, and mixed newline bytes exactly", async () => {
+  const root = await mkdtemp(join(tmpdir(), "solo-unicode-"));
+  try {
+    const target = join(root, "настройки-猫.cfg");
+    const data = Buffer.from("строка 1\r\nстрока 2\n猫\r", "utf8");
+    const result = await applyFileTransaction(target, data, {
+      expectedBeforeHash: "NEW", backupRoot: join(root, "backups")
+    });
+    assert.equal(result.afterHash, hash(data));
+    assert.deepEqual(await readFile(target), data);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
