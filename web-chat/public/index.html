@@ -309,7 +309,7 @@ async function sendFollowup(message){
 }
 async function send(){
  const message=$("prompt").value.trim();if(!message&&!attachedFiles.length)return;
- if(busy){if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
+ if(busy){if(message.toLowerCase()==="/fix"){$("toolFeedback").textContent="Команда /fix запускается отдельно. Дождитесь завершения текущего ответа и отправьте её ещё раз.";return}if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
  busy=true;$("send").disabled=false;$("send").textContent="Добавить";$("prompt").placeholder="Можно дополнять задачу, пока SOLO.Chat работает…";$("prompt").value="";
  const bubble=addMessage("user",message,attachedFiles);
  const thinking=addThinkingMessage();
