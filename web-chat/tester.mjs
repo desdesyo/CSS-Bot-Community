@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { verifyApiMap } from "./api-map.mjs";
+await verifyApiMap();
 import { readFile } from "node:fs/promises";
 const worker = await readFile(new URL("./worker.js", import.meta.url), "utf8");
 const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
