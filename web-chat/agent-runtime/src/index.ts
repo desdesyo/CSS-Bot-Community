@@ -3068,7 +3068,6 @@ LEARNING FROM CORRECTIONS
           return json({ error: "A valid taskId and result object are required" }, 400);
         const serialized = JSON.stringify(body.result);
         if (serialized.length > 512 * 1024) return json({ error: "Computer task result exceeds 512 KB" }, 413);
-        const queueKey = "computer:queue:" + id;
         const leaseKey = "computer:lease:" + id;
         const resultKey = "computer:result:" + taskId;
         const saved = await this.ctx.storage.transaction(async txn => {
@@ -3081,7 +3080,7 @@ LEARNING FROM CORRECTIONS
           await txn.delete(leaseKey);
           return { saved: true, duplicate: false };
         });
-        if (!saved.saved) return json({ error: saved.error }, 409);
+        if (!saved.saved) return json({ error: "Task lease not found or task does not belong to this device" }, 409);
         return json(saved);
       }
       if (url.pathname === "/api/agent/computer/task" && req.method === "GET") {
