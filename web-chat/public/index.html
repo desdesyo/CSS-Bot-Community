@@ -350,6 +350,7 @@ async function generateLocalReply(prompt,thinking){
 }
 async function send(){
  const message=$("prompt").value.trim();if(!message&&!attachedFiles.length)return;
+ const localFallbackAllowed=attachedFiles.length===0&&!webSearchEnabled;
  if(busy){if(message.toLowerCase()==="/fix"){if(attachedFiles.length){$("toolFeedback").textContent="Сначала уберите вложения: /fix запускается без файлов.";return}await sendFixDuringGeneration();return}if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
  busy=true;$("send").disabled=false;$("send").textContent="Добавить";$("prompt").placeholder="Можно дополнять задачу, пока SOLO.Chat работает…";$("prompt").value="";
  const bubble=addMessage("user",message,attachedFiles);
@@ -370,7 +371,7 @@ async function send(){
     const seconds=Math.floor((Date.now()-started)/1000);
     if(result.status==="done")break;
     if(result.status==="failed"){
-     if(String(result.error||"").includes("SOLO_NO_PROVIDER_CAPACITY")&&!attachedFiles.length&&!webSearchEnabled){
+     if(String(result.error||"").includes("SOLO_NO_PROVIDER_CAPACITY")&&localFallbackAllowed){
       thinking.update(seconds,"Облачные модели недоступны — запускаю локальную модель");
       const localReply=await generateLocalReply(result.localPrompt||message,thinking);
       await api("/api/chat/local-complete",{method:"POST",body:JSON.stringify({operationId,reply:localReply,model:"Qwen2.5-0.5B-Instruct-q4f16_1-MLC"})});
