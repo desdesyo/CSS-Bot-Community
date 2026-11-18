@@ -1,3 +1,7 @@
+// AGENT SAFETY NOTE: all callbacks below run in the GameDLL/server domain.
+// Validate live entity identity and slot bounds before indexing per-player arrays.
+// Add explicit slot reset on disconnect/map shutdown before reusing an index;
+// entity indices alone are not stable identities across disconnect/reconnect.
 #include "cbase.h"
 #include "cs_gamerules.h"
 #include "cs_bot.h"
