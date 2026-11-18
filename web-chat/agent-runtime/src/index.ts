@@ -958,7 +958,7 @@ LEARNING FROM CORRECTIONS
     // Such a job remains "running" forever unless explicitly recovered on the next wake.
     for (const stale of entries.values()) {
       if (stale.status !== "running" && stale.status !== "finalizing") continue;
-      if (now - Number(stale.updatedAt || stale.startedAt || stale.createdAt) < 240000) continue;
+      if (now - Number(stale.updatedAt || stale.startedAt || stale.createdAt) < 600000) continue;
       const staleKey = "browser-chat:job:" + stale.operationId;
       if (Number(stale.attempts || 0) < 1) {
         stale.status = "queued";
@@ -996,7 +996,7 @@ LEARNING FROM CORRECTIONS
     try {
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 3 минуты. Попробуйте отправить запрос ещё раз.")), 180000);
+        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 8 минут. Запрос сохранён, но модель или инструмент не завершили работу. Повторите попытку позже или запустите /fix для диагностики.")), 480000);
       });
       let reply = "";
       let consumedFollowups = 0;
