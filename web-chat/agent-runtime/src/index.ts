@@ -1747,12 +1747,22 @@ LEARNING FROM CORRECTIONS
           let workflowActive: boolean | null = null;
           if (hasActiveStatus) {
             try {
-              const [orchestrator, supervisor] = await Promise.all([
-                github(this.env, "/repos/" + repository + "/actions/workflows/agent-orchestrator.yml/runs?branch=main&per_page=10"),
-                github(this.env, "/repos/" + repository + "/actions/workflows/agent-supervisor.yml/runs?branch=main&per_page=10")
-              ]);
-              const runs = [...(orchestrator.workflow_runs || []), ...(supervisor.workflow_runs || [])];
-              workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
+              const body = String(issue.body || "");
+              const exactRunIds = [
+                body.match(/^Agent-Run-ID:\\s*(\\d+)/m)?.[1],
+                body.match(/^Agent-Supervisor-Run-ID:\\s*(\\d+)/m)?.[1]
+              ].filter(Boolean) as string[];
+              if (exactRunIds.length) {
+                const runs = await Promise.all(exactRunIds.map(id => github(this.env, "/repos/" + repository + "/actions/runs/" + id)));
+                workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
+              } else {
+                const [orchestrator, supervisor] = await Promise.all([
+                  github(this.env, "/repos/" + repository + "/actions/workflows/agent-orchestrator.yml/runs?branch=main&per_page=10"),
+                  github(this.env, "/repos/" + repository + "/actions/workflows/agent-supervisor.yml/runs?branch=main&per_page=10")
+                ]);
+                const runs = [...(orchestrator.workflow_runs || []), ...(supervisor.workflow_runs || [])];
+                workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
+              }
             } catch (workflowError) {
               workflowActive = null;
               await this.recordRuntimeError("fix-workflow-status-check", workflowError);
