@@ -25,7 +25,7 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 ## Required Worker secrets and variables
 
 - `APP_PASSWORD` — private chat access password. Deployment synchronizes this from the GitHub Actions secret `CSSBC_CHAT_APP_PASSWORD`.
-- `GITHUB_TOKEN` — fine-grained GitHub token for the configured workspace repository (Contents read/write).
+- `GITHUB_TOKEN` — fine-grained GitHub token for the configured workspace repository (Contents read/write and Issues read/write; `/fix` uses Issues write to enqueue the recovery task).
 - `BRAVE_SEARCH_API_KEY` — optional; enables the agent's live web-search tool.
 - `OPENAI_API_KEY` — optional; used only by the separate external-expert consultation tool.- `CSSBC_OPENAI_API_KEY` — optional GitHub Actions repository secret. The deploy workflow syncs it to Worker secret `OPENAI_API_KEY`; required for automatic expert escalation.
 
