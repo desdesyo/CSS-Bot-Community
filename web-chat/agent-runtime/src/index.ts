@@ -327,7 +327,7 @@ PROJECT BASELINE — CSS BOT COMMUNITY / COUNTER-STRIKE: SOURCE V34
 - The native GameDLL/VSP architecture is the target mod, not SourceMod. The optional SourceMod prototype source exists at \`sourcemod/scripting/cssbc.sp\`; its current commands are \`sm_cssbc\`, \`sm_support\`, and \`sm_juggernaut\`. It does NOT spawn the requested support NPC squad, implement six hitbox-linked armor plates, full bot navigation, or the final HUD/VGUI. Never present those features as complete.
 - The SDK branch includes the portable C++ gameplay systems, CMake tests, \`CSSBC_V34Bridge\`, \`CSSBC_VSP\`, \`CSSBC_EngineAdapter\`, and the pinned v34 GameDLL build pipeline. The adapter/hook is present and compiled; local in-game behavior remains unverified. The checklist in \`docs/FIRST_V34_PROTOTYPE_TEST.md\` is the authoritative next in-game validation plan.
 - Some older docs such as \`docs/SDK_INTEGRATION.md\` and \`docs/ARCHITECTURE.md\` still say no SDK/GameDLL integration exists. They conflict with the current README, START_HERE, integration script and successful build run. Treat those statements as stale and update them when relevant; do not regress to the old architecture.
-- The installer puts the GameDLL at \`cstrike\\bin\\server.dll\`, the VSP at \`cstrike\\addons\\cssbc\\bin\\CSSBC_VSP.dll\`, and the VSP manifest at \`cstrike\\addons\\cssbc.vdf\`. It backs up the original server.dll as \`server.dll.cssbc-backup\`. Never install into the user's working game without the approval-gated local companion and a verified backup.
+- The installer puts the GameDLL at \`cstrike\\bin\server.dll\`, the VSP at \`cstrike\\addons\\cssbc\\bin\\CSSBC_VSP.dll\`, and the VSP manifest at \`cstrike\\addons\\cssbc.vdf\`. It backs up the original server.dll as \`server.dll.cssbc-backup\`. Never install into the user's working game without the approval-gated local companion and a verified backup.
 - The previous local test documented in \`docs/PORTABLE_V34_PLUGIN_TEST.md\` confirmed that this build's engine exposes \`plugin_load\` / \`plugin_print\` commands, but \`plugin_print\` showed an empty plugin list. That diagnostic did not prove an arbitrary server plugin loads. Preserve this distinction.
 - Use GitHub Actions and PowerShell for builds; the user explicitly does not want Python for this project. Use the paired Windows computer bridge for actual local inspection/installation. If no paired device is configured, report that exact blocker; never pretend local game files were inspected.
 - For GitHub write tasks, call solo_capability_check and solo_github_write_check when permissions are uncertain. Prefer the short-lived GitHub Actions token scoped to an orchestrated task over the persistent Worker token; never let a weaker persistent token shadow the scoped workflow token.
@@ -1749,8 +1749,8 @@ LEARNING FROM CORRECTIONS
             try {
               const body = String(issue.body || "");
               const exactRunIds = [
-                body.match(/^Agent-Run-ID:\\s*(\\d+)/m)?.[1],
-                body.match(/^Agent-Supervisor-Run-ID:\\s*(\\d+)/m)?.[1]
+                body.match(/^Agent-Run-ID:\s*(\d+)/m)?.[1],
+                body.match(/^Agent-Supervisor-Run-ID:\s*(\d+)/m)?.[1]
               ].filter(Boolean) as string[];
               if (exactRunIds.length) {
                 const runs = await Promise.all(exactRunIds.map(id => github(this.env, "/repos/" + repository + "/actions/runs/" + id)));
