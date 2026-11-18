@@ -6,10 +6,11 @@
 - [x] Add bounded local SHA-256 project inventory.
 - [x] Add toolchain doctor for SourcePawn, Blender, FFmpeg, CMake, .NET and Git detection.
 - [x] Add explicit SourcePawn plugin compile adapter with logs and output hash.
+- [x] Add bounded ZIP package builder with embedded SHA-256 manifest.
 - [ ] Run workspace tools on the user's Windows PC and inspect returned evidence.
 - [ ] Add Blender batch automation and model export validation.
 - [ ] Add image, audio and video conversion/generation adapters.
-- [ ] Add reproducible packaging and approval-gated installation.
+- [ ] Add approval-gated installation and rollback.
 - [ ] Verify the mod in a real CS:S v34 game/server.
 
 ## CSSBC gameplay
