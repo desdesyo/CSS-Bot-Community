@@ -61,6 +61,9 @@ interface BrowserChatJob {
   completedAt?: number;
   reply?: string;
   error?: string;
+  provider?: string;
+  model?: string;
+  fallbackReason?: string;
   attempts?: number;
 }
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -1019,6 +1022,9 @@ LEARNING FROM CORRECTIONS
             timeout
           ]);
           reply = String(result.reply || "").trim();
+          job.provider = String(result.provider || "unknown");
+          job.model = result.model ? String(result.model) : undefined;
+          job.fallbackReason = result.fallbackReason ? String(result.fallbackReason).slice(0, 900) : undefined;
           if (!reply) throw new Error("AI вернул пустой ответ");
 
           // Close the intake window before the final read. Any message accepted
@@ -2625,6 +2631,8 @@ LEARNING FROM CORRECTIONS
           operationId, thread: job.threadId, status: job.status,
           reply: job.status === "done" ? job.reply : undefined,
           error: job.status === "failed" ? job.error : undefined,
+          provider: job.provider || undefined, model: job.model || undefined,
+          degraded: Boolean(job.fallbackReason), fallbackReason: job.fallbackReason || undefined,
           createdAt: job.createdAt, updatedAt: job.updatedAt
         });
       }
