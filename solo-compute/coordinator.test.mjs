@@ -36,6 +36,9 @@ test('coordinator authenticates, queues, leases and records a worker result', as
     const claim = await post('/v1/tasks/claim',{worker_id:'test-node'});
     const claimed = (await claim.json()).task;
     assert.equal(claimed.task_id,task.task_id);
+    const taskView = await fetch(base+'/v1/tasks/'+task.task_id,{headers});
+    assert.equal(taskView.status,200);
+    assert.equal((await taskView.json()).task.status,'leased');
     const result = { task_id:task.task_id, commit_sha:task.commit_sha, status:'passed' };
     const submitted = await post('/v1/tasks/'+task.task_id+'/result',{worker_id:'test-node',result});
     assert.equal(submitted.status,200);
