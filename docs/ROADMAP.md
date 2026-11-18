@@ -4,8 +4,9 @@
 - [x] Define local-first architecture with optional Advanced AI.
 - [x] Add Windows workspace initializer and project manifest.
 - [x] Add bounded local SHA-256 project inventory.
-- [ ] Run workspace tools on the user's Windows PC and inspect the returned evidence.
-- [ ] Add registered build adapters (SourceMod compiler, CMake and other detected tools).
+- [x] Add toolchain doctor for SourcePawn, Blender, FFmpeg, CMake, .NET and Git detection.
+- [x] Add explicit SourcePawn plugin compile adapter with logs and output hash.
+- [ ] Run workspace tools on the user's Windows PC and inspect returned evidence.
 - [ ] Add Blender batch automation and model export validation.
 - [ ] Add image, audio and video conversion/generation adapters.
 - [ ] Add reproducible packaging and approval-gated installation.
