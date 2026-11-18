@@ -210,7 +210,7 @@ jobs:
             ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and any(.labels[]?; .name=="agent-health-alert"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"
             # Prefer user-authored tasks over generated repair backlog; health alerts remain highest priority.
             if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and all(.labels[]?; .name!="agent-generated"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"; fi
-            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and any(.labels[]?; .name=="agent-generated"))] | sort_by(.created_at) | .[0].number // ""' <<<"$QUEUED_ISSUES")"; fi
+            if [[ -z "$ISSUE_NUMBER" ]]; then ISSUE_NUMBER="$(jq -r '[.[] | select(.pull_request==null and any(.labels[]?; .name=="agent-generated"))] | sort_by(.created_at) | reverse | .[0].number // ""' <<<"$QUEUED_ISSUES")"; fi
             if [[ -z "$ISSUE_NUMBER" ]]; then echo "has_task=false" >> "$GITHUB_OUTPUT"; echo "No queued agent task; builder is idle."; exit 0; fi
             ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
             ISSUE_BODY="$(jq -r .body <<<"$ISSUE")"
