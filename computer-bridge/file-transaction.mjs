@@ -1,4 +1,4 @@
-import { copyFile, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { copyFile, mkdir, open, readFile, rename, stat, lstat, unlink } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 
@@ -10,6 +10,8 @@ export async function applyFileTransaction(target, data, {
   maxExistingBytes = 5 * 1024 * 1024
 }) {
   if (typeof target !== "string" || !Buffer.isBuffer(data)) throw new Error("Invalid file transaction input");
+  const linkInfo = await lstat(target).catch(error => { if (error?.code === "ENOENT") return null; throw error; });
+  if (linkInfo?.isSymbolicLink()) throw new Error("Symbolic-link targets are not allowed");
   const beforeInfo = await stat(target).catch(error => {
     if (error?.code === "ENOENT") return null;
     throw error;
@@ -70,6 +72,11 @@ export async function applyFileTransaction(target, data, {
 }
 
 export async function restoreVerifiedBackup(target, backupPath, expectedCurrentHash, expectedBackupHash) {
+  const [targetInfo, backupInfo] = await Promise.all([
+    lstat(target), lstat(backupPath)
+  ]);
+  if (targetInfo.isSymbolicLink() || backupInfo.isSymbolicLink() || !targetInfo.isFile() || !backupInfo.isFile())
+    throw new Error("Restore requires regular files; symbolic links are not allowed.");
   const current = await readFile(target);
   const backup = await readFile(backupPath);
   if (sha256(current) !== expectedCurrentHash) throw new Error("Current file hash does not match; refusing restore.");
