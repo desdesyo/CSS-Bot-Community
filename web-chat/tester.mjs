@@ -63,13 +63,12 @@ test("CHAT-011: worker.js defines rollover and continuity memory operations", as
 
 test("CHAT-011: conversation Worker owns thread continuity and continuity memory", async () => {
   const worker = await read("./worker.js");
-  const agent = await read("./agent-runtime/src/index.ts");
   assert.ok(worker.includes("/api/messages"), "/api/messages must exist for thread history");
   assert.ok(worker.includes("/api/threads"), "/api/threads must exist for thread listing");
-  assert.ok(worker.includes("browser-chat:thread:"), "thread storage key pattern must exist");
+  assert.match(worker, /async function chain\\(/, "GitHub issue chain must be the authoritative conversation history");
+  assert.ok(worker.includes("github-chat-active:"), "active continuation pointer must be persisted on the root issue");
   assert.ok(worker.includes("Continuity memory"), "conversation Worker must preserve continuity memory");
   assert.ok(worker.includes("## Continuity memory"), "continuation records must use the documented memory section");
-  assert.ok(agent.includes("browser-chat:thread:"), "Durable agent thread storage key pattern must remain available");
 });
 
 test("CHAT-011: multi-turn context retention tests in tester.mjs cover thread continuity and contributions", async () => {
@@ -80,7 +79,7 @@ test("CHAT-011: multi-turn context retention tests in tester.mjs cover thread co
 
 test("CHAT-011: rollOver carries prior branch memories into the next continuation", async () => {
   const worker = await read("./worker.js");
-  assert.match(worker, /async function rollOver\\([^)]*chainParts\\)/, "rollOver must receive prior conversation branches");
+  assert.match(worker, /async function rollOver\([^)]*chainParts\)/, "rollOver must receive prior conversation branches");
   assert.match(worker, /const carried\\s*=\\s*chainParts\\.map/, "prior branch memories must be collected");
   assert.match(worker, /PREVIOUS CONTINUITY MEMORIES/, "prior memories must be included in the consolidation prompt");
   assert.match(worker, /## Continuity memory/, "the new continuation must retain the stable memory section");
