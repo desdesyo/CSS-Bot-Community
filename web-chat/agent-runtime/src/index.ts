@@ -2782,8 +2782,36 @@ LEARNING FROM CORRECTIONS
           error: job.status === "failed" ? job.error : undefined,
           provider: job.provider || undefined, model: job.model || undefined,
           degraded: Boolean(job.fallbackReason), fallbackReason: job.fallbackReason || undefined,
+          localPrompt: job.status === "failed" && String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY") ? job.prompt : undefined,
+          followups: job.status === "failed" && String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY") ? (job.followups || []) : undefined,
           createdAt: job.createdAt, updatedAt: job.updatedAt
         });
+      }
+      if (url.pathname === "/api/chat/local-complete" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const operationId = String(body.operationId || "");
+        const reply = String(body.reply || "").trim();
+        if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId) || !reply || reply.length > 30000) return json({ error: "Invalid local completion payload" }, 400);
+        const result = await this.ctx.blockConcurrencyWhile(async () => {
+          const jobKey = "browser-chat:job:" + operationId;
+          const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
+          if (!job) return { error: "Operation not found", status: 404 };
+          if (job.status === "done") return { ok: true, alreadyDone: true, thread: job.threadId };
+          if (job.status !== "failed" || !String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY")) return { error: "Local fallback is allowed only after a confirmed no-provider-capacity failure", status: 409 };
+          const threadKey = "browser-chat:thread:" + job.threadId;
+          const thread = await this.ctx.storage.get<any>(threadKey);
+          if (!thread) return { error: "Conversation not found", status: 404 };
+          const alreadySaved = (thread.messages || []).some((message: any) => message.role === "assistant" && message.operationId === operationId);
+          if (!alreadySaved) thread.messages.push({ role: "assistant", content: reply, files: [], operationId, provider: "browser-local", model: String(body.model || "Qwen2.5-0.5B-Instruct-q4f16_1-MLC") });
+          thread.updatedAt = Date.now();
+          await this.ctx.storage.put(threadKey, thread);
+          job.status = "done"; job.reply = reply; job.provider = "browser-local"; job.model = String(body.model || "Qwen2.5-0.5B-Instruct-q4f16_1-MLC"); job.fallbackReason = "Cloud providers unavailable; generated locally in the browser"; job.completedAt = Date.now(); job.updatedAt = Date.now();
+          await this.ctx.storage.put(jobKey, job);
+          return { ok: true, thread: job.threadId, provider: job.provider, model: job.model };
+        });
+        if ("error" in result) return json({ error: result.error }, result.status);
+        return json(result);
       }
       if (url.pathname === "/api/agent/client-error" && req.method === "POST") {
         await this.requirePassword(req);
