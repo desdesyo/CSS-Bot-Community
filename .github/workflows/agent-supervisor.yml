@@ -128,9 +128,21 @@ jobs:
             fi
             PROMPT="INDEPENDENT SUPERVISOR REVIEW — READ ONLY. Review issue #$NUMBER in source repository $SOURCE_REPO. Implementation target is $TARGET_REPO branch $TARGET_BRANCH, current commit $HEAD_SHA. CI state: $CI_STATE. Deployment state: $DEPLOY_STATE. Do not edit files, create commits, open PRs, or change issue labels. Inspect the issue and acceptance criteria, exact target commit diff, implementation links, and successful CI logs. Verify each criterion against actual code and evidence. For SOLO.Chat tasks, require successful current-commit GitHub Chat checks and, whenever web-chat/** changed, a successful deployment smoke test for that exact same commit SHA. For core tasks, require successful CSSBC Core CI for exact commit. For modhaul tasks, require successful target-commit build/test workflow. If any evidence is absent, stale, queued, failed, or mismatched, REJECT. Return exactly VERDICT: PASS or VERDICT: REJECT, followed by criterion-by-criterion evidence links and remaining blockers. Never treat the builder's self-report as proof."
             jq -n --arg prompt "$PROMPT" --arg thread "cssbc-supervisor-review-$NUMBER" --arg role "supervisor" --arg githubToken "$GH_TOKEN" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > reviewer.json
-            CODE="$(curl --silent --show-error --max-time 600 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+            CODE="000"
+            for attempt in 1 2 3; do
+              CODE="$(curl --silent --show-error --connect-timeout 20 --max-time 900 -o review.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @reviewer.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+              [[ "$CODE" =~ ^[0-9]{3}$ ]] || CODE="000"
+              if [[ "$CODE" == "200" ]] && jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then break; fi
+              case "$CODE" in
+                000|408|425|429|500|502|503|504|200)
+                  if [[ "$attempt" -lt 3 ]]; then sleep "$((attempt * 10))"; continue; fi
+                  ;;
+              esac
+              break
+            done
             if [[ "$CODE" != "200" ]] || ! jq -e '.reply and (.reply|length>0)' review.json >/dev/null 2>&1; then
-              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review failed (HTTP $CODE). Task remains in review; no approval granted." >/dev/null
+              DETAIL="$(jq -r '.error // .message // .' review.json 2>/dev/null | head -c 1200 || true)"
+              gh issue comment "$NUMBER" --repo "$SOURCE_REPO" --body "Supervisor AI review failed after bounded retries (HTTP $CODE). Task remains in review; no approval granted. Diagnostic: ${DETAIL:-No response body}" >/dev/null
               gh issue edit "$NUMBER" --repo "$SOURCE_REPO" --add-label agent-review-needed >/dev/null
               continue
             fi
