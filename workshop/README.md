@@ -1,0 +1,43 @@
+# SOLO Mod Workshop scripts
+
+Windows PowerShell 5.1+ scripts for creating a local-first mod workspace, inventorying files, inspecting the installed production toolchain and packaging project artifacts. See [the architecture](../docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md).
+
+## Initialize
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\Initialize-SoloModWorkspace.ps1 -Path C:\SOLO\CSS-v34-Mod
+```
+
+## Inspect installed tools
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\Invoke-SoloToolchain.ps1 -Workspace C:\SOLO\CSS-v34-Mod -Mode doctor
+```
+
+The doctor writes `.solo/toolchain.json` and reports SourcePawn compiler, Blender, FFmpeg, CMake, .NET and Git. Missing tools are reported, not auto-installed.
+
+## Compile a SourceMod plugin
+
+Install the SourceMod SDK/compiler yourself, then:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\Invoke-SoloToolchain.ps1 -Workspace C:\SOLO\CSS-v34-Mod -Mode build-plugin -SpcompPath C:\srcds\addons\sourcemod\scripting\spcomp.exe -SourceFile plugins\my_plugin.sp
+```
+
+Source must be inside workspace `src/`; output goes to `build/`. The script records compiler output, exit code, artifact size and SHA-256. It never installs the plugin into the game.
+
+## Create a package
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\New-SoloModPackage.ps1 -Workspace C:\SOLO\CSS-v34-Mod -PackageName css-v34-mod
+```
+
+The package builder includes project source, assets, UI, maps, docs, tests and build outputs. It writes a ZIP plus an embedded `package-manifest.json` containing SHA-256 hashes. It excludes internal `.solo` state and prior packages, enforces file/size limits and does not install anything into the game.
+
+## Inventory
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\Get-SoloModInventory.ps1 -Path C:\SOLO\CSS-v34-Mod
+```
+
+The scripts do not access or modify the game installation. Inventory hashes project files only; files above 256 MB are listed without a hash by default.

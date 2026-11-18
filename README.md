@@ -33,11 +33,29 @@ CSSBC is intended as a broad gameplay and presentation overhaul:
 
 The visual decisions are recorded in [docs/UI_VISUAL_SPEC.md](docs/UI_VISUAL_SPEC.md). This is a target specification, not a claim that these assets/UI are already implemented.
 
+## SOLO Mod Workshop
+
+SOLO.Chat's primary direction is a local-first production workshop: code, models, textures, UI, audio, video, packaging and QA should work without requiring a cloud AI request. AI is an optional planning/review layer. Local processing still uses the computer's CPU/GPU and storage; heavy generative models are not assumed to run on low-spec hardware.
+
+The first workspace tools are in [workshop/](workshop/), with the architecture and staged acceptance criteria in [docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md](docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md). On Windows, initialize a separate workspace with:
+
+    powershell -ExecutionPolicy Bypass -File .\workshop\Initialize-SoloModWorkspace.ps1 -Path C:\SOLO\CSS-v34-Mod
+
+Then create its bounded local SHA-256 inventory:
+
+    powershell -ExecutionPolicy Bypass -File .\workshop\Get-SoloModInventory.ps1 -Path C:\SOLO\CSS-v34-Mod
+
+These scripts create and inventory project files only. They do not modify or launch the game.
+
 ## Local CSS Bridge
 
 The Windows-side read-only scanner is implemented under [bridge/](bridge/). It polls GitHub Issues for explicit scan tasks, inventories only the configured CS:S v34 directory, calculates bounded SHA-256 hashes, and posts metadata reports back to the originating issue. It does not execute task text and cannot modify the game folder. See [bridge/README.md](bridge/README.md) and [docs/LOCAL_CHAT_BRIDGE_SPEC.md](docs/LOCAL_CHAT_BRIDGE_SPEC.md).
 
-The bridge currently has an initial implementation and a GitHub Actions Windows x64 build workflow. A successful CI build is not a real-machine scan: field verification against the user's installation remains outstanding.
+The separate [computer-bridge/](computer-bridge/) provides narrowly scoped, approval-gated local text/config writes and verified SourceMod plugin installation. Neither bridge has yet been field-verified on the user's PC; source code and CI success are not proof of a live local run.
+
+## Disposable GitHub VM test lab
+
+A clean Ubuntu and Windows virtual machine can build and test the repository. Start it manually from the Actions tab using **SOLO Repository VM Test Lab**, or let it run for pull requests and pushes. It compiles the C++ core, runs CTest and bridge tests, checks the Windows PowerShell workspace setup, and uploads diagnostic artifacts. The runners are temporary and usage is subject to GitHub Actions limits. See [docs/GITHUB_VM_TEST_LAB.md](docs/GITHUB_VM_TEST_LAB.md).
 
 ## Build and test
 

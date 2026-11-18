@@ -1,0 +1,48 @@
+name: SOLO Distributed Compute Worker
+on:
+  workflow_dispatch:
+    inputs:
+      task_type:
+        description: Allowlisted task to execute on an ephemeral GitHub runner
+        required: true
+        type: choice
+        options:
+          - node-smoke
+          - cmake-test
+  push:
+    paths:
+      - 'solo-compute/**'
+      - '.github/workflows/solo-distributed-compute.yml'
+permissions:
+  contents: read
+jobs:
+  run-allowlisted-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Select fixed task
+        shell: bash
+        run: |
+          TASK_TYPE="${{ inputs.task_type || 'node-smoke' }}"
+          case "$TASK_TYPE" in
+            node-smoke) TASK_FILE=solo-compute/tasks/ci-node-smoke.json ;;
+            cmake-test) TASK_FILE=solo-compute/tasks/ci-cmake-test.json ;;
+            *) echo "Unsupported task type"; exit 2 ;;
+          esac
+          node -e "const fs=require('fs');const p=process.argv[1];const t=JSON.parse(fs.readFileSync(p));t.commit_sha=process.env.GITHUB_SHA;fs.writeFileSync(p,JSON.stringify(t,null,2)+'\\n')" "$TASK_FILE"
+          echo "TASK_FILE=$TASK_FILE" >> "$GITHUB_ENV"
+      - name: Run worker
+        run: node solo-compute/worker.mjs run "$TASK_FILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-compute-result-${{ runner.os }}
+          path: build/solo-compute-results/
+          if-no-files-found: ignore

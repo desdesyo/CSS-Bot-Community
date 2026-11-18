@@ -1,0 +1,92 @@
+name: SOLO Mod Workshop CI
+
+on:
+  push:
+    paths:
+      - "workshop/**"
+      - "docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md"
+      - ".github/workflows/solo-mod-workshop.yml"
+  pull_request:
+    paths:
+      - "workshop/**"
+      - "docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md"
+      - ".github/workflows/solo-mod-workshop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-workspace-smoke-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize workspace and verify inventory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          $fakeGameRoot = Join-Path $env:RUNNER_TEMP "must-not-be-created-game"
+          if (Test-Path $workspace) { Remove-Item $workspace -Recurse -Force }
+          if (Test-Path $fakeGameRoot) { Remove-Item $fakeGameRoot -Recurse -Force }
+
+          ./workshop/Initialize-SoloModWorkspace.ps1 -Path $workspace -ProjectName "CI Smoke Test" -GameRoot $fakeGameRoot
+          if (-not (Test-Path (Join-Path $workspace ".solo/project.json"))) { throw "Project manifest was not created." }
+          if (Test-Path $fakeGameRoot) { throw "Initializer unexpectedly touched the game target." }
+
+          "hello from CI" | Set-Content (Join-Path $workspace "src/configs/sample.cfg") -Encoding UTF8
+          ./workshop/Get-SoloModInventory.ps1 -Path $workspace
+          $inventoryPath = Join-Path $workspace ".solo/inventory.json"
+          $inventory = Get-Content $inventoryPath -Raw | ConvertFrom-Json
+          if ($inventory.fileCount -ne 2) { throw "Expected README and sample.cfg only; got $($inventory.fileCount)." }
+          $sample = $inventory.files | Where-Object { $_.path -eq "src/configs/sample.cfg" }
+          if (-not $sample -or $sample.hashAlgorithm -ne "sha256" -or $sample.sha256.Length -ne 64) {
+            throw "Sample file SHA-256 was not recorded."
+          }
+          if ($inventory.files.path -contains ".solo/project.json" -or $inventory.files.path -contains ".solo/inventory.json") {
+            throw "Internal .solo metadata must not appear in its own inventory."
+          }
+
+          $rerunFailedSafely = $false
+          try {
+            ./workshop/Initialize-SoloModWorkspace.ps1 -Path $workspace
+          } catch {
+            $rerunFailedSafely = $true
+          }
+          if (-not $rerunFailedSafely) { throw "Initializer should refuse to overwrite an existing project manifest." }
+
+      - name: Run toolchain doctor and validate report
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          ./workshop/Invoke-SoloToolchain.ps1 -Workspace $workspace -Mode doctor
+          $reportPath = Join-Path $workspace ".solo/toolchain.json"
+          if (-not (Test-Path $reportPath)) { throw "Toolchain doctor did not create its report." }
+          $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+          foreach ($name in @("sourcePawnCompiler", "blender", "ffmpeg", "cmake", "dotnet", "git")) {
+            if ($report.tools.PSObject.Properties.Name -notcontains $name) { throw "Toolchain report is missing key: $name" }
+          }
+          if ($report.mode -ne "doctor") { throw "Unexpected toolchain report mode." }
+
+      - name: Build package and verify embedded manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-workshop-smoke"
+          ./workshop/New-SoloModPackage.ps1 -Workspace $workspace -PackageName "ci-smoke"
+          $zip = Get-ChildItem (Join-Path $workspace "build/packages") -Filter "ci-smoke-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Package ZIP was not created." }
+          $extract = Join-Path $env:RUNNER_TEMP "solo-package-check"
+          if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract
+          $manifestPath = Join-Path $extract "package-manifest.json"
+          if (-not (Test-Path $manifestPath)) { throw "Embedded package manifest is missing." }
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          $entry = $manifest.files | Where-Object { $_.path -eq "src/configs/sample.cfg" }
+          if (-not $entry -or $entry.sha256.Length -ne 64) { throw "Package manifest lacks the sample file SHA-256." }
+          $packedFile = Join-Path $extract "src/configs/sample.cfg"
+          $actual = (Get-FileHash -LiteralPath $packedFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $entry.sha256) { throw "Packaged file hash does not match embedded manifest." }
+          if (Test-Path (Join-Path $extract ".solo/project.json")) { throw "Internal workspace state must not be packaged." }
+          Write-Host "SOLO Mod Workshop smoke tests passed."

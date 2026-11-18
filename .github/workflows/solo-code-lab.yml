@@ -1,0 +1,39 @@
+name: SOLO Code Lab self-tests
+
+on:
+  pull_request:
+    paths:
+      - "solo-code-lab/**"
+      - "solo-compute/**"
+      - ".github/workflows/solo-code-lab.yml"
+  push:
+    branches: [github-chat-prototype, feature/solo-mod-workshop-foundation]
+    paths:
+      - "solo-code-lab/**"
+      - "solo-compute/**"
+      - ".github/workflows/solo-code-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax and safety tests
+        run: |
+          node --check solo-code-lab/lab.mjs
+          node --check solo-compute/worker.mjs
+          node --check solo-compute/coordinator.mjs
+          node --check solo-compute/client.mjs
+          node --check solo-compute/solochat-adapter.mjs
+          node --test solo-code-lab/lab.test.mjs solo-compute/worker.test.mjs solo-compute/coordinator.test.mjs solo-compute/solochat-adapter.test.mjs
