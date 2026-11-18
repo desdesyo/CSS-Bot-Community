@@ -909,6 +909,44 @@ LEARNING FROM CORRECTIONS
           }
         },
         {
+          name: "compute_submit_task",
+          description: "Submit a bounded SOLO Distributed Compute task to the live SOLO.Chat Durable Object queue. Allowed tasks: node-smoke and cmake-test. Requires a full 40-character commit SHA. A connected trusted worker must have that exact commit checked out. Never submit arbitrary commands or scripts.",
+          parameters: obj({ taskType: str(), commitSha: str() }),
+          replay: "unsafe",
+          async execute({ taskType, commitSha }: { taskType: string; commitSha: string }) {
+            await assertAgentCanWrite();
+            if (!["node-smoke", "cmake-test"].includes(taskType)) throw new Error("Compute task type is not allowlisted");
+            if (!/^[0-9a-f]{40}$/.test(commitSha)) throw new Error("Provide the full lowercase 40-character commit SHA");
+            const created = await agent.ctx.blockConcurrencyWhile(async () => {
+              const entries = await storage.list<any>({ prefix: "compute:task:" });
+              if (entries.size >= 100 || [...entries.values()].filter((x: any) => ["queued", "leased"].includes(x.status)).length >= 30) return null;
+              const now = new Date().toISOString();
+              const task = {
+                schema_version: 1, task_id: crypto.randomUUID(), task_type: taskType,
+                commit_sha: commitSha, timeout_seconds: 600, status: "queued", attempts: 0,
+                created_at: now, updated_at: now, worker_id: null, lease_until: null,
+                result: null, last_error: null
+              };
+              await storage.put("compute:task:" + task.task_id, task);
+              return task;
+            });
+            if (!created) throw new Error("SOLO Compute queue is full");
+            return textOutput({ accepted: true, task: created, next: "Poll compute_task_status for this task. A connected worker must have the exact commit checked out." });
+          }
+        },
+        {
+          name: "compute_task_status",
+          description: "Read the status and bounded result of a SOLO Distributed Compute task by task ID.",
+          parameters: obj({ taskId: str() }),
+          replay: "safe",
+          async execute({ taskId }: { taskId: string }) {
+            if (!/^[a-f0-9-]{36}$/.test(taskId)) throw new Error("Invalid compute task ID");
+            const task = await storage.get<any>("compute:task:" + taskId);
+            if (!task) throw new Error("Compute task not found");
+            return textOutput(task);
+          }
+        },
+        {
           name: "computer_task_result",
           description: "Check the result of a previously queued local computer task, including approval-gated text-file edits.",
           parameters: obj({ taskId: str() }),
