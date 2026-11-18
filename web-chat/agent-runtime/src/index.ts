@@ -1750,7 +1750,10 @@ LEARNING FROM CORRECTIONS
       workersAi: true, githubToken: Boolean(this.env.GITHUB_TOKEN)
     };
     let pendingPi: unknown = null;
-    try { pendingPi = await this.harness.pending(); } catch (error) { pendingPi = { error: redact(error) }; }
+    try {
+      const pending = await this.harness.pending();
+      pendingPi = Array.isArray(pending) ? { count: pending.length } : { available: pending != null };
+    } catch (error) { pendingPi = { error: redact(error) }; }
     const diagnostics = {
       capturedAt: new Date(now).toISOString(), repository, branch,
       workerVersion: this.env.CF_VERSION_METADATA || null,
