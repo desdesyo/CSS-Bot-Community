@@ -1055,6 +1055,7 @@ LEARNING FROM CORRECTIONS
       job.updatedAt = Date.now();
       await this.ctx.storage.put(jobKey, job);
     } catch (error) {
+      await this.recordRuntimeError("browser-chat:" + job.operationId, error);
       job.status = "failed";
       job.error = (error instanceof Error ? error.message : "AI request failed").slice(0, 1200);
       job.completedAt = Date.now();
@@ -1628,6 +1629,7 @@ LEARNING FROM CORRECTIONS
           const reason = String(resultDiagnostic.reason || resultDiagnostic.error?.message || resultDiagnostic.errorMessage || assistantMessage?.errorMessage || result.status || "empty assistant response");
           const toolCalls = Array.isArray(assistantMessage?.content) ? assistantMessage.content.filter((part: any) => part?.type === "toolCall").map((part: any) => part.name).slice(0, 12) : [];
           harnessFailure = JSON.stringify({ status: result.status, provider: candidate?.provider || null, model: candidate?.id || null, reason, toolCalls, eventErrors }).slice(0, 1400);
+          await this.recordRuntimeError("pi-provider-attempt:" + (candidate?.provider || "unknown"), harnessFailure);
           console.error("[SOLO.Chat] Pi provider attempt failed", JSON.stringify({ operationId: attemptId, sessionId, attempt: attempt + 1, provider: candidate?.provider || null, model: candidate?.id || null, reason, toolCalls, eventErrors }));
           if (toolCalls.length) {
             throw new Error("A tool call already ran during the failed provider attempt; automatic retry stopped to prevent duplicate side effects. " + harnessFailure);
@@ -1648,6 +1650,7 @@ LEARNING FROM CORRECTIONS
       if (!completed) throw new Error("All configured tool-capable Pi providers failed: " + (harnessFailure || "no provider candidate available"));
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
+      await this.recordRuntimeError("pi-harness:" + operationId, harnessFailure);
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
@@ -1662,6 +1665,160 @@ LEARNING FROM CORRECTIONS
       throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
     }
   }
+  private async recordRuntimeError(source: string, error: unknown) {
+    try {
+      const raw = error instanceof Error ? error.message : String(error);
+      const message = raw
+        .replace(/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED]")
+        .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [REDACTED]")
+        .slice(0, 900);
+      const entries = await this.ctx.storage.get<any[]>("runtime:errors") || [];
+      entries.push({ id: crypto.randomUUID(), at: Date.now(), source: String(source).slice(0, 80), message });
+      await this.ctx.storage.put("runtime:errors", entries.slice(-100));
+    } catch (_) {
+      // Diagnostics must never break the request being diagnosed.
+    }
+  }
+
+  private async triggerFixCommand() {
+    const repository = "desdesyo/CSS-Bot-Community";
+    const branch = "github-chat-prototype";
+    const now = Date.now();
+    const redact = (value: unknown) => String(value ?? "")
+      .replace(/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, "[REDACTED]")
+      .replace(/Bearer\\s+[^\\s,;]+/gi, "Bearer [REDACTED]")
+      .slice(0, 700);
+
+    // Reuse an active repair issue instead of flooding the team with duplicates.
+    const active = await this.ctx.storage.get<any>("fix:active");
+    if (active?.issueNumber) {
+      try {
+        const issue = await github(this.env, "/repos/" + repository + "/issues/" + Number(active.issueNumber));
+        const labels = (issue.labels || []).map((label: any) => String(label.name || ""));
+        if (issue.state === "open") {
+          const age = now - Number(active.createdAt || 0);
+          if (age < 20 * 60 * 1000 || labels.includes("status:queued") || labels.includes("status:in-progress")) {
+            return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Уже есть активная задача восстановления. Повторный запуск не создавался." };
+          }
+          const nextLabels = [...new Set(labels.filter((label: string) => !label.startsWith("status:")).concat("status:queued"))];
+          const queued = await github(this.env, "/repos/" + repository + "/issues/" + issue.number, {
+            method: "PATCH", body: JSON.stringify({ labels: nextLabels })
+          });
+          const refreshed = { issueNumber: issue.number, issueUrl: issue.html_url, createdAt: now };
+          await this.ctx.storage.put("fix:active", refreshed);
+          return { ok: true, requeued: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Зависшая задача восстановления повторно поставлена в очередь." };
+        }
+      } catch (error) {
+        await this.recordRuntimeError("fix-active-issue-check", error);
+      }
+    }
+
+    const jobs = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
+    const allJobs = Array.from(jobs.values());
+    const failedJobs = allJobs.filter(job => job.status === "failed")
+      .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+      .map(job => ({ operationId: job.operationId, status: job.status, updatedAt: new Date(job.updatedAt).toISOString(), error: redact(job.error) }));
+    const stuckJobs = allJobs.filter(job => ["queued", "running", "finalizing"].includes(job.status) && now - Number(job.updatedAt || job.createdAt) > 4 * 60 * 1000)
+      .slice(0, 12).map(job => ({ operationId: job.operationId, status: job.status, ageMs: now - Number(job.updatedAt || job.createdAt) }));
+    const feedbackIds = await this.ctx.storage.get<string[]>("feedback:ids") || [];
+    const feedbackItems: any[] = [];
+    for (const id of feedbackIds.slice(-500).reverse()) {
+      const item = await this.ctx.storage.get<any>("feedback:item:" + id);
+      if (item?.status === "queued" && item.rating === "error") {
+        feedbackItems.push({ id: item.id, createdAt: new Date(item.createdAt).toISOString(), error: redact(item.note) });
+        if (feedbackItems.length >= 20) break;
+      }
+    }
+    const runtimeErrors = (await this.ctx.storage.get<any[]>("runtime:errors") || []).slice(-30).map(entry => ({
+      at: new Date(entry.at).toISOString(), source: String(entry.source || "unknown"), message: redact(entry.message)
+    }));
+    const circuitEntries = await this.ctx.storage.list<number>({ prefix: "provider:circuit:" });
+    const circuits = Array.from(circuitEntries.entries()).map(([key, until]) => ({
+      provider: key.slice("provider:circuit:".length), openUntil: new Date(Number(until)).toISOString(), isOpen: Number(until) > now
+    }));
+    const deviceIds = await this.ctx.storage.get<string[]>("computer:devices") || [];
+    const devices: any[] = [];
+    for (const id of deviceIds) {
+      const device = await this.ctx.storage.get<any>("computer:device:" + id);
+      if (device) devices.push({ name: String(device.name || "Windows computer"), lastSeen: device.lastSeen ? new Date(device.lastSeen).toISOString() : null, onlineRecently: Boolean(device.lastSeen && now - device.lastSeen < 2 * 60 * 1000) });
+    }
+    const toolNames = this.registry.snapshot().tools().map(({ tool }) => tool.name).sort();
+    const preferredToolModel = await this.ctx.storage.get<any>("agent:preferred-tool-model");
+    const providers = {
+      gemini: Boolean(this.env.GEMINI_API_KEY), openrouter: Boolean(this.env.OPENROUTER_API_KEY),
+      openai: Boolean(this.env.OPENAI_API_KEY), groq: Boolean(this.env.GROQ_API_KEY),
+      workersAi: true, githubToken: Boolean(this.env.GITHUB_TOKEN)
+    };
+    let pendingPi: unknown = null;
+    try { pendingPi = await this.harness.pending(); } catch (error) { pendingPi = { error: redact(error) }; }
+    const diagnostics = {
+      capturedAt: new Date(now).toISOString(), repository, branch,
+      workerVersion: this.env.CF_VERSION_METADATA || null,
+      registeredToolCount: toolNames.length, registeredTools: toolNames,
+      providers, preferredToolModel: preferredToolModel || null, pendingPi,
+      failedBrowserJobs: failedJobs, stuckBrowserJobs: stuckJobs,
+      queuedErrorFeedback: feedbackItems, recentRuntimeErrors: runtimeErrors,
+      providerCircuits: circuits, pairedComputers: devices
+    };
+    await this.ctx.storage.put("fix:last-report", diagnostics);
+    const taskKey = "SOLO-FIX-" + now.toString(36).toUpperCase() + "-" + randomToken(4).toUpperCase();
+    const issueBody = [
+      "Task-Key: " + taskKey,
+      "",
+      "## Objective",
+      "Run the SOLO.Chat self-recovery procedure requested with the /fix command. Inspect the diagnostic evidence, load the mandatory agent playbook, start the planner → implementer → independent tester → supervisor workflow, identify root causes, repair them, and verify the exact deployed commit.",
+      "",
+      "## Diagnostic snapshot",
+      "```json",
+      JSON.stringify(diagnostics, null, 2).slice(0, 14000),
+      "```",
+      "",
+      "## Acceptance criteria",
+      "- Planner, implementer and read-only tester are actually started by GitHub Actions; report run ID and job states.",
+      "- Execute authenticated /api/agent/harness-check and capture the exact minimal/full tool execution result; do not trust the marker alone.",
+      "- Inspect relevant failed GitHub Actions logs and the captured runtime errors; identify a root cause or report a precise blocker.",
+      "- Implement the smallest safe fix and add regression tests for the reproduced failure.",
+      "- Run type-check and regression tests; deploy web-chat changes and pass authenticated live health, model, harness and agent dashboard checks on the exact same SHA.",
+      "- Keep the issue open and status non-done if any required gate is missing or failed.",
+      "",
+      "## Privacy",
+      "This report intentionally excludes chat prompts, conversation contents, attachments, credentials and user messages. It contains technical error messages, operation IDs, capability flags and runtime state only.",
+      "",
+      "## Evidence",
+      "- Trigger: SOLO.Chat /fix",
+      "- Source branch: " + branch,
+      "- Workflow run: pending",
+      "- Repair commit: pending",
+      "- Verification: pending"
+    ].join("\n");
+    try {
+      const issue = await github(this.env, "/repos/" + repository + "/issues", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "[SOLO.Chat /fix] Autonomous recovery " + taskKey,
+          body: issueBody,
+          labels: ["agent-task", "agent-generated", "agent-chat-runtime", "status:queued"]
+        })
+      });
+      const activeRecord = { issueNumber: issue.number, issueUrl: issue.html_url, createdAt: now };
+      await this.ctx.storage.put("fix:active", activeRecord);
+      for (const item of feedbackItems) {
+        const record = await this.ctx.storage.get<any>("feedback:item:" + item.id);
+        if (record && record.status === "queued") {
+          record.status = "dispatched";
+          record.dispatchedAt = now;
+          record.issueUrl = issue.html_url;
+          await this.ctx.storage.put("feedback:item:" + item.id, record);
+        }
+      }
+      return { ok: true, issueNumber: issue.number, issueUrl: issue.html_url, taskKey, capturedErrors: runtimeErrors.length + failedJobs.length + stuckJobs.length + feedbackItems.length, queuedAgents: true, message: "Диагностика собрана, задача восстановления создана и поставлена в очередь команды агентов." };
+    } catch (error) {
+      const detail = redact(error);
+      await this.recordRuntimeError("fix-issue-dispatch", detail);
+      return { ok: false, blocked: true, taskKey, diagnosticsSaved: true, error: detail, capturedErrors: runtimeErrors.length + failedJobs.length + stuckJobs.length + feedbackItems.length, message: "Диагностика собрана и сохранена, но GitHub не принял задачу восстановления. Проверьте разрешение Issues: write у Worker GITHUB_TOKEN." };
+    }
+  }
+
   private async requirePassword(req: Request) {
     const auth = req.headers.get("Authorization") || "";
     if (this.env.APP_PASSWORD && safeEqual(auth, "Bearer " + this.env.APP_PASSWORD)) return;
@@ -2326,9 +2483,23 @@ LEARNING FROM CORRECTIONS
           await this.ctx.storage.put("browser-chat:threads", ids);
         }
 
+        if (message.toLowerCase() === "/fix" && fileIds.length) return json({ error: "Команда /fix запускается отдельно, без вложений." }, 400);
         item.messages.push({ role: "user", content: visibleMessage, files: prepared.files, operationId });
         item.updatedAt = Date.now();
         await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
+
+        if (message.toLowerCase() === "/fix") {
+          const fix = await this.triggerFixCommand();
+          const reply = fix.ok
+            ? "🛠️ **/fix запущен.** " + fix.message + "\n\n" + (fix.issueUrl ? "[Открыть задачу восстановления #" + fix.issueNumber + "](" + fix.issueUrl + ")" : "") + "\n\nСобрано диагностических событий: **" + fix.capturedErrors + "**. " + (fix.reused ? "Повторный запуск предотвращён: используется активная задача." : fix.requeued ? "Существующая задача повторно поставлена в очередь." : "Агенты запускаются событием GitHub Issues; фактический старт будет виден в панели агентов.")
+            : "⚠️ **/fix собрал диагностику, но не смог запустить команду агентов.** " + fix.message + "\n\nПричина: `" + String(fix.error || "неизвестная ошибка") + "`. Диагностика сохранена на стороне Worker.";
+          item.messages.push({ role: "assistant", content: reply, files: [], operationId });
+          item.updatedAt = Date.now();
+          await this.ctx.storage.put("browser-chat:thread:" + threadId, item);
+          const completedJob: BrowserChatJob = { operationId, threadId, prompt: "/fix", status: "done", reply, createdAt: Date.now(), updatedAt: Date.now(), completedAt: Date.now() };
+          await this.ctx.storage.put(jobKey, completedJob);
+          return json({ thread: threadId, title: item.title, operationId, status: "done" }, 202);
+        }
 
         const prompt = (body.webSearch
           ? visibleMessage + "\n\nThe user enabled web search. Use the web_search tool to verify current facts and cite source URLs."
@@ -2582,6 +2753,7 @@ LEARNING FROM CORRECTIONS
       return json({ error: "Not found" }, 404);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Request failed";
+      await this.recordRuntimeError("api:" + req.method + ":" + url.pathname, message);
       console.error("[SOLO.Chat] API request failed", JSON.stringify({ path: url.pathname, method: req.method, error: message }));
       const status = message === "Unauthorized" ? 401
         : /Pi harness|tool-capable Pi providers|Gemini|OpenRouter|OpenAI|Groq|Workers AI|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(message) ? 502
