@@ -69,8 +69,8 @@ export function validateGameInspectionInput(input) {
   const parts = value.replace(/\\/g, "/").split("/");
   if (parts.some(part => part === "." || part === ".."))
     throw new Error("Path traversal and dot segments are not allowed");
-  if (value.replace(/^[a-zA-Z]:[\\/]/, "").includes(":"))
-    throw new Error("Alternate data streams are not allowed");
+  const pathForColonCheck = value.replace(/^GAME:[\\/]/i, "").replace(/^[a-zA-Z]:[\\/]/, "");
+  if (pathForColonCheck.includes(":")) throw new Error("Alternate data streams are not allowed");
   return true;
 }
 
