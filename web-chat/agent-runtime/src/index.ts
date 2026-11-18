@@ -1686,7 +1686,7 @@ LEARNING FROM CORRECTIONS
   private async getQuotaState() {
     const config = await this.ctx.storage.get<any>("quota:config") || { enabled: false, dailyRequests: 0, label: "SOLO free pool" };
     const day = new Date().toISOString().slice(0, 10);
-    const usage = await this.ctx.storage.get<any>("quota:usage:" + day) || { day, used: 0 };
+    const usage = { day, used: await this.ctx.storage.get<number>("quota:usage:" + day) || 0 };
     return { config, usage, remaining: config.enabled && Number(config.dailyRequests) > 0 ? Math.max(0, Number(config.dailyRequests) - Number(usage.used || 0)) : null };
   }
 
