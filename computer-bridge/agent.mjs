@@ -43,7 +43,13 @@ async function pair() {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Pairing failed");
   const example = JSON.parse(await readFile(resolve(here, "config.example.json"), "utf8"));
-  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken };
+  const preferredGameRoot = resolve(os.homedir(), "Games", "Counter-Strike Source v34");
+  const legacyGameRoot = "C:\\\\Games\\\\Counter-Strike Source v34";
+  const gameRoot = await stat(preferredGameRoot).then(() => preferredGameRoot).catch(() => stat(legacyGameRoot).then(() => legacyGameRoot).catch(() => null));
+  const workspaceRoot = resolve(os.homedir(), "Documents", "SOLO-Chat");
+  const allowedRoot = gameRoot || workspaceRoot;
+  await mkdir(allowedRoot, { recursive: true });
+  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: gameRoot || "", allowedRoots: [allowedRoot] };
   await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
   console.log("Paired. Device ID:", data.deviceId);
   console.log("Allowed roots in config.json:", config.allowedRoots.join(", "));
