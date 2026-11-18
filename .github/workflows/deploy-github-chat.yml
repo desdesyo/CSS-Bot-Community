@@ -13,6 +13,7 @@ on:
       - "web-chat/package.json"
       - "web-chat/package-lock.json"
       - "web-chat/tester.mjs"
+      - ".github/workflows/deploy-github-chat.yml"
 
 permissions:
   contents: read
