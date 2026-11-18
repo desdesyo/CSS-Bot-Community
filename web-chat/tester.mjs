@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { verifyApiMap } from "./api-map.mjs";
 await verifyApiMap();
-import { readFile } from "node:fs/promises";
 const worker = await readFile(new URL("./worker.js", import.meta.url), "utf8");
 const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./agent-runtime/src/index.ts", import.meta.url), "utf8");
