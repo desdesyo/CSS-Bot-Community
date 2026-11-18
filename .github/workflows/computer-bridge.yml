@@ -5,10 +5,14 @@ on:
     branches: [github-chat-prototype]
     paths:
       - "computer-bridge/**"
+      - "workshop/**"
+      - "Setup-SOLO-Local.ps1"
       - ".github/workflows/computer-bridge.yml"
   pull_request:
     paths:
       - "computer-bridge/**"
+      - "workshop/**"
+      - "Setup-SOLO-Local.ps1"
       - ".github/workflows/computer-bridge.yml"
   workflow_dispatch:
 
@@ -33,18 +37,32 @@ jobs:
           node --check computer-bridge/file-policy.mjs
       - name: Run file policy tests
         run: node --test computer-bridge/tests/file-policy.test.mjs
-      - name: Package Windows companion
+      - name: Package and smoke-test Windows starter kit
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path package/computer-bridge | Out-Null
-          Copy-Item computer-bridge/agent.mjs,computer-bridge/file-policy.mjs,computer-bridge/config.example.json,computer-bridge/README.md package/computer-bridge/
-          Compress-Archive -Path package/computer-bridge -DestinationPath SOLO-Chat-Computer-Bridge.zip -Force
-      - name: Upload companion package
+          $ErrorActionPreference = "Stop"
+          $workspace = Join-Path $env:RUNNER_TEMP "solo-starter-smoke"
+          $fakeGame = Join-Path $env:RUNNER_TEMP "game-must-not-be-created"
+          if (Test-Path $workspace) { Remove-Item $workspace -Recurse -Force }
+          if (Test-Path $fakeGame) { Remove-Item $fakeGame -Recurse -Force }
+
+          ./Setup-SOLO-Local.ps1 -Workspace $workspace -ProjectName "CI Starter Test" -GameRoot $fakeGame
+          if (-not (Test-Path (Join-Path $workspace ".solo/project.json"))) { throw "Starter did not initialize project manifest." }
+          if (-not (Test-Path (Join-Path $workspace ".solo/inventory.json"))) { throw "Starter did not generate initial inventory." }
+          if (Test-Path $fakeGame) { throw "Starter unexpectedly touched the game root." }
+
+          $root = "package/SOLO-Local-Mod-Workshop"
+          New-Item -ItemType Directory -Force -Path "$root/computer-bridge","$root/workshop" | Out-Null
+          Copy-Item Setup-SOLO-Local.ps1 "$root/"
+          Copy-Item computer-bridge/agent.mjs,computer-bridge/file-policy.mjs,computer-bridge/config.example.json,computer-bridge/README.md "$root/computer-bridge/"
+          Copy-Item workshop/Initialize-SoloModWorkspace.ps1,workshop/Get-SoloModInventory.ps1,workshop/Invoke-SoloToolchain.ps1,workshop/New-SoloModPackage.ps1 "$root/workshop/"
+          Compress-Archive -Path "$root/*" -DestinationPath SOLO-Local-Mod-Workshop.zip -Force
+      - name: Upload Windows starter kit
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: SOLO-Chat-Computer-Bridge
-          path: SOLO-Chat-Computer-Bridge.zip
+          name: SOLO-Local-Mod-Workshop
+          path: SOLO-Local-Mod-Workshop.zip
           if-no-files-found: error
           retention-days: 14
