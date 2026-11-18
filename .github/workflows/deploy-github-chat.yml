@@ -165,8 +165,15 @@ jobs:
             BROWSER_STATUS="$(jq -r '.status // "unknown"' browser-chat-status.json)"
             if [[ "$BROWSER_STATUS" == "failed" ]]; then
               BROWSER_ERROR="$(jq -r '.error // "unknown chat error"' browser-chat-status.json)"
-              if [[ "$BROWSER_ERROR" == *"SOLO_NO_PROVIDER_CAPACITY"* ]]; then
-                echo "::warning::Worker is deployed and healthy, but live inference is unavailable because every configured provider is out of quota or disabled. This is a provider-capacity degradation, not a deployment failure."
+              # Provider exhaustion/configuration is an inference-capacity state, not a code/deploy failure.
+              # Match the structured sentinel plus known provider-router diagnostics (quota breaker,
+              # missing credentials, and daily Workers AI limits). Never mask queue/API failures.
+              if [[ "$BROWSER_ERROR" == *"SOLO_NO_PROVIDER_CAPACITY"* ]] ||
+                 [[ "$BROWSER_ERROR" == *"circuit breaker"* ]] ||
+                 [[ "$BROWSER_ERROR" == *"not configured"* ]] ||
+                 [[ "$BROWSER_ERROR" == *"пропущен до"* ]] ||
+                 [[ "$BROWSER_ERROR" == *"quota reset"* ]]; then
+                echo "::warning::Worker is deployed and healthy, but live inference is unavailable because configured providers are exhausted or unavailable. This is provider-capacity degradation, not a deployment failure."
                 BROWSER_CAPACITY_DEGRADED=true
                 break
               fi
