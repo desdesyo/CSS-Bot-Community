@@ -145,6 +145,7 @@ jobs:
             exit 1
           fi
           BROWSER_DONE=false
+          BROWSER_CAPACITY_DEGRADED=false
           for attempt in $(seq 1 240); do
             BROWSER_STATUS_CODE="$(curl --silent --show-error --max-time 20 -o browser-chat-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/chat/status?operationId=$BROWSER_OPERATION" || true)"
             if [[ "$BROWSER_STATUS_CODE" != "200" ]]; then
@@ -154,7 +155,13 @@ jobs:
             fi
             BROWSER_STATUS="$(jq -r '.status // "unknown"' browser-chat-status.json)"
             if [[ "$BROWSER_STATUS" == "failed" ]]; then
-              echo "::error::Browser chat queue failed to generate a reply."
+              BROWSER_ERROR="$(jq -r '.error // "unknown chat error"' browser-chat-status.json)"
+              if [[ "$BROWSER_ERROR" == *"SOLO_NO_PROVIDER_CAPACITY"* ]]; then
+                echo "::warning::Worker is deployed and healthy, but live inference is unavailable because every configured provider is out of quota or disabled. This is a provider-capacity degradation, not a deployment failure."
+                BROWSER_CAPACITY_DEGRADED=true
+                break
+              fi
+              echo "::error::Browser chat queue failed for a reason other than provider capacity."
               cat browser-chat-status.json
               exit 1
             fi
@@ -169,34 +176,45 @@ jobs:
             fi
             sleep 2
           done
-          if [[ "$BROWSER_DONE" != "true" ]]; then
-            echo "::error::Browser chat queue did not complete within 8 minutes."
-            cat browser-chat-status.json || true
-            exit 1
+          if [[ "$BROWSER_CAPACITY_DEGRADED" == "true" ]]; then
+            {
+              echo "### Live browser chat acceptance"
+              echo "- Queue → Durable Object alarm → status: **ACCEPTED; GENERATION BLOCKED**"
+              echo "- Runtime health/version: **PASS**"
+              echo "- Inference capacity: **UNAVAILABLE**"
+              echo "- Cause: configured providers exhausted their quotas or are not configured."
+              echo "- Deployment retained; no rollback attempted because rollback cannot restore provider quota."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            if [[ "$BROWSER_DONE" != "true" ]]; then
+              echo "::error::Browser chat queue did not complete within 8 minutes."
+              cat browser-chat-status.json || true
+              exit 1
+            fi
+            echo "Browser-facing /api/chat -> Durable Object alarm -> /api/chat/status round-trip passed."
+            if ! jq -e '.provider and .model' browser-chat-status.json >/dev/null; then
+              echo "::error::Browser chat did not report the actual provider/model used."
+              cat browser-chat-status.json
+              exit 1
+            fi
+            BROWSER_THREAD="$(jq -r '.thread' browser-chat-accepted.json)"
+            HISTORY_CODE="$(curl --silent --show-error --max-time 30 -o browser-chat-history.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/messages?thread=$BROWSER_THREAD" || true)"
+            if [[ "$HISTORY_CODE" != "200" ]] || ! jq -e --arg operation "$BROWSER_OPERATION" 'all(.messages[]; .role == "user" or .role == "assistant") and any(.messages[]; .role == "assistant" and .operationId == $operation and (.content|contains("SOLO_CHAT_BROWSER_QUEUE_OK")))' browser-chat-history.json >/dev/null; then
+              echo "::error::Browser chat reply was not persisted in the visible conversation history."
+              cat browser-chat-history.json
+              exit 1
+            fi
+            jq '{provider,model,degraded,fallbackReason}' browser-chat-status.json
+            echo "Browser chat provider metadata and persisted assistant history passed."
+            {
+              echo "### Live browser chat acceptance"
+              echo "- Queue → Durable Object alarm → status: **PASS**"
+              echo "- Assistant reply persisted in user-visible history: **PASS**"
+              echo "- Provider: $(jq -r '.provider' browser-chat-status.json)"
+              echo "- Model: $(jq -r '.model' browser-chat-status.json)"
+              echo "- Degraded fallback: $(jq -r '.degraded // false' browser-chat-status.json)"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "Browser-facing /api/chat -> Durable Object alarm -> /api/chat/status round-trip passed."
-          if ! jq -e '.provider and .model' browser-chat-status.json >/dev/null; then
-            echo "::error::Browser chat did not report the actual provider/model used."
-            cat browser-chat-status.json
-            exit 1
-          fi
-          BROWSER_THREAD="$(jq -r '.thread' browser-chat-accepted.json)"
-          HISTORY_CODE="$(curl --silent --show-error --max-time 30 -o browser-chat-history.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/messages?thread=$BROWSER_THREAD" || true)"
-          if [[ "$HISTORY_CODE" != "200" ]] || ! jq -e --arg operation "$BROWSER_OPERATION" 'all(.messages[]; .role == "user" or .role == "assistant") and any(.messages[]; .role == "assistant" and .operationId == $operation and (.content|contains("SOLO_CHAT_BROWSER_QUEUE_OK")))' browser-chat-history.json >/dev/null; then
-            echo "::error::Browser chat reply was not persisted in the visible conversation history."
-            cat browser-chat-history.json
-            exit 1
-          fi
-          jq '{provider,model,degraded,fallbackReason}' browser-chat-status.json
-          echo "Browser chat provider metadata and persisted assistant history passed."
-          {
-            echo "### Live browser chat acceptance"
-            echo "- Queue → Durable Object alarm → status: **PASS**"
-            echo "- Assistant reply persisted in user-visible history: **PASS**"
-            echo "- Provider: $(jq -r '.provider' browser-chat-status.json)"
-            echo "- Model: $(jq -r '.model' browser-chat-status.json)"
-            echo "- Degraded fallback: $(jq -r '.degraded // false' browser-chat-status.json)"
-          } >> "$GITHUB_STEP_SUMMARY"
           if [[ "$RUN_AGENT_SMOKE" == "true" ]]; then
             echo "Checking direct Pi AI inference and configured model fallback..."
             curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt || true
