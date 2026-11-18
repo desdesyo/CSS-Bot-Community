@@ -23,7 +23,7 @@ $env:SOLO_COMPUTE_WORKER_TOKEN = "YOUR_SOLO_COMPUTE_WORKER_TOKEN"
 node .\web-chat\compute-worker.mjs connect https://cssbc-github-chat.descapan.workers.dev worker-01
 ```
 
-If the optional GitHub secret `CSSBC_SOLO_COMPUTE_WORKER_TOKEN` is configured, use that exact value. Otherwise the worker token falls back to the SOLO.Chat application password. Keep it in the local process environment only; never paste it into chat or commit it. The worker sends heartbeats, claims tasks, checks out the exact commit SHA, runs the fixed task steps, and submits bounded results.
+If the optional GitHub secret `CSSBC_SOLO_COMPUTE_WORKER_TOKEN` is configured, use that exact value. Otherwise the worker token falls back to the SOLO.Chat application password. Keep it in the local process environment only; never paste it into chat or commit it. The worker sends heartbeats, claims tasks, checks out the exact commit SHA, runs the fixed task steps, and submits bounded results. If the network disappears, it waits before starting the next step, keeps the claimed task and any completed result in a local journal under `~/.solo-compute-worker/`, and automatically retries delivery after reconnection. The coordinator marks an expired lease as **paused** (not failed or deleted); the same worker resumes ownership with its next heartbeat. A completed command already in progress is allowed to finish; the worker pauses at the next step boundary.
 
 The worker's checkout must be at the exact commit shown on the queued task. If it is not, the task is rejected rather than silently testing different code. The worker does not automatically change branches or pull code.
 
