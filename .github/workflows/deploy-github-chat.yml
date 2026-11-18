@@ -60,6 +60,7 @@ jobs:
           CHAT_GROQ_API_KEY: ${{ secrets.CSSBC_GROQ_API_KEY }}
           CHAT_MESHY_API_KEY: ${{ secrets.CSSBC_MESHY_API_KEY }}
           CHAT_IMAGE_PROVIDER_ORDER: ${{ secrets.CSSBC_IMAGE_PROVIDER_ORDER }}
+          CHAT_COMPUTE_WORKER_TOKEN: ${{ secrets.CSSBC_SOLO_COMPUTE_WORKER_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "$CHAT_APP_PASSWORD" ]; then
@@ -67,6 +68,11 @@ jobs:
             exit 1
           fi
           printf '%s' "$CHAT_APP_PASSWORD" | npx wrangler secret put APP_PASSWORD
+          if [ -n "$CHAT_COMPUTE_WORKER_TOKEN" ]; then
+            printf '%s' "$CHAT_COMPUTE_WORKER_TOKEN" | npx wrangler secret put SOLO_COMPUTE_WORKER_TOKEN
+          else
+            echo "CSSBC_SOLO_COMPUTE_WORKER_TOKEN is unset; SOLO Compute workers must authenticate with the SOLO.Chat app password."
+          fi
           if [ -n "$CHAT_GITHUB_TOKEN" ]; then
             printf '%s' "$CHAT_GITHUB_TOKEN" | npx wrangler secret put GITHUB_TOKEN
           else
