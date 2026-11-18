@@ -56,3 +56,28 @@ export function validateSmxInstallRequest({ relativeTarget, sourceUrl, expectedS
     throw new Error("Current plugin SHA-256 conflict; no file was changed");
   return true;
 }
+
+
+// Game inspection paths are intentionally a separate read-only capability.
+// Reject Windows device/UNC paths, alternate data streams and traversal before
+// any filesystem lookup. The caller still performs realpath/lstat containment.
+export function validateGameInspectionInput(input) {
+  if (typeof input !== "string" || !input || input.length > 1024 || input.includes("\\0"))
+    throw new Error("A valid game inspection path is required");
+  const value = input.trim();
+  if (/^(?:\\\\[?.]\\\\|\\\\\\\\)/.test(value) || /[<>"]/g.test(value))
+    throw new Error("Device, UNC and ambiguous Windows paths are not allowed");
+  if (/(^|[\\/])\\.\\.?([\\/]|$)/.test(value))
+    throw new Error("Path traversal and dot segments are not allowed");
+  // A colon is permitted only as the drive separator (for example C:\\).
+  if (value.replace(/^[a-zA-Z]:[\\/]/, "").includes(":"))
+    throw new Error("Alternate data streams are not allowed");
+  return true;
+}
+
+export function isSafeGameRelativePath(value) {
+  try { validateGameInspectionInput(value); } catch { return false; }
+  if (/^[a-zA-Z]:/.test(value) || value.startsWith("/") || value.startsWith("\\\\"))
+    return false;
+  return value.split(/[\\/]+/).every(part => part && part !== "." && part !== ".." && !part.includes(":"));
+}
