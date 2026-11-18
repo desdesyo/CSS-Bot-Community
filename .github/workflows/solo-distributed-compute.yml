@@ -39,11 +39,6 @@ jobs:
           node -e "const fs=require('fs');const p=process.argv[1];const t=JSON.parse(fs.readFileSync(p));t.commit_sha=process.env.GITHUB_SHA;fs.writeFileSync(p,JSON.stringify(t,null,2)+'\\n')" "$TASK_FILE"
           echo "TASK_FILE=$TASK_FILE" >> "$GITHUB_ENV"
       - name: Run worker
-        run: node solo-compute/worker.mjs run "$env:TASK_FILE"
-        if: runner.os == 'Windows'
-        shell: pwsh
-      - name: Run worker (Unix)
-        if: runner.os != 'Windows'
         run: node solo-compute/worker.mjs run "$TASK_FILE"
       - uses: actions/upload-artifact@v4
         if: always()
