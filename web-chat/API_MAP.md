@@ -18,12 +18,14 @@
 - `/api/agent/github-check`
 - `/api/agent/harness-check`
 - `/api/agent/model-check`
+- `/api/agent/quotas`
 - `/api/agent/status`
 - `/api/agents/status`
 - `/api/auth/login`
 - `/api/auth/logout`
 - `/api/chat`
 - `/api/chat/followup`
+- `/api/chat/local-complete`
 - `/api/chat/status`
 - `/api/feedback`
 - `/api/feedback/error`
@@ -79,10 +81,12 @@
 
 - `/api/agent/client-error`
 - `/api/agent/computer/pair-code`
+- `/api/agent/quotas`
 - `/api/agents/status`
 - `/api/auth/login`
 - `/api/chat`
 - `/api/chat/followup`
+- `/api/chat/local-complete`
 - `/api/feedback`
 - `/api/feedback/error`
 - `/api/files`
