@@ -4,7 +4,7 @@ import { resolve, relative, isAbsolute, dirname, extname, sep } from "node:path"
 import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { isInside, validateWriteRequest, validateSmxInstallRequest } from "./file-policy.mjs";
+import { isInside, validateWriteRequest, validateSmxInstallRequest, validateGameInspectionInput } from "./file-policy.mjs";
 import { readJournal, writeJournal, removeJournal } from "./task-journal.mjs";
 import { applyFileTransaction } from "./file-transaction.mjs";
 import { fileURLToPath } from "node:url";
@@ -66,12 +66,38 @@ async function pair() {
   // initial scope; expanding it must be a deliberate local configuration change.
   const workspaceRoot = resolve(os.homedir(), "Documents", "SOLO-Chat");
   await mkdir(workspaceRoot, { recursive: true });
-  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: "", safeMode: true, allowedRoots: [workspaceRoot] };
+  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: "", gameInspectionRoot: "", safeMode: true, allowedRoots: [workspaceRoot] };
   await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
   console.log("Paired. Device ID:", data.deviceId);
   console.log("SAFE MODE: access is limited to this empty workspace:", config.allowedRoots.join(", "));
   console.log("Your game folder and other personal folders are NOT accessible.");
   console.log("Start the agent with: node agent.mjs");
+}
+async function authorizeGameRead() {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required.");
+  const expected = resolve("C:\\Games\\Counter-Strike Source v34");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let entered = "";
+  try { entered = await rl.question("Enter the exact CS:S v34 folder path to grant READ-ONLY access (blank cancels): "); }
+  finally { rl.close(); }
+  if (resolve(entered.trim()).toLowerCase() !== expected.toLowerCase())
+    throw new Error("Only C:\\Games\\Counter-Strike Source v34 can be approved by this command.");
+  const actual = await realpath(expected);
+  const info = await lstat(expected);
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("The game root must be a real directory, not a symlink or junction.");
+  const confirm = createInterface({ input: process.stdin, output: process.stdout });
+  let answer = "";
+  try { answer = await confirm.question("Type exactly ALLOW READ-ONLY C:\\Games\\Counter-Strike Source v34 to approve: "); }
+  finally { confirm.close(); }
+  if (answer.trim() !== "ALLOW READ-ONLY C:\\Games\\Counter-Strike Source v34")
+    throw new Error("Approval cancelled; no configuration changed.");
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  config.safeMode = true;
+  config.gameInspectionRoot = actual;
+  config.allowedRoots = [resolve(os.homedir(), "Documents", "SOLO-Chat")];
+  await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+  console.log("Approved read-only game inspection:", actual);
+  console.log("Writes remain restricted to Documents\\SOLO-Chat. Game files cannot be changed by this permission.");
 }
 async function getAllowedRoots(config) {
   const roots = [];
@@ -82,8 +108,44 @@ async function getAllowedRoots(config) {
   if (!roots.length) throw new Error("None of the configured allowed roots currently exists on this computer");
   return roots;
 }
+async function getGameInspectionRoot(config) {
+  if (config.safeMode !== true || !config.gameInspectionRoot) return null;
+  const configured = String(config.gameInspectionRoot);
+  validateGameInspectionInput(configured);
+  if (!isAbsolute(configured)) throw new Error("The approved game inspection root must be an absolute local path");
+  const root = await realpath(configured);
+  const info = await lstat(configured);
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("The approved game root must be a real directory, not a link or reparse point");
+  if (process.platform === "win32" && !/^C:\\Games\\Counter-Strike Source v34$/i.test(root.replace(/\\+$/, "")))
+    throw new Error("Only the explicitly approved CS:S v34 folder may be inspected");
+  return root;
+}
+async function assertNoLinkedComponents(root, target) {
+  if (!isInside(root, target)) throw new Error("Path is outside the approved game inspection root");
+  const rel = relative(root, target);
+  let cursor = root;
+  const rootInfo = await lstat(cursor);
+  if (rootInfo.isSymbolicLink()) throw new Error("Game inspection root cannot be a symlink or junction");
+  for (const part of rel ? rel.split(sep) : []) {
+    cursor = resolve(cursor, part);
+    const info = await lstat(cursor);
+    if (info.isSymbolicLink()) throw new Error("Read blocked: symlinks and junctions inside the game tree are not followed");
+  }
+}
 async function resolveAllowedPath(config, input) {
-  if (!input) throw new Error("A path is required");
+  if (typeof input !== "string" || !input || input.length > 1024) throw new Error("A path is required");
+  const gameRoot = await getGameInspectionRoot(config);
+  const gameRelative = input.startsWith("GAME:/") || input.startsWith("GAME:\\") ? input.slice(6) : null;
+  if (gameRelative !== null || (gameRoot && isAbsolute(input))) {
+    if (gameRelative !== null) { if (gameRelative) validateGameInspectionInput(gameRelative); }
+    else validateGameInspectionInput(input);
+    const candidate = gameRelative === null ? resolve(input) : resolve(gameRoot, gameRelative.replace(/[\\/]+/g, sep));
+    if (!gameRoot || !isInside(gameRoot, candidate)) throw new Error("Path is outside the explicitly approved read-only game folder");
+    const actual = await realpath(candidate);
+    await assertNoLinkedComponents(gameRoot, actual);
+    return actual;
+  }
+  validateGameInspectionInput(input);
   const roots = await getAllowedRoots(config);
   const candidates = isAbsolute(input) ? [resolve(input)] : roots.map(root => resolve(root, input));
   for (const candidate of candidates) {
@@ -250,6 +312,34 @@ async function runTask(config, task) {
     return { ok: true, platform: os.platform(), release: os.release(), arch: os.arch(), node: process.version, cpuCount: os.cpus().length, totalMemoryBytes: os.totalmem(), freeMemoryBytes: os.freemem() };
   }
   if (task.action === "write_text_file") return await applyApprovedTextFile(config, task);
+  if (task.action === "inventory_game") {
+    const gameRoot = await getGameInspectionRoot(config);
+    if (!gameRoot) throw new Error("Read-only game access is not approved. Run node agent.mjs allow-game-read locally.");
+    const requested = await resolveAllowedPath(config, task.path || "GAME:/");
+    if (!isInside(gameRoot, requested)) throw new Error("Game inventory is limited to the approved game folder");
+    const entries = [];
+    const queue = [{ dir: requested, depth: 0 }];
+    while (queue.length && entries.length < 2000) {
+      const current = queue.shift();
+      const children = await readdir(current.dir, { withFileTypes: true });
+      for (const child of children) {
+        if (entries.length >= 2000) break;
+        const full = resolve(current.dir, child.name);
+        const info = await lstat(full);
+        if (info.isSymbolicLink()) {
+          entries.push({ path: relative(gameRoot, full), type: "link_skipped" });
+          continue;
+        }
+        if (child.isDirectory()) {
+          entries.push({ path: relative(gameRoot, full), type: "directory" });
+          if (current.depth < 6) queue.push({ dir: full, depth: current.depth + 1 });
+        } else if (child.isFile()) {
+          entries.push({ path: relative(gameRoot, full), type: "file", size: info.size, modifiedAt: info.mtime.toISOString() });
+        }
+      }
+    }
+    return { ok: true, gameRoot, scannedRoot: relative(gameRoot, requested) || ".", entries, count: entries.length, truncated: queue.length > 0 || entries.length >= 2000, readOnly: true };
+  }
   if (task.action === "install_smx") return await applyApprovedSmx(config, task);
   const path = await resolveAllowedPath(config, task.path);
   if (task.action === "list_directory") {
@@ -312,4 +402,5 @@ async function main() {
   }
 }
 if (process.argv[2] === "pair") pair().catch(e => { console.error(e.message); process.exitCode = 1; });
+else if (process.argv[2] === "allow-game-read") authorizeGameRead().catch(e => { console.error(e.message); process.exitCode = 1; });
 else main().catch(e => { console.error(e.message); process.exitCode = 1; });
