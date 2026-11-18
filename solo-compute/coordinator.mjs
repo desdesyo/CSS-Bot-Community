@@ -11,7 +11,7 @@ const TOKEN = process.env.SOLO_COMPUTE_TOKEN || '';
 const PORT = Number(process.env.SOLO_COMPUTE_PORT || 8787);
 const BIND = process.env.SOLO_COMPUTE_BIND || '127.0.0.1';
 const MAX_BODY = 64 * 1024;
-const LEASE_MS = 5 * 60 * 1000;
+const LEASE_MS = 12 * 60 * 1000;
 const TYPES = new Set(['node-smoke', 'cmake-test']);
 let state = { tasks: [], workers: [] };
 
@@ -124,7 +124,7 @@ const server = http.createServer(async (req, res) => {
 });
 load();
 if (process.env.SOLO_COMPUTE_TOKEN) {
-  server.listen(PORT, '127.0.0.1', () => process.stdout.write('SOLO Compute Coordinator listening on http://127.0.0.1:' + PORT + '\\n'));
+  server.listen(PORT, BIND, () => process.stdout.write('SOLO Compute Coordinator listening on ' + BIND + ':' + PORT + '\n'));
 } else {
   process.stderr.write('Set SOLO_COMPUTE_TOKEN to a private random token before starting coordinator.\\n');
   process.exitCode = 2;
