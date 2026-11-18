@@ -37,7 +37,9 @@ Avoid loading every long specification for a narrow bug. Resolve conflicts in th
 - `worker.js` — legacy/auxiliary Worker entry; verify whether a path is still used before changing it.
 - `wrangler.toml` — Worker identity, assets, AI binding, Durable Object binding/migrations and repository/model variables.
 - `mcp-bridge/` — local stdio MCP client/config example.
-- `tester.mjs` — runtime regression assertions.
+- `tester.mjs` — runtime regression assertions, including API-map freshness.
+- `API_MAP.md` — generated inventory of Worker routes, browser API references, and registered agent/MCP tools.
+- `api-map.mjs` — source-driven API map generator and CI freshness validator (`npm run api:map` / `npm run api:check`).
 - `AGENT_ARCHITECTURE.md` — architecture and capability boundaries.
 - `AGENT_TEAM_EXECUTION_PLAYBOOK.md` — operational roles and acceptance rules.
 - `IMPLEMENTATION_AND_ACCEPTANCE.md` — implementation/acceptance checklist.
@@ -49,6 +51,7 @@ Run from `web-chat/`:
 ```bash
 npm install
 npm run check
+npm run api:check
 npm test
 ```
 
