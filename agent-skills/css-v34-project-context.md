@@ -60,9 +60,13 @@ The installer creates `server.dll.cssbc-backup` before replacing the original. N
 - Older `docs/SDK_INTEGRATION.md` and `docs/ARCHITECTURE.md` contain pre-integration statements that no SDK/GameDLL integration exists. Those sections are stale relative to the current README, integration script and successful build workflow. Update them when touching those docs; do not use them to deny the verified build.
 - A successful build does not prove compatibility with every v34 distribution or actual gameplay. Verify exact paths, x86 ABI, active GameDLL, backup, installation result and in-game behavior.
 
+## Mandatory scoped agent hints
+
+The authoritative `sdk-foundation` branch now contains root and directory-scoped `AGENTS.md` files. They are implementation guardrails, not game assets: load them before editing and follow their layer-specific checks. `modhaul@main` also contains scoped guidance for staging, native bootstrap, PCBridge and recovery tooling. These instruction files are not compiled or packaged into the game and must never be copied into the game directory.
+
 ## Required workflow
 
-1. Read the current branch's `AGENTS.md`, README, START_HERE and FIRST_V34 checklist.
+1. Read the current branch's root `AGENTS.md`, then the nearest scoped `AGENTS.md` for every directory you touch. On `sdk-foundation`, read `sdk/AGENTS.md` plus `sdk/server/AGENTS.md`, `sdk/dll/AGENTS.md`, `sdk/client/AGENTS.md`, `sourcemod/AGENTS.md`, or `tests/AGENTS.md` as relevant. On `modhaul@main`, read its root `AGENTS.md` plus `native/AGENTS.md`, `PCBridge/AGENTS.md`, or `tools/AGENTS.md` as relevant. Then read README, START_HERE and FIRST_V34 checklist.
 2. Inspect the exact source, call sites, integration script, latest build logs and artifact manifest.
 3. Make focused source changes on the correct branch.
 4. Run Core CI and the Win32 native build. Preserve build artifacts and exact SHA.
