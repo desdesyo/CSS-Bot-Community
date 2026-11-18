@@ -67,6 +67,12 @@ interface BrowserChatJob {
   attempts?: number;
 }
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
+function isBrowserLocalFallbackEligible(value: unknown) {
+  const message = String(value ?? "");
+  if (!message) return false;
+  if (/unauthorized|forbidden|permission denied|access denied|invalid (?:request|operation|input|payload)|malformed|cancel(?:led|ed)|aborted|not found|policy violation/i.test(message)) return false;
+  return /SOLO_NO_PROVIDER_CAPACITY|no provider|provider|model_error|model error|Pi harness|tool-capable Pi providers|Workers AI|RESOURCE_EXHAUSTED|quota|rate.?limit|timed out|timeout|overloaded|temporarily unavailable|service unavailable|circuit breaker|fetch failed|network error|HTTP 50[234]|HTTP 429|Не удалось получить ответ от ИИ-модели/i.test(message);
+}
 const randomToken = (bytes = 32) => {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
   return Array.from(data, b => b.toString(16).padStart(2, "0")).join("");
@@ -2782,8 +2788,8 @@ LEARNING FROM CORRECTIONS
           error: job.status === "failed" ? job.error : undefined,
           provider: job.provider || undefined, model: job.model || undefined,
           degraded: Boolean(job.fallbackReason), fallbackReason: job.fallbackReason || undefined,
-          localPrompt: job.status === "failed" && String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY") ? job.prompt : undefined,
-          followups: job.status === "failed" && String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY") ? (job.followups || []) : undefined,
+          localPrompt: job.status === "failed" && isBrowserLocalFallbackEligible(job.error) ? job.prompt : undefined,
+          followups: job.status === "failed" && isBrowserLocalFallbackEligible(job.error) ? (job.followups || []) : undefined,
           createdAt: job.createdAt, updatedAt: job.updatedAt
         });
       }
@@ -2798,7 +2804,7 @@ LEARNING FROM CORRECTIONS
           const job = await this.ctx.storage.get<BrowserChatJob>(jobKey);
           if (!job) return { error: "Operation not found", status: 404 };
           if (job.status === "done") return { ok: true, alreadyDone: true, thread: job.threadId };
-          if (job.status !== "failed" || !String(job.error || "").includes("SOLO_NO_PROVIDER_CAPACITY")) return { error: "Local fallback is allowed only after a confirmed no-provider-capacity failure", status: 409 };
+          if (job.status !== "failed" || !isBrowserLocalFallbackEligible(job.error)) return { error: "Local fallback is allowed only after an eligible provider/runtime failure", status: 409 };
           const threadKey = "browser-chat:thread:" + job.threadId;
           const thread = await this.ctx.storage.get<any>(threadKey);
           if (!thread) return { error: "Conversation not found", status: 404 };
@@ -3067,7 +3073,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
