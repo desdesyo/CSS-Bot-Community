@@ -203,6 +203,7 @@ const checks = [
  ["Paid image fallback is never selected by default and the returned artifact reports provider and fallback status", runtime.includes('IMAGE_PROVIDER_ORDER || "cloudflare"') && runtime.includes('fallbackUsed: provider.includes("paid fallback")') && runtime.includes('attemptedProviders: order')],
  [ "MCP and the built-in agent tool share the same FLUX generation and artifact-storage implementation", runtime.includes('private async generateImage(prompt: string, filename: string)') && runtime.includes('return textOutput(await agent.generateImage(prompt, filename))') && runtime.includes('this.generateImage(args.prompt')],
 
+    ["Direct text fallback respects the Pi harness Gemini quota circuit and stops retrying alternate Gemini models after HTTP 429", runtime.includes('const circuitKey = "provider:circuit:gemini"') && runtime.includes("Gemini: пропущен до") && runtime.includes("break geminiFallback") && runtime.includes("повторные запросы к моделям Gemini остановлены")],
 ];
 const fixRuntime = runtime.slice(runtime.indexOf("private async triggerFixCommand"), runtime.indexOf("private async requirePassword"));
 checks.push(
