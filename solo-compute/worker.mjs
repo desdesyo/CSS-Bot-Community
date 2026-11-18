@@ -70,10 +70,43 @@ function execute(task) {
     steps
   };
 }
-const [mode, file] = process.argv.slice(2);
+
+async function connectCoordinator(baseUrl, workerId) {
+  const token = process.env.SOLO_COMPUTE_TOKEN || '';
+  if (token.length < 32) throw new Error('Set SOLO_COMPUTE_TOKEN to the coordinator shared secret (32+ characters)');
+  const url = new URL(baseUrl);
+  if (url.protocol !== 'https:' && !['localhost','127.0.0.1','::1'].includes(url.hostname)) throw new Error('Remote coordinator URLs must use HTTPS');
+  const headers = { 'content-type': 'application/json', authorization: 'Bearer ' + token };
+  const request = async (route, payload) => {
+    const response = await fetch(new URL(route, url), {
+      method: 'POST', headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(15000)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Coordinator HTTP ' + response.status);
+    return data;
+  };
+  process.stdout.write('Worker ' + workerId + ' connected to ' + url.origin + '\\n');
+  while (true) {
+    await request('/v1/workers/heartbeat', { worker_id: workerId, platform: process.platform, cpu_count: os.cpus().length });
+    const claimed = await request('/v1/tasks/claim', { worker_id: workerId });
+    if (claimed.task) {
+      let result;
+      try { result = execute(claimed.task); }
+      catch (error) {
+        result = { task_id: claimed.task.task_id, commit_sha: claimed.task.commit_sha, status: 'failed', error: error.message };
+      }
+      await request('/v1/tasks/' + claimed.task.task_id + '/result', { worker_id: workerId, result });
+      process.stdout.write('Task ' + claimed.task.task_id + ': ' + result.status + '\\n');
+    }
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+}
+\nconst [mode, file, workerId] = process.argv.slice(2);
 try {
   if (mode === 'doctor') {
     process.stdout.write(JSON.stringify(doctor(), null, 2) + '\n');
+  } else if (mode === 'connect' && file && workerId) {
+    await connectCoordinator(file, workerId);
   } else if (mode === 'prepare' && file && Object.hasOwn(TASKS, file)) {
     const task = { schema_version: 1, task_id: file + '-' + Date.now(), task_type: file, commit_sha: gitHead(), timeout_seconds: DEFAULT_TIMEOUT };
     const outDir = path.join(ROOT, 'build', 'solo-compute-tasks');
@@ -91,7 +124,7 @@ try {
     process.stdout.write(JSON.stringify({ status: result.status, result: outPath }, null, 2) + '\n');
     if (result.status !== 'passed') process.exitCode = 1;
   } else {
-    process.stderr.write('Usage: node solo-compute/worker.mjs doctor | prepare <node-smoke|cmake-test> | run <task.json>\n');
+    process.stderr.write('Usage: node solo-compute/worker.mjs doctor | prepare <node-smoke|cmake-test> | run <task.json> | connect <coordinator-url> <worker-id>\n');
     process.exitCode = 2;
   }
 } catch (error) {
