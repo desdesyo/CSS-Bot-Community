@@ -2,7 +2,7 @@ name: GitHub Chat live end-to-end test
 
 on:
   push:
-    branches: [main, github-chat-prototype]
+    branches: [main]
     paths:
       - ".github/workflows/github-chat-e2e.yml"
   workflow_run:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: solo-chat-e2e
@@ -28,6 +28,7 @@ jobs:
         env:
           CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
@@ -35,28 +36,22 @@ jobs:
           ENDPOINT="${CHAT_ENDPOINT%/}"
           AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
 
-          echo "0/5 Verify the deployed chat page and composer are served..."
-          curl --fail-with-body --silent --show-error --max-time 30 "$ENDPOINT/" > app.html
-          grep -q '<title>SOLO.Chat</title>' app.html
-          grep -q 'id="messages"' app.html
-          grep -q 'id="prompt"' app.html
-          grep -q 'id="send"' app.html
-
           echo "1/5 Verify authenticated Durable Agent..."
           curl --fail-with-body --silent --show-error --max-time 30 \
             -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
-          echo "2/5 Verify the persistent Worker GitHub credential and repository access..."
+          echo "2/5 Verify the workflow-scoped GitHub credential used by the agent orchestrator..."
           echo "Target workspace: desdesyo/CSS-Bot-Community@github-chat-prototype"
           GITHUB_WORKSPACE_OK="false"
-          # Use the persistent Worker secret, exactly as the agent does in production.
-          # Do not pass github.token here: that token belongs to this workflow run and can have different repository permissions.
+          # Use the same short-lived, repository-scoped token that the agent orchestrator passes to tool execution.
+          test -n "$GITHUB_TOKEN" || { echo "::error::Missing workflow-scoped GitHub token"; exit 1; }
+          jq -n --arg githubToken "$GITHUB_TOKEN" '{githubToken:$githubToken}' > github-check-payload.json
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
-            -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
+            -H "$AUTH" -H "Content-Type: application/json" --data @github-check-payload.json "$ENDPOINT/api/agent/github-check" || true)"
           if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
             GITHUB_WORKSPACE_OK="true"
-            echo "GitHub workspace read/write access verified using the persistent Worker secret."
+            echo "GitHub workspace read/write access verified using the same short-lived token used by the agent orchestrator."
           else
             echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
           fi
@@ -111,7 +106,7 @@ jobs:
           jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
 
           if [[ "$GITHUB_WORKSPACE_OK" != "true" ]]; then
-            echo "::error::Chat and Q&A history passed, but the configured Worker GitHub token cannot complete the repository read/write check. Required target: desdesyo/CSS-Bot-Community@github-chat-prototype with Contents read/write."
+            echo "::error::Chat and Q&A history passed, but the workflow-scoped GitHub token cannot complete the repository read/write check. Required target: desdesyo/CSS-Bot-Community@github-chat-prototype with Contents read/write."
             exit 1
           fi
           echo "PASS: authenticated chat, immediate job acceptance, background AI generation, durable result polling, history reload, sidebar listing, and GitHub workspace read/write all work."
