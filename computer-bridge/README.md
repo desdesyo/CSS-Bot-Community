@@ -29,7 +29,7 @@ It does **not** execute shell commands, launch programs, capture the screen, del
 
 The launcher checks Node.js 20+, pairs the device, creates its configuration automatically, and starts the connector. If Node.js is missing, it opens the official download page; install the LTS version and run the launcher again.
 
-On first pairing, access is limited to the Counter-Strike Source v34 folder if it exists in the detected locations; otherwise it creates and uses `Documents\\SOLO-Chat`. It never grants access to the whole drive. Existing paired configurations are preserved.
+On first pairing, the companion creates and uses only `Documents\\SOLO-Chat`. **Safe mode is enabled by default.** It also narrows older paired configurations to this folder the next time the agent starts. Your game folder, Desktop, Downloads, and other personal folders are not accessible in safe mode. To expand access later, you must deliberately change `safeMode` in your local `config.json`; do not do this unless you understand and want the broader access.
 
 Pair codes expire after five minutes and are single-use. The device token is saved only in local `config.json`; never upload or share that file.
 
