@@ -214,7 +214,7 @@ export class AgentSession extends DurableObject<Env> {
     },
     defaults: {
       model: this.env.GEMINI_API_KEY
-        ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite")) || this.google.getModels()[0]!)
+        ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash")) || this.google.getModels()[0]!)
         : this.env.OPENROUTER_API_KEY
           ? (this.openrouter.getModels().find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || this.openrouter.getModels()[0]!)
           : this.env.OPENAI_API_KEY
@@ -1562,7 +1562,7 @@ LEARNING FROM CORRECTIONS
     if (provider === "gemini") {
       const models = this.google.getModels();
       return models.find(model => model.id === modelId)
-        || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite"))
+        || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash"))
         || models[0] || null;
     }
     if (provider === "groq") {
@@ -1602,7 +1602,7 @@ LEARNING FROM CORRECTIONS
       // Match the model that the authenticated direct-model smoke test currently
       // verifies. Agent-role Durable Objects do not share local preferred-model
       // storage with the main chat Durable Object.
-      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite")) || models[0]);
+      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash")) || models[0]);
     }
     if (this.env.GROQ_API_KEY && !(await circuitOpen("groq"))) {
       const models = this.groq.getModels();
