@@ -7,9 +7,9 @@ This is an outbound-only companion for SOLO.Chat. It does not open an inbound po
 - Read basic OS/runtime information.
 - List directories under the dedicated workspace; optionally inspect the exact CS:S v34 folder through a separate explicitly approved read-only root.
 - Run a bounded `inventory_game` scan (up to 2,000 entries and six directory levels) returning relative paths, file types, sizes and modification times.
-- Read selected text/config/source files up to 256 KB under those roots.
+- Read selected text/config/source files up to 256 KB from the workspace or explicitly approved game root.
 - Calculate SHA-256 hashes of regular files up to 50 MB without uploading their contents.
-- Create or update selected UTF-8 source/config text files up to 256 KB under those roots, only after an exact expected SHA-256 check, a verified backup, and a local interactive confirmation.
+- Create or update selected UTF-8 source/config text files up to 256 KB only inside the dedicated workspace, after an exact expected SHA-256 check, a verified backup, and local confirmation.
 - Install one verified SourceMod .smx plugin (up to 10 MB) only into cstrike/addons/sourcemod/plugins/, from an approved GitHub HTTPS host, with package hash verification, backup, local confirmation and post-write verification.
 - Return results to the paired chat agent.
 
@@ -34,7 +34,13 @@ On first pairing, the companion creates and uses only `Documents\\SOLO-Chat`. **
 
 Pair codes expire after five minutes and are single-use. The device token is saved only in local `config.json`; never upload or share that file.
 
-## Approve CS:S v34 inspection (optional, read-only)\n\nAfter pairing and extracting the companion, open a terminal in `computer-bridge` and run `node agent.mjs allow-game-read`. Enter the exact path `C:\\Games\\Counter-Strike Source v34`, then type the full confirmation phrase requested by the companion. The command refuses any other folder, symlink or junction. It records the canonical path in `gameInspectionRoot` while leaving `safeMode: true` and `allowedRoots` limited to `Documents\\SOLO-Chat`.\n\nThe chat can then use `GAME:/` and `GAME:/cstrike/...` for list/read/hash and bounded inventory operations. This permission is strictly read-only; generic text writes and the `.smx` installer cannot use it. If the folder is elsewhere, do not edit the config manually: the current approval command is intentionally pinned to the known v34 path.\n\n## Manual pairing (advanced)
+## Approve CS:S v34 inspection (optional, read-only)
+
+After pairing and extracting the companion, double-click `ALLOW-GAME-READ.cmd`. Enter the exact path `C:\Games\Counter-Strike Source v34`, then type the full confirmation phrase requested by the companion. The command refuses any other folder, symlink or junction. It records the canonical path in `gameInspectionRoot` while leaving `safeMode: true` and `allowedRoots` limited to `Documents\SOLO-Chat`.
+
+After approval, restart the main companion so it reloads the updated configuration. The chat can then use `GAME:/` and `GAME:/cstrike/...` for list/read/hash and bounded inventory operations. Inspection remains read-only. A separate verified `.smx` installer is the only game write exception: it is limited to `cstrike/addons/sourcemod/plugins/`, requires matching hashes, a backup and local `APPLY`. Generic text writes cannot use the game root. If the folder is elsewhere, do not edit the config manually: the current approval command is intentionally pinned to the known v34 path.
+
+## Manual pairing (advanced)
 
 Run `node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456`, then `node agent.mjs`. The six-digit code comes from **Connect computer** inside the authenticated chat.
 
