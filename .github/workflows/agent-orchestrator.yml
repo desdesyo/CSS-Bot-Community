@@ -231,6 +231,8 @@ jobs:
             ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
             ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-ID:/d')"
             ISSUE_BODY="$(printf '%s\n\nAgent-Run-ID: %s\n' "$ISSUE_BODY" "$GITHUB_RUN_ID")"
+            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-Status:/d')"
+            ISSUE_BODY="$(printf '%s\n\nAgent-Run-Status: running\n' "$ISSUE_BODY")"
             gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
             gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:review --remove-label status:done --add-label status:in-progress
             TASK="AGENT TASK issue #$ISSUE_NUMBER: $(jq -r .title <<<"$ISSUE"). Body=$ISSUE_BODY. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Inspect relevant code and skills, implement, run tests, repair failures, commit, and report exact evidence. Do not claim done without verification."
@@ -451,6 +453,10 @@ jobs:
           } > team-report.md
           gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body-file team-report.md
           if [[ "$PIPELINE_COMPLETE" == "true" ]]; then
+            ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
+            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-Status:/d')"
+            ISSUE_BODY="$(printf '%s\n\nAgent-Run-Status: completed\n' "$ISSUE_BODY")"
+            gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
             gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review
           else
             echo "Agent pipeline did not complete; leave status transition to the automatic retry/recovery step."
@@ -476,6 +482,8 @@ jobs:
           else
             UPDATED_BODY="$(printf '%s\n\nAgent-Attempts: %s\n' "$BODY" "$NEXT")"
           fi
+          UPDATED_BODY="$(printf '%s\n' "$UPDATED_BODY" | sed '/^Agent-Run-Status:/d')"
+          UPDATED_BODY="$(printf '%s\n\nAgent-Run-Status: failed\n' "$UPDATED_BODY")"
           gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$UPDATED_BODY" >/dev/null
           RUN_URL="$GITHUB_SERVER_URL/$SOURCE_REPO/actions/runs/$GITHUB_RUN_ID"
           if [[ "$HTTP_CODE" =~ ^(400|401|403|404)$ ]] || [[ "$NEXT" -ge 3 ]]; then
