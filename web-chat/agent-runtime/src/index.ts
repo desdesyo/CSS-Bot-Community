@@ -209,7 +209,7 @@ export class AgentSession extends DurableObject<Env> {
     },
     defaults: {
       model: this.env.GEMINI_API_KEY
-        ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-flash-latest")) || this.google.getModels()[0]!)
+        ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite")) || this.google.getModels()[0]!)
         : this.env.OPENROUTER_API_KEY
           ? (this.openrouter.getModels().find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || this.openrouter.getModels()[0]!)
           : this.env.OPENAI_API_KEY
@@ -1510,6 +1510,17 @@ LEARNING FROM CORRECTIONS
     }
   }
 
+  async getPreferredToolModel(): Promise<{ provider: string; model: string } | null> {
+    const preferred = await this.ctx.storage.get<{ provider?: string; model?: string }>("agent:preferred-tool-model");
+    return preferred?.provider && preferred?.model ? { provider: preferred.provider, model: preferred.model } : null;
+  }
+
+  async setPreferredToolModel(preferred: { provider: string; model: string; checkedAt?: number; selectedBy?: string }): Promise<boolean> {
+    if (!preferred.provider || !preferred.model) return false;
+    await this.ctx.storage.put("agent:preferred-tool-model", preferred);
+    return true;
+  }
+
   private resolvePreferredPiModel(preferred: { provider?: string; model?: string } | null | undefined): any | null {
     if (!preferred?.provider) return null;
     const provider = preferred.provider;
@@ -1529,7 +1540,7 @@ LEARNING FROM CORRECTIONS
     if (provider === "gemini") {
       const models = this.google.getModels();
       return models.find(model => model.id === modelId)
-        || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-flash-latest"))
+        || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite"))
         || models[0] || null;
     }
     if (provider === "groq") {
@@ -1566,7 +1577,10 @@ LEARNING FROM CORRECTIONS
     }
     if (this.env.GEMINI_API_KEY && !(await circuitOpen("google"))) {
       const models = this.google.getModels();
-      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-2.5-flash")) || models[0]);
+      // Match the model that the authenticated direct-model smoke test currently
+      // verifies. Agent-role Durable Objects do not share local preferred-model
+      // storage with the main chat Durable Object.
+      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.5-flash-lite")) || models[0]);
     }
     if (this.env.GROQ_API_KEY && !(await circuitOpen("groq"))) {
       const models = this.groq.getModels();
@@ -1596,7 +1610,15 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.put(key, sessionId);
       }
       const session = this.harness.session(sessionId);
-      const preferred = await this.ctx.storage.get<{ provider: string; model: string }>("agent:preferred-tool-model");
+      let preferred = await this.ctx.storage.get<{ provider: string; model: string }>("agent:preferred-tool-model");
+      if (!preferred && agentRole !== "user") {
+        try {
+          const sharedAgent = this.env.AGENT_SESSIONS.get(this.env.AGENT_SESSIONS.idFromName("shared-agent"));
+          preferred = await sharedAgent.getPreferredToolModel() || undefined;
+        } catch (error) {
+          console.warn("[SOLO.Chat] shared preferred model lookup failed", String(error instanceof Error ? error.message : error).slice(0, 240));
+        }
+      }
       const modelCandidates = await this.resolveToolModelCandidates(preferred);
       const attempts = modelCandidates.length ? modelCandidates : [null];
       let completed = false;
@@ -1616,7 +1638,16 @@ LEARNING FROM CORRECTIONS
               if (candidate) {
                 const providerKey = candidate.provider === "google" ? "gemini" : candidate.provider;
                 await this.ctx.storage.delete("provider:circuit:" + providerKey);
-                await this.ctx.storage.put("agent:preferred-tool-model", { provider: providerKey, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" });
+                const selectedModel = { provider: providerKey, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" };
+                await this.ctx.storage.put("agent:preferred-tool-model", selectedModel);
+                if (agentRole !== "user") {
+                  try {
+                    const sharedAgent = this.env.AGENT_SESSIONS.get(this.env.AGENT_SESSIONS.idFromName("shared-agent"));
+                    await sharedAgent.setPreferredToolModel(selectedModel);
+                  } catch (error) {
+                    console.warn("[SOLO.Chat] shared preferred model update failed", String(error instanceof Error ? error.message : error).slice(0, 240));
+                  }
+                }
               }
               return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness", model: candidate?.id || null };
             }
