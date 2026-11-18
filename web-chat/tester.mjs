@@ -45,6 +45,12 @@ test("SOLO Distributed Compute is mounted in the live Durable Object API", async
   assert.match(worker, /shell:\s*false/);
   assert.match(worker, /node-smoke/);
   assert.match(worker, /cmake-test/);
+  assert.match(worker, /waitForNetwork/, "worker must pause between steps while the coordinator is unreachable");
+  assert.match(worker, /writeJournal/, "claimed task and result must survive worker restart");
+  assert.match(worker, /deliverPending/, "saved result must be retried after reconnect");
+  assert.match(agent, /task.status = "paused"/, "expired network lease must pause rather than fail");
+  assert.match(agent, /active_task_id/, "same worker must be able to resume its paused lease");
+  assert.match(agent, /paused: items.filter/, "paused tasks must be visible in queue status");
 });
 
 test("CHAT-011: worker.js defines rollover and continuity memory operations", async () => {
