@@ -30,3 +30,8 @@ There is no GitHub Actions minute meter: runs execute on the local computer. It 
 This is a bounded local runner, **not a virtual machine or security sandbox**. It executes the repository's build and test tools as the current OS user. Use it only for repositories and branches you trust. It clones into its own run folder and never targets the CSS game directory. Do not expose it as a public self-hosted runner or run untrusted pull-request code on it.
 
 For stronger isolation, run it inside Windows Sandbox, a dedicated VM, or a container. That requires those facilities to be installed and available on the host.
+
+
+## Distributed compute integration
+
+The SOLO Code Lab self-test workflow also validates the SOLO Compute coordinator and worker syntax and exercises the coordinator queue lifecycle on both Windows and Linux. See `../solo-compute/COORDINATOR.md` for local coordinator and worker setup.
