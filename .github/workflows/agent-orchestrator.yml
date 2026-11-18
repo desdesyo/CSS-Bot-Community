@@ -111,6 +111,9 @@ jobs:
         run: |
           set -euo pipefail
           for name in status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$SOURCE_REPO" --color 1d76db --force >/dev/null 2>&1 || true; done
+          ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
+          ISSUE_BODY="$(printf '%s\\n' "$ISSUE_BODY" | sed '/^Agent-Attempts:/d')"
+          gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
           gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --remove-label status:review --remove-label status:done --add-label status:queued
           gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body "Correction received. Task returned to the serial builder queue."
           gh workflow run agent-orchestrator.yml --repo "$SOURCE_REPO" --ref main
