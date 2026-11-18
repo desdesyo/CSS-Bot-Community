@@ -429,7 +429,7 @@ async function send(){
 async function loadComputeStatus(){
  try{
   const data=await api("/api/compute/status");
-  $("computeSummary").textContent="Узлов онлайн: "+data.workers+" · В очереди: "+data.queued+" · Выполняется: "+data.leased+" · Готово: "+data.completed+" · Ошибки: "+data.failed;
+  $("computeSummary").textContent="Узлов онлайн: "+data.workers+" · В очереди: "+data.queued+" · Выполняется: "+data.leased+" · На паузе: "+(data.paused||0)+" · Готово: "+data.completed+" · Ошибки: "+data.failed;
   const host=$("computeTasks");host.replaceChildren();
   for(const task of data.recentTasks||[]){
    const row=document.createElement("div");row.style.cssText="padding:7px 0;border-bottom:1px solid var(--line);font-size:12px";
