@@ -13,7 +13,22 @@ const configPath = resolve(here, "config.json");
 const journalPath = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "task-journal.json");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function loadConfig() {
-  return JSON.parse(await readFile(configPath, "utf8"));
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  // Safe mode is the default, including for older paired config files created
+  // before this safeguard existed. The agent can only access its dedicated
+  // workspace unless the owner deliberately opts out by editing config.json.
+  if (config.safeMode !== false) {
+    const workspaceRoot = resolve(os.homedir(), "Documents", "SOLO-Chat");
+    await mkdir(workspaceRoot, { recursive: true });
+    const needsMigration = config.safeMode !== true ||
+      JSON.stringify(config.allowedRoots || []) !== JSON.stringify([workspaceRoot]) ||
+      Boolean(config.gameRoot);
+    config.safeMode = true;
+    config.allowedRoots = [workspaceRoot];
+    config.gameRoot = "";
+    if (needsMigration) await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+  }
+  return config;
 }
 function apiUrl(config, path) {
   const base = new URL(config.serverUrl);
@@ -48,7 +63,7 @@ async function pair() {
   // initial scope; expanding it must be a deliberate local configuration change.
   const workspaceRoot = resolve(os.homedir(), "Documents", "SOLO-Chat");
   await mkdir(workspaceRoot, { recursive: true });
-  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: "", allowedRoots: [workspaceRoot] };
+  const config = { ...example, serverUrl: base.origin, deviceToken: data.deviceToken, gameRoot: "", safeMode: true, allowedRoots: [workspaceRoot] };
   await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
   console.log("Paired. Device ID:", data.deviceId);
   console.log("SAFE MODE: access is limited to this empty workspace:", config.allowedRoots.join(", "));
