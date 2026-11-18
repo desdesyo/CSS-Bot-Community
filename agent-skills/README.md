@@ -41,4 +41,4 @@ The agent accumulates durable, version-controlled procedures and test evidence. 
 
 ## Project context skills
 
-- `css-v34-project-context.md` — authoritative repositories/branches, CS:S v34 native GameDLL build, integration hook, artifacts, optional SourceMod prototype, known gaps and required verification. Load before any CSSBC/CS:S v34/mod task.
+- `css-v34-project-context.md` — authoritative repositories/branches, CS:S v34 native GameDLL build, integration hook, artifacts, optional SourceMod prototype, known gaps and required verification.\n- `css-v34-file-forensics.md` — CS:S v34 folder/file map, core vs optional files, ABI/version risks, crash evidence and safe read-only diagnosis. Load for any game-folder inspection or repair. Load before any CSSBC/CS:S v34/mod task.
