@@ -35,6 +35,13 @@ jobs:
           ENDPOINT="${CHAT_ENDPOINT%/}"
           AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
 
+          echo "0/5 Verify the deployed chat page and composer are served..."
+          curl --fail-with-body --silent --show-error --max-time 30 "$ENDPOINT/" > app.html
+          grep -q '<title>SOLO.Chat</title>' app.html
+          grep -q 'id="messages"' app.html
+          grep -q 'id="prompt"' app.html
+          grep -q 'id="send"' app.html
+
           echo "1/5 Verify authenticated Durable Agent..."
           curl --fail-with-body --silent --show-error --max-time 30 \
             -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
@@ -49,7 +56,7 @@ jobs:
             -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
           if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
             GITHUB_WORKSPACE_OK="true"
-            echo "GitHub workspace read/write access verified using the short-lived workflow token."
+            echo "GitHub workspace read/write access verified using the persistent Worker secret."
           else
             echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
           fi
