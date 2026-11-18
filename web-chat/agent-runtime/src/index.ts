@@ -984,7 +984,7 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "computer_write_text_file",
-          description: "Request creation or editing of a UTF-8 source/config text file on the paired Windows computer. The local agent checks the exact expected SHA-256, creates a verified backup, displays the target and hashes, and requires the user to type APPLY locally before changing anything. Use expectedSha256='NEW' only when the target must not already exist. No shell execution or binary/core DLL writes.",
+          description: "Request creation or editing of a UTF-8 source/config text file only inside the paired computer dedicated Documents/SOLO-Chat workspace. The read-only CS:S game inspection root is never a write target. The local agent checks the exact expected SHA-256, creates a verified backup, displays the target and hashes, and requires local APPLY. No shell execution or binary/core DLL writes.",
           parameters: obj({ path: str(), content: str(), expectedSha256: str() }),
           replay: "unsafe",
           async execute({ path, content, expectedSha256 }: { path: string; content: string; expectedSha256: string }) {
@@ -1010,7 +1010,7 @@ LEARNING FROM CORRECTIONS
         },
         {
           name: "computer_install_smx",
-          description: "Install a previously built SourceMod .smx plugin from a GitHub HTTPS URL into the paired CSS game under cstrike/addons/sourcemod/plugins/. Requires the exact SHA-256 of the package and the expected current file hash (or NEW). The local companion downloads only from approved GitHub hosts, verifies the package hash, makes a verified backup, displays the target and hashes, and requires local APPLY approval. This cannot install DLLs or core game binaries.",
+          description: "Install a previously built SourceMod .smx plugin from a GitHub HTTPS URL into the paired CS:S v34 game under cstrike/addons/sourcemod/plugins/. Requires the separate local read-only game-root approval, exact package SHA-256 and expected current file hash (or NEW). The companion downloads only from approved GitHub hosts, verifies the package, makes a backup, and requires local APPLY. This cannot install DLLs or core game binaries.",
           parameters: obj({ path: str(), sourceUrl: str(), packageSha256: str(), expectedSha256: str() }),
           replay: "unsafe",
           async execute({ path, sourceUrl, packageSha256, expectedSha256 }: { path: string; sourceUrl: string; packageSha256: string; expectedSha256: string }) {
