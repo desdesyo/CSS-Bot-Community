@@ -116,7 +116,7 @@ const checks = [
  ["Follow-up endpoint caps messages per job", /followups.length >= 20|followups.length>=20/.test(runtime)],
  ["Follow-up endpoint rejects non-running jobs with conflict", /job.status !== "queued" && job.status !== "running"/.test(runtime) && /httpStatus: 409/.test(runtime)],
  ["Follow-up updates are serialized against finalization", /blockConcurrencyWhile/.test(runtime) && /latest.status = "finalizing"/.test(runtime)],
- ["Generation has a bounded timeout", /180000/.test(runtime)],
+ ["Generation timeout allows up to eight minutes for tool-using responses, browser polling waits nine minutes, and live E2E covers ten minutes", /480000/.test(runtime) && /< 600000\) continue/.test(runtime) && html.includes("while(Date.now()-started<540000)") && e2e.includes("seq 1 300") && e2e.includes("ten minutes")],
  ["Empty model replies are treated as failure", /AI вернул пустой ответ/.test(runtime)],
  ["Job is marked done only after reply persistence", /thread.messages.push/.test(runtime) && /job.status = "done"/.test(runtime)],
  ["Agent prompt requires evidence-based completion", /Never say/.test(runtime) && /verification/.test(runtime)],
