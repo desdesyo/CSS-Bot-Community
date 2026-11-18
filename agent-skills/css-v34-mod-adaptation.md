@@ -2,6 +2,15 @@
 
 Load this skill together with \`css-v34-file-forensics.md\` before designing, adapting, packaging or installing a mod for the user's CS:S v34 installation.
 
+## Repository and module map
+
+- Portable gameplay rules: `CSS-Bot-Community@sdk-foundation/src/`.
+- Native server/GameDLL integration: `CSS-Bot-Community@sdk-foundation/sdk/server/` and `sdk/dll/`; read `sdk/AGENTS.md`, `sdk/server/AGENTS.md`, and `sdk/dll/AGENTS.md`.
+- Client menu/VGUI: `sdk/client/`; read `sdk/client/AGENTS.md`.
+- Optional SourceMod compatibility layer: `sourcemod/scripting/cssbc.sp`; read `sourcemod/AGENTS.md`.
+- Regression tests: `tests/`; read `tests/AGENTS.md`.
+- Package/recovery staging: `modhaul@main`; read its root `AGENTS.md` and scoped `native/`, `PCBridge/`, or `tools/AGENTS.md` as applicable.
+
 ## Non-negotiable separation of roles
 
 - The installed game is a read-only reference and compatibility target. Never edit it while exploring or designing.
