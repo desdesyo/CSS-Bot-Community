@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 import os from "node:os";
+import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MAX_LOG = 6000;
+function npmInvocation(args) {
+  if (process.platform !== "win32") return ["npm", args];
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")
+  ].filter(Boolean);
+  const cli = candidates.find(candidate => fs.existsSync(candidate));
+  if (!cli) throw new Error("Could not locate npm-cli.js for a shell-free Windows invocation");
+  return [process.execPath, [cli, ...args]];
+}
 export const TASKS = Object.freeze({
   "node-smoke": [
-    ["npm", ["install", "--prefix", "web-chat", "--ignore-scripts"]],
-    ["npm", ["run", "check", "--prefix", "web-chat"]],
-    ["npm", ["test", "--prefix", "web-chat"]]
+    npmInvocation(["install", "--prefix", "web-chat", "--ignore-scripts"]),
+    npmInvocation(["run", "check", "--prefix", "web-chat"]),
+    npmInvocation(["test", "--prefix", "web-chat"])
   ],
   "cmake-test": [
     ["cmake", ["-S", ".", "-B", "build/solo-compute"]],
