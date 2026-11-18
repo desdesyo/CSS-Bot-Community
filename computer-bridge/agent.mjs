@@ -47,8 +47,10 @@ async function api(config, path, body, token = config.deviceToken) {
   return data;
 }
 async function pair() {
-  const [, , , serverUrl, code] = process.argv;
-  if (!serverUrl || !code) throw new Error("Usage: node agent.mjs pair https://YOUR-CHAT-DOMAIN 123456");
+  const serverUrl = process.argv[3];
+  const code = process.env.SOLO_PAIR_CODE || process.argv[4];
+  if (!serverUrl || !/^\\d{6}$/.test(String(code || "")))
+    throw new Error("Pairing requires a valid six-digit code from SOLO.Chat.");
   const base = new URL(serverUrl);
   if (base.protocol !== "https:") throw new Error("Use the HTTPS URL of your deployed chat");
   const response = await fetch(new URL("/api/agent/computer/pair", base), {
