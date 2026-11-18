@@ -1810,7 +1810,7 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       await this.recordRuntimeError("pi-harness:" + operationId, harnessFailure);
-      if (/SOLO_PI_ABORT_UNCONFIRMED/.test(harnessFailure)) throw error;
+      if (/SOLO_PI_ABORT_UNCONFIRMED|SOLO_NO_PROVIDER_CAPACITY/.test(harnessFailure)) throw error;
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
