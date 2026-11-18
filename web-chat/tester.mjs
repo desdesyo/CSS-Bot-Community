@@ -214,6 +214,9 @@ checks.push(
 checks.push(
  ["The /fix public diagnostic snapshot never serializes pending Pi payloads or conversation prompts", fixRuntime.includes('pendingPi = Array.isArray(pending) ? { count: pending.length } : { available: pending != null }') && !fixRuntime.includes('pendingPi = await this.harness.pending()')]
 );
+checks.push(
+ ["The browser does not misroute /fix as an ordinary follow-up while another answer is running", html.includes('if(message.toLowerCase()==="/fix")') && html.includes('Дождитесь завершения текущего ответа и отправьте её ещё раз.')]
+);
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
 console.log(`\nTester result: ${checks.length-failed}/${checks.length} checks passed`);
