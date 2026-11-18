@@ -134,7 +134,7 @@ async function github(env: Env, path: string, init: RequestInit = {}, tokenOverr
   if (!r.ok) {
     const accepted = r.headers.get("X-Accepted-GitHub-Permissions") || r.headers.get("x-accepted-github-permissions") || "";
     const requestId = r.headers.get("X-GitHub-Request-Id") || "";
-    const detail = "GitHub API " + r.status + ": " + String((body as any).message || "Request failed");
+    const detail = "GitHub API " + r.status + " for " + method + " " + path + ": " + String((body as any).message || "Request failed");
     throw new Error(detail + (accepted ? " | X-Accepted-GitHub-Permissions: " + accepted : "") + (requestId ? " | request-id: " + requestId : ""));
   }
   return body as any;
@@ -2681,11 +2681,14 @@ LEARNING FROM CORRECTIONS
       }
       if (url.pathname === "/api/agent/github-check" && (req.method === "GET" || req.method === "POST")) {
         await this.requirePassword(req);
+        let stage = "read repository contents";
+        let credentialSource = "Worker secret";
         try {
           // A short-lived GitHub Actions token may be supplied by the orchestrator/E2E
           // workflow. It is used only for this request and is never persisted.
           const supplied = req.method === "POST" ? await req.json().catch(() => ({})) as any : {};
           const token = String(supplied.githubToken || this.env.GITHUB_TOKEN || "").trim();
+          credentialSource = supplied.githubToken ? "request-scoped GitHub Actions token" : "Worker secret";
           const repo = String(this.env.GITHUB_WORK_REPO || "");
           const branch = String(this.env.GITHUB_WORK_BRANCH || "main");
           if (!token || !repo.includes("/")) return json({ ok: false, error: "GitHub workspace credential is unavailable" }, 503);
@@ -2707,9 +2710,11 @@ LEARNING FROM CORRECTIONS
           };
           if (!response.ok) return json({ ok: false, repo, branch, error: body.message || "GitHub API request failed", diagnostics }, 503);
           const files = Array.isArray(body) ? body.map((file: any) => ({ name: file.name, type: file.type })) : [];
+          stage = "read branch ref";
           const ref = await github(this.env, "/repos/" + repo + "/git/ref/heads/" + encodeURIComponent(branch), {}, token);
           const checkBranch = "cssbc-agent-check-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
           try {
+            stage = "create temporary branch";
             await github(this.env, "/repos/" + repo + "/git/refs", {
               method: "POST",
               body: JSON.stringify({ ref: "refs/heads/" + checkBranch, sha: ref.object.sha })
@@ -2724,6 +2729,7 @@ LEARNING FROM CORRECTIONS
           }
           let branchRemoved = false;
           try {
+            stage = "delete temporary branch";
             await github(this.env, "/repos/" + repo + "/git/refs/heads/" + checkBranch, { method: "DELETE" }, token);
             branchRemoved = true;
           } finally {
@@ -2734,7 +2740,7 @@ LEARNING FROM CORRECTIONS
           return json({ ok: true, read: true, write: true, temporaryBranchRemoved: branchRemoved, repo, branch, files, diagnostics });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
-          return json({ ok: false, error: detail }, 503);
+          return json({ ok: false, stage, credentialSource, error: detail }, 503);
         }
       }
       if (url.pathname === "/api/agent/model-check" && req.method === "GET") {
