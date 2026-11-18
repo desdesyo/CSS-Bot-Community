@@ -114,8 +114,12 @@ async function applyApprovedTextFile(config, task) {
   const beforeExists = Boolean(beforeInfo);
   const beforeBytes = beforeExists ? await readFile(target) : null;
   const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
-  validateWriteRequest({ targetPath: target, contentBytes: data.length, expectedSha256: task.expectedSha256, actualSha256: beforeHash });
   const afterHash = sha256(data);
+  // A previous attempt may have written the exact bytes before the network failed.
+  // Treat that state as success instead of turning a safe retry into a hash conflict.
+  if (beforeHash !== "NEW" && beforeHash.toLowerCase() === afterHash.toLowerCase())
+    return { ok: true, alreadyApplied: true, path: target, beforeHash, afterHash, status: "already_applied_and_verified" };
+  validateWriteRequest({ targetPath: target, contentBytes: data.length, expectedSha256: task.expectedSha256, actualSha256: beforeHash });
   const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupPath = beforeExists ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
@@ -203,10 +207,12 @@ async function applyApprovedSmx(config, task) {
   if (beforeInfo && (!beforeInfo.isFile() || beforeInfo.size > 10 * 1024 * 1024)) throw new Error("Existing plugin must be a regular file no larger than 10 MB");
   const beforeBytes = beforeInfo ? await readFile(target) : null;
   const beforeHash = beforeBytes ? sha256(beforeBytes) : "NEW";
-  validateSmxInstallRequest({ relativeTarget, sourceUrl: task.sourceUrl, expectedSha256: task.expectedSha256, currentSha256: beforeHash, contentBytes: 1 });
   const downloaded = await downloadGitHubPackage(task.sourceUrl);
-  validateSmxInstallRequest({ relativeTarget, sourceUrl: downloaded.finalUrl, expectedSha256: task.expectedSha256, currentSha256: beforeHash, contentBytes: downloaded.bytes.length });
   const packageHash = sha256(downloaded.bytes);
+  // Recover cleanly if installation completed but result delivery was interrupted.
+  if (beforeHash !== "NEW" && beforeHash.toLowerCase() === packageHash.toLowerCase())
+    return { ok: true, alreadyInstalled: true, path: target, beforeHash, afterHash: packageHash, status: "already_installed_and_verified" };
+  validateSmxInstallRequest({ relativeTarget, sourceUrl: downloaded.finalUrl, expectedSha256: task.expectedSha256, currentSha256: beforeHash, contentBytes: downloaded.bytes.length });
   if (packageHash.toLowerCase() !== String(task.packageSha256 || "").toLowerCase())
     throw new Error("Downloaded plugin SHA-256 does not match the package manifest. No file was changed.");
   const afterHash = packageHash;
