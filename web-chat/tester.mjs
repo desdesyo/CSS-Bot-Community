@@ -61,13 +61,15 @@ test("CHAT-011: worker.js defines rollover and continuity memory operations", as
   assert.ok(worker.includes("## Continuity memory"), "Continuity memory section wrapper missing");
 });
 
-test("CHAT-011: agent-runtime/src/index.ts preserves thread continuity and continuity memory", async () => {
+test("CHAT-011: conversation Worker owns thread continuity and continuity memory", async () => {
+  const worker = await read("./worker.js");
   const agent = await read("./agent-runtime/src/index.ts");
-  assert.ok(agent.includes("/api/messages"), "/api/messages must exist for thread history");
-  assert.ok(agent.includes("/api/threads"), "/api/threads must exist for thread listing");
-  assert.ok(agent.includes("browser-chat:thread:"), "thread storage key pattern must exist");
-  assert.ok(agent.includes("Continuity memory"), "Durable agent must honor continuity memory");
-  assert.ok(agent.includes("## Continuity memory"), "Durable agent must ex/validate memory structure");
+  assert.ok(worker.includes("/api/messages"), "/api/messages must exist for thread history");
+  assert.ok(worker.includes("/api/threads"), "/api/threads must exist for thread listing");
+  assert.ok(worker.includes("browser-chat:thread:"), "thread storage key pattern must exist");
+  assert.ok(worker.includes("Continuity memory"), "conversation Worker must preserve continuity memory");
+  assert.ok(worker.includes("## Continuity memory"), "continuation records must use the documented memory section");
+  assert.ok(agent.includes("browser-chat:thread:"), "Durable agent thread storage key pattern must remain available");
 });
 
 test("CHAT-011: multi-turn context retention tests in tester.mjs cover thread continuity and contributions", async () => {
@@ -76,9 +78,10 @@ test("CHAT-011: multi-turn context retention tests in tester.mjs cover thread co
   assert.ok(tester.includes("Continuity memory"), "continuity memory reference must exist");
 });
 
-test("CHAT-011: continuity memory is seeded from prior branches and carried forward in rollOver", async () => {
+test("CHAT-011: rollOver carries prior branch memories into the next continuation", async () => {
   const worker = await read("./worker.js");
-  assert.match(worker, /chainParts/, "prior branches power is required");
-  assert.match(worker, /carried[]:[]/, "carried memory power is required");
-  assert.match(worker, /before rollover/, "pre-rollover memory consolidation is required");
+  assert.match(worker, /async function rollOver\\([^)]*chainParts\\)/, "rollOver must receive prior conversation branches");
+  assert.match(worker, /const carried\\s*=\\s*chainParts\\.map/, "prior branch memories must be collected");
+  assert.match(worker, /PREVIOUS CONTINUITY MEMORIES/, "prior memories must be included in the consolidation prompt");
+  assert.match(worker, /## Continuity memory/, "the new continuation must retain the stable memory section");
 });
