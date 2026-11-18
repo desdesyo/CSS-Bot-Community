@@ -45,13 +45,14 @@ $result = [ordered]@{
     workspace = $workspace
     fileCount = $records.Count
     hashLimitBytes = $maxHashBytes
-    files = @($records)
+    files = $records.ToArray()
 }
 $outputDir = Join-Path $workspace ".solo"
 $outputPath = Join-Path $outputDir "inventory.json"
 $tempPath = $outputPath + ".tmp"
 $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $tempPath -Encoding UTF8
 Move-Item -LiteralPath $tempPath -Destination $outputPath -Force
-$skipped = @($records | Where-Object { $_.hashAlgorithm -ne "sha256" }).Count
+$skipped = 0
+foreach ($record in $records) { if ($record.hashAlgorithm -ne "sha256") { $skipped++ } }
 Write-Host "Inventory written: $outputPath" -ForegroundColor Green
 Write-Host "Files: $($records.Count); hashes skipped by size limit: $skipped"
