@@ -31,14 +31,15 @@ jobs:
         run: |
           node --check computer-bridge/agent.mjs
           node --check computer-bridge/file-policy.mjs
-      - name: Run file policy tests
-        run: node --test computer-bridge/tests/file-policy.test.mjs
+          node --check computer-bridge/task-journal.mjs
+      - name: Run bridge safety and recovery tests
+        run: node --test computer-bridge/tests/*.test.mjs
       - name: Package Windows companion
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path package/computer-bridge | Out-Null
-          Copy-Item computer-bridge/agent.mjs,computer-bridge/file-policy.mjs,computer-bridge/config.example.json,computer-bridge/README.md package/computer-bridge/
+          Copy-Item computer-bridge/agent.mjs,computer-bridge/file-policy.mjs,computer-bridge/task-journal.mjs,computer-bridge/config.example.json,computer-bridge/README.md package/computer-bridge/
           Compress-Archive -Path package/computer-bridge -DestinationPath SOLO-Chat-Computer-Bridge.zip -Force
       - name: Upload companion package
         if: matrix.os == 'windows-latest'
