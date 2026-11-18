@@ -157,6 +157,15 @@ button:hover{border-color:rgba(109,231,215,.55)}
 <script>
 const $=id=>document.getElementById(id);let token="",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,activeOperationId=null,attachedFiles=[],webSearchEnabled=false,deployedVersion="",pendingVersion="";
 async function api(path,opts={}){const headers={...opts.headers};if(token)headers["Authorization"]="Bearer "+token;if(!(opts.body instanceof FormData))headers["Content-Type"]="application/json";const r=await fetch(path,{...opts,headers,credentials:"same-origin",cache:"no-store"});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
+let lastClientErrorAt=0;
+async function reportClientError(source,message,stack=""){
+ if(!token||Date.now()-lastClientErrorAt<1500)return;
+ lastClientErrorAt=Date.now();
+ try{await api("/api/agent/client-error",{method:"POST",body:JSON.stringify({source:String(source||"window").slice(0,120),message:String(message||"Unknown browser error").slice(0,700),stack:String(stack||"").slice(0,1200)})})}catch(_){}
+}
+window.addEventListener("error",event=>{void reportClientError("window",event.message||"Browser script error",event.error?.stack||"")});
+window.addEventListener("unhandledrejection",event=>{const reason=event.reason;void reportClientError("unhandledrejection",reason?.message||String(reason||"Unhandled promise rejection"),reason?.stack||"")});
+
 function setStatus(s){$("status").textContent=s}
 async function captureUiInspection(){
  if(document.visibilityState==="hidden")return;
