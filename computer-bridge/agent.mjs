@@ -261,11 +261,24 @@ async function downloadGitHubPackage(sourceUrl) {
 }
 async function applyApprovedSmx(config, task) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required; refusing unattended plugin installation.");
-  const gameRoot = await realpath(resolve(config.gameRoot || config.allowedRoots?.[0] || ""));
+  const gameRoot = await getGameInspectionRoot(config);
+  if (!gameRoot) throw new Error("Read-only game access must be locally approved before a plugin can be installed.");
   const relativeTarget = String(task.path || "");
+  if (relativeTarget.includes("\\") || relativeTarget.startsWith("/") ||
+      relativeTarget.split("/").some(part => !part || part === "." || part === "..") ||
+      !relativeTarget.toLowerCase().startsWith("cstrike/addons/sourcemod/plugins/") ||
+      !relativeTarget.toLowerCase().endsWith(".smx"))
+    throw new Error("Only a clean .smx destination inside cstrike/addons/sourcemod/plugins/ is supported");
   const targetPath = resolve(gameRoot, ...relativeTarget.split("/"));
-  if (!isInside(gameRoot, targetPath)) throw new Error("Plugin destination escapes the configured game root");
-  const { target } = await resolveAllowedTarget(config, targetPath);
+  if (!isInside(gameRoot, targetPath)) throw new Error("Plugin destination escapes the approved game root");
+  const parent = dirname(targetPath);
+  await assertNoLinkedComponents(gameRoot, parent);
+  const actualParent = await realpath(parent);
+  if (!isInside(gameRoot, actualParent)) throw new Error("Plugin destination parent escapes the approved game root");
+  const target = resolve(actualParent, targetPath.slice(parent.length + (parent.endsWith(sep) ? 0 : 1)));
+  const targetInfo = await lstat(target).catch(error => { if (error?.code === "ENOENT") return null; throw error; });
+  if (targetInfo && (targetInfo.isSymbolicLink() || !targetInfo.isFile()))
+    throw new Error("Plugin destination must be a regular file, not a symlink or directory");
   const beforeInfo = await stat(target).catch(e => { if (e?.code === "ENOENT") return null; throw e; });
   if (beforeInfo && (!beforeInfo.isFile() || beforeInfo.size > 10 * 1024 * 1024)) throw new Error("Existing plugin must be a regular file no larger than 10 MB");
   const beforeBytes = beforeInfo ? await readFile(target) : null;
@@ -322,6 +335,7 @@ async function runTask(config, task) {
     const queue = [{ dir: requested, depth: 0 }];
     while (queue.length && entries.length < 2000) {
       const current = queue.shift();
+      await assertNoLinkedComponents(gameRoot, current.dir);
       const children = await readdir(current.dir, { withFileTypes: true });
       for (const child of children) {
         if (entries.length >= 2000) break;
