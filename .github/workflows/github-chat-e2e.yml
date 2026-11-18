@@ -2,7 +2,7 @@ name: GitHub Chat live end-to-end test
 
 on:
   push:
-    branches: [main]
+    branches: [main, github-chat-prototype]
     paths:
       - ".github/workflows/github-chat-e2e.yml"
   workflow_run:
@@ -12,11 +12,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: solo-chat-e2e
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   live-chat:
@@ -28,7 +28,6 @@ jobs:
         env:
           CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
@@ -36,17 +35,18 @@ jobs:
           ENDPOINT="${CHAT_ENDPOINT%/}"
           AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
 
-          echo "1/4 Verify authenticated Durable Agent..."
+          echo "1/5 Verify authenticated Durable Agent..."
           curl --fail-with-body --silent --show-error --max-time 30 \
             -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
           jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
 
-          echo "2/5 Verify GitHub workspace credentials and repository access..."
+          echo "2/5 Verify the persistent Worker GitHub credential and repository access..."
           echo "Target workspace: desdesyo/CSS-Bot-Community@github-chat-prototype"
           GITHUB_WORKSPACE_OK="false"
-          jq -n --arg githubToken "$GH_TOKEN" '{githubToken:$githubToken}' > github-check-request.json
+          # Use the persistent Worker secret, exactly as the agent does in production.
+          # Do not pass github.token here: that token belongs to this workflow run and can have different repository permissions.
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
-            -H "$AUTH" -H "Content-Type: application/json" --data @github-check-request.json "$ENDPOINT/api/agent/github-check" || true)"
+            -H "$AUTH" "$ENDPOINT/api/agent/github-check" || true)"
           if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
             GITHUB_WORKSPACE_OK="true"
             echo "GitHub workspace read/write access verified using the short-lived workflow token."
@@ -54,7 +54,7 @@ jobs:
             echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
           fi
 
-          echo "3/4 Queue a real message through the browser chat API..."
+          echo "3/5 Queue a real message through the browser chat API..."
           MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
           OPERATION="e2e-${GITHUB_RUN_ID}"
           jq -n --arg message "Connection test. Reply with the exact marker $MARKER" --arg operationId "$OPERATION" \
