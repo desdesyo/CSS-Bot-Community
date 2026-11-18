@@ -53,6 +53,10 @@ The Windows-side read-only scanner is implemented under [bridge/](bridge/). It p
 
 The separate [computer-bridge/](computer-bridge/) provides narrowly scoped, approval-gated local text/config writes and verified SourceMod plugin installation. Neither bridge has yet been field-verified on the user's PC; source code and CI success are not proof of a live local run.
 
+## Disposable GitHub VM test lab
+
+A clean Ubuntu and Windows virtual machine can build and test the repository. Start it manually from the Actions tab using **SOLO Repository VM Test Lab**, or let it run for pull requests and pushes. It compiles the C++ core, runs CTest and bridge tests, checks the Windows PowerShell workspace setup, and uploads diagnostic artifacts. The runners are temporary and usage is subject to GitHub Actions limits. See [docs/GITHUB_VM_TEST_LAB.md](docs/GITHUB_VM_TEST_LAB.md).
+
 ## Build and test
 
 The portable C++ core can be built with CMake:
