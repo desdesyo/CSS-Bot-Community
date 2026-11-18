@@ -2323,6 +2323,20 @@ LEARNING FROM CORRECTIONS
             last_seen: Date.now()
           };
           await this.ctx.storage.put("compute:worker:" + workerId, worker);
+          const activeTaskId = String(input.active_task_id || "");
+          if (/^[a-f0-9-]{36}$/.test(activeTaskId)) {
+            await this.ctx.blockConcurrencyWhile(async () => {
+              const key = "compute:task:" + activeTaskId;
+              const task = await this.ctx.storage.get<any>(key);
+              if (task && task.worker_id === workerId && ["paused", "leased"].includes(task.status)) {
+                task.status = "leased";
+                task.lease_until = Date.now() + 35 * 60 * 1000;
+                task.updated_at = new Date().toISOString();
+                task.last_error = null;
+                await this.ctx.storage.put(key, task);
+              }
+            });
+          }
           return json({ ok: true, worker });
         }
         if (url.pathname === "/api/compute/worker/claim") {
@@ -2335,8 +2349,12 @@ LEARNING FROM CORRECTIONS
             const now = Date.now();
             for (const [key, task] of entries) {
               if (task.status === "leased" && Number(task.lease_until) <= now) {
-                task.status = Number(task.attempts || 0) < 3 ? "queued" : "failed";
-                task.worker_id = null; task.lease_until = null; task.last_error = "worker lease expired";
+                // Preserve ownership and pause instead of failing/re-queueing work
+                // that may still exist in the disconnected worker's local journal.
+                task.status = "paused";
+                task.lease_until = null;
+                task.last_error = null;
+                task.updated_at = new Date(now).toISOString();
                 await this.ctx.storage.put(key, task);
               }
             }
