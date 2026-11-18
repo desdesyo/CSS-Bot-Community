@@ -1,6 +1,6 @@
 # CSS Bot Community / Counter-Strike: Source v34 — project context
 
-Load this skill before every task involving CSSBC, the CS:S v34 mod, SourceMod, the GameDLL, bots, installer, SDK, or the user's local game.
+Load this skill before every task involving CSSBC, the CS:S v34 mod, SourceMod, the GameDLL, bots, installer, SDK, or the user's local game. For inspecting or repairing the installed game's files, also load `css-v34-file-forensics.md`.
 
 ## Canonical workspaces
 
