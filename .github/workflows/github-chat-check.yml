@@ -47,6 +47,8 @@ jobs:
         run: npx wrangler deploy --dry-run --outdir /tmp/cssbc-worker-dry-run
       - name: Check local computer companion syntax
         run: node --check computer-bridge/agent.mjs
+      - name: Check SOLO Compute worker syntax and policy tests
+        run: node --check web-chat/compute-worker.mjs && node --test web-chat/compute-worker.test.mjs
       - name: Validate local bridge config example
         run: node -e "JSON.parse(require('fs').readFileSync('computer-bridge/config.example.json','utf8'))"
       - name: Check Worker JavaScript syntax
