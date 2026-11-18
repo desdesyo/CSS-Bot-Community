@@ -1,4 +1,9 @@
 #pragma once
+// AGENT SAFETY NOTE: this is a cross-DLL ABI contract, not a bot implementation.
+// Keep this header POD-only: no STL, exceptions, references or allocator-owned data.
+// Any layout/calling-convention change requires a new ABI version and synchronized
+// provider, consumer, build, and tests. Never infer compatibility from header names.
+#pragma once
 // CSS Bot Community <-> custom Counter-Strike: Source v34 GameDLL bridge.
 // This is deliberately separate from IServerPluginCallbacks: a VSP cannot
 // initialize CBasePlayer/CSS player state by itself.
