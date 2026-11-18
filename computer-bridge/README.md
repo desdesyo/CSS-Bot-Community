@@ -20,19 +20,22 @@ It does **not** execute shell commands, launch programs, capture the screen, del
 - A deployed chat with the Agent runtime enabled.
 - A six-digit pairing code generated inside the authenticated chat.
 
-## Pairing
+## Quick start (Windows)
 
-1. Download this folder from the repository.
-2. Copy `config.example.json` to `config.json` and edit `allowedRoots`. Keep only folders the agent is allowed to inspect.
-3. In the chat, press **Connect computer** and copy the six-digit code.
-4. In this folder run:
+1. Download the companion ZIP from the latest successful **Local computer bridge checks** run in GitHub Actions, or download the repository ZIP and open `computer-bridge`.
+2. Extract the ZIP.
+3. Double-click **START-SOLO-CHAT.cmd**.
+4. In SOLO.Chat, press **Connect computer**, then paste the six-digit code into the black window.
 
-```powershell
-node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456
-node agent.mjs
-```
+The launcher checks Node.js 20+, pairs the device, creates its configuration automatically, and starts the connector. If Node.js is missing, it opens the official download page; install the LTS version and run the launcher again.
 
-Pair codes expire after five minutes and are single-use. The returned device token is saved only in local `config.json`; do not upload that file or share it.
+On first pairing, access is limited to the Counter-Strike Source v34 folder if it exists in the detected locations; otherwise it creates and uses `Documents\\SOLO-Chat`. It never grants access to the whole drive. Existing paired configurations are preserved.
+
+Pair codes expire after five minutes and are single-use. The device token is saved only in local `config.json`; never upload or share that file.
+
+## Manual pairing (advanced)
+
+Run `node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456`, then `node agent.mjs`. The six-digit code comes from **Connect computer** inside the authenticated chat.
 
 ## Use
 
