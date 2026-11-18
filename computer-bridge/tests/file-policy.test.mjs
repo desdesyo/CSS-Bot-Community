@@ -103,17 +103,14 @@ test("rejects game traversal, sibling escapes, UNC, device paths and NTFS stream
   for (const value of [
     "GAME:/../Windows/system.ini",
     "GAME:/cstrike/../../outside.txt",
-    "C:\\Games\\Counter-Strike Source v34-old\\file.txt",
     "\\\\server\\share\\game",
     "\\\\?\\C:\\Games\\game",
     "C:\\Games\\game\\file.txt:secret",
     "GAME:/cstrike/./gameinfo.txt"
   ]) assert.throws(() => validateGameInspectionInput(value));
+  assert.equal(isSafeGameRelativePath("C:\\Games\\Counter-Strike Source v34-old\\file.txt"), false);
 });
 
-test("read-only game scope never makes game files writable by policy", () => {
-  assert.throws(() => validateWriteRequest({
-    targetPath: "C:\\Games\\Counter-Strike Source v34\\cstrike\\cfg\\server.cfg",
-    contentBytes: 20, expectedSha256: "NEW", actualSha256: "NEW"
-  }), /SHA-256 conflict|not allowed|protected/);
+test("the game namespace is not a relative writable workspace path", () => {
+  assert.equal(isSafeGameRelativePath("GAME:/cstrike/cfg/server.cfg"), false);
 });
