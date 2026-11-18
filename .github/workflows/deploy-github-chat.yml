@@ -205,6 +205,20 @@ jobs:
             exit 1
           fi
           echo "Browser-facing /api/chat -> Durable Object alarm -> /api/chat/status round-trip passed."
+          if ! jq -e '.provider and .model' browser-chat-status.json >/dev/null; then
+            echo "::error::Browser chat did not report the actual provider/model used."
+            cat browser-chat-status.json
+            exit 1
+          fi
+          BROWSER_THREAD="$(jq -r '.thread' browser-chat-accepted.json)"
+          HISTORY_CODE="$(curl --silent --show-error --max-time 30 -o browser-chat-history.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/messages?thread=$BROWSER_THREAD" || true)"
+          if [[ "$HISTORY_CODE" != "200" ]] || ! jq -e --arg operation "$BROWSER_OPERATION" 'all(.messages[]; .role == "user" or .role == "assistant") and any(.messages[]; .role == "assistant" and .operationId == $operation and (.content|contains("SOLO_CHAT_BROWSER_QUEUE_OK")))' browser-chat-history.json >/dev/null; then
+            echo "::error::Browser chat reply was not persisted in the visible conversation history."
+            cat browser-chat-history.json
+            exit 1
+          fi
+          jq '{provider,model,degraded,fallbackReason}' browser-chat-status.json
+          echo "Browser chat provider metadata and persisted assistant history passed."
           echo "Checking live agent dashboard..."
           STATUS_CODE="$(curl --silent --show-error --max-time 30 -o agent-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" || true)"
           if [[ "$STATUS_CODE" != "200" ]] || ! jq -e '.roles | length >= 8' agent-status.json >/dev/null; then
