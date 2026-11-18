@@ -1616,6 +1616,7 @@ LEARNING FROM CORRECTIONS
     };
     const circuitOpen = async (provider: string) => {
       const key = provider === "google" ? "gemini" : provider;
+      if (key === "workers-ai") return this.workersAiQuotaCircuitOpen();
       const until = await this.ctx.storage.get<number>("provider:circuit:" + key);
       return Boolean(until && until > Date.now());
     };
