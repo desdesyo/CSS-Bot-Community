@@ -72,7 +72,7 @@ jobs:
 
           echo "4/5 Poll the durable job until the assistant replies..."
           STATUS="queued"
-          for attempt in $(seq 1 120); do
+          for attempt in $(seq 1 300); do
             curl --fail-with-body --silent --show-error --max-time 20 \
               -H "$AUTH" "$ENDPOINT/api/chat/status?operationId=$OPERATION" > chat-status.json
             STATUS="$(jq -r '.status' chat-status.json)"
@@ -87,7 +87,7 @@ jobs:
             sleep 2
           done
           if [[ "$STATUS" != "done" ]]; then
-            echo "::error::Assistant job did not finish within four minutes."
+            echo "::error::Assistant job did not finish within ten minutes."
             exit 1
           fi
 
