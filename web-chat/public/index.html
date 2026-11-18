@@ -307,9 +307,34 @@ async function sendFollowup(message){
   $("toolFeedback").textContent=e.message||"Не удалось добавить сообщение";
  }finally{button.disabled=false;$("prompt").focus()}
 }
+async function sendFixDuringGeneration(){
+ const input=$("prompt");input.value="";input.style.height="auto";
+ const operationId="browser-fix-"+crypto.randomUUID();
+ addMessage("user","/fix");
+ $("toolFeedback").textContent="Запускаю диагностику параллельно с текущим ответом…";
+ try{
+  const accepted=await api("/api/chat",{method:"POST",body:JSON.stringify({thread:thread||undefined,message:"/fix",files:[],webSearch:false,operationId})});
+  if(accepted.thread){thread=accepted.thread;localStorage.setItem("ghchat_thread",String(thread))}
+  let result=null;const deadline=Date.now()+90000;
+  while(Date.now()<deadline){
+   result=await api("/api/chat/status?operationId="+encodeURIComponent(operationId));
+   if(result.status==="done")break;
+   if(result.status==="failed")throw Error(result.error||"Не удалось выполнить /fix");
+   await new Promise(resolve=>setTimeout(resolve,800));
+  }
+  if(!result||result.status!=="done")throw Error("Диагностика не завершилась за 90 секунд. Проверьте панель агентов и GitHub.");
+  addMessage("assistant",result.reply||"Команда /fix завершилась без текстового отчёта.",[],{operationId,threadId:thread});
+  try{await loadThreads()}catch(_){}
+  $("toolFeedback").textContent="Диагностика /fix отправлена независимо от текущего ответа.";
+ }catch(error){
+  const detail=error?.message||"Неизвестная ошибка";
+  addMessage("assistant","**Не удалось запустить /fix:** "+detail);
+  $("toolFeedback").textContent="Ошибка /fix: "+detail;
+ }
+}
 async function send(){
  const message=$("prompt").value.trim();if(!message&&!attachedFiles.length)return;
- if(busy){if(message.toLowerCase()==="/fix"){$("toolFeedback").textContent="Команда /fix запускается отдельно. Дождитесь завершения текущего ответа и отправьте её ещё раз.";return}if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
+ if(busy){if(message.toLowerCase()==="/fix"){if(attachedFiles.length){$("toolFeedback").textContent="Сначала уберите вложения: /fix запускается без файлов.";return}await sendFixDuringGeneration();return}if(attachedFiles.length){$("toolFeedback").textContent="Дождитесь завершения ответа, чтобы отправить вложения.";return}if(message)await sendFollowup(message);return}
  busy=true;$("send").disabled=false;$("send").textContent="Добавить";$("prompt").placeholder="Можно дополнять задачу, пока SOLO.Chat работает…";$("prompt").value="";
  const bubble=addMessage("user",message,attachedFiles);
  const thinking=addThinkingMessage();
