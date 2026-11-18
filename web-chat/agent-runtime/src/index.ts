@@ -504,19 +504,39 @@ LEARNING FROM CORRECTIONS
           replay: "safe",
           async execute() {
             const devices = await storage.get<string[]>("computer:devices") || [];
-            const circuit = await storage.get<number>("provider:circuit:workers-ai");
             const githubToken = env.GITHUB_TOKEN || await storage.get<string>("agent:githubToken");
             const snapshot = await storage.get<any>("solo:ui:inspection");
+            const providerConfig: Record<string, boolean> = {
+              gemini: Boolean(env.GEMINI_API_KEY),
+              openrouter: Boolean(env.OPENROUTER_API_KEY),
+              openai: Boolean(env.OPENAI_API_KEY),
+              groq: Boolean(env.GROQ_API_KEY),
+              workersAi: true
+            };
+            const providerHealth: Record<string, { configured: boolean; circuitOpen: boolean; retryAt: string | null; reason: string | null }> = {};
+            for (const [provider, configured] of Object.entries(providerConfig)) {
+              const key = provider === "workersAi" ? "workers-ai" : provider;
+              const until = await storage.get<number>("provider:circuit:" + key);
+              const meta = await storage.get<{ retryAt?: number; reason?: string }>("provider:circuit-meta:" + key);
+              const circuitOpen = provider === "workersAi"
+                ? await agent.workersAiQuotaCircuitOpen()
+                : Boolean(until && until > Date.now());
+              providerHealth[provider] = {
+                configured,
+                circuitOpen,
+                retryAt: circuitOpen ? new Date(meta?.retryAt || until || Date.now()).toISOString() : null,
+                reason: circuitOpen ? (meta?.reason || "cooldown") : null
+              };
+            }
             return textOutput({
               checkedAt: new Date().toISOString(),
               registeredTools: agent.registry.snapshot().tools().map(({ tool }) => tool.name),
               providers: {
-                gemini: Boolean(env.GEMINI_API_KEY),
-                openrouter: Boolean(env.OPENROUTER_API_KEY),
-                openai: Boolean(env.OPENAI_API_KEY),
-                groq: Boolean(env.GROQ_API_KEY),
-                workersAi: true,
-                workersAiQuotaCircuitOpen: Boolean(circuit && circuit > Date.now())
+                ...providerConfig,
+                workersAiQuotaCircuitOpen: providerHealth.workersAi.circuitOpen,
+                health: providerHealth,
+                availableCount: Object.values(providerHealth).filter(provider => provider.configured && !provider.circuitOpen).length,
+                nextRetryAt: Object.values(providerHealth).map(provider => provider.retryAt).filter((value): value is string => Boolean(value)).sort()[0] || null
               },
               github: {
                 tokenConfigured: Boolean(githubToken),
