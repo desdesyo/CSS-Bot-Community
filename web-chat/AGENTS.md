@@ -99,3 +99,10 @@ Do not ask for or print token values. Never infer token validity from the existe
 ## Definition of done
 
 A code change is done only when the diff is committed, the targeted tests pass, the relevant regression suite passes, and any required live checks pass. Deployment-only work additionally requires authenticated health/version verification. If any layer is unavailable, label it BLOCKED/NOT VERIFIED instead of PASS.
+
+
+## CI efficiency notes
+
+- The deploy workflow is intentionally path-filtered to runtime code, browser assets, Worker config/dependencies, and the deploy workflow itself. Documentation-only changes should not deploy the Worker.
+- The current `web-chat/package.json` has no tracked lockfile in this branch; CI currently uses `npm install`. Do not change this to `npm ci` until a committed lockfile is added.
+- GitHub Actions may cancel superseded runs while commits arrive quickly. Inspect the run's exact `head_sha`; a successful run for an older SHA is not evidence for the current branch head.
