@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -32,7 +32,7 @@ async function doctor() {
     ["git", ["--version"]],
     ["node", ["--version"]],
     ["cmake", ["--version"]],
-    [process.platform === "win32" ? "pwsh" : "bash", process.platform === "win32" ? ["-NoProfile","-Command","$PSVersionTable.PSVersion.ToString()"] : ["--version"]]
+    [process.platform === "win32" ? "powershell" : "bash", process.platform === "win32" ? ["-NoProfile","-Command","$PSVersionTable.PSVersion.ToString()"] : ["--version"]]
   ];
   let failed = false;
   for (const [cmd,args] of checks) {
@@ -41,12 +41,15 @@ async function doctor() {
     console.log((ok ? "OK  " : "MISS") + " " + cmd + " " + (r.stdout || r.stderr || r.error?.message || "").trim().split("\n")[0]);
     if (!ok) failed = true;
   }
-  const compiler = spawnSync(process.platform === "win32" ? "where" : "sh",
-    process.platform === "win32" ? ["cl"] : ["-lc","command -v c++ || command -v g++"],
-    {encoding:"utf8",timeout:10000,windowsHide:true,shell:false});
-  const compilerOk = !compiler.error && compiler.status === 0;
-  console.log((compilerOk ? "OK  " : "MISS") + " C++ compiler " + (compiler.stdout || "").trim());
-  if (!compilerOk) failed = true;
+  const compilerNames = process.platform === "win32" ? ["cl.exe","g++.exe","clang++.exe"] : ["c++","g++","clang++"];
+  let compilerFound = "";
+  for (const name of compilerNames) {
+    const probe = spawnSync(process.platform === "win32" ? "where.exe" : "which",
+      [name], {encoding:"utf8",timeout:10000,windowsHide:true,shell:false});
+    if (!probe.error && probe.status === 0) { compilerFound = (probe.stdout || "").trim().split("\\n")[0] || name; break; }
+  }
+  console.log((compilerFound ? "OK  " : "MISS") + " C++ compiler " + compilerFound);
+  if (!compilerFound) failed = true;
   console.log("\nLab folder: " + ROOT);
   console.log("This is a local test runner, not a hypervisor. It uses your computer's CPU and disk.");
   process.exitCode = failed ? 1 : 0;
