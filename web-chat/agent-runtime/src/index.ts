@@ -1858,7 +1858,8 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       harnessFailure = String(error instanceof Error ? error.message : error).slice(0, 900);
       await this.recordRuntimeError("pi-harness:" + operationId, harnessFailure);
-      if (/SOLO_PI_ABORT_UNCONFIRMED|SOLO_NO_PROVIDER_CAPACITY/.test(harnessFailure)) throw error;
+      // No tool-capable provider is a recoverable condition for ordinary chat: try the independent text-only provider chain. Keep the hard stop only when a timed-out Pi run could still execute tools, to prevent duplicate side effects.
+      if (/SOLO_PI_ABORT_UNCONFIRMED/.test(harnessFailure)) throw error;
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
