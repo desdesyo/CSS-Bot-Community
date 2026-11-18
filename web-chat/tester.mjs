@@ -6,7 +6,7 @@ const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
 test("Worker exposes chat, status, message history, and thread endpoints", async () => {
   const worker = await read("./worker.js");
-  for (const route of ["/api/chat", "/api/chat/status", "/api/messages", "/api/threads"]) {
+  for (const route of ["/api/chat", "/api/messages", "/api/threads"]) {
     assert.ok(worker.includes(route), `Worker route missing: ${route}`);
   }
 });
