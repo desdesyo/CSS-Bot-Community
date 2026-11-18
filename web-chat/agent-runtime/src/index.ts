@@ -2407,7 +2407,15 @@ LEARNING FROM CORRECTIONS
         await this.requirePassword(req);
         const input = await req.json() as any;
         if (!["node-smoke", "cmake-test"].includes(input.task_type)) return json({ error: "Task type is not allowlisted" }, 400);
-        if (typeof input.commit_sha !== "string" || !/^[0-9a-f]{40}$/.test(input.commit_sha)) return json({ error: "commit_sha must be a full lowercase 40-character SHA" }, 400);
+        let commitSha = String(input.commit_sha || "");
+        if (!commitSha) {
+          const repository = String(this.env.GITHUB_WORK_REPO || "");
+          const branch = String(this.env.GITHUB_WORK_BRANCH || "github-chat-prototype");
+          if (!repository.includes("/")) return json({ error: "GitHub project repository is not configured" }, 503);
+          const current = await github(this.env, "/repos/" + repository + "/commits/" + encodeURIComponent(branch));
+          commitSha = String(current.sha || "");
+        }
+        if (!/^[0-9a-f]{40}$/.test(commitSha)) return json({ error: "Could not resolve a full commit SHA for the configured project branch" }, 503);
         const created = await this.ctx.blockConcurrencyWhile(async () => {
           const entries = await this.ctx.storage.list<any>({ prefix: "compute:task:" });
           if (entries.size >= 100) return null;
@@ -2416,7 +2424,7 @@ LEARNING FROM CORRECTIONS
           const now = new Date().toISOString();
           const task = {
             schema_version: 1, task_id: crypto.randomUUID(), task_type: input.task_type,
-            commit_sha: input.commit_sha, timeout_seconds: Math.min(600, Math.max(10, Number(input.timeout_seconds) || 600)),
+            commit_sha: commitSha, timeout_seconds: Math.min(600, Math.max(10, Number(input.timeout_seconds) || 600)),
             status: "queued", attempts: 0, created_at: now, updated_at: now,
             worker_id: null, lease_until: null, result: null, last_error: null
           };
