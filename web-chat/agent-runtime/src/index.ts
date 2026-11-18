@@ -1688,7 +1688,26 @@ LEARNING FROM CORRECTIONS
         }
       }
       const modelCandidates = await this.resolveToolModelCandidates(preferred);
-      const attempts = modelCandidates.length ? modelCandidates : [null];
+      // Do not let Pi silently fall back to its implicit default model when every
+      // configured provider is in an open circuit. That can hit the same exhausted
+      // account again and leave the browser waiting through provider retries.
+      if (!modelCandidates.length) {
+        const providerStates: Record<string, { configured: boolean; circuitUntil: number | null }> = {};
+        for (const [name, configured] of [
+          ["openrouter", Boolean(this.env.OPENROUTER_API_KEY)],
+          ["openai", Boolean(this.env.OPENAI_API_KEY)],
+          ["gemini", Boolean(this.env.GEMINI_API_KEY)],
+          ["groq", Boolean(this.env.GROQ_API_KEY)],
+          ["workers-ai", true]
+        ] as Array<[string, boolean]>) {
+          const until = await this.ctx.storage.get<number>("provider:circuit:" + name);
+          providerStates[name] = { configured, circuitUntil: until && until > Date.now() ? until : null };
+        }
+        const nextRetry = Object.values(providerStates).map(x => x.circuitUntil).filter((x): x is number => Boolean(x)).sort((a,b)=>a-b)[0] || null;
+        throw new Error("SOLO_NO_PROVIDER_CAPACITY: сейчас нет доступного провайдера генерации. Все настроенные источники отключены circuit breaker или не имеют ключей. " +
+          JSON.stringify({ providers: providerStates, nextRetryAt: nextRetry ? new Date(nextRetry).toISOString() : null }));
+      }
+      const attempts = modelCandidates;
       let completed = false;
       for (let attempt = 0; attempt < attempts.length; attempt++) {
         const candidate = attempts[attempt];
@@ -1765,17 +1784,24 @@ LEARNING FROM CORRECTIONS
           const providerKey = candidate?.provider === "google" ? "gemini" : candidate?.provider;
           if (providerKey && /429|RESOURCE_EXHAUSTED|quota|rate.?limit|insufficient credit|billing|401|403|402|503/i.test(harnessFailure)) {
             const quotaExhausted = /RESOURCE_EXHAUSTED|daily.*quota|quota.*exhaust|exceeded.*quota|insufficient credit|billing/i.test(harnessFailure);
+            const authFailure = /401|403|API key not valid|unauthorized|forbidden/i.test(harnessFailure);
             const now = Date.now();
-            const duration = quotaExhausted
-              ? (providerKey === "workers-ai"
-                ? Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1) - now
-                : 24 * 60 * 60 * 1000)
-              : /429|rate.?limit/i.test(harnessFailure) ? 15 * 60 * 1000 : /503/.test(harnessFailure) ? 3 * 60 * 1000 : 60 * 60 * 1000;
+            const nextUtcReset = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1);
+            const duration = providerKey === "workers-ai" && quotaExhausted
+              ? Math.max(60_000, nextUtcReset - now)
+              : quotaExhausted || authFailure ? 6 * 60 * 60 * 1000
+              : /429|rate.?limit/i.test(harnessFailure) ? 5 * 60 * 1000
+              : /503/.test(harnessFailure) ? 90 * 1000 : 3 * 60 * 1000;
             await this.ctx.storage.put("provider:circuit:" + providerKey, now + duration);
+            await this.ctx.storage.put("provider:circuit-meta:" + providerKey, {
+              openedAt: now, retryAt: now + duration,
+              reason: quotaExhausted ? "quota" : authFailure ? "auth" : /429|rate.?limit/i.test(harnessFailure) ? "rate-limit" : "transient",
+              error: harnessFailure.slice(0, 500)
+            });
             if (quotaExhausted && providerKey === "workers-ai") {
               await this.ctx.storage.put("provider:circuit-meta:workers-ai-opened-date", new Date(now).toISOString().slice(0, 10));
             }
-            console.warn("[SOLO.Chat] provider circuit opened", JSON.stringify({ provider: providerKey, cooldownMs: duration, quotaExhausted }));
+            console.warn("[SOLO.Chat] provider circuit opened", JSON.stringify({ provider: providerKey, cooldownMs: duration, quotaExhausted, authFailure }));
           }
           console.warn("[SOLO.Chat] Pi provider attempt threw; rotating provider", JSON.stringify({ attempt: attempt + 1, provider: providerKey || null, model: candidate?.id || null, error: harnessFailure }));
         }
