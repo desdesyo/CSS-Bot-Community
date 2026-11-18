@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile, writeFile, appendFile, mkdir, readdir, realpath, stat, lstat, copyFile, rename, unlink, open } from "node:fs/promises";
+import { readFile, writeFile, appendFile, mkdir, readdir, realpath, stat, lstat, unlink, open } from "node:fs/promises";
 import { resolve, relative, isAbsolute, dirname, extname, sep } from "node:path";
 import os from "node:os";
 import { createHash, randomUUID } from "node:crypto";
@@ -217,47 +217,33 @@ async function applyApprovedSmx(config, task) {
     throw new Error("Downloaded plugin SHA-256 does not match the package manifest. No file was changed.");
   const afterHash = packageHash;
   const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupPath = beforeInfo ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
-  console.log("\nSOURCE MOD PLUGIN INSTALL REQUEST");
+  console.log("\\nSOURCE MOD PLUGIN INSTALL REQUEST");
   console.log("Target: " + target);
   console.log("Source host: " + new URL(downloaded.finalUrl).hostname);
   console.log("Current SHA-256: " + beforeHash);
   console.log("Package SHA-256: " + afterHash);
-  console.log("Backup will be created and verified at: " + (backupPath || "(not needed; new file)"));
+  console.log("A verified backup will be created before replacement.");
   console.log("Only this .smx plugin will be changed. No command or script will be executed.");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let answer = "";
   try { answer = await rl.question("Type APPLY to install this exact plugin (anything else cancels): "); }
   finally { rl.close(); }
   if (answer.trim() !== "APPLY") return { ok: false, cancelled: true, path: target, beforeHash, afterHash };
-  if (beforeInfo) {
-    await mkdir(backupRoot, { recursive: true });
-    await copyFile(target, backupPath);
-    if (sha256(await readFile(backupPath)) !== beforeHash) throw new Error("Plugin backup verification failed; original file was not changed.");
-  }
-  const temp = target + ".solo-" + randomUUID() + ".tmp";
-  try {
-    const handle = await open(temp, "wx");
-    try { await handle.writeFile(downloaded.bytes); await handle.sync(); }
-    finally { await handle.close(); }
-    const currentNow = await stat(target).then(async () => sha256(await readFile(target))).catch(e => { if (e?.code === "ENOENT") return "NEW"; throw e; });
-    if (currentNow.toLowerCase() !== beforeHash.toLowerCase()) throw new Error("Plugin changed after approval; refusing to overwrite a newer version.");
-    await rename(temp, target);
-    const verified = sha256(await readFile(target));
-    if (verified !== afterHash) {
-      if (backupPath) await copyFile(backupPath, target);
-      else await unlink(target).catch(() => {});
-      throw new Error("Installed plugin SHA-256 verification failed; rollback was attempted.");
-    }
-    const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
-    await mkdir(auditRoot, { recursive: true });
-    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, sourceHost: new URL(downloaded.finalUrl).hostname, status: "verified_smx_installed" }) + "\n", "utf8");
-    return { ok: true, path: target, beforeHash, afterHash, backupPath, status: "smx_installed_and_verified" };
-  } catch (error) {
-    await unlink(temp).catch(() => {});
-    throw error;
-  }
+
+  // Use the same verified transaction/backup/rollback path as text files.
+  const transaction = await applyFileTransaction(target, downloaded.bytes, {
+    expectedBeforeHash: beforeHash,
+    backupRoot,
+    maxExistingBytes: 10 * 1024 * 1024
+  });
+  const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
+  await mkdir(auditRoot, { recursive: true });
+  await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({
+    at: new Date().toISOString(), taskId: task.id, path: target,
+    sourceHost: new URL(downloaded.finalUrl).hostname,
+    status: "verified_smx_installed", ...transaction
+  }) + "\\n", "utf8");
+  return { ok: true, path: target, ...transaction, status: "smx_installed_and_verified" };
 }
 async function runTask(config, task) {
   if (task.action === "system_info") {
