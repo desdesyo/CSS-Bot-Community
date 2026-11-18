@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "solo-code-lab/**"
+      - "solo-compute/**"
       - ".github/workflows/solo-code-lab.yml"
   push:
     branches: [github-chat-prototype, feature/solo-mod-workshop-foundation]
@@ -30,4 +31,6 @@ jobs:
       - name: Syntax and safety tests
         run: |
           node --check solo-code-lab/lab.mjs
-          node --test solo-code-lab/lab.test.mjs
+          node --check solo-compute/worker.mjs
+          node --check solo-compute/coordinator.mjs
+          node --test solo-code-lab/lab.test.mjs solo-compute/worker.test.mjs solo-compute/coordinator.test.mjs
