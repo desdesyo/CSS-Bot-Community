@@ -53,13 +53,14 @@ function gitHead() {
   if (result.exitCode !== 0) throw new Error("Cannot read Git HEAD: " + result.output);
   return result.output.trim().split(/\r?\n/)[0];
 }
-export function executeTask(task) {
+export async function executeTask(task, beforeStep = async () => {}) {
   validateTask(task);
   const actual = gitHead();
   if (actual !== task.commit_sha) throw new Error("Commit mismatch: expected " + task.commit_sha + ", got " + actual);
   const started = new Date().toISOString();
   const steps = [];
   for (const [command, args] of TASKS[task.task_type]) {
+    await beforeStep();
     const result = run(command, args, task.timeout_seconds * 1000);
     steps.push({ command, args, ...result });
     if (result.exitCode !== 0) break;
@@ -71,6 +72,22 @@ export function executeTask(task) {
     started_at: started, finished_at: new Date().toISOString(), steps
   };
 }
+function journalPath(workerId) {
+  const safeId = workerId.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return path.join(os.homedir(), ".solo-compute-worker", safeId + ".json");
+}
+function readJournal(file) {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")); }
+  catch (error) { if (error?.code === "ENOENT") return null; throw error; }
+}
+function writeJournal(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temp = file + ".tmp";
+  fs.writeFileSync(temp, JSON.stringify(value, null, 2), { mode: 0o600 });
+  fs.renameSync(temp, file);
+}
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function connect(baseUrl, workerId) {
   const token = process.env.SOLO_COMPUTE_WORKER_TOKEN || process.env.SOLO_CHAT_WORKER_TOKEN || process.env.APP_PASSWORD || "";
   if (token.length < 24) throw new Error("Set SOLO_COMPUTE_WORKER_TOKEN (or SOLO_CHAT_WORKER_TOKEN) to the SOLO.Chat app password/worker secret (24+ chars)");
@@ -78,6 +95,7 @@ async function connect(baseUrl, workerId) {
   const base = new URL(baseUrl);
   if (base.protocol !== "https:" && !["localhost", "127.0.0.1", "::1"].includes(base.hostname)) throw new Error("SOLO.Chat worker connection requires HTTPS");
   const headers = { authorization: "Bearer " + token, "content-type": "application/json" };
+  const journal = journalPath(workerId);
   async function post(route, body) {
     const response = await fetch(new URL(route, base), {
       method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(20000)
@@ -87,29 +105,64 @@ async function connect(baseUrl, workerId) {
     return data;
   }
   process.stdout.write("SOLO Compute worker " + workerId + " connected to " + base.origin + "\n");
+  async function heartbeat() {
+    await post("/api/compute/worker/heartbeat", {
+      worker_id: workerId, platform: process.platform, arch: process.arch, cpu_count: os.cpus().length
+    });
+  }
+  async function waitForNetwork() {
+    while (true) {
+      try { await heartbeat(); return; }
+      catch (error) {
+        process.stderr.write("Сеть недоступна — выполнение приостановлено; ожидание восстановления.\n");
+        await sleep(10000);
+      }
+    }
+  }
+  async function deliverPending() {
+    const saved = readJournal(journal);
+    if (!saved?.result || !saved?.task) return;
+    while (true) {
+      try {
+        await waitForNetwork();
+        await post("/api/compute/worker/" + saved.task.task_id + "/result", { worker_id: workerId, result: saved.result });
+        fs.unlinkSync(journal);
+        process.stdout.write("Результат доставлен после восстановления сети.\n");
+        return;
+      } catch (error) {
+        process.stderr.write("Результат сохранён локально; повторная отправка будет выполнена автоматически.\n");
+        await sleep(10000);
+      }
+    }
+  }
   while (true) {
     try {
-      await post("/api/compute/worker/heartbeat", {
-        worker_id: workerId, platform: process.platform, arch: process.arch, cpu_count: os.cpus().length
-      });
-      const claim = await post("/api/compute/worker/claim", { worker_id: workerId });
-      if (claim.task) {
+      const saved = readJournal(journal);
+      if (saved?.result) { await deliverPending(); continue; }
+      await waitForNetwork();
+      let task = saved?.task || null;
+      if (!task) {
+        const claim = await post("/api/compute/worker/claim", { worker_id: workerId });
+        task = claim.task || null;
+        if (task) writeJournal(journal, { task, result: null, saved_at: new Date().toISOString() });
+      }
+      if (task) {
         let result;
-        try { result = executeTask(claim.task); }
+        try { result = await executeTask(task, waitForNetwork); }
         catch (error) {
           result = {
-            schema_version: 1, task_id: claim.task.task_id, commit_sha: claim.task.commit_sha,
+            schema_version: 1, task_id: task.task_id, commit_sha: task.commit_sha,
             status: "failed", error: String(error?.message || error).slice(0, 1000), steps: []
           };
         }
         for (const step of result.steps || []) step.output = String(step.output || "").slice(0, 3000);
-        await post("/api/compute/worker/" + claim.task.task_id + "/result", { worker_id: workerId, result });
-        process.stdout.write("Task " + claim.task.task_id + ": " + result.status + "\n");
+        writeJournal(journal, { task, result, saved_at: new Date().toISOString() });
+        await deliverPending();
       }
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await sleep(5000);
     } catch (error) {
-      process.stderr.write("SOLO.Chat coordinator unavailable: " + String(error?.message || error) + "\n");
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      process.stderr.write("SOLO.Chat coordinator unavailable; локальное состояние задания сохранено.\n");
+      await sleep(10000);
     }
   }
 }
