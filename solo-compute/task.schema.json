@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solo.chat/schemas/compute-task-v1.json",
+  "title": "SOLO Compute Task v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "task_type", "commit_sha"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "task_id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,80}$" },
+    "task_type": { "enum": ["node-smoke", "cmake-test"] },
+    "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timeout_seconds": { "type": "integer", "minimum": 10, "maximum": 600 }
+  }
+}
