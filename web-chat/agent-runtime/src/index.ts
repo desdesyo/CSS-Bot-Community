@@ -1701,7 +1701,7 @@ LEARNING FROM CORRECTIONS
             return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Уже есть активная задача восстановления. Повторный запуск не создавался." };
           }
           const nextLabels = [...new Set(labels.filter((label: string) => !label.startsWith("status:")).concat("status:queued"))];
-          const queued = await github(this.env, "/repos/" + repository + "/issues/" + issue.number, {
+          await github(this.env, "/repos/" + repository + "/issues/" + issue.number, {
             method: "PATCH", body: JSON.stringify({ labels: nextLabels })
           });
           const refreshed = { issueNumber: issue.number, issueUrl: issue.html_url, createdAt: now };
@@ -1716,7 +1716,7 @@ LEARNING FROM CORRECTIONS
     const jobs = await this.ctx.storage.list<BrowserChatJob>({ prefix: "browser-chat:job:" });
     const allJobs = Array.from(jobs.values());
     const failedJobs = allJobs.filter(job => job.status === "failed")
-      .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12)
+      .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8)
       .map(job => ({ operationId: job.operationId, status: job.status, updatedAt: new Date(job.updatedAt).toISOString(), error: redact(job.error) }));
     const stuckJobs = allJobs.filter(job => ["queued", "running", "finalizing"].includes(job.status) && now - Number(job.updatedAt || job.createdAt) > 4 * 60 * 1000)
       .slice(0, 12).map(job => ({ operationId: job.operationId, status: job.status, ageMs: now - Number(job.updatedAt || job.createdAt) }));
@@ -1726,10 +1726,10 @@ LEARNING FROM CORRECTIONS
       const item = await this.ctx.storage.get<any>("feedback:item:" + id);
       if (item?.status === "queued" && item.rating === "error") {
         feedbackItems.push({ id: item.id, createdAt: new Date(item.createdAt).toISOString(), error: redact(item.note) });
-        if (feedbackItems.length >= 20) break;
+        if (feedbackItems.length >= 10) break;
       }
     }
-    const runtimeErrors = (await this.ctx.storage.get<any[]>("runtime:errors") || []).slice(-30).map(entry => ({
+    const runtimeErrors = (await this.ctx.storage.get<any[]>("runtime:errors") || []).slice(-12).map(entry => ({
       at: new Date(entry.at).toISOString(), source: String(entry.source || "unknown"), message: redact(entry.message)
     }));
     const circuitEntries = await this.ctx.storage.list<number>({ prefix: "provider:circuit:" });
@@ -1740,7 +1740,7 @@ LEARNING FROM CORRECTIONS
     const devices: any[] = [];
     for (const id of deviceIds) {
       const device = await this.ctx.storage.get<any>("computer:device:" + id);
-      if (device) devices.push({ name: String(device.name || "Windows computer"), lastSeen: device.lastSeen ? new Date(device.lastSeen).toISOString() : null, onlineRecently: Boolean(device.lastSeen && now - device.lastSeen < 2 * 60 * 1000) });
+      if (device) devices.push({ lastSeen: device.lastSeen ? new Date(device.lastSeen).toISOString() : null, onlineRecently: Boolean(device.lastSeen && now - device.lastSeen < 2 * 60 * 1000) });
     }
     const toolNames = this.registry.snapshot().tools().map(({ tool }) => tool.name).sort();
     const preferredToolModel = await this.ctx.storage.get<any>("agent:preferred-tool-model");
