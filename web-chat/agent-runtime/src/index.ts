@@ -1745,8 +1745,8 @@ LEARNING FROM CORRECTIONS
           const age = now - Number(active.createdAt || 0);
           const hasActiveStatus = labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review");
           const body = String(issue.body || "");
-          const mainRunStatus = body.match(/^Agent-Run-Status:\\s*([a-z-]+)/m)?.[1] || "";
-          const supervisorRunStatus = body.match(/^Agent-Supervisor-Run-Status:\\s*([a-z-]+)/m)?.[1] || "";
+          const mainRunStatus = body.match(/^Agent-Run-Status:\s*([a-z-]+)/m)?.[1] || "";
+          const supervisorRunStatus = body.match(/^Agent-Supervisor-Run-Status:\s*([a-z-]+)/m)?.[1] || "";
           const issueUpdatedAge = Math.max(0, now - Date.parse(String(issue.updated_at || "")));
           let workflowActive = false;
           if (labels.includes("status:queued")) {
