@@ -322,7 +322,7 @@ async function send(){
   $("chatTitle").textContent=accepted.title||("Диалог №"+thread);
   attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";
   let result=null,lastNetworkError=null;
-  while(Date.now()-started<210000){
+  while(Date.now()-started<540000){
    try{
     result=await api("/api/chat/status?operationId="+encodeURIComponent(operationId));
     lastNetworkError=null;
@@ -339,7 +339,7 @@ async function send(){
   }
   if(!result||result.status!=="done"){
    const detail=lastNetworkError?.message;
-   throw new Error(detail?"Потеряна связь с чатом. Ответ мог продолжить готовиться; откройте диалог повторно.":"Ответ всё ещё готовится. Сообщение сохранено — откройте диалог позже.");
+   throw new Error(detail?"Потеряна связь с чатом. Ответ мог продолжить готовиться; откройте диалог повторно.":"Ответ всё ещё готовится. Сообщение сохранено в истории — откройте диалог позже или запустите /fix для диагностики.");
   }
   thinking.row.remove();addMessage("assistant",result.reply||"",[],{operationId,threadId:thread});
   try{await loadThreads()}catch(_){}
