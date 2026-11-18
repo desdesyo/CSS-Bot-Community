@@ -1760,7 +1760,7 @@ LEARNING FROM CORRECTIONS
               : /429|rate.?limit/i.test(harnessFailure) ? 15 * 60 * 1000 : /503/.test(harnessFailure) ? 3 * 60 * 1000 : 60 * 60 * 1000;
             await this.ctx.storage.put("provider:circuit:" + providerKey, now + duration);
             if (quotaExhausted && providerKey === "workers-ai") {
-              await this.ctx.storage.put("provider:circuit:workers-ai:opened-date", new Date(now).toISOString().slice(0, 10));
+              await this.ctx.storage.put("provider:circuit-meta:workers-ai-opened-date", new Date(now).toISOString().slice(0, 10));
             }
             console.warn("[SOLO.Chat] provider circuit opened", JSON.stringify({ provider: providerKey, cooldownMs: duration, quotaExhausted }));
           }
