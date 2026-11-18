@@ -33,7 +33,7 @@ All `/v1/*` endpoints require `Authorization: Bearer <token>`.
 - `POST /v1/tasks/claim` — claim next queued task. JSON: `{"worker_id":"node-01"}`.
 - `POST /v1/tasks/<task_id>/result` — submit validated result envelope with `worker_id` and `result`.
 
-Leases expire after twelve minutes; failed/expired tasks are retried at most three times. Task types are a hard-coded allowlist. The coordinator does not accept shell commands, scripts, executable paths, or arbitrary URLs.
+Leases expire after thirty-five minutes; failed/expired tasks are retried at most three times. Task types are a hard-coded allowlist. The coordinator does not accept shell commands, scripts, executable paths, or arbitrary URLs.
 
 ## Connect a worker
 
