@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { isInside, validateWriteRequest, validateSmxInstallRequest } from "./file-policy.mjs";
 import { readJournal, writeJournal, removeJournal } from "./task-journal.mjs";
+import { applyFileTransaction } from "./file-transaction.mjs";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -143,49 +144,25 @@ async function applyApprovedTextFile(config, task) {
   if (beforeHash !== "NEW" && beforeHash.toLowerCase() === afterHash.toLowerCase())
     return { ok: true, alreadyApplied: true, path: target, beforeHash, afterHash, status: "already_applied_and_verified" };
   validateWriteRequest({ targetPath: target, contentBytes: data.length, expectedSha256: task.expectedSha256, actualSha256: beforeHash });
-  const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupPath = beforeExists ? resolve(backupRoot, stamp + "-" + randomUUID().slice(0,8) + "-" + target.split(sep).pop() + ".bak") : null;
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Local interactive approval is required; refusing unattended file modification.");
+  const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
   console.log("\nLOCAL FILE CHANGE REQUEST");
   console.log("Target: " + target);
   console.log("Operation: " + (beforeExists ? "replace existing file" : "create new file"));
   console.log("Current SHA-256: " + beforeHash);
   console.log("New SHA-256:     " + afterHash);
-  console.log("Backup will be created and verified at: " + (backupPath || "(not needed; new file)"));
+  console.log("A verified backup will be created before replacement.");
   console.log("Only this file will be changed. No command or script will be executed.");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let answer = "";
   try { answer = await rl.question("Type APPLY to approve this exact change (anything else cancels): "); }
   finally { rl.close(); }
   if (answer.trim() !== "APPLY") return { ok: false, cancelled: true, path: target, beforeHash, afterHash };
-  if (beforeExists) {
-    await mkdir(backupRoot, { recursive: true });
-    await copyFile(target, backupPath);
-    if (sha256(await readFile(backupPath)) !== beforeHash) throw new Error("Backup verification failed; original file was not changed.");
-  }
-  const temp = target + ".solo-" + randomUUID() + ".tmp";
-  try {
-    const handle = await open(temp, "wx");
-    try { await handle.writeFile(data); await handle.sync(); }
-    finally { await handle.close(); }
-    const currentNow = await stat(target).then(async () => sha256(await readFile(target))).catch(e => { if (e?.code === "ENOENT") return "NEW"; throw e; });
-    if (currentNow.toLowerCase() !== beforeHash.toLowerCase()) throw new Error("File changed after approval; refusing to overwrite a newer version.");
-    await rename(temp, target);
-    const verified = sha256(await readFile(target));
-    if (verified !== afterHash) {
-      if (backupPath) await copyFile(backupPath, target);
-      else await unlink(target).catch(() => {});
-      throw new Error("Post-write SHA-256 verification failed; rollback was attempted.");
-    }
-    const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
-    await mkdir(auditRoot, { recursive: true });
-    await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, beforeHash, afterHash, backupPath, status: "verified" }) + "\n", "utf8");
-    return { ok: true, path: target, beforeHash, afterHash, backupPath, status: "written_and_verified" };
-  } catch (error) {
-    await unlink(temp).catch(() => {});
-    throw error;
-  }
+  const transaction = await applyFileTransaction(target, data, { expectedBeforeHash: beforeHash, backupRoot });
+  const auditRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge");
+  await mkdir(auditRoot, { recursive: true });
+  await appendFile(resolve(auditRoot, "write-audit.jsonl"), JSON.stringify({ at: new Date().toISOString(), taskId: task.id, path: target, ...transaction }) + "\n", "utf8");
+  return { ok: true, path: target, ...transaction };
 }
 const allowedGitHubHosts = new Set(["raw.githubusercontent.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
 async function downloadGitHubPackage(sourceUrl) {
