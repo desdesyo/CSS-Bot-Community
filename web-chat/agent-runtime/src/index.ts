@@ -1740,7 +1740,7 @@ LEARNING FROM CORRECTIONS
     if (active?.issueNumber) {
       try {
         const issue = await github(this.env, "/repos/" + repository + "/issues/" + Number(active.issueNumber));
-        const labels = (issue.labels || []).map((label: any) => String(label.name || ""));
+        const labels: string[] = ((issue.labels || []) as any[]).map((label: any) => String(label.name || ""));
         if (issue.state === "open") {
           const age = now - Number(active.createdAt || 0);
           const hasActiveStatus = labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review");
