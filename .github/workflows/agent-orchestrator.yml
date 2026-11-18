@@ -454,7 +454,7 @@ jobs:
           gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body-file team-report.md
           if [[ "$PIPELINE_COMPLETE" == "true" ]]; then
             ISSUE_BODY="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" --jq '.body // ""')"
-            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Run-Status:/d')"
+            ISSUE_BODY="$(printf '%s\n' "$ISSUE_BODY" | sed '/^Agent-Attempts:/d' | sed '/^Agent-Run-Status:/d')"
             ISSUE_BODY="$(printf '%s\n\nAgent-Run-Status: completed\n' "$ISSUE_BODY")"
             gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$ISSUE_BODY" >/dev/null
             gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review
