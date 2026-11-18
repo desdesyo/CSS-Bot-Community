@@ -9,6 +9,7 @@ const DATA = path.resolve(process.env.SOLO_COMPUTE_DATA || path.join(ROOT, 'buil
 const DB = path.join(DATA, 'state.json');
 const TOKEN = process.env.SOLO_COMPUTE_TOKEN || '';
 const PORT = Number(process.env.SOLO_COMPUTE_PORT || 8787);
+const BIND = process.env.SOLO_COMPUTE_BIND || '127.0.0.1';
 const MAX_BODY = 64 * 1024;
 const LEASE_MS = 5 * 60 * 1000;
 const TYPES = new Set(['node-smoke', 'cmake-test']);
