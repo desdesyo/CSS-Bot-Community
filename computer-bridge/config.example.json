@@ -3,5 +3,6 @@
   "deviceToken": "",
   "gameRoot": "",
   "allowedRoots": [],
-  "safeMode": true
+  "safeMode": true,
+  "gameInspectionRoot": ""
 }
