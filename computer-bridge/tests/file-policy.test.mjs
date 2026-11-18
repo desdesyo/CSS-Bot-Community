@@ -120,3 +120,24 @@ test("GAME namespace accepts root and Windows-style relative separators", () => 
   assert.equal(validateGameInspectionInput("GAME:\\cstrike\\gameinfo.txt"), true);
   assert.equal(validateGameInspectionInput("d:\\Games\\CSS\\cstrike\\gameinfo.txt"), true);
 });
+
+
+test("rejects malformed GAME namespace and ambiguous Windows path segments", () => {
+  for (const value of [
+    "GAME:cstrike\\\\cfg\\\\server.cfg",
+    "GAME://cstrike/cfg/server.cfg",
+    "GAME:/cstrike//cfg/server.cfg",
+    "GAME:/cstrike/cfg/server.cfg.",
+    "GAME:/cstrike/cfg/server.cfg ",
+    "GAME:/cstrike/con.txt",
+    "GAME:/cstrike/cfg/a|b.cfg",
+    "GAME:/cstrike/cfg/a?b.cfg",
+    "GAME:/cstrike/cfg/a*b.cfg"
+  ]) assert.throws(() => validateGameInspectionInput(value), value);
+});
+
+test("keeps the explicit game root and normal Windows absolute paths valid", () => {
+  assert.equal(validateGameInspectionInput("GAME:/"), true);
+  assert.equal(validateGameInspectionInput("GAME:\\\\cstrike\\\\gameinfo.txt"), true);
+  assert.equal(validateGameInspectionInput("C:\\\\Games\\\\Counter-Strike Source v34\\\\cstrike\\\\gameinfo.txt"), true);
+});
