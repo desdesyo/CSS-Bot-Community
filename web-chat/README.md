@@ -192,3 +192,16 @@ The bridge is a community extension, not an OpenAI feature. It requires a deskto
 Image generation defaults to Cloudflare Workers AI FLUX.1 Schnell only. The runtime records provider failures in Durable Object storage and opens a circuit after quota/rate-limit failures; Cloudflare quota failures remain bypassed until shortly after the next UTC daily reset. Temporary provider errors use a short cooldown. Generated payloads are still checked against JPEG/PNG/WebP signatures before being stored.
 
 A paid image fallback is deliberately **off by default**. To opt in, configure the repository Actions secret `CSSBC_IMAGE_PROVIDER_ORDER` as `cloudflare,openai` (and ensure `CSSBC_OPENAI_API_KEY` is configured). This enables the OpenAI Images API as a second provider only after Cloudflare fails or is circuit-open. OpenAI image requests may incur charges; the runtime never enables this fallback merely because an OpenAI text key exists. Set the secret to `cloudflare` or leave it unset to remain free-tier-only. The optional Worker secret `IMAGE_OPENAI_MODEL` can override the default image model.
+
+
+## Автоматическое восстановление через команду `/fix`
+
+В интерфейсе SOLO.Chat команда `/fix` запускает отдельный серверный сценарий восстановления, а не обычный ответ языковой модели.
+
+1. Worker собирает технические ошибки из ограниченного журнала runtime, неудачные и зависшие задания чата, необработанные сообщения об ошибках, состояние circuit breaker, список зарегистрированных инструментов, доступность провайдеров и состояние подключённого компьютера.
+2. Диагностический отчёт сохраняется в Durable Object. В GitHub Issue передаются только технические сведения и идентификаторы операций; текст переписки, пользовательские сообщения, вложения и секреты не публикуются.
+3. Worker создаёт задачу с метками `agent-task`, `agent-generated`, `agent-chat-runtime`, `status:queued`. Событие GitHub Issues запускает существующий `agent-orchestrator.yml`: planner, implementer и независимый tester; затем отдельный supervisor проверяет доказательства.
+4. Команда повторно использует активную задачу, чтобы не создавать дубликаты. Задача старше 70 минут может быть возвращена в очередь, если остаётся открытой.
+5. Восстановление считается успешным только после проверки фактического выполнения инструментов, CI и live smoke/deployment на одном SHA. Если у Worker `GITHUB_TOKEN` нет права Issues: write, отчёт остаётся в Durable Object, а чат показывает точный блокер.
+
+Ошибки запросов, сбоев Pi provider и неудачных фоновых заданий автоматически добавляются в ограниченный журнал последних 100 событий. Команда `/fix` собирает этот журнал и очередь ошибок.
