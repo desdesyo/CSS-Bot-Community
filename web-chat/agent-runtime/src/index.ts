@@ -1743,16 +1743,40 @@ LEARNING FROM CORRECTIONS
         const labels = (issue.labels || []).map((label: any) => String(label.name || ""));
         if (issue.state === "open") {
           const age = now - Number(active.createdAt || 0);
-          if (age < 70 * 60 * 1000 && (labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review"))) {
-            return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Уже есть активная задача восстановления. Повторный запуск не создавался." };
+          const hasActiveStatus = labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review");
+          let workflowActive: boolean | null = null;
+          if (hasActiveStatus) {
+            try {
+              const [orchestrator, supervisor] = await Promise.all([
+                github(this.env, "/repos/" + repository + "/actions/workflows/agent-orchestrator.yml/runs?branch=main&per_page=10"),
+                github(this.env, "/repos/" + repository + "/actions/workflows/agent-supervisor.yml/runs?branch=main&per_page=10")
+              ]);
+              const runs = [...(orchestrator.workflow_runs || []), ...(supervisor.workflow_runs || [])];
+              workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
+            } catch (workflowError) {
+              workflowActive = null;
+              await this.recordRuntimeError("fix-workflow-status-check", workflowError);
+            }
+          }
+          // A label is not proof that a workflow is actually running. Requeue an
+          // apparently active issue when Actions has no live orchestrator/supervisor
+          // run; this is the case that previously left /fix tasks stranded.
+          if (age < 70 * 60 * 1000 && hasActiveStatus && workflowActive !== false) {
+            return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "Задача восстановления уже находится в очереди или выполняется." };
           }
           const nextLabels = [...new Set(labels.filter((label: string) => !label.startsWith("status:")).concat("status:queued"))];
+          const withoutQueue = nextLabels.filter((label: string) => label !== "status:queued");
+          if (labels.includes("status:queued") && workflowActive === false) {
+            await github(this.env, "/repos/" + repository + "/issues/" + issue.number, {
+              method: "PATCH", body: JSON.stringify({ labels: withoutQueue })
+            });
+          }
           await github(this.env, "/repos/" + repository + "/issues/" + issue.number, {
             method: "PATCH", body: JSON.stringify({ labels: nextLabels })
           });
           const refreshed = { issueNumber: issue.number, issueUrl: issue.html_url, createdAt: now };
           await this.ctx.storage.put("fix:active", refreshed);
-          return { ok: true, requeued: true, issueNumber: issue.number, issueUrl: issue.html_url, message: "Зависшая задача восстановления повторно поставлена в очередь." };
+          return { ok: true, requeued: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "Задача восстановления возвращена в очередь; активный запуск Actions не обнаружен." };
         }
       } catch (error) {
         await this.recordRuntimeError("fix-active-issue-check", error);
