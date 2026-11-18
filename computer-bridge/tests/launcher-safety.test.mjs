@@ -14,7 +14,7 @@ test("Windows launcher never expands the pairing code into a shell command", asy
 
 test("agent validates pairing code as exactly six digits", async () => {
   const agent = await readFile(new URL("agent.mjs", root), "utf8");
-  assert.match(agent, /\^\\d\{6\}\$/);
+  assert.match(agent, /\\^\\[0-9\\]\\{6\\}\\$/);
   assert.match(agent, /process\.env\.SOLO_PAIR_CODE/);
 });
 
