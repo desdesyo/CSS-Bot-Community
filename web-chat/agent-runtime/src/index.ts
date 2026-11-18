@@ -1744,29 +1744,18 @@ LEARNING FROM CORRECTIONS
         if (issue.state === "open") {
           const age = now - Number(active.createdAt || 0);
           const hasActiveStatus = labels.includes("status:queued") || labels.includes("status:in-progress") || labels.includes("status:review");
-          let workflowActive: boolean | null = null;
-          if (hasActiveStatus) {
-            try {
-              const body = String(issue.body || "");
-              const exactRunIds = [
-                body.match(/^Agent-Run-ID:\s*(\d+)/m)?.[1],
-                body.match(/^Agent-Supervisor-Run-ID:\s*(\d+)/m)?.[1]
-              ].filter(Boolean) as string[];
-              if (exactRunIds.length) {
-                const runs = await Promise.all(exactRunIds.map(id => github(this.env, "/repos/" + repository + "/actions/runs/" + id)));
-                workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
-              } else {
-                const [orchestrator, supervisor] = await Promise.all([
-                  github(this.env, "/repos/" + repository + "/actions/workflows/agent-orchestrator.yml/runs?branch=main&per_page=10"),
-                  github(this.env, "/repos/" + repository + "/actions/workflows/agent-supervisor.yml/runs?branch=main&per_page=10")
-                ]);
-                const runs = [...(orchestrator.workflow_runs || []), ...(supervisor.workflow_runs || [])];
-                workflowActive = runs.some((run: any) => ["queued", "in_progress", "waiting", "pending"].includes(String(run.status || "")));
-              }
-            } catch (workflowError) {
-              workflowActive = null;
-              await this.recordRuntimeError("fix-workflow-status-check", workflowError);
-            }
+          const body = String(issue.body || "");
+          const mainRunStatus = body.match(/^Agent-Run-Status:\\s*([a-z-]+)/m)?.[1] || "";
+          const supervisorRunStatus = body.match(/^Agent-Supervisor-Run-Status:\\s*([a-z-]+)/m)?.[1] || "";
+          const issueUpdatedAge = Math.max(0, now - Date.parse(String(issue.updated_at || "")));
+          let workflowActive = false;
+          if (labels.includes("status:queued")) {
+            workflowActive = issueUpdatedAge < 10 * 60 * 1000;
+          } else if (labels.includes("status:in-progress")) {
+            workflowActive = mainRunStatus === "running" && issueUpdatedAge < 110 * 60 * 1000;
+          } else if (labels.includes("status:review")) {
+            workflowActive = supervisorRunStatus === "running" && issueUpdatedAge < 60 * 60 * 1000;
+            if (!supervisorRunStatus && mainRunStatus === "completed" && issueUpdatedAge < 15 * 60 * 1000) workflowActive = true;
           }
           // A label is not proof that a workflow is actually running. Requeue an
           // apparently active issue when Actions has no live orchestrator/supervisor
