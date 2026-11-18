@@ -240,9 +240,12 @@ jobs:
           fi
           echo "Browser chat queue and persisted history passed; model and tool diagnostics are reported above."
           
-      - name: Automatic rollback if the core health/version check fails
+      - name: Automatic rollback only if deployed Worker health/version verification fails
         id: rollback
-        if: failure() && steps.model_smoke.outcome == 'failure'
+        # A chat inference failure caused by exhausted/missing provider quota is not
+        # a code-version regression; rolling back cannot restore external capacity.
+        if: failure() && steps.smoke.outcome == 'failure'
+        working-directory: web-chat
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
