@@ -65,7 +65,7 @@ jobs:
           if (-not (Test-Path $reportPath)) { throw "Toolchain doctor did not create its report." }
           $report = Get-Content $reportPath -Raw | ConvertFrom-Json
           foreach ($name in @("sourcePawnCompiler", "blender", "ffmpeg", "cmake", "dotnet", "git")) {
-            if ($null -eq $report.tools.$name) { throw "Toolchain report is missing key: $name" }
+            if ($report.tools.PSObject.Properties.Name -notcontains $name) { throw "Toolchain report is missing key: $name" }
           }
           if ($report.mode -ne "doctor") { throw "Unexpected toolchain report mode." }
           Write-Host "SOLO Mod Workshop smoke tests passed."
