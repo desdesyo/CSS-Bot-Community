@@ -1,11 +1,10 @@
 # SOLO.Chat API and tool map
 
-> Generated from the current Worker runtime and browser source. Do not edit by hand; run `npm run api:map` from `web-chat/`. CI checks that this snapshot matches source.
+> Generated from current Worker and browser source. Run npm run api:map from web-chat/. CI checks this snapshot.
 
 ## Worker route matchers
 
 ### Exact paths
-
 - `/api/agent/chat`
 - `/api/agent/client-error`
 - `/api/agent/computer/pair`
@@ -39,7 +38,6 @@
 - `/mcp`
 
 ### Prefix paths
-
 - `/api/agent/…`
 - `/api/files/…`
 
