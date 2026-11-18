@@ -206,6 +206,11 @@ checks.push(
  ["The /fix command deduplicates active repair tasks and requeues stale issues instead of flooding the queue", fixRuntime.includes('fix:active') && fixRuntime.includes('age < 70 * 60 * 1000') && fixRuntime.includes('status:queued')],
  ["The chat composer documents the /fix recovery command", html.includes('/fix') && html.includes('собрать ошибки и запустить восстановление')]
 );
+checks.push(
+ ["Uncaught browser errors and unhandled promise rejections are automatically sent to the authenticated diagnostic collector", html.includes('window.addEventListener("error"') && html.includes('window.addEventListener("unhandledrejection"') && html.includes('/api/agent/client-error')],
+ ["Browser error collection is rate-limited and stores only bounded technical diagnostics", runtime.includes('url.pathname === "/api/agent/client-error"') && runtime.includes('browser-ui:last-error') && runtime.includes('now - last < 750') && runtime.includes('slice(0, 700)') && runtime.includes('slice(0, 1200)')],
+ ["The /fix issue reports browser errors without publishing chat messages or attachment contents", fixRuntime.includes('recentRuntimeErrors') && !fixRuntime.includes('thread.messages') && !fixRuntime.includes('prepareAttachments')]
+);
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
 console.log(`\nTester result: ${checks.length-failed}/${checks.length} checks passed`);
