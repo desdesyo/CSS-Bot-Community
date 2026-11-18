@@ -6,7 +6,11 @@ on:
     branches:
       - github-chat-prototype
     paths:
-      - "web-chat/**"
+      - "web-chat/agent-runtime/**"
+      - "web-chat/public/**"
+      - "web-chat/worker.js"
+      - "web-chat/wrangler.toml"
+      - "web-chat/package.json"
       - ".github/workflows/deploy-github-chat.yml"
 
 permissions:
