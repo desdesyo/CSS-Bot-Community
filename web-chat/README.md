@@ -104,6 +104,12 @@ Additional Worker bindings and variables:
 
 The local bridge requires Node.js 20+ on the computer and a deployed HTTPS chat URL. Pairing code expires in five minutes and is single-use. The device token is stored only in local `computer-bridge/config.json`; that file is ignored by Git. To use local editing, add each existing source/game directory to `allowedRoots` in the local config; do not grant the entire drive.
 
+## SOLO Distributed Compute workers
+
+The live Durable Object now hosts the authenticated SOLO Compute task queue used by the **SOLO Compute** panel and the agent tools `compute_submit_task` / `compute_task_status`. Volunteer workers connect to the deployed Worker over HTTPS using [COMPUTE_WORKERS.md](COMPUTE_WORKERS.md). The worker executes only the fixed `node-smoke` and `cmake-test` task sets and requires an exact commit match. This is a trusted-node prototype, not a public sandboxed compute marketplace.
+
+An optional dedicated Worker secret `CSSBC_SOLO_COMPUTE_WORKER_TOKEN` is synced to `SOLO_COMPUTE_WORKER_TOKEN` during deploy. If it is absent, workers authenticate using the existing SOLO.Chat application password. Never place either credential in browser code or Git.
+
 ## Deploy
 
 Conversation history is stored in the authenticated Cloudflare Durable Object SQLite storage; the Worker does **not** store chat messages in GitHub Issues and does not require a separate history repository. The GitHub token is used for the agent's source-workspace tools and must be scoped to `desdesyo/CSS-Bot-Community` with the required Contents read/write permission (and Issues permissions if you enable issue-based task orchestration).
