@@ -80,9 +80,9 @@ export function validateGameInspectionInput(input) {
   if ((isGameNamespace && relativePart && (relativePart.startsWith("/") || parts.some(part => !part))) ||
       (relativePart && parts.some(part => part.endsWith(".") || part.endsWith(" "))))
     throw new Error("Ambiguous or non-canonical Windows path segments are not allowed");
-  if (parts.some(part => /[<>:"|?*\\x00-\\x1f]/.test(part)))
+  if (parts.some(part => /[<>:"|?*\x00-\x1f]/.test(part)))
     throw new Error("Invalid Windows path characters and alternate data streams are not allowed");
-  if (parts.some(part => /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\.|$)/i.test(part)))
+  if (parts.some(part => /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))
     throw new Error("Reserved Windows device names are not valid game paths");
   return true;
 }
