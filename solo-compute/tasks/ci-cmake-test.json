@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "task_id": "ci-cmake-test",
+  "task_type": "cmake-test",
+  "commit_sha": "0000000000000000000000000000000000000000",
+  "timeout_seconds": 600
+}
