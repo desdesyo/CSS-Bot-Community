@@ -217,7 +217,7 @@ async function applyApprovedSmx(config, task) {
     throw new Error("Downloaded plugin SHA-256 does not match the package manifest. No file was changed.");
   const afterHash = packageHash;
   const backupRoot = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "Backups");
-  console.log("\\nSOURCE MOD PLUGIN INSTALL REQUEST");
+  console.log("\nSOURCE MOD PLUGIN INSTALL REQUEST");
   console.log("Target: " + target);
   console.log("Source host: " + new URL(downloaded.finalUrl).hostname);
   console.log("Current SHA-256: " + beforeHash);
@@ -242,7 +242,7 @@ async function applyApprovedSmx(config, task) {
     at: new Date().toISOString(), taskId: task.id, path: target,
     sourceHost: new URL(downloaded.finalUrl).hostname,
     status: "verified_smx_installed", ...transaction
-  }) + "\\n", "utf8");
+  }) + "\n", "utf8");
   return { ok: true, path: target, ...transaction, status: "smx_installed_and_verified" };
 }
 async function runTask(config, task) {
