@@ -22,6 +22,17 @@ node .\solo-compute\coordinator.mjs
 
 The service binds to `127.0.0.1` by default and stores state in `build/solo-compute-coordinator/state.json`. Set `SOLO_COMPUTE_PORT` or `SOLO_COMPUTE_DATA` to change these. It intentionally binds only to loopback in this first version; do not expose it to the public internet.
 
+## Submit tasks and inspect the queue
+
+Set the same token and run from the repository checkout:
+
+```powershell
+node .\\solo-compute\\client.mjs status http://127.0.0.1:8787
+node .\\solo-compute\\client.mjs submit http://127.0.0.1:8787 node-smoke <40-character-commit-sha>
+```
+
+Use `cmake-test` instead of `node-smoke` for the C++ build/test job. The worker checkout must be at exactly the submitted commit.
+
 ## API
 
 All `/v1/*` endpoints require `Authorization: Bearer <token>`.
