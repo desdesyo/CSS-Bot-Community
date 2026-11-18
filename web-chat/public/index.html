@@ -159,6 +159,7 @@ button:hover{border-color:rgba(109,231,215,.55)}
 <script>
 const $=id=>document.getElementById(id);let token="",thread=Number(localStorage.getItem("ghchat_thread"))||null,busy=false,activeOperationId=null,attachedFiles=[],webSearchEnabled=false,deployedVersion="",pendingVersion="",localOnly=localStorage.getItem("solo_local_mode")==="1",localHistory=[];
 async function api(path,opts={}){const headers={...opts.headers};if(token)headers["Authorization"]="Bearer "+token;if(!(opts.body instanceof FormData))headers["Content-Type"]="application/json";const r=await fetch(path,{...opts,headers,credentials:"same-origin",cache:"no-store"});const data=await r.json().catch(()=>({error:"Invalid server response"}));if(!r.ok)throw Error(data.error||("HTTP "+r.status));return data}
+async function apiWithNetworkRetry(path,opts={},attempts=3){let lastError;for(let attempt=0;attempt<attempts;attempt++){try{return await api(path,opts)}catch(error){lastError=error;const message=String(error?.message||error);if(!/Failed to fetch|NetworkError|Load failed|network request failed/i.test(message)||attempt===attempts-1)throw error;setStatus("Связь с сервером потеряна — повторяю отправку ("+(attempt+2)+"/"+attempts+")");await new Promise(resolve=>setTimeout(resolve,700*Math.pow(2,attempt)))}}throw lastError||Error("Не удалось связаться с сервером")}
 let lastClientErrorAt=0;
 async function reportClientError(source,message,stack=""){
  if(!token||Date.now()-lastClientErrorAt<1500)return;
@@ -373,15 +374,15 @@ async function send(){
  const started=Date.now();
  let operationThread=thread;
  try{
-  const accepted=await api("/api/chat",{method:"POST",body:JSON.stringify({thread:operationThread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled,operationId})});
+  const accepted=await apiWithNetworkRetry("/api/chat",{method:"POST",body:JSON.stringify({thread:operationThread,message,files:attachedFiles.map(f=>f.id),webSearch:webSearchEnabled,operationId}),headers:{"X-SOLO-Operation":operationId},},3);
   thread=accepted.thread;operationThread=accepted.thread;localStorage.setItem("ghchat_thread",String(thread));
   $("chatTitle").textContent=accepted.title||("Диалог №"+thread);
   attachedFiles=[];renderAttachments();$("toolFeedback").textContent="";
-  let result=null,lastNetworkError=null;
+  let result=null,lastNetworkError=null,networkFailureSince=0;
   while(Date.now()-started<540000){
    try{
     result=await api("/api/chat/status?operationId="+encodeURIComponent(operationId));
-    lastNetworkError=null;
+    lastNetworkError=null;networkFailureSince=0;
     const seconds=Math.floor((Date.now()-started)/1000);
     if(result.status==="done")break;
     if(result.status==="failed"){
@@ -397,7 +398,8 @@ async function send(){
     thinking.update(seconds,result.status==="queued"?"Запрос в очереди":"Думаю над ответом");
    }catch(e){
     if(e.message==="Unauthorized"||e.message==="Operation not found"||result?.status==="failed")throw e;
-    lastNetworkError=e;
+    lastNetworkError=e;if(!networkFailureSince)networkFailureSince=Date.now();
+    if(Date.now()-networkFailureSince>=30000)throw new Error("Нет связи с сервером SOLO.Chat более 30 секунд. Запрос не отправляется повторно; обновите соединение и откройте этот диалог — результат мог сохраниться.");
     thinking.update(Math.floor((Date.now()-started)/1000),"Связь восстанавливается…");
    }
    await new Promise(resolve=>setTimeout(resolve,1200));
