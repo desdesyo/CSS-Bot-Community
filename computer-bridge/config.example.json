@@ -1,8 +1,9 @@
 {
   "serverUrl": "https://cssbc-github-chat.descapan.workers.dev",
   "deviceToken": "",
-  "gameRoot": "C:\\Games\\Counter-Strike Source v34",
+  "gameRoot": "",
   "allowedRoots": [
-    "C:\\Games\\Counter-Strike Source v34"
-  ]
+    "%USERPROFILE%\\Documents\\SOLO-Chat"
+  ],
+  "safeMode": true
 }
