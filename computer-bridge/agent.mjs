@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const configPath = resolve(here, "config.json");
+const journalPath = resolve(process.env.LOCALAPPDATA || resolve(os.homedir(), "AppData", "Local"), "LocalCssBridge", "task-journal.json");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function loadConfig() {
   return JSON.parse(await readFile(configPath, "utf8"));
@@ -22,7 +23,8 @@ async function api(config, path, body, token = config.deviceToken) {
   const response = await fetch(apiUrl(config, path), {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000)
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Bridge request failed: " + response.status);
@@ -277,22 +279,61 @@ async function runTask(config, task) {
   }
   throw new Error("Unsupported task action");
 }
+async function loadJournal() {
+  try {
+    const value = JSON.parse(await readFile(journalPath, "utf8"));
+    if (!value || typeof value !== "object" || !value.task || typeof value.task.id !== "string")
+      throw new Error("Local task journal is invalid; refusing to poll for new work.");
+    return value;
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+async function saveJournal(value) {
+  await mkdir(dirname(journalPath), { recursive: true });
+  const temporary = journalPath + "." + randomUUID() + ".tmp";
+  const handle = await open(temporary, "wx", 0o600);
+  try { await handle.writeFile(JSON.stringify(value), "utf8"); await handle.sync(); }
+  finally { await handle.close(); }
+  await rename(temporary, journalPath);
+}
+async function clearJournal() {
+  await unlink(journalPath).catch(error => { if (error?.code !== "ENOENT") throw error; });
+}
+async function deliverJournal(config) {
+  const journal = await loadJournal();
+  if (!journal) return true;
+  if (!journal.result) {
+    let result;
+    try { result = await runTask(config, journal.task); }
+    catch (error) { result = { ok: false, error: String(error?.message || error).slice(0, 500) }; }
+    journal.result = result;
+    journal.completedAt = new Date().toISOString();
+    await saveJournal(journal);
+  }
+  await api(config, "/api/agent/computer/result", { taskId: journal.task.id, result: journal.result });
+  console.log(new Date().toISOString(), journal.task.action, journal.task.id, journal.result.ok ? "done" : "error");
+  await clearJournal();
+  return true;
+}
 async function main() {
   const config = await loadConfig();
   if (!config.deviceToken) throw new Error("Device is not paired. Follow computer-bridge/README.md");
-  console.log("Computer bridge connected. Read operations are automatic; file writes require exact local APPLY approval. No shell execution. Press Ctrl+C to stop.");
+  await mkdir(dirname(journalPath), { recursive: true });
+  console.log("Computer bridge connected. Results are journaled locally and retried after reconnect; file writes require exact local APPLY approval. No shell execution. Press Ctrl+C to stop.");
   while (true) {
     try {
+      // Never claim a second task while a prior result is waiting for server acknowledgement.
+      if (!(await deliverJournal(config))) { await sleep(2500); continue; }
       const { task } = await api(config, "/api/agent/computer/poll", {});
       if (task) {
-        let result;
-        try { result = await runTask(config, task); }
-        catch (error) { result = { ok: false, error: error.message }; }
-        await api(config, "/api/agent/computer/result", { taskId: task.id, result });
-        console.log(new Date().toISOString(), task.action, task.id, result.ok ? "done" : "error");
+        // Persist the claim before doing any local work. A restart can recover this task.
+        await saveJournal({ task, claimedAt: new Date().toISOString(), result: null });
+        await deliverJournal(config);
       }
     } catch (error) {
-      console.error("Bridge connection:", error.message);
+      console.error("Bridge paused; task/result retained locally when already claimed:", error.message);
     }
     await sleep(2500);
   }
