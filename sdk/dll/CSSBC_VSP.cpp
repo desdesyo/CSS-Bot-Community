@@ -1,3 +1,6 @@
+// AGENT SAFETY NOTE: this VSP owns plugin lifecycle/logging only. It is not the
+// cstrike GameDLL and cannot initialize CCS player objects. Do not add guessed
+// fake-client/bot spawning here; use the versioned GameDLL provider contract.
 #include "tier1/interface.h"
 #include "eiface.h"
 #include <windows.h>
