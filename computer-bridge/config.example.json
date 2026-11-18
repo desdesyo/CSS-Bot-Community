@@ -3,6 +3,8 @@
   "deviceToken": "",
   "gameRoot": "C:\\Games\\Counter-Strike Source v34",
   "allowedRoots": [
-    "C:\\Games\\Counter-Strike Source v34"
-  ]
+    "C:\\Games\\Counter-Strike Source v34",
+    "C:\\SOLO\\CSS-v34-Mod"
+  ],
+  "projectRoot": "C:\\SOLO\\CSS-v34-Mod"
 }
