@@ -10,7 +10,7 @@ const MAX_LOG = 256 * 1024;
 const DEFAULT_TIMEOUT = 300;
 const TASKS = {
   'node-smoke': [
-    [process.execPath, ['--test', 'computer-bridge/tests/file-policy.test.mjs', 'solo-code-lab/lab.test.mjs', 'solo-compute/worker.test.mjs']]
+    [process.execPath, ['--test', 'computer-bridge/tests/file-policy.test.mjs', 'solo-code-lab/lab.test.mjs', 'solo-compute/worker.test.mjs', 'solo-compute/coordinator.test.mjs']]
   ],
   'cmake-test': [
     ['cmake', ['-S', '.', '-B', 'build/solo-compute']],
