@@ -1,3 +1,7 @@
+// AGENT SAFETY NOTE: this is a SourceMod compatibility layer, separate from the
+// native GameDLL and portable C++ core. Keep command/property access validated.
+// Tier-3 support currently announces an order only; it does not spawn NPCs.
+// Juggernaut currently changes health/status only; it is not six armor hit zones.
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
