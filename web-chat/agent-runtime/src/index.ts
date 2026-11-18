@@ -1571,6 +1571,12 @@ LEARNING FROM CORRECTIONS
       const models = this.groq.getModels();
       add(models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || models[0]);
     }
+    // Every agent role runs in its own Durable Object. Do not rely on the
+    // shared user-chat model-check having populated that object's preferred
+    // provider: keep Workers AI as the final native Pi/tool-capable fallback.
+    if (!(await circuitOpen("workers-ai"))) {
+      add(this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash"));
+    }
     return candidates;
   }
 
@@ -1645,7 +1651,7 @@ LEARNING FROM CORRECTIONS
       console.error("[SOLO.Chat] agent harness failed; trying independent provider chain", JSON.stringify({ operationId, sessionId: sessionId || null, error: harnessFailure }));
     }
     if (agentRole !== "user") {
-      throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; требуется восстановить Pi agent harness.");
+      throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; причина отказа Pi harness: " + (harnessFailure || "неизвестная ошибка провайдера"));
     }
     const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + effectivePrompt;
     try {
@@ -2577,7 +2583,10 @@ LEARNING FROM CORRECTIONS
     } catch (error) {
       const message = error instanceof Error ? error.message : "Request failed";
       console.error("[SOLO.Chat] API request failed", JSON.stringify({ path: url.pathname, method: req.method, error: message }));
-      return json({ error: message === "Unauthorized" ? "Unauthorized" : message }, message === "Unauthorized" ? 401 : 400);
+      const status = message === "Unauthorized" ? 401
+        : /Pi harness|tool-capable Pi providers|Gemini|OpenRouter|OpenAI|Groq|Workers AI|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(message) ? 502
+        : 400;
+      return json({ error: message === "Unauthorized" ? "Unauthorized" : message }, status);
     }
   }
 }
