@@ -131,7 +131,7 @@ jobs:
         env:
           CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
-          RUN_AGENT_SMOKE: ${{ github.event_name == 'workflow_dispatch' }}
+          RUN_AGENT_SMOKE: ${{ vars.SOLO_EXTENDED_AGENT_SMOKE == 'true' }}
         run: |
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
