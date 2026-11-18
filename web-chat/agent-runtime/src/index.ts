@@ -35,6 +35,7 @@ interface Env {
   GROQ_MODEL?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
+  SOLO_COMPUTE_WORKER_TOKEN?: string;
   IMAGE_PROVIDER_ORDER?: string;
   IMAGE_OPENAI_MODEL?: string;
   CF_VERSION_METADATA?: { id: string; tag?: string; timestamp?: string };
@@ -2262,6 +2263,138 @@ LEARNING FROM CORRECTIONS
       if (url.pathname === "/api/health" && req.method === "GET") {
         await this.requirePassword(req);
         return json({ ok: true, service: "SOLO.Chat", checkedAt: new Date().toISOString() });
+      }
+      // SOLO Distributed Compute: the Durable Object is the live coordinator.
+      // Browser/agent calls use the existing SOLO.Chat session; worker calls use a
+      // dedicated secret (falling back to APP_PASSWORD for first-run compatibility).
+      if (url.pathname.startsWith("/api/compute/worker/")) {
+        const supplied = (req.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+        const expected = this.env.SOLO_COMPUTE_WORKER_TOKEN || this.env.APP_PASSWORD || "";
+        if (!expected || !safeEqual(supplied, expected)) return json({ error: "Unauthorized" }, 401);
+        if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+        const raw = await req.text();
+        if (raw.length > 65536) return json({ error: "Request body too large" }, 413);
+        const input = raw ? JSON.parse(raw) : {};
+        if (url.pathname === "/api/compute/worker/heartbeat") {
+          const workerId = String(input.worker_id || "");
+          if (!/^[a-zA-Z0-9._-]{1,80}$/.test(workerId)) return json({ error: "Invalid worker_id" }, 400);
+          const worker = {
+            worker_id: workerId, platform: String(input.platform || "unknown").slice(0, 40),
+            arch: String(input.arch || "unknown").slice(0, 40),
+            cpu_count: Math.max(1, Math.min(1024, Number(input.cpu_count) || 1)),
+            last_seen: Date.now()
+          };
+          await this.ctx.storage.put("compute:worker:" + workerId, worker);
+          return json({ ok: true, worker });
+        }
+        if (url.pathname === "/api/compute/worker/claim") {
+          const workerId = String(input.worker_id || "");
+          if (!/^[a-zA-Z0-9._-]{1,80}$/.test(workerId)) return json({ error: "Invalid worker_id" }, 400);
+          const claimed = await this.ctx.blockConcurrencyWhile(async () => {
+            const worker = await this.ctx.storage.get<any>("compute:worker:" + workerId);
+            if (!worker || Date.now() - worker.last_seen > 90000) return { error: "Worker heartbeat required" };
+            const entries = await this.ctx.storage.list<any>({ prefix: "compute:task:" });
+            const now = Date.now();
+            for (const [key, task] of entries) {
+              if (task.status === "leased" && Number(task.lease_until) <= now) {
+                task.status = Number(task.attempts || 0) < 3 ? "queued" : "failed";
+                task.worker_id = null; task.lease_until = null; task.last_error = "worker lease expired";
+                await this.ctx.storage.put(key, task);
+              }
+            }
+            const fresh = await this.ctx.storage.list<any>({ prefix: "compute:task:" });
+            const task = [...fresh.values()].find((item: any) => item.status === "queued");
+            if (!task) return { task: null };
+            task.status = "leased"; task.worker_id = workerId;
+            task.attempts = Number(task.attempts || 0) + 1;
+            task.lease_until = now + 35 * 60 * 1000;
+            task.updated_at = new Date(now).toISOString();
+            await this.ctx.storage.put("compute:task:" + task.task_id, task);
+            return { task: {
+              schema_version: 1, task_id: task.task_id, task_type: task.task_type,
+              commit_sha: task.commit_sha, timeout_seconds: task.timeout_seconds
+            } };
+          });
+          if (claimed.error) return json({ error: claimed.error }, 409);
+          return json(claimed);
+        }
+        const resultMatch = url.pathname.match(/^\\/api\\/compute\\/worker\\/([a-f0-9-]{36})\\/result$/);
+        if (resultMatch) {
+          const result = input.result;
+          if (!result || !["passed", "failed"].includes(result.status) || result.task_id !== resultMatch[1] || typeof result.commit_sha !== "string") {
+            return json({ error: "Invalid result envelope" }, 400);
+          }
+          if (JSON.stringify(result).length > 32768) return json({ error: "Result exceeds 32 KB" }, 413);
+          const outcome = await this.ctx.blockConcurrencyWhile(async () => {
+            const key = "compute:task:" + resultMatch[1];
+            const task = await this.ctx.storage.get<any>(key);
+            if (!task) return { error: "Task not found", status: 404 };
+            if (task.status !== "leased" || task.worker_id !== String(input.worker_id || "")) return { error: "Task lease does not belong to this worker", status: 409 };
+            if (task.commit_sha !== result.commit_sha) return { error: "Result commit does not match task", status: 400 };
+            task.result = result;
+            task.status = result.status === "passed" ? "completed" : (task.attempts < 3 ? "queued" : "failed");
+            task.worker_id = null; task.lease_until = null;
+            task.last_error = task.status === "queued" ? "worker reported failed result; retry queued" : null;
+            task.updated_at = new Date().toISOString();
+            await this.ctx.storage.put(key, task);
+            return { ok: true, status: task.status };
+          });
+          if (outcome.error) return json({ error: outcome.error }, outcome.status);
+          return json(outcome);
+        }
+        return json({ error: "Not found" }, 404);
+      }
+      if (url.pathname === "/api/compute/status" && req.method === "GET") {
+        await this.requirePassword(req);
+        const [tasks, workers] = await Promise.all([
+          this.ctx.storage.list<any>({ prefix: "compute:task:" }),
+          this.ctx.storage.list<any>({ prefix: "compute:worker:" })
+        ]);
+        const now = Date.now();
+        const items = [...tasks.values()];
+        return json({
+          queued: items.filter((x: any) => x.status === "queued").length,
+          leased: items.filter((x: any) => x.status === "leased").length,
+          completed: items.filter((x: any) => x.status === "completed").length,
+          failed: items.filter((x: any) => x.status === "failed").length,
+          workers: [...workers.values()].filter((x: any) => now - Number(x.last_seen) < 90000).length,
+          recentTasks: items.sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 20).map((x: any) => ({
+            task_id: x.task_id, task_type: x.task_type, status: x.status,
+            attempts: x.attempts, created_at: x.created_at, updated_at: x.updated_at,
+            worker_id: x.worker_id, last_error: x.last_error
+          }))
+        });
+      }
+      if (url.pathname === "/api/compute/tasks" && req.method === "POST") {
+        await this.requirePassword(req);
+        const input = await req.json() as any;
+        if (!["node-smoke", "cmake-test"].includes(input.task_type)) return json({ error: "Task type is not allowlisted" }, 400);
+        if (typeof input.commit_sha !== "string" || !/^[0-9a-f]{40}$/.test(input.commit_sha)) return json({ error: "commit_sha must be a full lowercase 40-character SHA" }, 400);
+        const created = await this.ctx.blockConcurrencyWhile(async () => {
+          const entries = await this.ctx.storage.list<any>({ prefix: "compute:task:" });
+          if (entries.size >= 100) return null;
+          const active = [...entries.values()].filter((x: any) => ["queued", "leased"].includes(x.status)).length;
+          if (active >= 30) return null;
+          const now = new Date().toISOString();
+          const task = {
+            schema_version: 1, task_id: crypto.randomUUID(), task_type: input.task_type,
+            commit_sha: input.commit_sha, timeout_seconds: Math.min(600, Math.max(10, Number(input.timeout_seconds) || 600)),
+            status: "queued", attempts: 0, created_at: now, updated_at: now,
+            worker_id: null, lease_until: null, result: null, last_error: null
+          };
+          await this.ctx.storage.put("compute:task:" + task.task_id, task);
+          return task;
+        });
+        if (!created) return json({ error: "Compute queue is full; wait for active tasks to finish" }, 429);
+        return json({ task: created }, 202);
+      }
+      if (url.pathname.startsWith("/api/compute/tasks/") && req.method === "GET") {
+        await this.requirePassword(req);
+        const taskId = url.pathname.slice("/api/compute/tasks/".length);
+        if (!/^[a-f0-9-]{36}$/.test(taskId)) return json({ error: "Invalid task ID" }, 400);
+        const task = await this.ctx.storage.get<any>("compute:task:" + taskId);
+        if (!task) return json({ error: "Task not found" }, 404);
+        return json({ task });
       }
       if (url.pathname === "/api/ui/inspection" && req.method === "POST") {
         await this.requirePassword(req);
