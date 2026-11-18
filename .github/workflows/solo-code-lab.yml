@@ -10,6 +10,7 @@ on:
     branches: [github-chat-prototype, feature/solo-mod-workshop-foundation]
     paths:
       - "solo-code-lab/**"
+      - "solo-compute/**"
       - ".github/workflows/solo-code-lab.yml"
   workflow_dispatch:
 
