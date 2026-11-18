@@ -224,6 +224,8 @@ checks.push(
  ["The /fix issue reports browser errors without publishing chat messages or attachment contents", fixRuntime.includes('recentRuntimeErrors') && !fixRuntime.includes('thread.messages') && !fixRuntime.includes('prepareAttachments')]
 );
 checks.push(
+ ["Deployment smoke test exercises the actual browser chat queue, not only direct Pi inference", deploy.includes("BROWSER_OPERATION=") && deploy.includes("$ENDPOINT/api/chat\"") && deploy.includes("$ENDPOINT/api/chat/status?operationId=") && deploy.includes("SOLO_CHAT_BROWSER_QUEUE_OK")],
+ ["Deployment smoke test verifies provider/model metadata and persisted user/assistant history", deploy.includes("browser-chat-status.json") && deploy.includes("browser-chat-history.json") && deploy.includes("$ENDPOINT/api/messages?thread=") && deploy.includes("all(.messages[]; .role == \"user\" or .role == \"assistant\")")],
  ["The /fix public diagnostic snapshot never serializes pending Pi payloads or conversation prompts", fixRuntime.includes('pendingPi = Array.isArray(pending) ? { count: pending.length } : { available: pending != null }') && !fixRuntime.includes('pendingPi = await this.harness.pending()')]
 );
 checks.push(
