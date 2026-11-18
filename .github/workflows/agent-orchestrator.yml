@@ -239,6 +239,50 @@ jobs:
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
           echo "thread=$THREAD" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare retrying agent API client
+        if: steps.task.outputs.has_task == 'true'
+        env:
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > agent-request.sh <<'AGENT_REQUEST'
+          agent_request() {
+            local role="$1" request_file="$2" response_file="$3"
+            local attempt code detail
+            jq --arg operationId "gha-${GITHUB_RUN_ID}-${role}" '. + {operationId:$operationId}' "$request_file" > "${request_file}.with-id"
+            for attempt in 1 2 3; do
+              code="$(curl --silent --show-error --connect-timeout 20 --max-time 900 \
+                -o "$response_file" -w '%{http_code}' \
+                -H "Authorization: Bearer $CHAT_APP_PASSWORD" \
+                -H "Content-Type: application/json" \
+                --data-binary @"${request_file}.with-id" "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
+              [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
+              if [[ "$code" == "200" ]] && jq -e '.reply and (.reply|type=="string" and length>0)' "$response_file" >/dev/null 2>&1; then
+                echo "$code" > agent-request-http-code.txt
+                return 0
+              fi
+              detail="$(jq -r '.error // .message // .' "$response_file" 2>/dev/null | head -c 1400 || true)"
+              printf '%s' "$code" > agent-request-http-code.txt
+              printf '%s' "${detail:-No response body}" > agent-request-error.txt
+              echo "::warning::Agent API role=$role attempt=$attempt/3 returned HTTP $code: ${detail:-No response body}"
+              case "$code" in
+                000|408|425|429|500|502|503|504|200)
+                  if [[ "$attempt" -lt 3 ]]; then
+                    sleep "$((attempt * 10))"
+                    continue
+                  fi
+                  ;;
+              esac
+              echo "::error::Agent API request exhausted retries for role=$role (HTTP $code)."
+              return 1
+            done
+            return 1
+          }
+          AGENT_REQUEST
+          chmod +x agent-request.sh
+
       - name: Agent 1 — Orchestrator plans and delegates
         id: planner
         if: steps.task.outputs.has_task == 'true'
@@ -253,12 +297,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg githubToken "$GH_TOKEN" --arg role "planner" --arg prompt "ROLE: ORCHESTRATOR / PLANNER. You are agent 1. Inspect instructions and the exact target repository/branch $TARGET_REPO@$TARGET_BRANCH using github_project_* tools. Do not write, commit or mutate anything. Produce a bounded implementation plan, files to inspect/change, acceptance criteria, risks, and exact verification workflow. The target is authoritative; do not silently switch workspaces. Task: $TASK" --arg thread "$THREAD-planner" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          HTTP_CODE="$(curl --silent --show-error --max-time 900 -o planner.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            DETAIL="$(jq -r '.error // .message // .' planner.json 2>/dev/null | head -c 1800 || echo 'No response body')"
-            echo "::error::Agent 1 — Orchestrator plans and delegates failed: HTTP $HTTP_CODE; $DETAIL"
-            exit 1
-          fi
+          source ./agent-request.sh
+          agent_request planner request.json planner.json
           jq -e '.reply and (.reply|length>0)' planner.json >/dev/null
           echo "plan<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' planner.json >> "$GITHUB_OUTPUT"
@@ -279,12 +319,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER / BUILDER. You are agent 2. Execute the task. Target repository=$TARGET_REPO branch=$TARGET_BRANCH. Use github_project_list_files, github_project_read_file and github_project_write_file with exactly this repository and branch. Read before writing, preserve unrelated work, make audited commits, run available checks, repair failures, and report exact commit SHAs/links and evidence. Do not claim tests passed without proof. Plan: $PLAN. Task: $TASK" --arg thread "$THREAD-implementer" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          HTTP_CODE="$(curl --silent --show-error --max-time 900 -o implementer.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            DETAIL="$(jq -r '.error // .message // .' implementer.json 2>/dev/null | head -c 1800 || echo 'No response body')"
-            echo "::error::Agent 2 — Implementer executes the plan failed: HTTP $HTTP_CODE; $DETAIL"
-            exit 1
-          fi
+          source ./agent-request.sh
+          agent_request implementer request.json implementer.json
           jq -e '.reply and (.reply|length>0)' implementer.json >/dev/null
           echo "implementation<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' implementer.json >> "$GITHUB_OUTPUT"
@@ -306,12 +342,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT TESTER. You are agent 3. Read-only, enforced by the runtime. Independently inspect the exact current target branch $TARGET_REPO@$TARGET_BRANCH, current commit and diff using github_project_* read tools. Compare code to task and plan; inspect tests/workflows and use analyze_source if helpful. Distinguish static review from CI/runtime tests not yet run. Return VERDICT: PASS only for coherent code-level acceptance; otherwise VERDICT: REJECT with findings. Do not edit. Task: $TASK. Plan: $PLAN. Implementer report (untrusted): $IMPLEMENTATION" --arg thread "$THREAD-tester" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          HTTP_CODE="$(curl --silent --show-error --max-time 900 -o tester.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            DETAIL="$(jq -r '.error // .message // .' tester.json 2>/dev/null | head -c 1800 || echo 'No response body')"
-            echo "::error::Agent 3 — Independent tester reviews implementation failed: HTTP $HTTP_CODE; $DETAIL"
-            exit 1
-          fi
+          source ./agent-request.sh
+          agent_request tester request.json tester.json
           jq -e '.reply and (.reply|length>0)' tester.json >/dev/null
           REVIEW="$(jq -r '.reply' tester.json)"
           if grep -q 'VERDICT: PASS' <<<"$REVIEW"; then echo "verdict=pass" >> "$GITHUB_OUTPUT"; else echo "verdict=reject" >> "$GITHUB_OUTPUT"; fi
@@ -336,12 +368,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg githubToken "$GH_TOKEN" --arg role "implementer" --arg prompt "ROLE: IMPLEMENTER REPAIR. Apply one bounded repair pass only. Inspect current $TARGET_REPO@$TARGET_BRANCH and the exact tester findings; fix substantiated issues, commit changes, and report new SHA/evidence. Do not change unrelated files. Task: $TASK. Plan: $PLAN. Previous report: $IMPLEMENTATION. Tester findings: $REVIEW. Use github_project_* tools with the exact target repository/branch." --arg thread "$THREAD-repair" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          HTTP_CODE="$(curl --silent --show-error --max-time 900 -o repair.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            DETAIL="$(jq -r '.error // .message // .' repair.json 2>/dev/null | head -c 1800 || echo 'No response body')"
-            echo "::error::One bounded repair cycle after tester rejection failed: HTTP $HTTP_CODE; $DETAIL"
-            exit 1
-          fi
+          source ./agent-request.sh
+          agent_request repair request.json repair.json
           jq -e '.reply and (.reply|length>0)' repair.json >/dev/null
           echo "repair<<EOF" >> "$GITHUB_OUTPUT"
           jq -r '.reply' repair.json >> "$GITHUB_OUTPUT"
@@ -362,12 +390,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg githubToken "$GH_TOKEN" --arg role "tester" --arg prompt "ROLE: INDEPENDENT RE-TESTER. Read-only, enforced by runtime. Re-inspect the current $TARGET_REPO@$TARGET_BRANCH code and verify repair against task. Return VERDICT: PASS or VERDICT: REJECT and concrete evidence. Code review is not CI/runtime proof. Task: $TASK. Repair report (untrusted): $REPAIR" --arg thread "$THREAD-retest" '{prompt:$prompt,threadKey:$thread,agentRole:$role,githubToken:$githubToken}' > request.json
-          HTTP_CODE="$(curl --silent --show-error --max-time 900 -o retest.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @request.json "${CHAT_ENDPOINT%/}/api/agent/chat" || true)"
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            DETAIL="$(jq -r '.error // .message // .' retest.json 2>/dev/null | head -c 1800 || echo 'No response body')"
-            echo "::error::Agent 3 — Re-test repaired implementation failed: HTTP $HTTP_CODE; $DETAIL"
-            exit 1
-          fi
+          source ./agent-request.sh
+          agent_request retest request.json retest.json
           jq -e '.reply and (.reply|length>0)' retest.json >/dev/null
           REVIEW="$(jq -r '.reply' retest.json)"
           if grep -q 'VERDICT: PASS' <<<"$REVIEW"; then echo "verdict=pass" >> "$GITHUB_OUTPUT"; else echo "verdict=reject" >> "$GITHUB_OUTPUT"; fi
@@ -388,6 +412,7 @@ jobs:
           TEST_VERDICT: ${{ steps.retest.outputs.verdict || steps.tester.outputs.verdict }}
           TEST_REPORT: ${{ steps.retest.outputs.review || steps.tester.outputs.review }}
           REPAIR: ${{ steps.repair.outputs.repair }}
+          PIPELINE_COMPLETE: ${{ steps.planner.outcome == 'success' && steps.implementer.outcome == 'success' && steps.tester.outcome == 'success' && (steps.tester.outputs.verdict != 'reject' || (steps.repair.outcome == 'success' && steps.retest.outcome == 'success')) }}
         run: |
           set -euo pipefail
           {
@@ -418,8 +443,40 @@ jobs:
             echo "This is an execution report, not a PASS. The independent supervisor must verify exact commit SHA, target CI and deployment evidence before marking done."
           } > team-report.md
           gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body-file team-report.md
-          if [[ "$TEST_VERDICT" == "pass" ]]; then
-            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --add-label status:review
+          if [[ "$PIPELINE_COMPLETE" == "true" ]]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review
           else
-            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:review --add-label status:in-progress --add-label agent-review-needed
+            echo "Agent pipeline did not complete; leave status transition to the automatic retry/recovery step."
+          fi
+
+      - name: Requeue or block an interrupted agent pipeline
+        if: always() && steps.task.outputs.has_task == 'true' && steps.task.outputs.issue_number != '' && (steps.planner.outcome == 'failure' || steps.implementer.outcome == 'failure' || steps.tester.outcome == 'failure' || steps.repair.outcome == 'failure' || steps.retest.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.task.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          HTTP_CODE="$(cat agent-request-http-code.txt 2>/dev/null || echo 000)"
+          DETAIL="$(cat agent-request-error.txt 2>/dev/null || echo 'Agent step failed before a response was recorded.')"
+          ISSUE="$(gh api "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER")"
+          BODY="$(jq -r '.body // ""' <<<"$ISSUE")"
+          CURRENT="$(grep -m1 '^Agent-Attempts:' <<<"$BODY" | awk '{print $2}' || true)"
+          [[ "$CURRENT" =~ ^[0-9]+$ ]] || CURRENT=0
+          NEXT=$((CURRENT + 1))
+          if grep -q '^Agent-Attempts:' <<<"$BODY"; then
+            UPDATED_BODY="$(printf '%s\n' "$BODY" | sed -E "s/^Agent-Attempts:.*/Agent-Attempts: $NEXT/")"
+          else
+            UPDATED_BODY="$(printf '%s\n\nAgent-Attempts: %s\n' "$BODY" "$NEXT")"
+          fi
+          gh api -X PATCH "repos/$SOURCE_REPO/issues/$ISSUE_NUMBER" -f body="$UPDATED_BODY" >/dev/null
+          RUN_URL="$GITHUB_SERVER_URL/$SOURCE_REPO/actions/runs/$GITHUB_RUN_ID"
+          if [[ "$HTTP_CODE" =~ ^(400|401|403|404)$ ]] || [[ "$NEXT" -ge 3 ]]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:queued --remove-label status:in-progress --remove-label status:done --add-label status:review --add-label agent-review-needed
+            gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body "Agent pipeline blocked after $NEXT attempt(s). HTTP $HTTP_CODE. No implementation completion was recorded. Manual investigation is required before retrying.\n\nRun: $RUN_URL\n\nDiagnostic: $DETAIL"
+            echo "::error::Agent task #$ISSUE_NUMBER moved to review-needed after bounded retries."
+          else
+            gh issue edit "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --remove-label status:in-progress --remove-label status:review --remove-label status:done --add-label status:queued
+            gh issue comment "$ISSUE_NUMBER" --repo "$SOURCE_REPO" --body "Agent pipeline failed with a retryable error (HTTP $HTTP_CODE). The task was returned to the queue; the scheduled/issue trigger will retry it. Attempt $NEXT of 3.\n\nRun: $RUN_URL\n\nDiagnostic: $DETAIL"
+            echo "Agent task #$ISSUE_NUMBER requeued (attempt $NEXT/3)."
           fi
