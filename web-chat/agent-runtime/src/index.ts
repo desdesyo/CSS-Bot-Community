@@ -2740,7 +2740,7 @@ LEARNING FROM CORRECTIONS
           return json({ ok: true, read: true, write: true, temporaryBranchRemoved: branchRemoved, repo, branch, files, diagnostics });
         } catch (error) {
           const detail = error instanceof Error ? error.message : "GitHub workspace check failed";
-          return json({ ok: false, stage, credentialSource, error: detail }, 503);
+          return json({ ok: false, stage, credentialSource, repo: String(this.env.GITHUB_WORK_REPO || ""), branch: String(this.env.GITHUB_WORK_BRANCH || "main"), error: detail }, 503);
         }
       }
       if (url.pathname === "/api/agent/model-check" && req.method === "GET") {
