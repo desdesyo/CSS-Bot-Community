@@ -1671,7 +1671,7 @@ LEARNING FROM CORRECTIONS
                   }
                 }
               }
-              return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: "agent-harness", model: candidate?.id || null };
+              return { reply, status: result.status, operationId: receipt.operationId, sessionId, provider: candidate?.provider === "google" ? "gemini" : (candidate?.provider || "agent-harness-default"), model: candidate?.id || null };
             }
           }
           const resultDiagnostic = result as any;
