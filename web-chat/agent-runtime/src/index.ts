@@ -1757,9 +1757,8 @@ LEARNING FROM CORRECTIONS
             workflowActive = supervisorRunStatus === "running" && issueUpdatedAge < 60 * 60 * 1000;
             if (!supervisorRunStatus && mainRunStatus === "completed" && issueUpdatedAge < 15 * 60 * 1000) workflowActive = true;
           }
-          // A label is not proof that a workflow is actually running. Requeue an
-          // apparently active issue when Actions has no live orchestrator/supervisor
-          // run; this is the case that previously left /fix tasks stranded.
+          // A status label is not proof that an agent is alive. Use durable run-state
+          // markers and the issue heartbeat; if they are absent or stale, requeue.
           if (hasActiveStatus && (workflowActive === true || (workflowActive === null && age < 70 * 60 * 1000))) {
             return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "Задача восстановления уже находится в очереди или выполняется." };
           }
@@ -1775,7 +1774,7 @@ LEARNING FROM CORRECTIONS
           });
           const refreshed = { issueNumber: issue.number, issueUrl: issue.html_url, createdAt: now };
           await this.ctx.storage.put("fix:active", refreshed);
-          return { ok: true, requeued: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "Задача восстановления возвращена в очередь; активный запуск Actions не обнаружен." };
+          return { ok: true, requeued: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "У задачи нет актуального признака выполняющегося агента; она возвращена в очередь." };
         }
       } catch (error) {
         await this.recordRuntimeError("fix-active-issue-check", error);
