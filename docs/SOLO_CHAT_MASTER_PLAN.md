@@ -28,7 +28,7 @@
 - Чат, сохранение диалогов и sidebar-история; видимый transcript должен содержать только user/assistant.
 - Автоматическое восстановление прерванных Durable Object jobs.
 - Диагностика возможностей, UI inspection с исключением текста сообщений, отдельный ограниченный UI writer.
-- GitHub workspace read/write tools, request-scoped Actions token, проверка Contents write через временную ветку и очистку.
+- GitHub workspace read/write tools, request-scoped Actions token, отдельный диагностический инструмент для проверки Contents write через временную ветку с попыткой обязательной очистки. Сам факт успешной live-записи ещё должен быть подтверждён.
 - Оптимистическая проверка SHA и allowlist репозитория/ветки для UI writer.
 - Feedback inbox, генератор задач, health/model monitors, orchestrator, независимый supervisor.
 - Пятиминутный кэш статуса агентов, cooldown при отказах GitHub API, уважение Retry-After/X-RateLimit-Reset, отсутствие анонимного повтора после 403.
