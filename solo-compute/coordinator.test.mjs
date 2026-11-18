@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-const root = path.resolve('..');
+const root = process.cwd();
 test('coordinator requires token and exposes health endpoint', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'solo-coord-'));
   const port = 19000 + Math.floor(Math.random() * 1000);
