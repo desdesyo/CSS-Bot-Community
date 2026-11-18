@@ -141,6 +141,7 @@ async function resolveAllowedPath(config, input) {
     else validateGameInspectionInput(input);
     const candidate = gameRelative === null ? resolve(input) : resolve(gameRoot, gameRelative.replace(/[\\/]+/g, sep));
     if (!gameRoot || !isInside(gameRoot, candidate)) throw new Error("Path is outside the explicitly approved read-only game folder");
+    await assertNoLinkedComponents(gameRoot, candidate);
     const actual = await realpath(candidate);
     await assertNoLinkedComponents(gameRoot, actual);
     return actual;
