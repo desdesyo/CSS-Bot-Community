@@ -46,6 +46,12 @@ jobs:
           GITHUB_WORKSPACE_OK="false"
           # Use the same short-lived, repository-scoped token that the agent orchestrator passes to tool execution.
           test -n "$GITHUB_TOKEN" || { echo "::error::Missing workflow-scoped GitHub token"; exit 1; }
+          DIRECT_REF_CODE="$(curl --silent --show-error --max-time 30 -w '%{http_code}' -o direct-ref.json \
+            -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" -H "User-Agent: cssbc-github-chat" \
+            "https://api.github.com/repos/desdesyo/CSS-Bot-Community/git/ref/heads/github-chat-prototype" || true)"
+          echo "Direct workflow-token Git ref read: HTTP $DIRECT_REF_CODE"
+          if [[ "$DIRECT_REF_CODE" != "200" ]]; then cat direct-ref.json; exit 1; fi
           jq -n --arg githubToken "$GITHUB_TOKEN" '{githubToken:$githubToken}' > github-check-payload.json
           GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
             -H "$AUTH" -H "Content-Type: application/json" --data @github-check-payload.json "$ENDPOINT/api/agent/github-check" || true)"
