@@ -1,6 +1,6 @@
 # SOLO Mod Workshop scripts
 
-Windows PowerShell 5.1+ scripts for creating a local-first mod workspace, inventorying files and inspecting the installed production toolchain. See [the architecture](../docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md).
+Windows PowerShell 5.1+ scripts for creating a local-first mod workspace, inventorying files, inspecting the installed production toolchain and packaging project artifacts. See [the architecture](../docs/SOLO_MOD_WORKSHOP_ARCHITECTURE.md).
 
 ## Initialize
 
@@ -25,6 +25,14 @@ powershell -ExecutionPolicy Bypass -File .\workshop\Invoke-SoloToolchain.ps1 -Wo
 ```
 
 Source must be inside workspace `src/`; output goes to `build/`. The script records compiler output, exit code, artifact size and SHA-256. It never installs the plugin into the game.
+
+## Create a package
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\workshop\New-SoloModPackage.ps1 -Workspace C:\SOLO\CSS-v34-Mod -PackageName css-v34-mod
+```
+
+The package builder includes project source, assets, UI, maps, docs, tests and build outputs. It writes a ZIP plus an embedded `package-manifest.json` containing SHA-256 hashes. It excludes internal `.solo` state and prior packages, enforces file/size limits and does not install anything into the game.
 
 ## Inventory
 
