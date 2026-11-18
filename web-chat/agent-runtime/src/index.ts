@@ -1266,6 +1266,36 @@ LEARNING FROM CORRECTIONS
     return { files, context: sections.join("\n\n") };
   }
 
+  private async workersAiQuotaCircuitOpen(): Promise<boolean> {
+    const key = "provider:circuit:workers-ai";
+    const until = await this.ctx.storage.get<number>(key);
+    if (!until) return false;
+    const now = Date.now();
+    if (until <= now) {
+      await this.ctx.storage.delete(key);
+      await this.ctx.storage.delete(key + ":opened-date");
+      return false;
+    }
+    const today = new Date(now).toISOString().slice(0, 10);
+    const openedDate = await this.ctx.storage.get<string>(key + ":opened-date");
+    if (openedDate && openedDate !== today) {
+      await this.ctx.storage.delete(key);
+      await this.ctx.storage.delete(key + ":opened-date");
+      await this.recordRuntimeError("workers-ai-quota-reset", "Cleared yesterday's Workers AI daily-quota circuit after UTC date rollover");
+      return false;
+    }
+    // Migrate legacy 24-hour cooldowns after the UTC daily allocation resets.
+    if (!openedDate && until - now > 60 * 60 * 1000) {
+      const inferredOpenedDate = new Date(until - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (inferredOpenedDate < today) {
+        await this.ctx.storage.delete(key);
+        await this.recordRuntimeError("workers-ai-quota-reset", "Cleared a legacy 24-hour Workers AI circuit after UTC date rollover");
+        return false;
+      }
+    }
+    return true;
+  }
+
   private async runDirectModel(prompt: string) {
     const failures: string[] = [];
     const system = "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.";
@@ -1367,9 +1397,8 @@ LEARNING FROM CORRECTIONS
 
     // Cloudflare is last. If its account-wide daily quota is exhausted, open a 24h circuit.
     const circuitKey = "provider:circuit:workers-ai";
-    const circuit = await this.ctx.storage.get<number>(circuitKey);
-    if (circuit && circuit > Date.now()) {
-      failures.push("Workers AI: skipped until quota cooldown expires");
+    if (await this.workersAiQuotaCircuitOpen()) {
+      failures.push("Workers AI: skipped until the next UTC daily quota reset");
     } else {
       const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
       for (const modelId of modelIds) {
@@ -1382,7 +1411,10 @@ LEARNING FROM CORRECTIONS
           const detail = String(error instanceof Error ? error.message : error);
           failures.push(modelId + ": " + detail.slice(0, 350));
           if (/4006|daily free allocation|quota.*exhaust|exceeded.*quota/i.test(detail)) {
-            await this.ctx.storage.put(circuitKey, Date.now() + 24 * 60 * 60 * 1000);
+            const now = Date.now();
+            const nextUtcReset = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1);
+            await this.ctx.storage.put(circuitKey, nextUtcReset);
+            await this.ctx.storage.put(circuitKey + ":opened-date", new Date(now).toISOString().slice(0, 10));
             break;
           }
         }
@@ -1611,7 +1643,7 @@ LEARNING FROM CORRECTIONS
     // Every agent role runs in its own Durable Object. Do not rely on the
     // shared user-chat model-check having populated that object's preferred
     // provider: keep Workers AI as the final native Pi/tool-capable fallback.
-    if (!(await circuitOpen("workers-ai"))) {
+    if (!(await this.workersAiQuotaCircuitOpen())) {
       add(this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash"));
     }
     return candidates;
@@ -1622,10 +1654,10 @@ LEARNING FROM CORRECTIONS
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
-    const workersAiCircuit = await this.ctx.storage.get<number>("provider:circuit:workers-ai");
+    const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
     let harnessFailure = "";
     try {
-      if (workersAiCircuit && workersAiCircuit > Date.now() && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open and no external tool-capable provider is configured");
+      if (workersAiCircuitOpen && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open until the next UTC daily reset and no external tool-capable provider is configured");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
@@ -1719,8 +1751,16 @@ LEARNING FROM CORRECTIONS
           const providerKey = candidate?.provider === "google" ? "gemini" : candidate?.provider;
           if (providerKey && /429|RESOURCE_EXHAUSTED|quota|rate.?limit|insufficient credit|billing|401|403|402|503/i.test(harnessFailure)) {
             const quotaExhausted = /RESOURCE_EXHAUSTED|daily.*quota|quota.*exhaust|exceeded.*quota|insufficient credit|billing/i.test(harnessFailure);
-            const duration = quotaExhausted ? 24 * 60 * 60 * 1000 : /429|rate.?limit/i.test(harnessFailure) ? 15 * 60 * 1000 : /503/.test(harnessFailure) ? 3 * 60 * 1000 : 60 * 60 * 1000;
-            await this.ctx.storage.put("provider:circuit:" + providerKey, Date.now() + duration);
+            const now = Date.now();
+            const duration = quotaExhausted
+              ? (providerKey === "workers-ai"
+                ? Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1) - now
+                : 24 * 60 * 60 * 1000)
+              : /429|rate.?limit/i.test(harnessFailure) ? 15 * 60 * 1000 : /503/.test(harnessFailure) ? 3 * 60 * 1000 : 60 * 60 * 1000;
+            await this.ctx.storage.put("provider:circuit:" + providerKey, now + duration);
+            if (quotaExhausted && providerKey === "workers-ai") {
+              await this.ctx.storage.put("provider:circuit:workers-ai:opened-date", new Date(now).toISOString().slice(0, 10));
+            }
             console.warn("[SOLO.Chat] provider circuit opened", JSON.stringify({ provider: providerKey, cooldownMs: duration, quotaExhausted }));
           }
           console.warn("[SOLO.Chat] Pi provider attempt threw; rotating provider", JSON.stringify({ attempt: attempt + 1, provider: providerKey || null, model: candidate?.id || null, error: harnessFailure }));
