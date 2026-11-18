@@ -165,6 +165,46 @@ jobs:
             exit 1
           fi
           echo "Real Pi harness deferred tool discovery and execution passed."
+          echo "Checking the exact browser chat queue used by the UI..."
+          BROWSER_OPERATION="deploy-browser-queue-$GITHUB_RUN_ID"
+          jq -n --arg message "Reply exactly with SOLO_CHAT_BROWSER_QUEUE_OK and nothing else. Do not call tools." --arg operationId "$BROWSER_OPERATION" '{message:$message,files:[],webSearch:false,operationId:$operationId}' > browser-chat-request.json
+          BROWSER_ACCEPT_CODE="$(curl --silent --show-error --max-time 30 -o browser-chat-accepted.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @browser-chat-request.json "$ENDPOINT/api/chat" || true)"
+          if [[ "$BROWSER_ACCEPT_CODE" != "202" ]] || ! jq -e '.operationId == "'"$BROWSER_OPERATION"'" and (.status == "queued" or .status == "done")' browser-chat-accepted.json >/dev/null; then
+            echo "::error::Browser chat request was not accepted with HTTP $BROWSER_ACCEPT_CODE"
+            cat browser-chat-accepted.json
+            exit 1
+          fi
+          BROWSER_DONE=false
+          for attempt in $(seq 1 240); do
+            BROWSER_STATUS_CODE="$(curl --silent --show-error --max-time 20 -o browser-chat-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/chat/status?operationId=$BROWSER_OPERATION" || true)"
+            if [[ "$BROWSER_STATUS_CODE" != "200" ]]; then
+              echo "Browser chat status attempt $attempt/240 returned HTTP $BROWSER_STATUS_CODE."
+              sleep 2
+              continue
+            fi
+            BROWSER_STATUS="$(jq -r '.status // "unknown"' browser-chat-status.json)"
+            if [[ "$BROWSER_STATUS" == "failed" ]]; then
+              echo "::error::Browser chat queue failed to generate a reply."
+              cat browser-chat-status.json
+              exit 1
+            fi
+            if [[ "$BROWSER_STATUS" == "done" ]]; then
+              if jq -e '.reply and (.reply|contains("SOLO_CHAT_BROWSER_QUEUE_OK"))' browser-chat-status.json >/dev/null; then
+                BROWSER_DONE=true
+                break
+              fi
+              echo "::error::Browser chat queue completed without the expected reply marker."
+              cat browser-chat-status.json
+              exit 1
+            fi
+            sleep 2
+          done
+          if [[ "$BROWSER_DONE" != "true" ]]; then
+            echo "::error::Browser chat queue did not complete within 8 minutes."
+            cat browser-chat-status.json || true
+            exit 1
+          fi
+          echo "Browser-facing /api/chat -> Durable Object alarm -> /api/chat/status round-trip passed."
           echo "Checking live agent dashboard..."
           STATUS_CODE="$(curl --silent --show-error --max-time 30 -o agent-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" || true)"
           if [[ "$STATUS_CODE" != "200" ]] || ! jq -e '.roles | length >= 8' agent-status.json >/dev/null; then
