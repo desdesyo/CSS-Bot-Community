@@ -1761,7 +1761,7 @@ LEARNING FROM CORRECTIONS
           // A label is not proof that a workflow is actually running. Requeue an
           // apparently active issue when Actions has no live orchestrator/supervisor
           // run; this is the case that previously left /fix tasks stranded.
-          if (age < 70 * 60 * 1000 && hasActiveStatus && workflowActive !== false) {
+          if (hasActiveStatus && (workflowActive === true || (workflowActive === null && age < 70 * 60 * 1000))) {
             return { ok: true, reused: true, issueNumber: issue.number, issueUrl: issue.html_url, workflowActive, message: "Задача восстановления уже находится в очереди или выполняется." };
           }
           const nextLabels = [...new Set(labels.filter((label: string) => !label.startsWith("status:")).concat("status:queued"))];
