@@ -2556,6 +2556,19 @@ LEARNING FROM CORRECTIONS
           createdAt: job.createdAt, updatedAt: job.updatedAt
         });
       }
+      if (url.pathname === "/api/agent/client-error" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const now = Date.now();
+        const last = await this.ctx.storage.get<number>("browser-ui:last-error");
+        if (last && now - last < 750) return json({ accepted: false, rateLimited: true }, 202);
+        await this.ctx.storage.put("browser-ui:last-error", now);
+        const source = String(body.source || "window").slice(0, 120);
+        const message = String(body.message || "Unknown browser error").slice(0, 700);
+        const stack = String(body.stack || "").split("\\n").slice(0, 8).join("\\n").slice(0, 1200);
+        await this.recordRuntimeError("browser-ui:" + source, message + (stack ? "\\n" + stack : ""));
+        return json({ accepted: true, collected: true });
+      }
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
         await this.requirePassword(req);
         const raw = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000;
