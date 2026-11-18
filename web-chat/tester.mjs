@@ -211,6 +211,9 @@ checks.push(
  ["Browser error collection is rate-limited and stores only bounded technical diagnostics", runtime.includes('url.pathname === "/api/agent/client-error"') && runtime.includes('browser-ui:last-error') && runtime.includes('now - last < 750') && runtime.includes('slice(0, 700)') && runtime.includes('slice(0, 1200)')],
  ["The /fix issue reports browser errors without publishing chat messages or attachment contents", fixRuntime.includes('recentRuntimeErrors') && !fixRuntime.includes('thread.messages') && !fixRuntime.includes('prepareAttachments')]
 );
+checks.push(
+ ["The /fix public diagnostic snapshot never serializes pending Pi payloads or conversation prompts", fixRuntime.includes('pendingPi = Array.isArray(pending) ? { count: pending.length } : { available: pending != null }') && !fixRuntime.includes('pendingPi = await this.harness.pending()')]
+);
 let failed=0;
 for(const [name,ok] of checks){console.log(`${ok?"PASS":"FAIL"}  ${name}`);if(!ok)failed++}
 console.log(`\nTester result: ${checks.length-failed}/${checks.length} checks passed`);
