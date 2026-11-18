@@ -1,58 +1,52 @@
 # SOLO.Chat Local Computer Bridge
 
-Windows companion connecting the deployed [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/) to the local CSS v34 game folder and the separate mod workspace. Outbound HTTPS only; no open inbound port and no remote shell.
+Windows companion connecting [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/) to the local Counter-Strike: Source v34 installation and a separate mod-production workspace. Outbound HTTPS only; no open inbound port and no remote shell.
 
-## Allowed folders
+## One-package setup
 
-Default configuration contains two separate roots:
-
-- Game: `C:\Games\Counter-Strike Source v34` — read-only diagnostics; only the separately documented approval-gated .smx installer can write a single plugin file.
-- Workshop: `C:\SOLO\CSS-v34-Mod` — source/config work files and generated project artifacts. Text changes require exact SHA-256, verified backup and local `APPLY` approval.
-
-The bridge never writes DLL/EXE/core engine files, executes commands from chat, or creates arbitrary directories. The workshop initializer creates the project structure first.
-
-## Install and pair
-
-1. Download the latest successful **SOLO-Chat-Computer-Bridge** artifact from [computer-bridge CI](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/computer-bridge.yml).
-2. Extract the ZIP. Keep `agent.mjs`, `file-policy.mjs`, and `config.example.json` together.
-3. Install Node.js 20 or newer on Windows.
-4. In [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/), use **Connect computer** to generate a six-digit one-time pairing code. It expires after five minutes.
-5. In PowerShell, from the extracted folder, pair the companion:
+1. Download the **SOLO-Local-Mod-Workshop** artifact from the [latest successful Windows CI run](https://github.com/desdesyo/CSS-Bot-Community/actions/workflows/computer-bridge.yml). Extract the ZIP to a normal folder, for example `C:\SOLO\StarterKit`.
+2. Open PowerShell in that extracted folder and run:
 
 ```powershell
-node agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456
+powershell -ExecutionPolicy Bypass -File .\Setup-SOLO-Local.ps1
 ```
 
-Replace `123456` with the code shown in SOLO.Chat. Pairing creates a private `config.json` with the device token. Never upload or share it.
+This creates `C:\SOLO\CSS-v34-Mod`, its standard source/assets/UI/build/test folders, a project manifest and an initial SHA-256 inventory. It does not inspect, change or launch the game. If the workspace already exists, the setup script preserves it and refreshes its inventory.
 
-6. Start the agent:
+Requires Node.js 20+ on Windows. The setup script checks that Node is available before proceeding.
+
+## Pair the computer
+
+1. Open [SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/) and choose **Connect computer**. Generate a six-digit pairing code (valid for five minutes).
+2. In PowerShell, still in the extracted starter-kit folder, run the command below with the current code:
 
 ```powershell
-node agent.mjs
+node .\computer-bridge\agent.mjs pair https://cssbc-github-chat.descapan.workers.dev 123456
 ```
 
-Keep that terminal open while working. It polls every 2.5 seconds. Stop with Ctrl+C.
+3. Start the companion:
 
-## First connection check
+```powershell
+node .\computer-bridge\agent.mjs
+```
 
-After pairing, ask SOLO.Chat to inspect the connected computer and list:
+Keep the terminal open while SOLO.Chat works. The agent polls every 2.5 seconds. Stop it with Ctrl+C. The pairing token is saved in `computer-bridge\config.json`; never upload or share that file.
 
-- `C:\Games\Counter-Strike Source v34`
-- `C:\SOLO\CSS-v34-Mod`
+## Configured folders
 
-The local agent reports the computer and folder contents through the authenticated task queue. The companion must be running for tasks to complete.
+- Game: `C:\Games\Counter-Strike Source v34` — read-only diagnostics by default. The bridge does not write native game DLLs or executables.
+- Workshop: `C:\SOLO\CSS-v34-Mod` — source/config work and project artifacts. Text edits require exact SHA-256, a verified backup and local `APPLY` confirmation.
 
-## Safety model
+The roots are separate. Only these two folders are allowlisted by default.
 
-- Only configured `allowedRoots` can be read or modified.
-- The game folder is not a general writable workspace.
-- Read operations are bounded; text reads are limited to 256 KB and hashes to 50 MB.
-- Text writes are limited to 256 KB, require an exact current SHA-256 (or `NEW` for a confirmed new file), create and verify a backup, show old/new hashes and require local interactive `APPLY`.
-- The companion writes only allowlisted text/source extensions. It does not execute the written code.
-- The separate .smx installer is limited to one verified SourceMod plugin under `cstrike/addons/sourcemod/plugins/`; it is not used for the native CSSBC GameDLL.
-- No arbitrary shell, PowerShell, process launch, screen capture, DLL/EXE/core engine writes or inbound network listener.
-- Keep `config.json` private. Rotate/re-pair if its device token is exposed.
+## Safety
 
-## Current verification limits
+- No arbitrary shell/PowerShell commands, process launch, screen capture, inbound listener, DLL/EXE/core engine writes or arbitrary software installation.
+- Reads are bounded: text files up to 256 KB; SHA-256 for regular files up to 50 MB.
+- Text writes are limited to allowlisted source/config extensions and 256 KB, require an exact precondition hash, verified backup and interactive local `APPLY`.
+- The separate .smx installer is restricted to a single verified SourceMod plugin in the exact plugins folder. It is not the native CSSBC GameDLL deployment path.
+- Keep `config.json` private. Rotate/re-pair if the device token is exposed.
 
-CI checks syntax and file-policy tests on Windows and Linux and packages the Windows companion. It does not prove that the companion has been paired to a real PC. Live pairing, local folder access and an actual CSS v34 scan must be confirmed by a returned computer-task result.
+## Verification
+
+The Windows CI job executes the one-step setup against a temporary workspace, checks that it does not touch a fake game directory, validates Node syntax and file policy on Windows/Linux, and uploads the complete starter kit. CI does not pair a real PC. Live connection is confirmed only after a task result returns from the paired Windows computer.
