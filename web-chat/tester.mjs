@@ -42,7 +42,7 @@ test("SOLO Distributed Compute is mounted in the live Durable Object API", async
   assert.match(agent, /compute_submit_task/);
   assert.match(agent, /compute_task_status/);
   assert.match(worker, /spawnSync/);
-  assert.match(worker, /shell:\\s*false/);
+  assert.match(worker, /shell:\s*false/);
   assert.match(worker, /node-smoke/);
   assert.match(worker, /cmake-test/);
 });
