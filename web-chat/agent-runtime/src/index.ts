@@ -2565,8 +2565,8 @@ LEARNING FROM CORRECTIONS
         await this.ctx.storage.put("browser-ui:last-error", now);
         const source = String(body.source || "window").slice(0, 120);
         const message = String(body.message || "Unknown browser error").slice(0, 700);
-        const stack = String(body.stack || "").split("\\n").slice(0, 8).join("\\n").slice(0, 1200);
-        await this.recordRuntimeError("browser-ui:" + source, message + (stack ? "\\n" + stack : ""));
+        const stack = String(body.stack || "").split("\n").slice(0, 8).join("\n").slice(0, 1200);
+        await this.recordRuntimeError("browser-ui:" + source, message + (stack ? "\n" + stack : ""));
         return json({ accepted: true, collected: true });
       }
       if (url.pathname === "/api/agent/computer/pair-code" && req.method === "POST") {
