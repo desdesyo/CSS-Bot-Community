@@ -332,12 +332,13 @@ async function sendFixDuringGeneration(){
   $("toolFeedback").textContent="Ошибка /fix: "+detail;
  }
 }
+// Browser-local fallback: WebLLM + WebGPU; model weights are cached by the browser after first download.
 let soloLocalEnginePromise=null;
 async function generateLocalReply(prompt,thinking){
  if(!navigator.gpu)throw Error("Локальная модель недоступна: браузер или устройство не поддерживает WebGPU. Откройте SOLO.Chat в браузере с поддержкой WebGPU или подключите компьютер.");
  if(!soloLocalEnginePromise){
   soloLocalEnginePromise=(async()=>{
-   const webllm=await import("https://esm.run/@mlc-ai/web-llm@0.2.80");
+   const webllm=await import("https://esm.run/@mlc-ai/web-llm@0.2.88");
    return webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f16_1-MLC",{initProgressCallback:p=>{const percent=Math.round((p.progress||0)*100);thinking.update(0,"Загружаю локальную модель: "+percent+"%");}});
   })().catch(error=>{soloLocalEnginePromise=null;throw error});
  }
