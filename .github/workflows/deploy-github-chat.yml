@@ -11,7 +11,6 @@ on:
       - "web-chat/worker.js"
       - "web-chat/wrangler.toml"
       - "web-chat/package.json"
-      - ".github/workflows/deploy-github-chat.yml"
 
 permissions:
   contents: read
@@ -132,6 +131,7 @@ jobs:
         env:
           CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          RUN_AGENT_SMOKE: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
           ENDPOINT="${CHAT_ENDPOINT%/}"
@@ -193,33 +193,38 @@ jobs:
             echo "### Live browser chat acceptance"
             echo "- Queue → Durable Object alarm → status: **PASS**"
             echo "- Assistant reply persisted in user-visible history: **PASS**"
-            echo "- Provider: `$(jq -r '.provider' browser-chat-status.json)`"
-            echo "- Model: `$(jq -r '.model' browser-chat-status.json)`"
-            echo "- Degraded fallback: `$(jq -r '.degraded // false' browser-chat-status.json)`"
+            echo "- Provider: $(jq -r '.provider' browser-chat-status.json)"
+            echo "- Model: $(jq -r '.model' browser-chat-status.json)"
+            echo "- Degraded fallback: $(jq -r '.degraded // false' browser-chat-status.json)"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "Checking direct Pi AI inference and configured model fallback..."
-          curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt || true
-          MODEL_CHECK_CODE="$(cat model-check-code.txt)"
-          if [[ "$MODEL_CHECK_CODE" != "200" ]] || ! jq -e '.ok == true and (.reply|contains("SOLO_CHAT_MODEL_OK"))' model-check.json >/dev/null; then
-            echo "::warning::Direct model diagnostic failed after the browser chat round-trip passed (HTTP $MODEL_CHECK_CODE)."
-            cat model-check.json
+          if [[ "$RUN_AGENT_SMOKE" == "true" ]]; then
+            echo "Checking direct Pi AI inference and configured model fallback..."
+            curl --silent --show-error --max-time 240 -o model-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/model-check" > model-check-code.txt || true
+            MODEL_CHECK_CODE="$(cat model-check-code.txt)"
+            if [[ "$MODEL_CHECK_CODE" != "200" ]] || ! jq -e '.ok == true and (.reply|contains("SOLO_CHAT_MODEL_OK"))' model-check.json >/dev/null; then
+              echo "::warning::Direct model diagnostic failed after the browser chat round-trip passed (HTTP $MODEL_CHECK_CODE)."
+              cat model-check.json
+            else
+              echo "Direct model inference passed."
+              jq '{provider,model,preferredToolModelSaved}' model-check.json
+            fi
+            jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
+            MODEL_CODE="$(curl --silent --show-error --max-time 240 -o model-smoke-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat" || true)"
+            if [[ "$MODEL_CODE" != "200" ]] || ! jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null; then
+              echo "::warning::Direct /api/agent/chat diagnostic failed after the browser chat round-trip passed (HTTP $MODEL_CODE)."
+              cat model-smoke-response.json
+            fi
+            echo "Checking actual Pi harness tool execution..."
+            HARNESS_CODE="$(curl --silent --show-error --max-time 240 -o harness-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/harness-check" || true)"
+            if [[ "$HARNESS_CODE" != "200" ]] || ! jq -e '.ok == true and .toolExecution == true and .minimalToolExecution == true and .fullToolExecution == true and .deferredToolSearch == true and .offeredToolCount == 1 and (.reply|contains("SOLO_CHAT_HARNESS_OK"))' harness-check.json >/dev/null; then
+              echo "::warning::Pi tool execution diagnostic failed after the browser chat round-trip passed. Tool use is degraded; see the diagnostic payload."
+              cat harness-check.json
+            else
+              echo "Real Pi harness deferred tool discovery and execution passed."
+            fi
+  
           else
-            echo "Direct model inference passed."
-            jq '{provider,model,preferredToolModelSaved}' model-check.json
-          fi
-          jq -n --arg prompt "Reply exactly with SOLO_CHAT_SMOKE_OK and nothing else. Do not call tools." --arg thread "solo-deploy-smoke-$GITHUB_RUN_ID" '{prompt:$prompt,threadKey:$thread}' > model-smoke-request.json
-          MODEL_CODE="$(curl --silent --show-error --max-time 240 -o model-smoke-response.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @model-smoke-request.json "$ENDPOINT/api/agent/chat" || true)"
-          if [[ "$MODEL_CODE" != "200" ]] || ! jq -e '.reply and (.reply|contains("SOLO_CHAT_SMOKE_OK"))' model-smoke-response.json >/dev/null; then
-            echo "::warning::Direct /api/agent/chat diagnostic failed after the browser chat round-trip passed (HTTP $MODEL_CODE)."
-            cat model-smoke-response.json
-          fi
-          echo "Checking actual Pi harness tool execution..."
-          HARNESS_CODE="$(curl --silent --show-error --max-time 240 -o harness-check.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agent/harness-check" || true)"
-          if [[ "$HARNESS_CODE" != "200" ]] || ! jq -e '.ok == true and .toolExecution == true and .minimalToolExecution == true and .fullToolExecution == true and .deferredToolSearch == true and .offeredToolCount == 1 and (.reply|contains("SOLO_CHAT_HARNESS_OK"))' harness-check.json >/dev/null; then
-            echo "::warning::Pi tool execution diagnostic failed after the browser chat round-trip passed. Tool use is degraded; see the diagnostic payload."
-            cat harness-check.json
-          else
-            echo "Real Pi harness deferred tool discovery and execution passed."
+            echo "::notice::Skipped extra model and tool inference calls on push to preserve the limited free provider quotas. Run this workflow manually to execute the extended agent smoke."
           fi
           echo "Checking live agent dashboard..."
           STATUS_CODE="$(curl --silent --show-error --max-time 30 -o agent-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/agents/status" || true)"
@@ -237,7 +242,7 @@ jobs:
           
       - name: Automatic rollback if the core health/version check fails
         id: rollback
-        if: failure() && steps.smoke.outcome == 'failure'
+        if: failure() && steps.model_smoke.outcome == 'failure'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
