@@ -1,3 +1,6 @@
+// AGENT SAFETY NOTE: the slot cache is keyed by entity index. The GameDLL caller
+// must call ResetPlayer on disconnect/removal and round/map cleanup as appropriate.
+// Do not retain returned combat pointers across vector mutations.
 #include "CSSBC_MeleeSdkRuntime.h"
 #include <algorithm>
 namespace cssbc {
