@@ -8,7 +8,7 @@ SOLO.Chat is a private browser chat backed by a Cloudflare Worker and a durable 
 - API, password authentication, and chat protocol: `agent-runtime/src/index.ts`
 - Agent runtime: Cloudflare Durable Object `AgentSession` with Pi Durable.
 - Conversation history: Durable Object SQLite storage. Each browser conversation and its user/assistant messages are persisted separately; each agent session also retains its durable model transcript.
-- Model: Cloudflare Workers AI, selected by `PI_MODEL` in `wrangler.toml` (currently `@cf/zai-org/glm-4.7-flash`).
+- Model routing: self-hosted SOLO.AI is the first tool-capable provider when `SOLO_AI_BASE_URL` and `SOLO_AI_API_KEY` are configured; otherwise the existing Gemini/OpenRouter/OpenAI/Groq/Workers AI chain remains active. `SOLO_AI_MODEL` defaults to `solo-ai`.
 - Agent workspace: GitHub Contents API tools for listing, reading, and writing files in the configured repository and branch.
 - Local computer pairing: authenticated companion requests are queued through the same Durable Object; inspection is automatic, while text/config writes require exact-hash checks, verified backups and a local APPLY confirmation.
 
@@ -27,10 +27,14 @@ The intended deployment is a globally reachable HTTPS endpoint on Cloudflare Wor
 - `APP_PASSWORD` — private chat access password. Deployment synchronizes this from the GitHub Actions secret `CSSBC_CHAT_APP_PASSWORD`.
 - `GITHUB_TOKEN` — fine-grained GitHub token for the configured workspace repository (Contents read/write and Issues read/write; `/fix` uses Issues write to enqueue the recovery task).
 - `BRAVE_SEARCH_API_KEY` — optional; enables the agent's live web-search tool.
+- `SOLO_AI_BASE_URL` — optional HTTPS OpenAI-compatible SOLO.AI gateway base URL, ending in `/v1` (for example, `https://your-host.example/v1`).
+- `SOLO_AI_API_KEY` — optional Worker secret matching the SOLO.AI gateway key. The deployment workflow reads it from GitHub Actions secret `SOLO_AI_API_KEY` and reads the endpoint from repository variable `SOLO_AI_BASE_URL`.
 - `OPENAI_API_KEY` — optional; used only by the separate external-expert consultation tool.- `CSSBC_OPENAI_API_KEY` — optional GitHub Actions repository secret. The deploy workflow syncs it to Worker secret `OPENAI_API_KEY`; required for automatic expert escalation.
 
 To enable SOLO.Chat's automatic expert escalation, add `CSSBC_OPENAI_API_KEY` under the repository's **Settings → Secrets and variables → Actions**. Do not paste the key into chat or commit it. Without this secret, the agent must report that external expert help is unavailable instead of pretending to consult it.
 
+
+To connect the self-hosted model, first deploy SOLO.AI on a reachable HTTPS remote host and verify it with `deploy/cloud/smoke_test.py`. Then set repository **Settings → Secrets and variables → Actions**: secret `SOLO_AI_API_KEY` to the SOLO.AI gateway bearer key and variable `SOLO_AI_BASE_URL` to the gateway URL ending in `/v1`. The deploy workflow copies these server-side into Cloudflare; the browser never receives the key. If either value is absent, SOLO.AI is not registered as a provider. The endpoint must be reachable from Cloudflare Workers over HTTPS.
 
 Worker variables in `wrangler.toml`:
 
