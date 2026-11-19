@@ -554,7 +554,7 @@ LEARNING FROM CORRECTIONS
             };
             const providerHealth: Record<string, { configured: boolean; circuitOpen: boolean; retryAt: string | null; reason: string | null }> = {};
             for (const [provider, configured] of Object.entries(providerConfig)) {
-              const key = provider === "workersAi" ? "workers-ai" : provider;
+              const key = provider === "workersAi" ? "workers-ai" : provider === "soloAi" ? "solo-ai" : provider;
               const until = await storage.get<number>("provider:circuit:" + key);
               const meta = await storage.get<{ retryAt?: number; reason?: string }>("provider:circuit-meta:" + key);
               const circuitOpen = provider === "workersAi"
@@ -1819,7 +1819,7 @@ LEARNING FROM CORRECTIONS
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
     let harnessFailure = "";
     try {
-      if (workersAiCircuitOpen && !this.env.SOLO_AI_API_KEY && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open until the next UTC daily reset and no external tool-capable provider is configured");
+      if (workersAiCircuitOpen && !(this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY) && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open until the next UTC daily reset and no external tool-capable provider is configured");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
