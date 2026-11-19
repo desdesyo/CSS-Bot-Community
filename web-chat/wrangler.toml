@@ -20,6 +20,7 @@ binding = "CF_VERSION_METADATA"
 GITHUB_WORK_REPO = "desdesyo/CSS-Bot-Community"
 GITHUB_WORK_BRANCH = "github-chat-prototype"
 PI_MODEL = "@cf/zai-org/glm-4.7-flash"
+SOLO_AI_MODEL = "solo-ai"
 
 [[durable_objects.bindings]]
 name = "AGENT_SESSIONS"
