@@ -58,6 +58,9 @@ jobs:
           CHAT_OPENROUTER_API_KEY: ${{ secrets.CSSBC_OPENROUTER_API_KEY }}
           CHAT_GEMINI_API_KEY: ${{ secrets.CSSBC_GEMINI_API_KEY }}
           CHAT_GROQ_API_KEY: ${{ secrets.CSSBC_GROQ_API_KEY }}
+          CHAT_SOLO_AI_API_KEY: ${{ secrets.SOLO_AI_API_KEY }}
+          CHAT_SOLO_AI_BASE_URL: ${{ vars.SOLO_AI_BASE_URL }}
+          CHAT_SOLO_AI_MODEL: ${{ vars.SOLO_AI_MODEL }}
           CHAT_MESHY_API_KEY: ${{ secrets.CSSBC_MESHY_API_KEY }}
           CHAT_IMAGE_PROVIDER_ORDER: ${{ secrets.CSSBC_IMAGE_PROVIDER_ORDER }}
           CHAT_COMPUTE_WORKER_TOKEN: ${{ secrets.CSSBC_SOLO_COMPUTE_WORKER_TOKEN }}
@@ -97,6 +100,16 @@ jobs:
             printf "%s" "$CHAT_GROQ_API_KEY" | npx wrangler secret put GROQ_API_KEY
           else
             echo "CSSBC_GROQ_API_KEY is not set; direct Groq fallback is disabled."
+          fi
+          if [ -n "$CHAT_SOLO_AI_API_KEY" ] && [ -n "$CHAT_SOLO_AI_BASE_URL" ]; then
+            printf '%s' "$CHAT_SOLO_AI_API_KEY" | npx wrangler secret put SOLO_AI_API_KEY
+            printf '%s' "$CHAT_SOLO_AI_BASE_URL" | npx wrangler secret put SOLO_AI_BASE_URL
+            if [ -n "$CHAT_SOLO_AI_MODEL" ]; then
+              printf '%s' "$CHAT_SOLO_AI_MODEL" | npx wrangler secret put SOLO_AI_MODEL
+            fi
+            echo "Self-hosted SOLO.AI is configured as the first tool-capable model candidate."
+          else
+            echo "SOLO_AI_API_KEY or SOLO_AI_BASE_URL is missing; self-hosted SOLO.AI remains disabled."
           fi
           if [ -n "$CHAT_MESHY_API_KEY" ]; then
             printf '%s' "$CHAT_MESHY_API_KEY" | npx wrangler secret put MESHY_API_KEY
