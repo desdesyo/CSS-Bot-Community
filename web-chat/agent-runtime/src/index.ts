@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
+import { InMemoryCredentialStore, createProvider, envApiKeyAuth } from "@earendil-works/pi-ai";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { googleProvider } from "@earendil-works/pi-ai/providers/google";
 import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
@@ -33,6 +34,9 @@ interface Env {
   GEMINI_MODEL?: string;
   GROQ_API_KEY?: string;
   GROQ_MODEL?: string;
+  SOLO_AI_BASE_URL?: string;
+  SOLO_AI_API_KEY?: string;
+  SOLO_AI_MODEL?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
   SOLO_COMPUTE_WORKER_TOKEN?: string;
@@ -201,6 +205,25 @@ export class AgentSession extends DurableObject<Env> {
   readonly openrouter = openrouterProvider();
   readonly openai = openaiProvider();
   readonly groq = groqProvider();
+  readonly soloAi = createProvider({
+    id: "solo-ai",
+    name: "SOLO.AI",
+    baseUrl: (this.env.SOLO_AI_BASE_URL || "https://solo-ai-not-configured.invalid/v1").replace(/\/+$/, ""),
+    auth: { apiKey: envApiKeyAuth("SOLO.AI", ["SOLO_AI_API_KEY"]) },
+    models: this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY ? [{
+      id: this.env.SOLO_AI_MODEL || "solo-ai",
+      name: "SOLO.AI (self-hosted)",
+      api: "openai-completions",
+      provider: "solo-ai",
+      baseUrl: this.env.SOLO_AI_BASE_URL.replace(/\/+$/, ""),
+      reasoning: true,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 8192,
+      maxTokens: 2048
+    }] : [],
+    api: openAICompletionsApi()
+  });
   readonly harness = new PiHarness({
     harness: async ({ storage, context, onWake }) => {
       const credentials = new InMemoryCredentialStore();
@@ -208,19 +231,23 @@ export class AgentSession extends DurableObject<Env> {
       if (this.env.OPENROUTER_API_KEY) await credentials.modify("openrouter", async () => ({ type: "api_key", key: this.env.OPENROUTER_API_KEY }));
       if (this.env.OPENAI_API_KEY) await credentials.modify("openai", async () => ({ type: "api_key", key: this.env.OPENAI_API_KEY }));
       if (this.env.GROQ_API_KEY) await credentials.modify("groq", async () => ({ type: "api_key", key: this.env.GROQ_API_KEY }));
+      if (this.env.SOLO_AI_API_KEY) await credentials.modify("solo-ai", async () => ({ type: "api_key", key: this.env.SOLO_AI_API_KEY }));
       const models = createModels({ credentials });
       models.setProvider(this.ai.provider);
       models.setProvider(this.openrouter);
       models.setProvider(this.openai);
       models.setProvider(this.google);
       models.setProvider(this.groq);
+      models.setProvider(this.soloAi);
       return Harness.open(storage, {
         models, registry: this.registry, onWake,
         settings: { retry: { maxRetries: 2, baseDelayMs: 700 } }
       }, context);
     },
     defaults: {
-      model: this.env.GEMINI_API_KEY
+      model: this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY
+        ? (this.soloAi.getModels().find(model => model.id === (this.env.SOLO_AI_MODEL || "solo-ai")) || this.soloAi.getModels()[0]!)
+        : this.env.GEMINI_API_KEY
         ? (this.google.getModels().find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash")) || this.google.getModels()[0]!)
         : this.env.OPENROUTER_API_KEY
           ? (this.openrouter.getModels().find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || this.openrouter.getModels()[0]!)
@@ -522,6 +549,7 @@ LEARNING FROM CORRECTIONS
               openrouter: Boolean(env.OPENROUTER_API_KEY),
               openai: Boolean(env.OPENAI_API_KEY),
               groq: Boolean(env.GROQ_API_KEY),
+              soloAi: Boolean(env.SOLO_AI_BASE_URL && env.SOLO_AI_API_KEY),
               workersAi: true
             };
             const providerHealth: Record<string, { configured: boolean; circuitOpen: boolean; retryAt: string | null; reason: string | null }> = {};
@@ -1400,6 +1428,13 @@ LEARNING FROM CORRECTIONS
       return { reply, model: String(data.model || model), provider };
     };
 
+    if (this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY) {
+      try {
+        const endpoint = this.env.SOLO_AI_BASE_URL.replace(/\/+$/, "") + "/chat/completions";
+        return await runCompatible("solo-ai", endpoint, this.env.SOLO_AI_API_KEY, this.env.SOLO_AI_MODEL || "solo-ai");
+      } catch (error) { failures.push("SOLO.AI: " + String(error instanceof Error ? error.message : error).slice(0, 400)); }
+    } else failures.push("SOLO.AI: SOLO_AI_BASE_URL or SOLO_AI_API_KEY is not configured");
+
     // OpenRouter provides independent provider- and model-level failover.
     if (this.env.OPENROUTER_API_KEY) {
       try {
@@ -1676,6 +1711,10 @@ LEARNING FROM CORRECTIONS
     if (!preferred?.provider) return null;
     const provider = preferred.provider;
     const modelId = String(preferred.model || "");
+    if (provider === "solo-ai") {
+      return this.soloAi.getModels().find(model => model.id === modelId)
+        || this.soloAi.getModels()[0] || null;
+    }
     if (provider === "openrouter") {
       const models = this.openrouter.getModels();
       return models.find(model => model.id === modelId)
@@ -1719,6 +1758,9 @@ LEARNING FROM CORRECTIONS
     };
     const preferredModel = this.resolvePreferredPiModel(preferred);
     if (preferredModel && !(await circuitOpen(preferredModel.provider || preferred?.provider || ""))) add(preferredModel);
+    if (this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY && !(await circuitOpen("solo-ai"))) {
+      add(this.soloAi.getModels().find(model => model.id === (this.env.SOLO_AI_MODEL || "solo-ai")) || this.soloAi.getModels()[0]);
+    }
     if (this.env.OPENROUTER_API_KEY && !(await circuitOpen("openrouter"))) {
       const models = this.openrouter.getModels();
       add(models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || models[0]);
@@ -1777,7 +1819,7 @@ LEARNING FROM CORRECTIONS
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
     let harnessFailure = "";
     try {
-      if (workersAiCircuitOpen && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open until the next UTC daily reset and no external tool-capable provider is configured");
+      if (workersAiCircuitOpen && !this.env.SOLO_AI_API_KEY && !this.env.GEMINI_API_KEY && !this.env.OPENROUTER_API_KEY && !this.env.OPENAI_API_KEY && !this.env.GROQ_API_KEY) throw new Error("Workers AI quota circuit is open until the next UTC daily reset and no external tool-capable provider is configured");
       if (!sessionId) {
         const session = await this.harness.sessions.create();
         sessionId = session.id;
@@ -1800,6 +1842,7 @@ LEARNING FROM CORRECTIONS
       if (!modelCandidates.length) {
         const providerStates: Record<string, { configured: boolean; circuitUntil: number | null }> = {};
         for (const [name, configured] of [
+          ["solo-ai", Boolean(this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY)],
           ["openrouter", Boolean(this.env.OPENROUTER_API_KEY)],
           ["openai", Boolean(this.env.OPENAI_API_KEY)],
           ["gemini", Boolean(this.env.GEMINI_API_KEY)],
