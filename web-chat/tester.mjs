@@ -137,7 +137,9 @@ test("Conversation knowledge base is shared with cloud and browser-local models 
   assert.doesNotMatch(agent, /embedMemoryText\(/, "memory retrieval must not call quota-consuming embedding APIs");
   assert.match(agent, /const score = this\.memoryLexicalScore/, "shared conversation knowledge must have a quota-free lexical retrieval path");
   assert.match(agent, /localContext: localContext \|\| undefined/, "failed cloud jobs must provide retrieved memory to the local model");
-  assert.match(agent, /agentRole === "user" \? await this\.retrieveMemoryContext/, "cloud model must continue receiving the same conversation knowledge");
+  assert.match(agent, /const needsMemoryContext = agentRole === "user"/, "historical memory scans must be conditional on an explicit continuation reference");
+  assert.match(agent, /const memoryContext = needsMemoryContext \? await this\.retrieveMemoryContext/, "cloud model must receive memory when a user explicitly references prior context");
+  assert.doesNotMatch(agent.slice(agent.indexOf("private async retrieveMemoryAnswer"), agent.indexOf("private async retrieveKnowledgeAnswer")), /backfillMemoryIndex/, "knowledge retrieval must not scan old chats on every request");
   assert.match(html, /async function generateLocalReply\(prompt,thinking,knowledgeContext=""/, "local model must accept the shared knowledge context");
   assert.match(html, /БАЗА ЗНАНИЙ ИЗ ПРЕДЫДУЩИХ ДИАЛОГОВ/, "local model prompt must include retrieved conversation knowledge");
   assert.match(html, /result\.localContext\|\|""/, "browser fallback must pass server-retrieved knowledge to Qwen");
@@ -330,4 +332,15 @@ test("Knowledge matcher uses exact technical markers to prevent cross-project an
   };
   assert.equal(selectKnowledgeEntry("Как исправить DISM_RESTORE_TOKEN в Windows?", [entry]), null);
   assert.ok(rankKnowledgeEntries("Как исправить CSSBC_WORKER_TOKEN?", [entry]).length > 0);
+});
+
+test("Interactive chat has bounded provider waits and a deterministic timeout fallback", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const html = await read("./public/index.html");
+  assert.match(agent, /agentRole === "user" \? modelCandidates\.slice\(0, 1\)/, "interactive chat must not serially wait on every tool provider");
+  assert.match(agent, /agentRole === "user" \? 35_000 : 90_000/, "interactive model wait must be bounded");
+  assert.match(agent, /const deadline = Date\.now\(\) \+ 25000/, "text fallback must have a global response budget");
+  assert.match(agent, /signal: directSignal\(\)/, "external text-provider fetches must have abort timeouts");
+  assert.match(agent, /SOLO_CHAT_TIMEOUT: Ответ не получен за 70 секунд/, "queued jobs must fail fast into the browser-local fallback");
+  assert.match(html, /while\(Date\.now\(\)-started<120000\)/, "browser polling must not keep the user waiting for nine minutes");
 });
