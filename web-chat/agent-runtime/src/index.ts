@@ -1663,15 +1663,15 @@ LEARNING FROM CORRECTIONS
         title: item.category + ": " + item.question,
         operationId: "curated-seed-" + item.id,
         createdAt: Date.UTC(2026, 0, 1),
-        queryText: [item.question, ...(item.aliases || [])].join("\\n"),
+        queryText: [item.question, ...(item.aliases || [])].join("\n"),
         sourceProvider: "curated-seed",
         answerQuality: "curated",
         reviewRequired: false,
         reviewStatus: "approved",
         reviewedAt: Date.UTC(2026, 0, 1),
-        content: "Тема: " + item.category + "\\nВопрос пользователя: " + item.question +
-          "\\nВарианты формулировки: " + (item.aliases || []).join("; ") +
-          "\\n\\nОтвет SOLO.Chat:\\n" + item.answer,
+        content: "Тема: " + item.category + "\nВопрос пользователя: " + item.question +
+          "\nВарианты формулировки: " + (item.aliases || []).join("; ") +
+          "\n\nОтвет SOLO.Chat:\n" + item.answer,
         vector: []
       });
       await this.ctx.storage.put(seedKey, true);
