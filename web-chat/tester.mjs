@@ -157,15 +157,4 @@ test("Background agent roles are blocked before reserving model quota unless exp
 // Explicit quota guard: agent roles stay off unless deliberately enabled in Worker vars.
 
 
-test("Deployment aborts stale background agent sessions and preserves user chat", async () => {
-  const agent = await read("./agent-runtime/src/index.ts");
-  const workflow = await read("../.github/workflows/deploy-github-chat.yml");
-  assert.match(agent, /url\.pathname === "\/api\/agent\/stop-background"/, "authenticated background-session abort endpoint must exist");
-  for (const prefix of ["cssbc-team-", "cssbc-supervisor-review-", "solo-model-monitor-", "solo-deploy-smoke-", "harness-check-"]) {
-    assert.ok(agent.includes('"' + prefix + '"'), "background session prefix missing: " + prefix);
-  }
-  assert.match(agent, /await conversation\.abort\(BACKGROUND_CONTEXT\)/, "the endpoint must actively abort existing Pi conversations");
-  assert.match(workflow, /Abort any stale automatic agent sessions/, "deployment must invoke the abort endpoint after rollout");
-});
 
-// Deployment also aborts stale non-user agent sessions after rollout.

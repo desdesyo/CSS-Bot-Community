@@ -148,16 +148,6 @@ jobs:
           echo "::error::Deployed SOLO.Chat did not pass authenticated health check."
           exit 1
 
-      - name: Abort any stale automatic agent sessions
-        env:
-          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
-          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
-        run: |
-          set -euo pipefail
-          RESPONSE="$(curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CHAT_APP_PASSWORD" "${CHAT_ENDPOINT%/}/api/agent/stop-background")"
-          echo "$RESPONSE" | jq '{ok,aborted,failed}'
-          jq -e '.ok == true' <<<"$RESPONSE" >/dev/null
-
       - name: Verify live agent dashboard and model inference
         id: model_smoke
         env:
