@@ -179,7 +179,8 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(agent, /const queryMarkers =/, "exact technical markers must be extracted from the current question");
   assert.match(agent, /markerConflict/, "answers for different technical identifiers must be rejected");
   assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
-  assert.match(agent, /SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/, "provider exhaustion must bypass another quota-consuming fallback attempt");
+  assert.match(agent, /Provider exhaustion falls through to the independent text-only chain below/, "provider exhaustion must still try independent providers with their own circuit state");
+  assert.match(agent, /SOLO_INTERNAL_QUOTA_EXHAUSTED/, "internal quota exhaustion must have an explicit safe fallback path");
   assert.match(agent, /knowledgeQuestion = String\(body\.knowledgeQuestion \|\| prompt\)/);
   assert.match(agent, /historyExchanges = Array\.isArray\(body\.knowledgeExchanges\)/, "existing turns must seed the knowledge base before fallback retrieval");
   assert.match(worker, /knowledgeExchanges\.slice\(-20\)/, "the current conversation must supply a bounded set of prior Q&A pairs");
