@@ -3523,7 +3523,7 @@ LEARNING FROM CORRECTIONS
             id: String(entry.id || ""),
             threadId: entry.threadId || null,
             question: String(entry.queryText || "").slice(0, 2500),
-            answer: String(entry.content || "").match(/Ответ SOLO\\.Chat:\\s*([\\s\\S]*)$/i)?.[1]?.slice(0, 5000) || "",
+            answer: String(entry.content || "").match(/Ответ SOLO\.Chat:\s*([\s\S]*)$/i)?.[1]?.slice(0, 5000) || "",
             sourceProvider: String(entry.sourceProvider || "unknown"),
             createdAt: Number(entry.createdAt || 0),
             reviewStatus: String(entry.reviewStatus || "pending")
