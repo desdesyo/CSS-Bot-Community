@@ -70,6 +70,14 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", "http://127.0.0.1:" + port);
   if (url.pathname === "/health" && req.method === "GET") return sendJson(res, 200, { ok: true, bridgeId, remote: baseUrl, pending: Boolean(pending) });
   if (!authorized(req)) return sendJson(res, 401, { error: "Unauthorized local bridge client" });
+  if (url.pathname === "/heartbeat" && req.method === "POST") {
+    try {
+      const result = await remote("/api/chatgpt-bridge/heartbeat", { bridgeId });
+      return sendJson(res, 200, result);
+    } catch (error) {
+      return sendJson(res, 502, { error: String(error.message || error).slice(0, 300) });
+    }
+  }
   if (url.pathname === "/next" && req.method === "GET") {
     if (!pending || pending.delivered) return sendJson(res, 200, { task: null });
     pending.delivered = true;
