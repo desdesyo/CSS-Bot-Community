@@ -167,3 +167,5 @@ test("Deployment aborts stale background agent sessions and preserves user chat"
   assert.match(agent, /await conversation\.abort\(BACKGROUND_CONTEXT\)/, "the endpoint must actively abort existing Pi conversations");
   assert.match(workflow, /Abort any stale automatic agent sessions/, "deployment must invoke the abort endpoint after rollout");
 });
+
+// Deployment also aborts stale non-user agent sessions after rollout.
