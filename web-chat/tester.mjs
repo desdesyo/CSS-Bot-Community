@@ -27,6 +27,18 @@ test("Agent preserves independent text fallback and safe timeout guard", async (
   assert.match(agent, /SOLO_PI_ABORT_UNCONFIRMED/);
 });
 
+test("Configured AI providers share a persistent round-robin with per-provider failover", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  assert.match(agent, /rotateProviderCandidates/);
+  assert.match(agent, /provider:rotation:last-tool/);
+  assert.match(agent, /this\.ctx\.storage\.transaction/);
+  for (const provider of ["solo-ai", "openrouter", "openai", "gemini", "groq", "workers-ai"]) {
+    assert.ok(agent.includes('"'+provider+'"') || agent.includes('("'+provider+'")'), `provider missing from rotation: ${provider}`);
+  }
+  assert.match(agent, /return this\.rotateProviderCandidates\(candidates/);
+  assert.match(agent, /Pi provider attempt threw; rotating provider/);
+});
+
 test("Browser UI includes status polling and failure handling", async () => {
   const html = await read("./public/index.html");
   assert.ok(html.includes("/api/chat/status"), "status polling endpoint not referenced");
