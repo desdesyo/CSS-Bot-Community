@@ -57,6 +57,7 @@ jobs:
       - name: Check Free ChatGPT browser bridge syntax
         run: |
           node --check web-chat/free-chatgpt-bridge/server.mjs
+          node --check web-chat/free-chatgpt-bridge/extension/background.js
           node --check web-chat/free-chatgpt-bridge/extension/content.js
           node --check web-chat/free-chatgpt-bridge/extension/popup.js
       - name: Check Worker JavaScript syntax
