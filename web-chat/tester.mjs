@@ -210,3 +210,22 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   assert.match(extension, /bridgeRequest\("result"/);
   assert.match(extension, /submitPrompt\(instruction\)/);
 });
+
+
+test("Unverified free ChatGPT answers require explicit approval before direct knowledge reuse", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  assert.match(agent, /reviewStatus: sourceProvider === "free-chatgpt-bridge" \? "pending" : "not-required"/);
+  assert.match(agent, /!entry\.reviewRequired && entry\.reviewStatus !== "pending" && entry\.reviewStatus !== "rejected"/,
+    "pending or rejected external answers must never be served as authoritative database answers");
+  assert.match(agent, /НЕПРОВЕРЕННЫЙ ВНЕШНИЙ ИСТОЧНИК/,
+    "unverified external knowledge must be visibly marked when supplied as context to a model");
+  assert.match(agent, /url\.pathname === "\/api\/knowledge\/review" && req\.method === "GET"/,
+    "authenticated review queue must be available");
+  assert.match(agent, /url\.pathname === "\/api\/knowledge\/review" && req\.method === "POST"/,
+    "authenticated approve/reject action must be available");
+  assert.match(agent, /entry\.sourceProvider !== "free-chatgpt-bridge" \|\| entry\.reviewRequired !== true/,
+    "review actions must not modify ordinary knowledge entries");
+  assert.match(agent, /entry\.answerQuality = decision === "approve" \? "approved" : "rejected"/);
+  assert.match(agent, /Ранее получено через бесплатный ChatGPT и одобрено пользователем/,
+    "approved external knowledge must retain provenance");
+});
