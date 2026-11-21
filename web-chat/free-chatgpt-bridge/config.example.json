@@ -1,0 +1,7 @@
+{
+  "soloChatUrl": "https://cssbc-github-chat.descapan.workers.dev",
+  "soloChatPassword": "PUT_YOUR_SOLO_CHAT_PASSWORD_HERE",
+  "bridgeId": "my-free-chatgpt-browser",
+  "localBridgeToken": "REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_24_CHARACTERS",
+  "localPort": 8765
+}
