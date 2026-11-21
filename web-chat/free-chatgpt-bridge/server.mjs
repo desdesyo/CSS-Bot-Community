@@ -103,7 +103,12 @@ const server = http.createServer(async (req, res) => {
       await pollRemote();
       return sendJson(res, 200, { ok: true });
     } catch (failure) {
-      console.error("Could not return ChatGPT answer to SOLO.Chat:", String(failure.message || failure).slice(0, 400));
+      const detail = String(failure.message || failure).slice(0, 400);
+      console.error("Could not return ChatGPT answer to SOLO.Chat:", detail);
+      if (/HTTP (?:404|409)\\b/.test(detail)) {
+        pending = null;
+        await pollRemote();
+      }
       return sendJson(res, 502, { error: "Could not return answer to SOLO.Chat" });
     }
   }
