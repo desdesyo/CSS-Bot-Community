@@ -1912,16 +1912,9 @@ LEARNING FROM CORRECTIONS
     }
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
-    let bridgeAttempted = false;
-    if (agentRole === "user" && allowFreeChatGPTBridge && await this.isFreeChatGPTBridgeOnline()) {
-      bridgeAttempted = true;
-      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId);
-      if (bridgedReply) return {
-        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
-        status: "done", operationId, sessionId: "free-chatgpt-bridge",
-        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
-      };
-    }
+    // Do not call the browser bridge pre-emptively: preserve SOLO.Chat model capacity first.
+    // The free ChatGPT tab is a last-resort fallback only after local knowledge and configured models fail.
+    const bridgeAttempted = false;
     await this.reserveQuota(operationId);
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
@@ -2106,9 +2099,10 @@ LEARNING FROM CORRECTIONS
       return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model, fallbackReason: harnessFailure };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
-      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, prompt, operationId);
+      const bridgedReply = allowFreeChatGPTBridge && await this.isFreeChatGPTBridgeOnline()
+        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
       if (bridgedReply) return {
-        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\\n\\n" + bridgedReply,
+        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
         status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
