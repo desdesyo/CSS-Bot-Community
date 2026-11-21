@@ -207,6 +207,6 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   assert.match(bridge, /server\.listen\(port, "127\.0\.0\.1"/, "local relay must bind only to loopback");
   assert.match(bridge, /X-SOLO-Bridge-Token/);
   assert.match(extension, /SOLO\.Chat Bridge/);
-  assert.match(extension, /\/result/);
+  assert.match(extension, /bridgeRequest\("result"/);
   assert.match(extension, /submitPrompt\(instruction\)/);
 });
