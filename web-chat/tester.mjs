@@ -173,5 +173,7 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
   assert.match(agent, /SOLO_NO_PROVIDER_CAPACITY\|Workers AI quota circuit is open/, "provider exhaustion must bypass another quota-consuming fallback attempt");
   assert.match(agent, /knowledgeQuestion = String\(body\.knowledgeQuestion \|\| prompt\)/);
+  assert.match(agent, /historyExchanges = Array\.isArray\(body\.knowledgeExchanges\)/, "existing turns must seed the knowledge base before fallback retrieval");
+  assert.match(worker, /knowledgeExchanges\.slice\(-20\)/, "the current conversation must supply a bounded set of prior Q&A pairs");
   assert.match(worker, /knowledgeQuestion:message/, "the exact user question, not the full conversation prompt, must be indexed");
 });
