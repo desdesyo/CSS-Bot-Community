@@ -49,8 +49,16 @@ jobs:
         run: node --check computer-bridge/agent.mjs
       - name: Check SOLO Compute worker syntax and policy tests
         run: node --check web-chat/compute-worker.mjs && node --test web-chat/compute-worker.test.mjs
-      - name: Validate local bridge config example
-        run: node -e "JSON.parse(require('fs').readFileSync('computer-bridge/config.example.json','utf8'))"
+      - name: Validate local bridge config examples
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('computer-bridge/config.example.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('web-chat/free-chatgpt-bridge/config.example.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('web-chat/free-chatgpt-bridge/extension/manifest.json','utf8'))"
+      - name: Check Free ChatGPT browser bridge syntax
+        run: |
+          node --check web-chat/free-chatgpt-bridge/server.mjs
+          node --check web-chat/free-chatgpt-bridge/extension/content.js
+          node --check web-chat/free-chatgpt-bridge/extension/popup.js
       - name: Check Worker JavaScript syntax
         run: node --input-type=module --check < web-chat/worker.js
       - name: Check browser JavaScript syntax
