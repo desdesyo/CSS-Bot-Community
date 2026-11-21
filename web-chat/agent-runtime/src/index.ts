@@ -1884,6 +1884,7 @@ LEARNING FROM CORRECTIONS
         return { reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base", provider: "knowledge-base", model: "lexical-retrieval-v1" };
       }
     }
+    await this.reserveQuota(operationId);
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
@@ -3481,7 +3482,6 @@ LEARNING FROM CORRECTIONS
             const sourceKey = String(exchange.sourceKey || index).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || String(index);
             await this.indexKnowledgeExchange(threadKey, String(exchange.question || ""), String(exchange.answer || ""), "history-" + sourceKey);
           }
-          await this.reserveQuota(operationId);
           const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
           const result = await this.runChat(threadKey, prompt, operationId, agentRole, knowledgeQuestion);
           if (agentRole === "user" && result.reply && result.provider !== "knowledge-base") {
