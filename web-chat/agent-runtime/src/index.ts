@@ -1635,6 +1635,82 @@ LEARNING FROM CORRECTIONS
     }
   }
 
+
+  // Index completed user-facing exchanges so the knowledge base grows from real SOLO.Chat conversations.
+  private async indexKnowledgeExchange(threadKey: string, question: string, answer: string, operationId: string) {
+    const cleanQuestion = String(question || "").trim().slice(0, 6000);
+    const cleanAnswer = String(answer || "").trim().slice(0, 7000);
+    if (!cleanQuestion || cleanAnswer.length < 24 || !operationId) return false;
+    if (/^(?:не удалось получить ответ|ошибка чата|ответ не получен|no provider capacity)/i.test(cleanAnswer)) return false;
+    const safeThread = String(threadKey || "default").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80) || "default";
+    const indexedKey = "memory:indexed:exchange:" + safeThread + ":" + operationId.slice(0, 100);
+    if (await this.ctx.storage.get<boolean>(indexedKey)) return false;
+    const numericThread = /^\\d+$/.test(safeThread) ? Number(safeThread) : 0;
+    const id = crypto.randomUUID();
+    await this.ctx.storage.put("memory:entry:" + id, {
+      id, threadId: numericThread, threadKey: safeThread, title: "Диалог " + safeThread,
+      operationId, createdAt: Date.now(), queryText: cleanQuestion,
+      content: ("Вопрос пользователя:\\n" + cleanQuestion + "\\n\\nОтвет SOLO.Chat:\\n" + cleanAnswer).slice(0, 12000),
+      answerQuality: "completed", vector: []
+    });
+    await this.ctx.storage.put(indexedKey, true);
+    return true;
+  }
+
+  // A deterministic relevance gate: only reuse an old answer when the stored QUESTION
+  // covers the current request. Similar words in a long answer are not enough.
+  private async retrieveKnowledgeAnswer(threadKey: string, prompt: string) {
+    const noAnswer = "Я пока не нашёл в собственной базе знаний SOLO.Chat достаточно подходящего ответа. Не хочу выдавать случайный старый текст за решение именно вашей задачи. Уточните вопрос или добавьте контекст — тогда я смогу точнее сопоставить его с сохранёнными материалами.";
+    try {
+      await this.backfillMemoryIndex(6);
+      const normalize = (value: string) => {
+        const stop = new Set(["это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","его","её","быть","есть","the","and","for","with","that","this","from","you","your"]);
+        return (String(value || "").toLocaleLowerCase("ru").match(/[a-zа-яё0-9_]{3,}/giu) || [])
+          .filter(token => !stop.has(token))
+          .map(token => token.length > 5 ? token.replace(/(иями|ями|ами|ого|ему|ыми|ими|ее|ие|ые|ое|ей|ий|ый|ой|ая|яя|ою|ею|ам|ям|ах|ях|ов|ев|ом|ем|ы|и|а|я|у|ю|е|о)$/u, "") : token)
+          .filter(token => token.length >= 3);
+      };
+      let queryTokens = Array.from(new Set(normalize(prompt)));
+      if (queryTokens.length < 2) {
+        const threadId = /^\\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
+        const thread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
+        const recent = Array.isArray(thread?.messages) ? thread.messages.slice(-6).map((item: any) => String(item.content || "")).join(" ") : "";
+        queryTokens = Array.from(new Set(normalize(String(prompt || "") + " " + recent)));
+      }
+      if (queryTokens.length < 2) return noAnswer;
+
+      const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
+      const ranked = Array.from(listed.values()).map((entry: any) => {
+        const storedQuestion = String(entry.queryText || "");
+        const entryTokens = new Set(normalize(storedQuestion));
+        let overlap = 0;
+        for (const token of queryTokens) if (entryTokens.has(token)) overlap++;
+        const coverage = overlap / queryTokens.length;
+        const precision = overlap / Math.max(1, entryTokens.size);
+        const normalizedPrompt = String(prompt || "").toLocaleLowerCase("ru").replace(/\\s+/g, " ").trim();
+        const normalizedQuestion = storedQuestion.toLocaleLowerCase("ru").replace(/\\s+/g, " ").trim();
+        const phraseBonus = normalizedPrompt.length >= 12 && (normalizedQuestion.includes(normalizedPrompt) || normalizedPrompt.includes(normalizedQuestion)) ? 0.18 : 0;
+        const score = Math.min(1, coverage * 0.82 + Math.min(precision, 0.5) * 0.18 + phraseBonus);
+        const match = String(entry.content || "").match(/Ответ SOLO\\.Chat:\\s*([\\s\\S]*)$/i);
+        const answer = String(match?.[1] || "").trim();
+        const answerUsable = answer.length >= 24 && answer.length <= 7000 &&
+          !/не удалось получить ответ от ии-модели|ошибка провайдера|provider capacity exhausted|внутренняя ошибка сервера/i.test(answer);
+        return { entry, score, coverage, answer, answerUsable };
+      }).filter(item => item.answerUsable && item.coverage >= 0.45 && item.score >= 0.42)
+        .sort((a, b) => b.score - a.score);
+      const best = ranked[0];
+      const second = ranked[1];
+      // Ambiguous near-ties are rejected instead of returning a potentially irrelevant answer.
+      if (!best || (second && best.score - second.score < 0.07 && best.entry.queryText !== second.entry.queryText)) return noAnswer;
+      const source = best.entry.threadId ? "диалог №" + best.entry.threadId : "сохранённый диалог";
+      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). Это ранее сохранённый ответ, а не новая проверка фактов:\\n\\n" +
+        best.answer + "\\n\\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
+    } catch (error) {
+      console.warn("[SOLO.Chat] knowledge answer retrieval skipped", String(error instanceof Error ? error.message : error).slice(0, 300));
+      return noAnswer;
+    }
+  }
+
   async getPreferredToolModel(): Promise<{ provider: string; model: string } | null> {
     const preferred = await this.ctx.storage.get<{ provider?: string; model?: string }>("agent:preferred-tool-model");
     return preferred?.provider && preferred?.model ? { provider: preferred.provider, model: preferred.model } : null;
@@ -1928,7 +2004,16 @@ LEARNING FROM CORRECTIONS
       return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model, fallbackReason: harnessFailure };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
-      throw new Error("Не удалось получить ответ от ИИ-модели после основного и резервного способов: " + reason);
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      return {
+        reply: knowledgeReply,
+        status: "done",
+        operationId,
+        sessionId: sessionId || "knowledge-base",
+        provider: "knowledge-base",
+        model: "lexical-retrieval-v1",
+        fallbackReason: "AI providers unavailable; deterministic knowledge relevance gate used. " + reason
+      };
     }
   }
   private async recordRuntimeError(source: string, error: unknown) {
@@ -3269,7 +3354,12 @@ LEARNING FROM CORRECTIONS
         try {
           const operationId = String(body.operationId || crypto.randomUUID());
           await this.reserveQuota(operationId);
-          const result = await this.runChat(String(body.threadKey || "default"), prompt, operationId, agentRole);
+          const threadKey = String(body.threadKey || "default");
+          const result = await this.runChat(threadKey, prompt, operationId, agentRole);
+          if (agentRole === "user" && result.reply) {
+            const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
+            await this.indexKnowledgeExchange(threadKey, knowledgeQuestion, String(result.reply), operationId);
+          }
           return json(result);
         } finally {
           if (requestToken) await this.ctx.storage.delete("agent:githubToken");
