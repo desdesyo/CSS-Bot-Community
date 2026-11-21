@@ -134,8 +134,7 @@ jobs:
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing CSSBC_CHAT_ENDPOINT for post-deploy smoke test"; exit 1; }
           test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD for post-deploy smoke test"; exit 1; }
           ENDPOINT="${CHAT_ENDPOINT%/}"
-          echo "Waiting for Cloudflare's deferred Durable Object code update window (300 seconds) so existing chat sessions adopt the deployed code without interrupting in-flight work."
-          sleep 305
+          echo "Checking authenticated Worker health immediately; retrying briefly only if Cloudflare propagation is still in progress."
           for attempt in $(seq 1 12); do
             CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
             if [[ "$CODE" == "200" ]] && jq -e '.ok == true' health.json >/dev/null; then
@@ -143,7 +142,7 @@ jobs:
               echo "Post-deploy authenticated health and version check passed."
               exit 0
             fi
-            echo "Health attempt $attempt/12 returned HTTP $CODE; waiting for deployment propagation."
+            echo "Health attempt $attempt/12 returned HTTP $CODE; waiting 5 seconds for deployment propagation."
             sleep 5
           done
           echo "::error::Deployed SOLO.Chat did not pass authenticated health check."
