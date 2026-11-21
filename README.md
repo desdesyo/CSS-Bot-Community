@@ -10,7 +10,6 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 
 The app is deployed from the `github-chat-prototype` branch. Its deployment workflow publishes this link only after the authenticated Worker health/version check passes: [Deploy GitHub Chat](.github/workflows/deploy-github-chat.yml). The application and deployment details are in [web-chat/README.md](web-chat/README.md).
 
-Do not use the historical `cssbc-github-chat.descpan.workers.dev` spelling; it is not the deployed hostname.
 
 ## Русская локализация
 
