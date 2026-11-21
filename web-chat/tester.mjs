@@ -128,3 +128,16 @@ test("Browser local WebGPU fallback is wired to provider failures and persisted 
   assert.match(agent, /job\.status = "done"; job\.reply = reply; job\.provider = "browser-local"/, "local completion must resolve the job");
   assert.match(agent, /message\.role === "assistant" && message\.operationId === operationId/, "local completion must be idempotent in conversation history");
 });
+
+
+test("Conversation knowledge base is shared with cloud and browser-local models without embedding API calls", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const html = await read("./public/index.html");
+  assert.doesNotMatch(agent, /embedMemoryText\(/, "memory retrieval must not call quota-consuming embedding APIs");
+  assert.match(agent, /const score = this\.memoryLexicalScore/, "shared conversation knowledge must have a quota-free lexical retrieval path");
+  assert.match(agent, /localContext: localContext \|\| undefined/, "failed cloud jobs must provide retrieved memory to the local model");
+  assert.match(agent, /agentRole === "user" \? await this\.retrieveMemoryContext/, "cloud model must continue receiving the same conversation knowledge");
+  assert.match(html, /async function generateLocalReply\(prompt,thinking,knowledgeContext=""/, "local model must accept the shared knowledge context");
+  assert.match(html, /БАЗА ЗНАНИЙ ИЗ ПРЕДЫДУЩИХ ДИАЛОГОВ/, "local model prompt must include retrieved conversation knowledge");
+  assert.match(html, /result\.localContext\|\|""/, "browser fallback must pass server-retrieved knowledge to Qwen");
+});
