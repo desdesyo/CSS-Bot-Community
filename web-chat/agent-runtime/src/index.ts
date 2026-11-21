@@ -14,6 +14,7 @@ import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
 import { MCPClientManager } from "agents/mcp/client";
 import { createAI } from "agents/models/pi-ai";
+import { SOLO_KNOWLEDGE_SEED } from "./knowledge-seed";
 
 interface Env {
   AI: Ai;
@@ -1648,6 +1649,36 @@ LEARNING FROM CORRECTIONS
     return indexed;
   }
 
+  private async ensureSeedKnowledge() {
+    // Import the curated starter corpus once per Durable Object database.
+    // Stable keys make deploys idempotent and avoid duplicate entries.
+    for (const item of SOLO_KNOWLEDGE_SEED) {
+      const seedKey = "memory:seed:" + item.id;
+      if (await this.ctx.storage.get<boolean>(seedKey)) continue;
+      const id = "seed-" + item.id;
+      await this.ctx.storage.put("memory:entry:" + id, {
+        id,
+        threadId: 0,
+        threadKey: "curated-seed",
+        title: item.category + ": " + item.question,
+        operationId: "curated-seed-" + item.id,
+        createdAt: Date.UTC(2026, 0, 1),
+        queryText: [item.question, ...(item.aliases || [])].join("\\n"),
+        sourceProvider: "curated-seed",
+        answerQuality: "curated",
+        reviewRequired: false,
+        reviewStatus: "approved",
+        reviewedAt: Date.UTC(2026, 0, 1),
+        content: "Тема: " + item.category + "\\nВопрос пользователя: " + item.question +
+          "\\nВарианты формулировки: " + (item.aliases || []).join("; ") +
+          "\\n\\nОтвет SOLO.Chat:\\n" + item.answer,
+        vector: []
+      });
+      await this.ctx.storage.put(seedKey, true);
+    }
+    return SOLO_KNOWLEDGE_SEED.length;
+  }
+
   private async retrieveMemoryContext(threadKey: string, prompt: string) {
     try {
       await this.backfillMemoryIndex(4);
@@ -1709,6 +1740,7 @@ LEARNING FROM CORRECTIONS
   // A deterministic relevance gate: only reuse an old answer when the stored QUESTION
   // covers the current request. Similar words in a long answer are not enough.
   private async retrieveKnowledgeAnswer(threadKey: string, prompt: string) {
+    await this.ensureSeedKnowledge();
     const noAnswer = "Я пока не нашёл в собственной базе знаний SOLO.Chat достаточно подходящего ответа. Не хочу выдавать случайный старый текст за решение именно вашей задачи. Уточните вопрос или добавьте контекст — тогда я смогу точнее сопоставить его с сохранёнными материалами.";
     try {
       await this.backfillMemoryIndex(6);
