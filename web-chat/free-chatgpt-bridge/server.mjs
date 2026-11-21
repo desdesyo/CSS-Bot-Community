@@ -58,7 +58,8 @@ function sendJson(res, status, value) {
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, X-SOLO-Bridge-Token",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Private-Network": "true"
   });
   res.end(JSON.stringify(value));
 }
@@ -66,7 +67,15 @@ function authorized(req) {
   return String(req.headers["x-solo-bridge-token"] || "") === localToken;
 }
 const server = http.createServer(async (req, res) => {
-  if (req.method === "OPTIONS") return sendJson(res, 204, {});
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type, X-SOLO-Bridge-Token",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Private-Network": "true"
+    });
+    return res.end();
+  }
   const url = new URL(req.url || "/", "http://127.0.0.1:" + port);
   if (url.pathname === "/health" && req.method === "GET") return sendJson(res, 200, { ok: true, bridgeId, remote: baseUrl, pending: Boolean(pending) });
   if (!authorized(req)) return sendJson(res, 401, { error: "Unauthorized local bridge client" });
