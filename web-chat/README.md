@@ -8,7 +8,7 @@ SOLO.Chat is a private browser chat backed by a Cloudflare Worker and a durable 
 - API, password authentication, and chat protocol: `agent-runtime/src/index.ts`
 - Agent runtime: Cloudflare Durable Object `AgentSession` with Pi Durable.
 - Conversation history: Durable Object SQLite storage. Each browser conversation and its user/assistant messages are persisted separately; each agent session also retains its durable model transcript.
-- Model routing: self-hosted SOLO.AI is the first tool-capable provider when `SOLO_AI_BASE_URL` and `SOLO_AI_API_KEY` are configured; otherwise the existing Gemini/OpenRouter/OpenAI/Groq/Workers AI chain remains active. `SOLO_AI_MODEL` defaults to `solo-ai`.
+- Model routing: every configured and healthy tool-capable provider participates in a persistent Durable Object round-robin: SOLO.AI, OpenRouter, OpenAI, Gemini, Groq, and Cloudflare Workers AI. Each request starts with the next provider; if it fails, the runtime tries the remaining providers in that request. Quota/auth/transient failures open a provider-specific cooldown, and a successful provider has its circuit cleared. Missing credentials and open circuits are skipped. `SOLO_AI_MODEL` defaults to `solo-ai`.
 - Agent workspace: GitHub Contents API tools for listing, reading, and writing files in the configured repository and branch.
 - Local computer pairing: authenticated companion requests are queued through the same Durable Object; inspection is automatic, while text/config writes require exact-hash checks, verified backups and a local APPLY confirmation.
 
