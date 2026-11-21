@@ -1895,8 +1895,7 @@ LEARNING FROM CORRECTIONS
     let bridgeAttempted = false;
     if (agentRole === "user" && await this.isFreeChatGPTBridgeOnline()) {
       bridgeAttempted = true;
-      const bridgedReply = !bridgeAttempted && await this.isFreeChatGPTBridgeOnline()
-        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
+      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId);
       if (bridgedReply) return {
         reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
         status: "done", operationId, sessionId: "free-chatgpt-bridge",
