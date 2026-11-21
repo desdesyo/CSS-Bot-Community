@@ -1641,7 +1641,7 @@ LEARNING FROM CORRECTIONS
     const cleanQuestion = String(question || "").trim().slice(0, 6000);
     const cleanAnswer = String(answer || "").trim().slice(0, 7000);
     if (!cleanQuestion || cleanAnswer.length < 24 || !operationId) return false;
-    if (/^(?:не удалось получить ответ|ошибка чата|ответ не получен|no provider capacity)/i.test(cleanAnswer)) return false;
+    if (/^(?:не удалось получить ответ|ошибка чата|ответ не получен|я пока не нашёл в собственной базе знаний|no provider capacity)/i.test(cleanAnswer)) return false;
     const safeThread = String(threadKey || "default").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80) || "default";
     const indexedKey = "memory:indexed:exchange:" + safeThread + ":" + operationId.slice(0, 100);
     if (await this.ctx.storage.get<boolean>(indexedKey)) return false;
@@ -3367,8 +3367,14 @@ LEARNING FROM CORRECTIONS
         if (requestToken) await this.ctx.storage.put("agent:githubToken", requestToken);
         try {
           const operationId = String(body.operationId || crypto.randomUUID());
-          await this.reserveQuota(operationId);
           const threadKey = String(body.threadKey || "default");
+          const historyExchanges = Array.isArray(body.knowledgeExchanges) ? body.knowledgeExchanges.slice(-20) : [];
+          for (let index = 0; index < historyExchanges.length; index++) {
+            const exchange = historyExchanges[index] || {};
+            const sourceKey = String(exchange.sourceKey || index).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || String(index);
+            await this.indexKnowledgeExchange(threadKey, String(exchange.question || ""), String(exchange.answer || ""), "history-" + sourceKey);
+          }
+          await this.reserveQuota(operationId);
           const result = await this.runChat(threadKey, prompt, operationId, agentRole);
           if (agentRole === "user" && result.reply && result.provider !== "knowledge-base") {
             const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
