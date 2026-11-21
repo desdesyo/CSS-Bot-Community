@@ -3252,6 +3252,33 @@ LEARNING FROM CORRECTIONS
           registeredToolCount, offeredToolCount: visibleTools.length, toolCalls: calls.slice(-12)
         });
       }
+      if (url.pathname === "/api/agent/stop-background" && req.method === "POST") {
+        await this.requirePassword(req);
+        const prefixes = ["cssbc-team-", "cssbc-supervisor-review-", "solo-model-monitor-", "solo-deploy-smoke-", "harness-check-"];
+        const stored = await this.ctx.storage.list<string>({ prefix: "chat:session:" });
+        const targets = Array.from(stored.entries()).filter(([key]) => {
+          const threadKey = key.slice("chat:session:".length);
+          return prefixes.some(prefix => threadKey.startsWith(prefix));
+        });
+        const aborted: string[] = [];
+        const failed: string[] = [];
+        if (targets.length) {
+          const pi = await this.harness.pi();
+          for (const [key, sessionId] of targets) {
+            const threadKey = key.slice("chat:session:".length);
+            try {
+              const conversation = await pi.conversation(sessionId as any, BACKGROUND_CONTEXT);
+              if (conversation) {
+                await conversation.abort(BACKGROUND_CONTEXT);
+                aborted.push(threadKey);
+              }
+            } catch (error) {
+              failed.push(threadKey + ": " + String(error instanceof Error ? error.message : error).slice(0, 180));
+            }
+          }
+        }
+        return json({ ok: true, aborted: aborted.length, threads: aborted.slice(0, 20), failed: failed.slice(0, 10) });
+      }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
