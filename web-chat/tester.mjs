@@ -160,3 +160,17 @@ test("Background agent roles are blocked before reserving model quota unless exp
 
 
 // Final regression suite keeps quota guards and shared knowledge retrieval explicit.
+
+test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge fallback", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const worker = await read("./worker.js");
+  assert.match(agent, /private async indexKnowledgeExchange/);
+  assert.match(agent, /memory:indexed:exchange:/, "knowledge indexing must be idempotent");
+  assert.match(agent, /private async retrieveKnowledgeAnswer/);
+  assert.match(agent, /coverage >= 0\.45/, "a candidate must cover enough of the current question");
+  assert.match(agent, /best\.score - second\.score < 0\.07/, "ambiguous near-ties must be rejected");
+  assert.match(agent, /answerUsable/, "stored answers must pass a basic quality filter");
+  assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
+  assert.match(agent, /knowledgeQuestion = String\(body\.knowledgeQuestion \|\| prompt\)/);
+  assert.match(worker, /knowledgeQuestion:message/, "the exact user question, not the full conversation prompt, must be indexed");
+});
