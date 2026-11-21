@@ -37,6 +37,7 @@ interface Env {
   SOLO_AI_BASE_URL?: string;
   SOLO_AI_API_KEY?: string;
   SOLO_AI_MODEL?: string;
+  SOLO_AGENT_AUTOMATION_ENABLED?: string;
   EXPERT_MODEL?: string;
   MESHY_API_KEY?: string;
   SOLO_COMPUTE_WORKER_TOKEN?: string;
@@ -3256,6 +3257,9 @@ LEARNING FROM CORRECTIONS
         const body = await req.json() as any;
         const requestedRole = String(body.agentRole || "user");
         const agentRole = ["planner", "implementer", "tester", "supervisor"].includes(requestedRole) ? requestedRole : "user";
+        if (agentRole !== "user" && this.env.SOLO_AGENT_AUTOMATION_ENABLED !== "true") {
+          return json({ error: "SOLO_AUTOMATIC_AGENTS_DISABLED: background agent roles are paused to protect model quotas. Enable SOLO_AGENT_AUTOMATION_ENABLED only for an explicitly requested agent run." }, 423);
+        }
         const prompt = String(body.prompt || "").trim();
         if (!prompt || prompt.length > 30000) return json({ error: "Prompt must be 1–30000 characters" }, 400);
         const requestToken = String(body.githubToken || "").trim();

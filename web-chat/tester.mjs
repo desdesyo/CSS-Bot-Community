@@ -143,3 +143,13 @@ test("Conversation knowledge base is shared with cloud and browser-local models 
 });
 
 // Shared cloud/local knowledge base and quota-safety regression tests are kept in this file.
+
+
+test("Background agent roles are blocked before reserving model quota unless explicitly enabled", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const config = await read("./wrangler.toml");
+  const gate = agent.indexOf('if (agentRole !== "user" && this.env.SOLO_AGENT_AUTOMATION_ENABLED !== "true")');
+  const reserve = agent.indexOf("await this.reserveQuota(operationId)", gate);
+  assert.ok(gate >= 0 && reserve > gate, "non-user agent roles must be rejected before model quota reservation");
+  assert.match(config, /SOLO_AGENT_AUTOMATION_ENABLED = "false"/, "automatic agents must remain disabled in the deployed Worker by default");
+});
