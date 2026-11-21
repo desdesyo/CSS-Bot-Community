@@ -282,3 +282,11 @@ test("SOLO.Chat installs a curated offline starter corpus for recurring user top
   }
   assert.ok((corpus.match(/id: "/g) || []).length >= 20, "starter corpus must contain at least 20 reviewed topic entries");
 });
+
+
+test("Deployment health summary receives its source branch instead of failing under bash nounset", async () => {
+  const workflow = await read("../.github/workflows/deploy-github-chat.yml");
+  const smoke = workflow.slice(workflow.indexOf("id: smoke"), workflow.indexOf("id: model_smoke"));
+  assert.match(smoke, /GITHUB_WORK_BRANCH:\s*github-chat-prototype/);
+  assert.match(smoke, /\$GITHUB_WORK_BRANCH/);
+});
