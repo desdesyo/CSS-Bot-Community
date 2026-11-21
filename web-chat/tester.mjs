@@ -176,8 +176,8 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(agent, /private async retrieveKnowledgeAnswer/);
   const matcher = await read("./agent-runtime/src/knowledge-matcher.mjs");
   assert.match(matcher, /coverage >= 0\.3/, "paraphrases should pass a conservative minimum coverage gate");
-  assert.match(agent, /best.score - second.score < 0.045/, "ambiguous near-ties must be rejected");
-  assert.match(agent, /answerUsable/, "stored answers must pass a basic quality filter");
+  assert.match(matcher, /best\.score - second\.score < 0\.045/, "ambiguous near-ties must be rejected");
+  assert.match(matcher, /answerUsable/, "stored answers must pass a basic quality filter");
   assert.match(matcher, /const queryMarkers =/, "exact technical markers must be extracted from the current question");
   assert.match(matcher, /markerConflict|queryMarkers\.length/, "answers for different technical identifiers must be rejected");
   assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
