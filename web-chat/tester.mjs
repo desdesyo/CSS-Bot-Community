@@ -187,6 +187,14 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(worker, /knowledgeQuestion:message/, "the exact user question, not the full conversation prompt, must be indexed");
 });
 
+test("Ordinary user chat bypasses the optional internal automation quota", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  assert.match(agent, /if \(agentRole !== "user"\) await this\.reserveQuota\(operationId\)/,
+    "user chat must not be blocked by the internal agent/automation budget");
+  assert.match(agent, /Serve a sufficiently relevant stored answer before spending provider quota/,
+    "a matching local answer must be served before any model provider is called");
+});
+
 test("SOLO.Chat serves database answers first and can consult the free ChatGPT browser bridge", async () => {
   const agent = await read("./agent-runtime/src/index.ts");
   const worker = await read("./worker.js");
