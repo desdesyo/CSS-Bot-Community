@@ -1630,6 +1630,9 @@ LEARNING FROM CORRECTIONS
       const selected = ranked.filter(item => item.score >= threshold).slice(0, 5);
       if (!selected.length) return "";
       const sections = selected.map(({ entry, score }) =>
+        (entry.reviewRequired || entry.reviewStatus === "pending"
+          ? "[НЕПРОВЕРЕННЫЙ ВНЕШНИЙ ИСТОЧНИК — используй только как гипотезу, не выдавай за проверенный факт]\n"
+          : "") +
         "[Диалог №" + entry.threadId + " · релевантность " + score.toFixed(2) + "]\n" +
         String(entry.title || "Без названия") + "\n" + String(entry.content || "").slice(0, 2600)
       );
@@ -1658,6 +1661,8 @@ LEARNING FROM CORRECTIONS
       sourceProvider: String(sourceProvider || "agent-harness").slice(0, 80),
       answerQuality: sourceProvider === "free-chatgpt-bridge" ? "external-unverified" : "completed",
       reviewRequired: sourceProvider === "free-chatgpt-bridge",
+      reviewStatus: sourceProvider === "free-chatgpt-bridge" ? "pending" : "not-required",
+      reviewedAt: null,
       content: ("Вопрос пользователя:\n" + cleanQuestion + "\n\nОтвет SOLO.Chat:\n" + cleanAnswer).slice(0, 12000),
       vector: []
     });
@@ -1688,10 +1693,12 @@ LEARNING FROM CORRECTIONS
       if (queryTokens.length < 2) return noAnswer;
 
       const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
-      const ranked = Array.from(listed.values()).map((entry: any) => {
+      const ranked = Array.from(listed.values()).filter((entry: any) =>
+        !entry.reviewRequired && entry.reviewStatus !== "pending" && entry.reviewStatus !== "rejected"
+      ).map((entry: any) => {
         const storedQuestion = String(entry.queryText || "");
-        const queryMarkers = Array.from(new Set(String(prompt || "").match(/\\b[A-Z][A-Z0-9_]{5,}\\b/g) || []));
-        const entryMarkers = Array.from(new Set(storedQuestion.match(/\\b[A-Z][A-Z0-9_]{5,}\\b/g) || []));
+        const queryMarkers = Array.from(new Set(String(prompt || "").match(/\b[A-Z][A-Z0-9_]{5,}\b/g) || []));
+        const entryMarkers = Array.from(new Set(storedQuestion.match(/\b[A-Z][A-Z0-9_]{5,}\b/g) || []));
         const markerConflict = queryMarkers.length > 0 &&
           (!entryMarkers.length || !queryMarkers.some(marker => entryMarkers.includes(marker)));
         if (markerConflict) return { entry, score: 0, coverage: 0, answer: "", answerUsable: false };
@@ -1716,7 +1723,11 @@ LEARNING FROM CORRECTIONS
       // Ambiguous near-ties are rejected instead of returning a potentially irrelevant answer.
       if (!best || (second && best.score - second.score < 0.07 && best.entry.queryText !== second.entry.queryText)) return noAnswer;
       const source = best.entry.threadId ? "диалог №" + best.entry.threadId : "сохранённый диалог";
-      const provenance = best.entry.sourceProvider === "free-chatgpt-bridge" ? "Ранее получено через бесплатный ChatGPT; источник не проходил независимую проверку." : "Ранее сохранённый ответ SOLO.Chat.";
+      const provenance = best.entry.sourceProvider === "free-chatgpt-bridge"
+        ? (best.entry.answerQuality === "approved" || best.entry.reviewStatus === "approved"
+          ? "Ранее получено через бесплатный ChatGPT и одобрено пользователем."
+          : "Ранее получено через бесплатный ChatGPT; источник не проходил независимую проверку.")
+        : "Ранее сохранённый ответ SOLO.Chat.";
       return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). " + provenance + "\n\n" +
         best.answer + "\n\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
     } catch (error) {
@@ -3500,6 +3511,44 @@ LEARNING FROM CORRECTIONS
         const bridges = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:bridge:" });
         const onlineBridges = [...bridges.values()].filter((bridge: any) => Date.now() - Number(bridge.lastSeen || 0) < 45000);
         return json({ enabled: true, queued: tasks.filter(x => x.status === "queued").length, leased: tasks.filter(x => x.status === "leased").length, completed: tasks.filter(x => x.status === "completed").length, bridgeOnline: onlineBridges.length > 0, onlineBridges: onlineBridges.map((bridge: any) => ({ bridgeId: bridge.bridgeId, lastSeen: bridge.lastSeen })) });
+      }
+      if (url.pathname === "/api/knowledge/review" && req.method === "GET") {
+        await this.requirePassword(req);
+        const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
+        const pending = Array.from(listed.values())
+          .filter((entry: any) => entry.reviewRequired === true && entry.reviewStatus !== "rejected")
+          .sort((a: any, b: any) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+          .slice(0, 100)
+          .map((entry: any) => ({
+            id: String(entry.id || ""),
+            threadId: entry.threadId || null,
+            question: String(entry.queryText || "").slice(0, 2500),
+            answer: String(entry.content || "").match(/Ответ SOLO\\.Chat:\\s*([\\s\\S]*)$/i)?.[1]?.slice(0, 5000) || "",
+            sourceProvider: String(entry.sourceProvider || "unknown"),
+            createdAt: Number(entry.createdAt || 0),
+            reviewStatus: String(entry.reviewStatus || "pending")
+          }));
+        return json({ ok: true, pending, count: pending.length });
+      }
+      if (url.pathname === "/api/knowledge/review" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const id = String(body.id || "");
+        const decision = String(body.decision || "");
+        if (!/^[a-f0-9-]{36}$/i.test(id) || !["approve", "reject"].includes(decision)) {
+          return json({ error: "Provide a valid knowledge entry id and decision approve/reject" }, 400);
+        }
+        const key = "memory:entry:" + id;
+        const entry = await this.ctx.storage.get<any>(key);
+        if (!entry || entry.sourceProvider !== "free-chatgpt-bridge" || entry.reviewRequired !== true) {
+          return json({ error: "Only pending free ChatGPT knowledge entries can be reviewed" }, 404);
+        }
+        entry.reviewRequired = decision !== "approve";
+        entry.reviewStatus = decision === "approve" ? "approved" : "rejected";
+        entry.answerQuality = decision === "approve" ? "approved" : "rejected";
+        entry.reviewedAt = Date.now();
+        await this.ctx.storage.put(key, entry);
+        return json({ ok: true, id, decision, reviewStatus: entry.reviewStatus });
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
