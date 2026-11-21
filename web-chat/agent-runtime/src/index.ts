@@ -15,6 +15,7 @@ import { Lifecycle } from "agents/lifecycle";
 import { MCPClientManager } from "agents/mcp/client";
 import { createAI } from "agents/models/pi-ai";
 import { SOLO_KNOWLEDGE_SEED } from "./knowledge-seed";
+import { selectKnowledgeEntry } from "./knowledge-matcher.mjs";
 
 interface Env {
   AI: Ai;
@@ -1737,67 +1738,36 @@ LEARNING FROM CORRECTIONS
     return true;
   }
 
-  // A deterministic relevance gate: only reuse an old answer when the stored QUESTION
-  // covers the current request. Similar words in a long answer are not enough.
+  // Search only stored questions/aliases, never long answer bodies. The matcher
+  // handles common Russian inflections and domain synonyms without external APIs.
   private async retrieveKnowledgeAnswer(threadKey: string, prompt: string) {
     await this.ensureSeedKnowledge();
     const noAnswer = "Я пока не нашёл в собственной базе знаний SOLO.Chat достаточно подходящего ответа. Не хочу выдавать случайный старый текст за решение именно вашей задачи. Уточните вопрос или добавьте контекст — тогда я смогу точнее сопоставить его с сохранёнными материалами.";
     try {
       await this.backfillMemoryIndex(6);
-      const normalize = (value: string) => {
-        const stop = new Set(["это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","его","её","быть","есть","the","and","for","with","that","this","from","you","your","reply","exactly","nothing","else","call","tools","tool","do","not","only","please","answer","tell","user","current","request","context","solo","chat"]);
-        return (String(value || "").toLocaleLowerCase("ru").match(/[a-zа-яё0-9_]{3,}/giu) || [])
-          .filter(token => !stop.has(token))
-          .map(token => token.length > 5 ? token.replace(/(иями|ями|ами|ого|ему|ыми|ими|ее|ие|ые|ое|ей|ий|ый|ой|ая|яя|ою|ею|ам|ям|ах|ях|ов|ев|ом|ем|ы|и|а|я|у|ю|е|о)$/u, "") : token)
-          .filter(token => token.length >= 3);
-      };
-      let queryTokens = Array.from(new Set(normalize(prompt)));
-      if (queryTokens.length < 2) {
-        const threadId = /^\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
+      let best = selectKnowledgeEntry(prompt, Array.from((await this.ctx.storage.list<any>({ prefix: "memory:entry:" })).values()));
+      if (!best) {
+        const threadId = /^\\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
         const thread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
-        const recent = Array.isArray(thread?.messages) ? thread.messages.slice(-6).map((item: any) => String(item.content || "")).join(" ") : "";
-        queryTokens = Array.from(new Set(normalize(String(prompt || "") + " " + recent)));
+        const recentQuestions = Array.isArray(thread?.messages)
+          ? thread.messages.filter((item: any) => item?.role === "user").slice(-3).map((item: any) => String(item.content || "")).join("\\n")
+          : "";
+        if (recentQuestions && recentQuestions !== prompt) {
+          best = selectKnowledgeEntry(recentQuestions + "\\n" + prompt,
+            Array.from((await this.ctx.storage.list<any>({ prefix: "memory:entry:" })).values()));
+        }
       }
-      if (queryTokens.length < 2) return noAnswer;
-
-      const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
-      const ranked = Array.from(listed.values()).filter((entry: any) =>
-        !entry.reviewRequired && entry.reviewStatus !== "pending" && entry.reviewStatus !== "rejected"
-      ).map((entry: any) => {
-        const storedQuestion = String(entry.queryText || "");
-        const queryMarkers = Array.from(new Set(String(prompt || "").match(/\b[A-Z][A-Z0-9_]{5,}\b/g) || []));
-        const entryMarkers = Array.from(new Set(storedQuestion.match(/\b[A-Z][A-Z0-9_]{5,}\b/g) || []));
-        const markerConflict = queryMarkers.length > 0 &&
-          (!entryMarkers.length || !queryMarkers.some(marker => entryMarkers.includes(marker)));
-        if (markerConflict) return { entry, score: 0, coverage: 0, answer: "", answerUsable: false };
-        const entryTokens = new Set(normalize(storedQuestion));
-        let overlap = 0;
-        for (const token of queryTokens) if (entryTokens.has(token)) overlap++;
-        const coverage = overlap / queryTokens.length;
-        const precision = overlap / Math.max(1, entryTokens.size);
-        const normalizedPrompt = String(prompt || "").toLocaleLowerCase("ru").replace(/\s+/g, " ").trim();
-        const normalizedQuestion = storedQuestion.toLocaleLowerCase("ru").replace(/\s+/g, " ").trim();
-        const phraseBonus = normalizedPrompt.length >= 12 && (normalizedQuestion.includes(normalizedPrompt) || normalizedPrompt.includes(normalizedQuestion)) ? 0.18 : 0;
-        const score = Math.min(1, coverage * 0.82 + Math.min(precision, 0.5) * 0.18 + phraseBonus);
-        const match = String(entry.content || "").match(/Ответ SOLO\.Chat:\s*([\s\S]*)$/i);
-        const answer = String(match?.[1] || "").trim();
-        const answerUsable = answer.length >= 24 && answer.length <= 7000 &&
-          !/не удалось получить ответ от ии-модели|ошибка провайдера|provider capacity exhausted|внутренняя ошибка сервера/i.test(answer);
-        return { entry, score, coverage, answer, answerUsable };
-      }).filter(item => item.answerUsable && item.coverage >= 0.45 && item.score >= 0.42)
-        .sort((a, b) => b.score - a.score);
-      const best = ranked[0];
-      const second = ranked[1];
-      // Ambiguous near-ties are rejected instead of returning a potentially irrelevant answer.
-      if (!best || (second && best.score - second.score < 0.07 && best.entry.queryText !== second.entry.queryText)) return noAnswer;
+      if (!best) return noAnswer;
       const source = best.entry.threadId ? "диалог №" + best.entry.threadId : "сохранённый диалог";
       const provenance = best.entry.sourceProvider === "free-chatgpt-bridge"
         ? (best.entry.answerQuality === "approved" || best.entry.reviewStatus === "approved"
           ? "Ранее получено через бесплатный ChatGPT и одобрено пользователем."
           : "Ранее получено через бесплатный ChatGPT; источник не проходил независимую проверку.")
-        : "Ранее сохранённый ответ SOLO.Chat.";
-      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). " + provenance + "\n\n" +
-        best.answer + "\n\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
+        : best.entry.sourceProvider === "curated-seed"
+          ? "Проверенный стартовый материал базы SOLO.Chat."
+          : "Ранее сохранённый ответ SOLO.Chat.";
+      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + ", совпадение " + Math.round(best.score * 100) + "%). " + provenance + "\\n\\n" +
+        best.answer + "\\n\\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
     } catch (error) {
       console.warn("[SOLO.Chat] knowledge answer retrieval skipped", String(error instanceof Error ? error.message : error).slice(0, 300));
       return noAnswer;
