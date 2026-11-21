@@ -205,7 +205,9 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/heartbeat"/);
   assert.match(agent, /sourceProvider: String\(sourceProvider/);
   assert.match(agent, /reviewRequired: sourceProvider === "free-chatgpt-bridge"/);
-  assert.match(agent, /no relevant database answer and no external model or browser bridge completed/, "unanswered jobs must remain eligible for browser-local completion");
+  assert.match(agent, /This is a real, quota-free terminal response/, "provider exhaustion must return a completed offline response instead of a quota error");
+  assert.match(agent, /provider: "offline-knowledge"/, "offline knowledge must be identified as the terminal response provider");
+  assert.doesNotMatch(agent, /no relevant database answer and no external model or browser bridge completed/, "an empty knowledge match must not turn a user chat turn into a failed request");
   assert.match(agent, /url\.pathname\.startsWith\("\/api\/chatgpt-bridge\/"\)/, "the Durable Object router must expose bridge queue endpoints");
   assert.match(bridge, /server\.listen\(port, "127\.0\.0\.1"/, "local relay must bind only to loopback");
   assert.match(bridge, /X-SOLO-Bridge-Token/);
