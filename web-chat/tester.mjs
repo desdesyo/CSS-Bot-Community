@@ -177,3 +177,24 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(worker, /knowledgeExchanges\.slice\(-20\)/, "the current conversation must supply a bounded set of prior Q&A pairs");
   assert.match(worker, /knowledgeQuestion:message/, "the exact user question, not the full conversation prompt, must be indexed");
 });
+
+test("SOLO.Chat serves database answers first and can consult the free ChatGPT browser bridge", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const worker = await read("./worker.js");
+  const bridge = await read("./free-chatgpt-bridge/server.mjs");
+  const extension = await read("./free-chatgpt-bridge/extension/content.js");
+  assert.match(agent, /Serve a sufficiently relevant stored answer before spending provider quota/);
+  assert.match(agent, /private async isFreeChatGPTBridgeOnline/);
+  assert.match(agent, /private async requestFreeChatGPTBridge/);
+  assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/claim"/);
+  assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/complete"/);
+  assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/heartbeat"/);
+  assert.match(agent, /sourceProvider: String\(sourceProvider/);
+  assert.match(agent, /reviewRequired: sourceProvider === "free-chatgpt-bridge"/);
+  assert.match(worker, /url\.pathname\.startsWith\("\/api\/chatgpt-bridge\/"\)/);
+  assert.match(bridge, /server\.listen\(port, "127\.0\.0\.1"/, "local relay must bind only to loopback");
+  assert.match(bridge, /X-SOLO-Bridge-Token/);
+  assert.match(extension, /SOLO\.Chat Bridge/);
+  assert.match(extension, /\/result/);
+  assert.match(extension, /submitPrompt\(instruction\)/);
+});
