@@ -1711,6 +1711,36 @@ LEARNING FROM CORRECTIONS
     }
   }
 
+  private async requestFreeChatGPTBridge(threadKey: string, prompt: string, operationId: string) {
+    const requestId = crypto.randomUUID();
+    const key = "free-chatgpt:request:" + requestId;
+    const task = {
+      requestId, threadKey: String(threadKey || "default").slice(0, 80),
+      operationId: String(operationId || "").slice(0, 100),
+      prompt: String(prompt || "").slice(0, 16000),
+      status: "queued", createdAt: Date.now(), expiresAt: Date.now() + 180000,
+      attempts: 0, bridgeId: null, leaseUntil: null
+    };
+    await this.ctx.storage.put(key, task);
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline) {
+      const current = await this.ctx.storage.get<any>(key);
+      if (!current) return null;
+      if (current.status === "completed" && typeof current.answer === "string" && current.answer.trim()) {
+        return current.answer.trim().slice(0, 24000);
+      }
+      if (current.status === "failed" || current.status === "expired") return null;
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    const current = await this.ctx.storage.get<any>(key);
+    if (current && current.status !== "completed") {
+      current.status = "expired";
+      current.expiredAt = Date.now();
+      await this.ctx.storage.put(key, current);
+    }
+    return null;
+  }
+
   async getPreferredToolModel(): Promise<{ provider: string; model: string } | null> {
     const preferred = await this.ctx.storage.get<{ provider?: string; model?: string }>("agent:preferred-tool-model");
     return preferred?.provider && preferred?.model ? { provider: preferred.provider, model: preferred.model } : null;
@@ -1843,6 +1873,13 @@ LEARNING FROM CORRECTIONS
     return this.getQuotaState();
   }
   private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user") {
+    // Serve a sufficiently relevant stored answer before spending provider quota.
+    if (agentRole === "user") {
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      if (knowledgeReply && !knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
+        return { reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base", provider: "knowledge-base", model: "lexical-retrieval-v1" };
+      }
+    }
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
@@ -2001,6 +2038,12 @@ LEARNING FROM CORRECTIONS
     // When every configured model candidate is unavailable, do not spend more quota
     // retrying the same providers through the text-only chain. Answer from local knowledge.
     if (/SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/.test(harnessFailure)) {
+      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, prompt, operationId);
+      if (bridgedReply) return {
+        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\\n\\n" + bridgedReply,
+        status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
+        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
+      };
       const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
       return {
         reply: knowledgeReply,
@@ -2018,6 +2061,12 @@ LEARNING FROM CORRECTIONS
       return { reply: "⚠️ Временный текстовый режим: инструменты и операции с файлами/GitHub сейчас недоступны.\n\n" + fallback.reply, status: "done", operationId, sessionId: sessionId || "direct-workers-ai", provider: fallback.provider || "direct-model-fallback", model: fallback.model, fallbackReason: harnessFailure };
     } catch (error) {
       const reason = String(error instanceof Error ? error.message : error).slice(0, 900);
+      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, prompt, operationId);
+      if (bridgedReply) return {
+        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\\n\\n" + bridgedReply,
+        status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
+        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
+      };
       const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
       return {
         reply: knowledgeReply,
@@ -3351,6 +3400,60 @@ LEARNING FROM CORRECTIONS
           registeredToolCount, offeredToolCount: visibleTools.length, toolCalls: calls.slice(-12)
         });
       }
+      if (url.pathname === "/api/chatgpt-bridge/claim" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const bridgeId = String(body.bridgeId || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80);
+        if (!bridgeId) return json({ error: "bridgeId is required" }, 400);
+        const claimed = await this.ctx.blockConcurrencyWhile(async () => {
+          const listed = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:request:" });
+          const tasks = [...listed.entries()].map(([key, value]) => ({ key, value }))
+            .filter(item => item.value.status === "queued" || (item.value.status === "leased" && Number(item.value.leaseUntil || 0) < Date.now()))
+            .filter(item => Number(item.value.expiresAt || 0) > Date.now())
+            .sort((a, b) => Number(a.value.createdAt || 0) - Number(b.value.createdAt || 0));
+          const next = tasks[0];
+          if (!next) return { task: null };
+          next.value.status = "leased";
+          next.value.bridgeId = bridgeId;
+          next.value.leaseUntil = Date.now() + 180000;
+          next.value.attempts = Number(next.value.attempts || 0) + 1;
+          await this.ctx.storage.put(next.key, next.value);
+          return { task: { requestId: next.value.requestId, prompt: next.value.prompt, createdAt: next.value.createdAt, attempts: next.value.attempts } };
+        });
+        return json(claimed);
+      }
+      if (url.pathname === "/api/chatgpt-bridge/complete" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const requestId = String(body.requestId || "");
+        const bridgeId = String(body.bridgeId || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80);
+        const answer = String(body.answer || "").trim();
+        if (!/^[a-f0-9-]{36}$/i.test(requestId) || !bridgeId || answer.length > 24000) return json({ error: "Invalid bridge completion payload" }, 400);
+        const result = await this.ctx.blockConcurrencyWhile(async () => {
+          const key = "free-chatgpt:request:" + requestId;
+          const task = await this.ctx.storage.get<any>(key);
+          if (!task) return { error: "Request not found", status: 404 };
+          if (task.status !== "leased" || task.bridgeId !== bridgeId) return { error: "Bridge lease mismatch", status: 409 };
+          if (!answer) {
+            task.status = "failed";
+            task.error = String(body.error || "ChatGPT did not return an answer").slice(0, 500);
+          } else {
+            task.status = "completed";
+            task.answer = answer;
+          }
+          task.completedAt = Date.now();
+          await this.ctx.storage.put(key, task);
+          return { ok: true, status: task.status };
+        });
+        if ("error" in result) return json({ error: result.error }, result.status);
+        return json(result);
+      }
+      if (url.pathname === "/api/chatgpt-bridge/status" && req.method === "GET") {
+        await this.requirePassword(req);
+        const listed = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:request:" });
+        const tasks = [...listed.values()];
+        return json({ enabled: true, queued: tasks.filter(x => x.status === "queued").length, leased: tasks.filter(x => x.status === "leased").length, completed: tasks.filter(x => x.status === "completed").length, bridgeOnline: tasks.some(x => x.status === "leased" && Date.now() - Number(x.createdAt || 0) < 180000) });
+      }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
         const body = await req.json() as any;
@@ -3437,7 +3540,7 @@ LEARNING FROM CORRECTIONS
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/api/compute/worker/") || url.pathname.startsWith("/api/compute/tasks/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/compute/status", "/api/compute/tasks", "/api/ui/inspection"].includes(url.pathname)) {
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/api/chatgpt-bridge/") || url.pathname.startsWith("/api/agent/") || url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/api/compute/worker/") || url.pathname.startsWith("/api/compute/tasks/") || ["/api/health", "/api/version", "/api/agents/status", "/api/auth/login", "/api/auth/logout", "/api/chat", "/api/chat/followup", "/api/chat/status", "/api/chat/local-complete", "/api/threads", "/api/messages", "/api/memory/status", "/api/search-history", "/api/files", "/api/compute/status", "/api/compute/tasks", "/api/ui/inspection"].includes(url.pathname)) {
       let id = env.AGENT_SESSIONS.idFromName("shared-agent");
       if (url.pathname === "/api/agent/chat" && request.method === "POST") {
         const body: any = await request.clone().json().catch(() => ({}));
