@@ -65,14 +65,21 @@
     }
     throw new Error("Timed out waiting for ChatGPT's completed answer.");
   }
+  const chatGPTReady = () => {
+    const node = composer();
+    if (!node) return false;
+    const visibleText = String(document.body?.innerText || "").slice(0, 2500);
+    return !/log in to continue|sign up to continue|verify you are human|unusual activity/i.test(visibleText);
+  };
   let lastHeartbeat = 0;
   async function heartbeat() {
+    if (!chatGPTReady()) return;
     if (Date.now() - lastHeartbeat < 15000) return;
     lastHeartbeat = Date.now();
     await bridgeRequest("heartbeat", "POST");
   }
   async function poll() {
-    if (busy) return;
+    if (busy || !chatGPTReady()) return;
     busy = true;
     try {
       await heartbeat();
