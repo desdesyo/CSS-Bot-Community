@@ -153,3 +153,5 @@ test("Background agent roles are blocked before reserving model quota unless exp
   assert.ok(gate >= 0 && reserve > gate, "non-user agent roles must be rejected before model quota reservation");
   assert.match(config, /SOLO_AGENT_AUTOMATION_ENABLED = "false"/, "automatic agents must remain disabled in the deployed Worker by default");
 });
+
+// Explicit quota guard: agent roles stay off unless deliberately enabled in Worker vars.
