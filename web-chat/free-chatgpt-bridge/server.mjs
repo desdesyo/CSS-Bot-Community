@@ -118,7 +118,7 @@ const server = http.createServer(async (req, res) => {
     } catch (failure) {
       const detail = String(failure.message || failure).slice(0, 400);
       console.error("Could not return ChatGPT answer to SOLO.Chat:", detail);
-      if (/HTTP (?:404|409)\\b/.test(detail)) {
+      if (/HTTP (?:404|409)\b/.test(detail)) {
         pending = null;
         await pollRemote();
       }
