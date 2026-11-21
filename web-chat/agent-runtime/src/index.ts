@@ -1745,6 +1745,21 @@ LEARNING FROM CORRECTIONS
     return null;
   }
 
+  private async rotateProviderCandidates(candidates: any[], storageKey: string): Promise<any[]> {
+    if (candidates.length < 2) return candidates;
+    const providerKey = (candidate: any) => candidate?.provider === "google" ? "gemini" : String(candidate?.provider || "");
+    // A Durable Object transaction reserves a different starting provider for
+    // concurrent requests. Failover still walks every remaining candidate.
+    const start = await this.ctx.storage.transaction(async txn => {
+      const last = await txn.get<string>(storageKey);
+      const lastIndex = last ? candidates.findIndex(candidate => providerKey(candidate) === last) : -1;
+      const next = lastIndex < 0 ? 0 : (lastIndex + 1) % candidates.length;
+      await txn.put(storageKey, providerKey(candidates[next]));
+      return next;
+    });
+    return [...candidates.slice(start), ...candidates.slice(0, start)];
+  }
+
   private async resolveToolModelCandidates(preferred: { provider?: string; model?: string } | null | undefined): Promise<any[]> {
     const candidates: any[] = [];
     const add = (model: any) => {
@@ -1757,36 +1772,37 @@ LEARNING FROM CORRECTIONS
       return Boolean(until && until > Date.now());
     };
     const preferredModel = this.resolvePreferredPiModel(preferred);
-    if (preferredModel && !(await circuitOpen(preferredModel.provider || preferred?.provider || ""))) add(preferredModel);
+    const preferredFor = (provider: string) => {
+      const preferredProvider = preferredModel?.provider === "google" ? "gemini" : preferredModel?.provider;
+      return preferredProvider === provider ? preferredModel : null;
+    };
+
+    // Stable membership order; the persisted round-robin cursor chooses the
+    // first provider for each request instead of permanently favoring one.
     if (this.env.SOLO_AI_BASE_URL && this.env.SOLO_AI_API_KEY && !(await circuitOpen("solo-ai"))) {
-      add(this.soloAi.getModels().find(model => model.id === (this.env.SOLO_AI_MODEL || "solo-ai")) || this.soloAi.getModels()[0]);
+      add(preferredFor("solo-ai") || this.soloAi.getModels().find(model => model.id === (this.env.SOLO_AI_MODEL || "solo-ai")) || this.soloAi.getModels()[0]);
     }
     if (this.env.OPENROUTER_API_KEY && !(await circuitOpen("openrouter"))) {
       const models = this.openrouter.getModels();
-      add(models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || models[0]);
+      add(preferredFor("openrouter") || models.find(model => model.id === (this.env.OPENROUTER_MODEL || "google/gemini-2.5-flash")) || models[0]);
     }
     if (this.env.OPENAI_API_KEY && !(await circuitOpen("openai"))) {
       const models = this.openai.getModels();
-      add(models.find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1")) || models[0]);
+      add(preferredFor("openai") || models.find(model => model.id === (this.env.CHAT_MODEL || "gpt-4.1")) || models[0]);
     }
     if (this.env.GEMINI_API_KEY && !(await circuitOpen("google"))) {
       const models = this.google.getModels();
-      // Match the model that the authenticated direct-model smoke test currently
-      // verifies. Agent-role Durable Objects do not share local preferred-model
-      // storage with the main chat Durable Object.
-      add(models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash")) || models[0]);
+      add(preferredFor("gemini") || models.find(model => model.id === (this.env.GEMINI_MODEL || "gemini-3.8-flash")) || models[0]);
     }
     if (this.env.GROQ_API_KEY && !(await circuitOpen("groq"))) {
       const models = this.groq.getModels();
-      add(models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || models[0]);
+      add(preferredFor("groq") || models.find(model => model.id === (this.env.GROQ_MODEL || "llama-3.3-70b-versatile")) || models[0]);
     }
-    // Every agent role runs in its own Durable Object. Do not rely on the
-    // shared user-chat model-check having populated that object's preferred
-    // provider: keep Workers AI as the final native Pi/tool-capable fallback.
+    // Workers AI remains in the same rotation, not merely a last-resort provider.
     if (!(await this.workersAiQuotaCircuitOpen())) {
-      add(this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash"));
+      add(preferredFor("workers-ai") || this.ai(this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash"));
     }
-    return candidates;
+    return this.rotateProviderCandidates(candidates, "provider:rotation:last-tool");
   }
 
   private async getQuotaState() {
@@ -1883,6 +1899,7 @@ LEARNING FROM CORRECTIONS
               if (candidate) {
                 const providerKey = candidate.provider === "google" ? "gemini" : candidate.provider;
                 await this.ctx.storage.delete("provider:circuit:" + providerKey);
+                await this.ctx.storage.put("provider:rotation:last-tool", providerKey);
                 const selectedModel = { provider: providerKey, model: candidate.id, checkedAt: Date.now(), selectedBy: "successful-pi-tool-session" };
                 await this.ctx.storage.put("agent:preferred-tool-model", selectedModel);
                 if (agentRole !== "user") {
