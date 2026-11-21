@@ -1950,26 +1950,10 @@ LEARNING FROM CORRECTIONS
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     // Do not call the browser bridge pre-emptively: preserve SOLO.Chat model capacity first.
     // The free ChatGPT tab is a last-resort fallback only after local knowledge and configured models fail.
-    try {
-      await this.reserveQuota(operationId);
-    } catch (quotaError) {
-      const detail = String(quotaError instanceof Error ? quotaError.message : quotaError);
-      if (!/SOLO_INTERNAL_QUOTA_EXHAUSTED/.test(detail)) throw quotaError;
-      const bridgedReply = allowFreeChatGPTBridge && await this.isFreeChatGPTBridgeOnline()
-        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
-      if (bridgedReply) return {
-        reply: "Внутренняя квота SOLO.Chat исчерпана; ответ получен через бесплатный ChatGPT в браузере. Проверьте важные факты:\n\n" + bridgedReply,
-        status: "done", operationId, sessionId: "free-chatgpt-bridge",
-        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
-      };
-      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
-      if (!knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) return {
-        reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base",
-        provider: "knowledge-base", model: "lexical-retrieval-v1",
-        fallbackReason: "Internal daily quota exhausted; returned a relevant saved answer."
-      };
-      throw new Error("SOLO_INTERNAL_QUOTA_EXHAUSTED: дневная квота исчерпана, а браузерный ChatGPT недоступен. " + detail);
-    }
+    // Ordinary user chat must never be blocked by SOLO.Chat's optional internal
+    // automation budget. External provider quotas are handled by provider failover;
+    // the local knowledge path below remains available when every provider is offline.
+    if (agentRole !== "user") await this.reserveQuota(operationId);
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
@@ -2138,17 +2122,17 @@ LEARNING FROM CORRECTIONS
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
       const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
-      if (allowFreeChatGPTBridge && knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
-        throw new Error("SOLO_NO_PROVIDER_CAPACITY: no relevant database answer and no external model or browser bridge completed. " + reason);
-      }
+      // This is a real, quota-free terminal response, not a failed request.
+      // The relevance gate either returns a vetted stored answer or clearly says
+      // that the local database has no safe match; it never invents facts.
       return {
         reply: knowledgeReply,
         status: "done",
         operationId,
-        sessionId: sessionId || "knowledge-base",
-        provider: "knowledge-base",
+        sessionId: sessionId || "offline-knowledge",
+        provider: "offline-knowledge",
         model: "lexical-retrieval-v1",
-        fallbackReason: "AI providers unavailable; deterministic knowledge relevance gate used. " + reason
+        fallbackReason: "All generative providers were unavailable; returned a deterministic local knowledge response. " + reason
       };
     }
   }
