@@ -1645,12 +1645,12 @@ LEARNING FROM CORRECTIONS
     const safeThread = String(threadKey || "default").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80) || "default";
     const indexedKey = "memory:indexed:exchange:" + safeThread + ":" + operationId.slice(0, 100);
     if (await this.ctx.storage.get<boolean>(indexedKey)) return false;
-    const numericThread = /^\\d+$/.test(safeThread) ? Number(safeThread) : 0;
+    const numericThread = /^\d+$/.test(safeThread) ? Number(safeThread) : 0;
     const id = crypto.randomUUID();
     await this.ctx.storage.put("memory:entry:" + id, {
       id, threadId: numericThread, threadKey: safeThread, title: "Диалог " + safeThread,
       operationId, createdAt: Date.now(), queryText: cleanQuestion,
-      content: ("Вопрос пользователя:\\n" + cleanQuestion + "\\n\\nОтвет SOLO.Chat:\\n" + cleanAnswer).slice(0, 12000),
+      content: ("Вопрос пользователя:\n" + cleanQuestion + "\n\nОтвет SOLO.Chat:\n" + cleanAnswer).slice(0, 12000),
       answerQuality: "completed", vector: []
     });
     await this.ctx.storage.put(indexedKey, true);
@@ -1672,7 +1672,7 @@ LEARNING FROM CORRECTIONS
       };
       let queryTokens = Array.from(new Set(normalize(prompt)));
       if (queryTokens.length < 2) {
-        const threadId = /^\\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
+        const threadId = /^\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
         const thread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
         const recent = Array.isArray(thread?.messages) ? thread.messages.slice(-6).map((item: any) => String(item.content || "")).join(" ") : "";
         queryTokens = Array.from(new Set(normalize(String(prompt || "") + " " + recent)));
@@ -1687,11 +1687,11 @@ LEARNING FROM CORRECTIONS
         for (const token of queryTokens) if (entryTokens.has(token)) overlap++;
         const coverage = overlap / queryTokens.length;
         const precision = overlap / Math.max(1, entryTokens.size);
-        const normalizedPrompt = String(prompt || "").toLocaleLowerCase("ru").replace(/\\s+/g, " ").trim();
-        const normalizedQuestion = storedQuestion.toLocaleLowerCase("ru").replace(/\\s+/g, " ").trim();
+        const normalizedPrompt = String(prompt || "").toLocaleLowerCase("ru").replace(/\s+/g, " ").trim();
+        const normalizedQuestion = storedQuestion.toLocaleLowerCase("ru").replace(/\s+/g, " ").trim();
         const phraseBonus = normalizedPrompt.length >= 12 && (normalizedQuestion.includes(normalizedPrompt) || normalizedPrompt.includes(normalizedQuestion)) ? 0.18 : 0;
         const score = Math.min(1, coverage * 0.82 + Math.min(precision, 0.5) * 0.18 + phraseBonus);
-        const match = String(entry.content || "").match(/Ответ SOLO\\.Chat:\\s*([\\s\\S]*)$/i);
+        const match = String(entry.content || "").match(/Ответ SOLO\.Chat:\s*([\s\S]*)$/i);
         const answer = String(match?.[1] || "").trim();
         const answerUsable = answer.length >= 24 && answer.length <= 7000 &&
           !/не удалось получить ответ от ии-модели|ошибка провайдера|provider capacity exhausted|внутренняя ошибка сервера/i.test(answer);
@@ -1703,8 +1703,8 @@ LEARNING FROM CORRECTIONS
       // Ambiguous near-ties are rejected instead of returning a potentially irrelevant answer.
       if (!best || (second && best.score - second.score < 0.07 && best.entry.queryText !== second.entry.queryText)) return noAnswer;
       const source = best.entry.threadId ? "диалог №" + best.entry.threadId : "сохранённый диалог";
-      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). Это ранее сохранённый ответ, а не новая проверка фактов:\\n\\n" +
-        best.answer + "\\n\\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
+      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). Это ранее сохранённый ответ, а не новая проверка фактов:\n\n" +
+        best.answer + "\n\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
     } catch (error) {
       console.warn("[SOLO.Chat] knowledge answer retrieval skipped", String(error instanceof Error ? error.message : error).slice(0, 300));
       return noAnswer;
