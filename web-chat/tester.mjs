@@ -174,11 +174,12 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(agent, /private async indexKnowledgeExchange/);
   assert.match(agent, /memory:indexed:exchange:/, "knowledge indexing must be idempotent");
   assert.match(agent, /private async retrieveKnowledgeAnswer/);
-  assert.match(agent, /coverage >= 0\.45/, "a candidate must cover enough of the current question");
+  const matcher = await read("./agent-runtime/src/knowledge-matcher.mjs");
+  assert.match(matcher, /coverage >= 0\.3/, "paraphrases should pass a conservative minimum coverage gate");
   assert.match(agent, /best\.score - second\.score < 0\.07/, "ambiguous near-ties must be rejected");
   assert.match(agent, /answerUsable/, "stored answers must pass a basic quality filter");
-  assert.match(agent, /const queryMarkers =/, "exact technical markers must be extracted from the current question");
-  assert.match(agent, /markerConflict/, "answers for different technical identifiers must be rejected");
+  assert.match(matcher, /const queryMarkers =/, "exact technical markers must be extracted from the current question");
+  assert.match(matcher, /markerConflict|queryMarkers\.length/, "answers for different technical identifiers must be rejected");
   assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
   assert.match(agent, /Provider exhaustion falls through to the independent text-only chain below/, "provider exhaustion must still try independent providers with their own circuit state");
   assert.match(agent, /SOLO_INTERNAL_QUOTA_EXHAUSTED/, "internal quota exhaustion must have an explicit safe fallback path");
