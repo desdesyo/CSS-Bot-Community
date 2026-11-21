@@ -22,6 +22,9 @@ $config = @{
 $configPath = Join-Path $PSScriptRoot "config.json"
 $json = $config | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText($configPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+& icacls.exe $configPath /inheritance:r /grant:r "$($identity):(R,W)" "SYSTEM:(F)" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Could not restrict config.json permissions. Remove the file and rerun setup from a Windows account that can set file permissions." }
 $password = $null
 $securePassword = $null
 Write-Host ""
