@@ -1747,7 +1747,7 @@ LEARNING FROM CORRECTIONS
       await this.backfillMemoryIndex(6);
       let best = selectKnowledgeEntry(prompt, Array.from((await this.ctx.storage.list<any>({ prefix: "memory:entry:" })).values()));
       if (!best) {
-        const threadId = /^\\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
+        const threadId = /^\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
         const thread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
         const recentQuestions = Array.isArray(thread?.messages)
           ? thread.messages.filter((item: any) => item?.role === "user").slice(-3).map((item: any) => String(item.content || "")).join("\n")
