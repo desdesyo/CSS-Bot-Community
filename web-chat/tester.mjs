@@ -149,8 +149,12 @@ test("Background agent roles are blocked before reserving model quota unless exp
   const agent = await read("./agent-runtime/src/index.ts");
   const config = await read("./wrangler.toml");
   const gate = agent.indexOf('if (agentRole !== "user" && this.env.SOLO_AGENT_AUTOMATION_ENABLED !== "true")');
-  const reserve = agent.indexOf("await this.reserveQuota(operationId)", gate);
-  assert.ok(gate >= 0 && reserve > gate, "non-user agent roles must be rejected before model quota reservation");
+  const userChatDispatch = agent.indexOf('this.runChat(threadKey, prompt, operationId, agentRole, knowledgeQuestion, agentRole === "user")', gate);
+  const runChat = agent.indexOf("private async runChat");
+  const bridgeCheck = agent.indexOf("await this.isFreeChatGPTBridgeOnline()", runChat);
+  const reserve = agent.indexOf("await this.reserveQuota(operationId)", runChat);
+  assert.ok(gate >= 0 && userChatDispatch > gate, "non-user agent roles must be rejected before dispatch");
+  assert.ok(reserve > bridgeCheck, "stored/free browser answers must not consume model quota");
   assert.match(config, /SOLO_AGENT_AUTOMATION_ENABLED = "false"/, "automatic agents must remain disabled in the deployed Worker by default");
 });
 
@@ -191,7 +195,7 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/heartbeat"/);
   assert.match(agent, /sourceProvider: String\(sourceProvider/);
   assert.match(agent, /reviewRequired: sourceProvider === "free-chatgpt-bridge"/);
-  assert.match(worker, /url\.pathname\.startsWith\("\/api\/chatgpt-bridge\/"\)/);
+  assert.match(agent, /url\.pathname\.startsWith\("\/api\/chatgpt-bridge\/"\)/, "the Durable Object router must expose bridge queue endpoints");
   assert.match(bridge, /server\.listen\(port, "127\.0\.0\.1"/, "local relay must bind only to loopback");
   assert.match(bridge, /X-SOLO-Bridge-Token/);
   assert.match(extension, /SOLO\.Chat Bridge/);
