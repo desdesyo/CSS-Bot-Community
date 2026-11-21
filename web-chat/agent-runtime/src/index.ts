@@ -1715,6 +1715,11 @@ LEARNING FROM CORRECTIONS
     }
   }
 
+  private async isFreeChatGPTBridgeOnline() {
+    const bridges = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:bridge:" });
+    return [...bridges.values()].some((bridge: any) => Date.now() - Number(bridge.lastSeen || 0) < 45000);
+  }
+
   private async requestFreeChatGPTBridge(threadKey: string, prompt: string, operationId: string) {
     const requestId = crypto.randomUUID();
     const key = "free-chatgpt:request:" + requestId;
@@ -1887,6 +1892,17 @@ LEARNING FROM CORRECTIONS
     await this.reserveQuota(operationId);
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
+    let bridgeAttempted = false;
+    if (agentRole === "user" && await this.isFreeChatGPTBridgeOnline()) {
+      bridgeAttempted = true;
+      const bridgedReply = !bridgeAttempted && await this.isFreeChatGPTBridgeOnline()
+        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
+      if (bridgedReply) return {
+        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
+        status: "done", operationId, sessionId: "free-chatgpt-bridge",
+        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
+      };
+    }
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
@@ -3404,6 +3420,14 @@ LEARNING FROM CORRECTIONS
           deferredToolSearch: true, provider: probe.provider, reply: probe.reply,
           registeredToolCount, offeredToolCount: visibleTools.length, toolCalls: calls.slice(-12)
         });
+      }
+      if (url.pathname === "/api/chatgpt-bridge/heartbeat" && req.method === "POST") {
+        await this.requirePassword(req);
+        const body = await req.json().catch(() => ({})) as any;
+        const bridgeId = String(body.bridgeId || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80);
+        if (!bridgeId) return json({ error: "bridgeId is required" }, 400);
+        await this.ctx.storage.put("free-chatgpt:bridge:" + bridgeId, { bridgeId, lastSeen: Date.now() });
+        return json({ ok: true, bridgeId, lastSeen: Date.now() });
       }
       if (url.pathname === "/api/chatgpt-bridge/claim" && req.method === "POST") {
         await this.requirePassword(req);
