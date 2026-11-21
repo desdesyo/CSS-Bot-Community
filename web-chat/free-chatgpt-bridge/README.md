@@ -12,13 +12,11 @@ This adapter lets SOLO.Chat ask the signed-in **ChatGPT Free web UI** for help w
 ## Setup
 
 1. Install Node.js 20 or newer.
-2. Copy `config.example.json` to `config.json`.
-3. Set `soloChatPassword` to the same password used to sign in to your SOLO.Chat instance.
-4. Set `localBridgeToken` to a new random secret of at least 24 characters. Do not publish `config.json`.
-5. Run from this directory: `node server.mjs`.
-6. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select the `extension` folder.
-7. Open ChatGPT in a dedicated tab, sign in to the Free account, click the extension icon, paste the local bridge token, and save it.
-8. Keep the ChatGPT tab and local Node process open.
+2. Run `SETUP.cmd`. Enter your SOLO.Chat app password when prompted; the input is hidden. The script creates the ignored local `config.json` and prints a random local bridge token.
+3. Run `START-BRIDGE.cmd` and leave its console window open.
+4. In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select the `extension` folder.
+5. Open ChatGPT in a dedicated tab, sign in to the Free account, click the extension icon, paste the token printed by setup, and save it.
+6. Keep the ChatGPT tab and local Node process open.
 
 ## Important limits
 
