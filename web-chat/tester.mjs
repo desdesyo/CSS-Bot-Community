@@ -151,10 +151,12 @@ test("Background agent roles are blocked before reserving model quota unless exp
   const gate = agent.indexOf('if (agentRole !== "user" && this.env.SOLO_AGENT_AUTOMATION_ENABLED !== "true")');
   const userChatDispatch = agent.indexOf('this.runChat(threadKey, prompt, operationId, agentRole, knowledgeQuestion, agentRole === "user")', gate);
   const runChat = agent.indexOf("private async runChat");
-  const bridgeCheck = agent.indexOf("await this.isFreeChatGPTBridgeOnline()", runChat);
   const reserve = agent.indexOf("await this.reserveQuota(operationId)", runChat);
+  const bridgeFallback = agent.indexOf("await this.isFreeChatGPTBridgeOnline()", reserve);
+  const preflight = agent.indexOf("Do not call the browser bridge pre-emptively", runChat);
   assert.ok(gate >= 0 && userChatDispatch > gate, "non-user agent roles must be rejected before dispatch");
-  assert.ok(reserve > bridgeCheck, "stored/free browser answers must not consume model quota");
+  assert.ok(preflight > 0 && reserve > preflight, "the browser bridge must not pre-empt healthy SOLO.Chat models");
+  assert.ok(bridgeFallback > reserve, "free ChatGPT may be consulted only after SOLO.Chat provider attempts");
   assert.match(config, /SOLO_AGENT_AUTOMATION_ENABLED = "false"/, "automatic agents must remain disabled in the deployed Worker by default");
 });
 
@@ -228,4 +230,28 @@ test("Unverified free ChatGPT answers require explicit approval before direct kn
   assert.match(agent, /entry\.answerQuality = decision === "approve" \? "approved" : "rejected"/);
   assert.match(agent, /Ранее получено через бесплатный ChatGPT и одобрено пользователем/,
     "approved external knowledge must retain provenance");
+});
+
+
+test("Text fallback uses provider circuit breakers and avoids unnecessary ChatGPT bridge waits", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  assert.match(agent, /const assertProviderAvailable = async/);
+  assert.match(agent, /const openProviderCircuit = async/);
+  assert.match(agent, /provider:circuit-meta:/);
+  assert.match(agent, /await assertProviderAvailable\(provider\)/);
+  assert.match(agent, /await assertProviderAvailable\("openai"\)/);
+  const runChat = agent.slice(agent.indexOf("private async runChat"), agent.indexOf("private async recordRuntimeError"));
+  assert.match(runChat, /allowFreeChatGPTBridge && await this\.isFreeChatGPTBridgeOnline\(\)[\s\S]{0,180}\? await this\.requestFreeChatGPTBridge/);
+  assert.match(runChat, /requestFreeChatGPTBridge\(threadKey, effectivePrompt, operationId\)/,
+    "bridge fallback must receive the memory-enriched prompt");
+});
+
+test("Local bridge redelivers stalled tasks and reports only a ready ChatGPT tab as online", async () => {
+  const bridge = await read("./free-chatgpt-bridge/server.mjs");
+  const extension = await read("./free-chatgpt-bridge/extension/content.js");
+  assert.match(bridge, /deliveredAt/);
+  assert.match(bridge, /125000/);
+  assert.match(bridge, /HTTP \(\?:404\|409\)\\b/);
+  assert.match(extension, /const chatGPTReady =/);
+  assert.match(extension, /if \(!chatGPTReady\(\)\) return/);
 });
