@@ -166,7 +166,7 @@ Cloudflare deployment is triggered by pushes to `github-chat-prototype` that mod
 Workflow `.github/workflows/agent-orchestrator.yml` runs a bounded three-role team for queued issues and failed CI/deploy runs: planner (no writes), implementer (audited project writes), and independent read-only tester. A rejected review allows one repair/re-test cycle. The separate `.github/workflows/agent-supervisor.yml` checks the exact current commit's CI and, whenever `web-chat/**` changed, a successful deployment of that same SHA before marking a task done. Health/model monitors create repair issues when live checks fail. The dashboard reads real workflow job-step states. This is implemented in source; live production behavior is not verified until Actions and authenticated model smoke tests succeed.
 
 **Required GitHub Actions repository secrets** (Settings → Secrets and variables → Actions):
-- `CSSBC_CHAT_ENDPOINT`: deployed HTTPS Worker origin only, e.g. `https://your-worker.your-subdomain.workers.dev` (no `/api/chat` suffix).
+- `CSSBC_CHAT_ENDPOINT`: deployed HTTPS Worker origin only, e.g. `https://cssbc-github-chat.descapan.workers.dev` (no `/api/chat` suffix).
 - `CSSBC_CHAT_APP_PASSWORD`: exact same value as Cloudflare Worker secret `APP_PASSWORD`.
 
 The Worker must also have `GITHUB_TOKEN` (synced from repository secret `CSSBC_GITHUB_TOKEN`) with Contents read/write on the allowlisted project repositories. The default workspace remains `desdesyo/modhaul/main`; dedicated `github_project_*` tools explicitly route SOLO.Chat self-maintenance to `desdesyo/CSS-Bot-Community/github-chat-prototype` and SDK work to `sdk-foundation`. The browser never receives the token.
