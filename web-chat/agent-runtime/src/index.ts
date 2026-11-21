@@ -1998,6 +1998,20 @@ LEARNING FROM CORRECTIONS
     if (agentRole !== "user") {
       throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; причина отказа Pi harness: " + (harnessFailure || "неизвестная ошибка провайдера"));
     }
+    // When every configured model candidate is unavailable, do not spend more quota
+    // retrying the same providers through the text-only chain. Answer from local knowledge.
+    if (/SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/.test(harnessFailure)) {
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      return {
+        reply: knowledgeReply,
+        status: "done",
+        operationId,
+        sessionId: sessionId || "knowledge-base",
+        provider: "knowledge-base",
+        model: "lexical-retrieval-v1",
+        fallbackReason: "No available model provider; used the local knowledge relevance gate."
+      };
+    }
     const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + effectivePrompt;
     try {
       const fallback = await this.runDirectModel(fallbackPrompt);
