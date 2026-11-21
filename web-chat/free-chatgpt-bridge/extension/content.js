@@ -40,11 +40,12 @@
     let last = "", stableSince = 0;
     while (Date.now() - startedAt < 120000) {
       await sleep(700);
-      const current = assistantText();
+      const fullText = assistantText();
+      const current = fullText.startsWith(before) ? fullText.slice(before.length).trim() : fullText;
       const stop = document.querySelector('[data-testid="stop-button"]') ||
         document.querySelector('button[aria-label*="Stop"]') ||
         document.querySelector('button[aria-label*="stop"]');
-      const isNew = current && current !== before;
+      const isNew = current && current.length > 0;
       if (isNew && current !== last) { last = current; stableSince = Date.now(); }
       if (isNew && !stop && Date.now() - stableSince > 2200 && current.length > 20) return current.slice(-24000);
       if (Date.now() - startedAt > 15000 && !isNew) {
@@ -57,7 +58,7 @@
     throw new Error("Timed out waiting for ChatGPT's completed answer.");
   }
   async function poll() {
-    if (busy || !document.visibilityState || document.visibilityState === "hidden") return;
+    if (busy) return;
     const { bridgeToken, enabled } = await chrome.storage.local.get(["bridgeToken", "enabled"]);
     if (!enabled || !bridgeToken) return;
     busy = true;
