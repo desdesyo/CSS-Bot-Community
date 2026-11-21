@@ -266,3 +266,19 @@ test("Local bridge redelivers stalled tasks and reports only a ready ChatGPT tab
   assert.match(extension, /const chatGPTReady =/);
   assert.match(extension, /if \(!chatGPTReady\(\)\) return/);
 });
+
+
+test("SOLO.Chat installs a curated offline starter corpus for recurring user topics", async () => {
+  const agent = await read("./agent-runtime/src/index.ts");
+  const corpus = await read("./agent-runtime/src/knowledge-seed.ts");
+  assert.match(agent, /import \{ SOLO_KNOWLEDGE_SEED \} from "\.\/knowledge-seed"/);
+  assert.match(agent, /private async ensureSeedKnowledge/);
+  assert.match(agent, /memory:seed:/, "seed import must be idempotent");
+  assert.match(agent, /await this\.ensureSeedKnowledge\(\)/, "offline retrieval must install seed entries before searching");
+  assert.match(agent, /sourceProvider: "curated-seed"/);
+  assert.match(agent, /reviewStatus: "approved"/);
+  for (const topic of ["cooking-mannik", "flstudio-sidechain", "windows-recovery-files", "cs-source-bots", "solo-webgpu", "music-lyrics", "audio-mic-interface"]) {
+    assert.ok(corpus.includes('id: "' + topic + '"'), "starter knowledge topic missing: " + topic);
+  }
+  assert.ok((corpus.match(/id: "/g) || []).length >= 20, "starter corpus must contain at least 20 reviewed topic entries");
+});
