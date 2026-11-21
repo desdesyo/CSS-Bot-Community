@@ -88,8 +88,14 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (url.pathname === "/next" && req.method === "GET") {
-    if (!pending || pending.delivered) return sendJson(res, 200, { task: null });
+    if (!pending) return sendJson(res, 200, { task: null });
+    if (pending.expiresAt && Date.now() >= Number(pending.expiresAt)) { pending = null; await pollRemote(); return sendJson(res, 200, { task: null }); }
+    // If the extension tab disappeared mid-generation, make the lease available again after its 120s response timeout.
+    if (pending.delivered && Date.now() - Number(pending.deliveredAt || 0) < 125000) return sendJson(res, 200, { task: null });
     pending.delivered = true;
+    pending.deliveredAt = Date.now();
+    return sendJson(res, 200, { task: { requestId: pending.requestId, prompt: pending.prompt, attempts: pending.attempts } });
+  }
     return sendJson(res, 200, { task: { requestId: pending.requestId, prompt: pending.prompt, attempts: pending.attempts } });
   }
   if (url.pathname === "/result" && req.method === "POST") {
