@@ -2,6 +2,8 @@
 
 SOLO.Chat is a private browser chat backed by a Cloudflare Worker and a durable AI agent. The browser uses one HTTPS page; authentication, model access, GitHub tools, and conversation storage stay server-side.
 
+**Live application:** [Open SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/). This is the canonical deployed `workers.dev` hostname. The deployment workflow uses one shared endpoint value and publishes the link in its run summary only after authenticated health/version verification. [Deployment workflow](../.github/workflows/deploy-github-chat.yml).
+
 ## Architecture
 
 - Browser UI: `public/index.html`
