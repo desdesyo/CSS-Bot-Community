@@ -2059,7 +2059,8 @@ LEARNING FROM CORRECTIONS
     // When every configured model candidate is unavailable, do not spend more quota
     // retrying the same providers through the text-only chain. Answer from local knowledge.
     if (/SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/.test(harnessFailure)) {
-      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId);
+      const bridgedReply = !bridgeAttempted && await this.isFreeChatGPTBridgeOnline()
+        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
       if (bridgedReply) return {
         reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
         status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
