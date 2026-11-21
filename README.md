@@ -4,6 +4,14 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 
 > **Status:** early development. The repository contains an engine-independent C++ gameplay core. It is not yet a replacement CS:S game DLL or a finished bot-AI mod.
 
+## SOLO.Chat
+
+**[Open the live SOLO.Chat web app](https://cssbc-github-chat.descapan.workers.dev/)**
+
+The app is deployed from the `github-chat-prototype` branch. Its deployment workflow publishes this link only after the authenticated Worker health/version check passes: [Deploy GitHub Chat](.github/workflows/deploy-github-chat.yml). The application and deployment details are in [web-chat/README.md](web-chat/README.md).
+
+Do not use the historical `cssbc-github-chat.descpan.workers.dev` spelling; it is not the deployed hostname.
+
 ## Русская локализация
 
 Концепция локализации меню, HUD, системных сообщений и реплик двух команд описана в [docs/RU_LOCALIZATION.md](docs/RU_LOCALIZATION.md). Словарь и контекстные наборы реплик находятся в CSSBC_Localization.h/.cpp. Подключение игровых панелей Source, стандартных надписей движка и озвучки требует отдельного адаптера к CS:S.
