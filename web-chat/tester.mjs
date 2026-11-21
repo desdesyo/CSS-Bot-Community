@@ -189,6 +189,11 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   const worker = await read("./worker.js");
   const bridge = await read("./free-chatgpt-bridge/server.mjs");
   const extension = await read("./free-chatgpt-bridge/extension/content.js");
+  const background = await read("./free-chatgpt-bridge/extension/background.js");
+  const manifest = await read("./free-chatgpt-bridge/extension/manifest.json");
+  assert.match(manifest, /"service_worker": "background.js"/);
+  assert.match(background, /solo-bridge-http/);
+  assert.match(background, /127\.0\.0\.1:8765/);
   assert.match(agent, /Serve a sufficiently relevant stored answer before spending provider quota/);
   assert.match(agent, /private async isFreeChatGPTBridgeOnline/);
   assert.match(agent, /private async requestFreeChatGPTBridge/);
