@@ -1951,7 +1951,26 @@ LEARNING FROM CORRECTIONS
     // Do not call the browser bridge pre-emptively: preserve SOLO.Chat model capacity first.
     // The free ChatGPT tab is a last-resort fallback only after local knowledge and configured models fail.
     const bridgeAttempted = false;
-    await this.reserveQuota(operationId);
+    try {
+      await this.reserveQuota(operationId);
+    } catch (quotaError) {
+      const detail = String(quotaError instanceof Error ? quotaError.message : quotaError);
+      if (!/SOLO_INTERNAL_QUOTA_EXHAUSTED/.test(detail)) throw quotaError;
+      const bridgedReply = allowFreeChatGPTBridge && await this.isFreeChatGPTBridgeOnline()
+        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
+      if (bridgedReply) return {
+        reply: "Внутренняя квота SOLO.Chat исчерпана; ответ получен через бесплатный ChatGPT в браузере. Проверьте важные факты:\n\n" + bridgedReply,
+        status: "done", operationId, sessionId: "free-chatgpt-bridge",
+        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
+      };
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
+      if (!knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) return {
+        reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base",
+        provider: "knowledge-base", model: "lexical-retrieval-v1",
+        fallbackReason: "Internal daily quota exhausted; returned a relevant saved answer."
+      };
+      throw new Error("SOLO_INTERNAL_QUOTA_EXHAUSTED: дневная квота исчерпана, а браузерный ChatGPT недоступен. " + detail);
+    }
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
@@ -2105,30 +2124,7 @@ LEARNING FROM CORRECTIONS
     if (agentRole !== "user") {
       throw new Error("Резервный текстовый режим не может выполнять инструменты агента. Операция остановлена без имитации выполнения; причина отказа Pi harness: " + (harnessFailure || "неизвестная ошибка провайдера"));
     }
-    // When every configured model candidate is unavailable, do not spend more quota
-    // retrying the same providers through the text-only chain. Answer from local knowledge.
-    if (/SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/.test(harnessFailure)) {
-      const bridgedReply = allowFreeChatGPTBridge && !bridgeAttempted && await this.isFreeChatGPTBridgeOnline()
-        ? await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId) : null;
-      if (bridgedReply) return {
-        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
-        status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
-        provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
-      };
-      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
-      if (allowFreeChatGPTBridge && knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
-        throw new Error("SOLO_NO_PROVIDER_CAPACITY: no relevant database answer and the free ChatGPT browser bridge is offline. " + harnessFailure);
-      }
-      return {
-        reply: knowledgeReply,
-        status: "done",
-        operationId,
-        sessionId: sessionId || "knowledge-base",
-        provider: "knowledge-base",
-        model: "lexical-retrieval-v1",
-        fallbackReason: "No available model provider; used the local knowledge relevance gate."
-      };
-    }
+    // Provider exhaustion falls through to the independent text-only chain below.
     const fallbackPrompt = "You are in a text-only emergency fallback. You cannot use tools, access repositories or files, or execute actions. Never claim that you performed or verified an action. If the user asks you to do something requiring tools, explain that tool execution is temporarily unavailable.\n\nUser message:\n" + effectivePrompt;
     try {
       const fallback = await this.runDirectModel(fallbackPrompt);
