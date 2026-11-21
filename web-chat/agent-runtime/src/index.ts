@@ -3486,7 +3486,9 @@ LEARNING FROM CORRECTIONS
         await this.requirePassword(req);
         const listed = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:request:" });
         const tasks = [...listed.values()];
-        return json({ enabled: true, queued: tasks.filter(x => x.status === "queued").length, leased: tasks.filter(x => x.status === "leased").length, completed: tasks.filter(x => x.status === "completed").length, bridgeOnline: tasks.some(x => x.status === "leased" && Date.now() - Number(x.createdAt || 0) < 180000) });
+        const bridges = await this.ctx.storage.list<any>({ prefix: "free-chatgpt:bridge:" });
+        const onlineBridges = [...bridges.values()].filter((bridge: any) => Date.now() - Number(bridge.lastSeen || 0) < 45000);
+        return json({ enabled: true, queued: tasks.filter(x => x.status === "queued").length, leased: tasks.filter(x => x.status === "leased").length, completed: tasks.filter(x => x.status === "completed").length, bridgeOnline: onlineBridges.length > 0, onlineBridges: onlineBridges.map((bridge: any) => ({ bridgeId: bridge.bridgeId, lastSeen: bridge.lastSeen })) });
       }
       if (url.pathname === "/api/agent/chat" && req.method === "POST") {
         await this.requirePassword(req);
