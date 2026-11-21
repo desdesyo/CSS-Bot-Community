@@ -1119,7 +1119,7 @@ LEARNING FROM CORRECTIONS
     try {
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 8 минут. Запрос сохранён, но модель или инструмент не завершили работу. Повторите попытку позже или запустите /fix для диагностики.")), 480000);
+        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 90 секунд. Запрос сохранён, но модели не завершили работу. Повторите попытку позже или запустите /fix для диагностики.")), 90000);
       });
       let reply = "";
       let consumedFollowups = 0;
@@ -1415,6 +1415,12 @@ LEARNING FROM CORRECTIONS
 
   private async runDirectModel(prompt: string) {
     const failures: string[] = [];
+    const deadline = Date.now() + 25000;
+    const directSignal = () => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error("SOLO_DIRECT_FALLBACK_TIMEOUT: 25-second response budget exhausted");
+      return AbortSignal.timeout(Math.min(12000, remaining));
+    };
     const system = "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.";
     const assertProviderAvailable = async (provider: string) => {
       const key = "provider:circuit:" + provider;
@@ -1447,7 +1453,8 @@ LEARNING FROM CORRECTIONS
           "Content-Type": "application/json",
           ...(provider === "openrouter" ? { "HTTP-Referer": "https://cssbc-github-chat.descapan.workers.dev/", "X-OpenRouter-Title": "SOLO.Chat" } : {})
         },
-        body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }], max_tokens: 2048, ...extra })
+        body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }], max_tokens: 2048, ...extra }),
+        signal: directSignal()
       });
       const data: any = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -1484,7 +1491,8 @@ LEARNING FROM CORRECTIONS
         const response = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: this.env.CHAT_MODEL || "gpt-4.1", store: false, instructions: system, input: prompt, max_output_tokens: 2048 })
+          body: JSON.stringify({ model: this.env.CHAT_MODEL || "gpt-4.1", store: false, instructions: system, input: prompt, max_output_tokens: 2048 }),
+          signal: directSignal()
         });
         const data: any = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -1521,7 +1529,8 @@ LEARNING FROM CORRECTIONS
                   systemInstruction: { parts: [{ text: system }] },
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   generationConfig: { maxOutputTokens: 2048 }
-                })
+                }),
+                signal: directSignal()
               });
               const raw = await response.text();
               let data: any = {};
@@ -1575,8 +1584,12 @@ LEARNING FROM CORRECTIONS
     } else {
       const modelIds = [...new Set([this.env.PI_MODEL || "@cf/zai-org/glm-4.7-flash", "@cf/google/gemma-4-26b-a4b-it"])];
       for (const modelId of modelIds) {
+        if (Date.now() >= deadline) break;
         try {
-          const result: any = await this.env.AI.run(modelId as any, { messages: [{ role: "user", content: prompt }], max_tokens: 2048 } as any);
+          const result: any = await Promise.race([
+            this.env.AI.run(modelId as any, { messages: [{ role: "user", content: prompt }], max_tokens: 2048 } as any),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Workers AI fallback timed out")), Math.max(1000, Math.min(8000, deadline - Date.now()))))
+          ]);
           const reply = String(result?.response || result?.output_text || result?.text || "").trim();
           if (reply) return { reply, model: modelId, provider: "workers-ai-direct-fallback" };
           failures.push(modelId + ": provider returned empty text");
@@ -1682,7 +1695,6 @@ LEARNING FROM CORRECTIONS
 
   private async retrieveMemoryContext(threadKey: string, prompt: string) {
     try {
-      await this.backfillMemoryIndex(4);
       const threadId = /^\d+$/.test(threadKey) ? Number(threadKey) : 0;
       const currentThread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
       const recent = Array.isArray(currentThread?.messages) ? currentThread.messages.slice(-8) : [];
@@ -1744,7 +1756,6 @@ LEARNING FROM CORRECTIONS
     await this.ensureSeedKnowledge();
     const noAnswer = "Я пока не нашёл в собственной базе знаний SOLO.Chat достаточно подходящего ответа. Не хочу выдавать случайный старый текст за решение именно вашей задачи. Уточните вопрос или добавьте контекст — тогда я смогу точнее сопоставить его с сохранёнными материалами.";
     try {
-      await this.backfillMemoryIndex(6);
       let best = selectKnowledgeEntry(prompt, Array.from((await this.ctx.storage.list<any>({ prefix: "memory:entry:" })).values()));
       if (!best) {
         const threadId = /^\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
@@ -1948,7 +1959,8 @@ LEARNING FROM CORRECTIONS
         return { reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base", provider: "knowledge-base", model: "lexical-retrieval-v1" };
       }
     }
-    const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
+    const needsMemoryContext = agentRole === "user" && /\b(помнишь|как раньше|как мы|мы обсуждали|в прошлый раз|продолжи|продолжай|вернёмся|вернемся|тот же|та же|сделай как|по прежнему плану)\b/i.test(prompt);
+    const memoryContext = needsMemoryContext ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     // Do not call the browser bridge pre-emptively: preserve SOLO.Chat model capacity first.
     // The free ChatGPT tab is a last-resort fallback only after local knowledge and configured models fail.
@@ -1998,7 +2010,7 @@ LEARNING FROM CORRECTIONS
         throw new Error("SOLO_NO_PROVIDER_CAPACITY: сейчас нет доступного провайдера генерации. Все настроенные источники отключены circuit breaker или не имеют ключей. " +
           JSON.stringify({ providers: providerStates, nextRetryAt: nextRetry ? new Date(nextRetry).toISOString() : null }));
       }
-      const attempts = modelCandidates;
+      const attempts = agentRole === "user" ? modelCandidates.slice(0, 1) : modelCandidates;
       let completed = false;
       for (let attempt = 0; attempt < attempts.length; attempt++) {
         const candidate = attempts[attempt];
@@ -2013,8 +2025,8 @@ LEARNING FROM CORRECTIONS
             this.harness.wait(receipt.operationId, { session: sessionId }),
             new Promise<never>((_, reject) => {
               providerWaitTimer = setTimeout(
-                () => reject(new Error("SOLO_PI_PROVIDER_TIMEOUT: Pi provider did not finish within 90 seconds")),
-                90_000
+                () => reject(new Error("SOLO_PI_PROVIDER_TIMEOUT: Pi provider did not finish within 35 seconds")),
+                agentRole === "user" ? 35_000 : 90_000
               );
             })
           ]).finally(() => clearTimeout(providerWaitTimer!));
