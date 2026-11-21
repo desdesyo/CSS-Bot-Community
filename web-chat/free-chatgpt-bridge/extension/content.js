@@ -17,8 +17,9 @@
       if (setter) setter.call(node, text); else node.value = text;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     } else {
-      node.replaceChildren();
-      node.textContent = text;
+      document.execCommand("selectAll", false);
+      document.execCommand("insertText", false, text);
+      if (String(node.innerText || "").trim() !== text) node.textContent = text;
       node.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
     }
   };
