@@ -1637,7 +1637,7 @@ LEARNING FROM CORRECTIONS
 
 
   // Index completed user-facing exchanges so the knowledge base grows from real SOLO.Chat conversations.
-  private async indexKnowledgeExchange(threadKey: string, question: string, answer: string, operationId: string) {
+  private async indexKnowledgeExchange(threadKey: string, question: string, answer: string, operationId: string, sourceProvider = "agent-harness") {
     const cleanQuestion = String(question || "").trim().slice(0, 6000);
     const cleanAnswer = String(answer || "").trim().slice(0, 7000);
     if (!cleanQuestion || cleanAnswer.length < 24 || !operationId) return false;
@@ -1650,8 +1650,11 @@ LEARNING FROM CORRECTIONS
     await this.ctx.storage.put("memory:entry:" + id, {
       id, threadId: numericThread, threadKey: safeThread, title: "Диалог " + safeThread,
       operationId, createdAt: Date.now(), queryText: cleanQuestion,
+      sourceProvider: String(sourceProvider || "agent-harness").slice(0, 80),
+      answerQuality: sourceProvider === "free-chatgpt-bridge" ? "external-unverified" : "completed",
+      reviewRequired: sourceProvider === "free-chatgpt-bridge",
       content: ("Вопрос пользователя:\n" + cleanQuestion + "\n\nОтвет SOLO.Chat:\n" + cleanAnswer).slice(0, 12000),
-      answerQuality: "completed", vector: []
+      vector: []
     });
     await this.ctx.storage.put(indexedKey, true);
     return true;
@@ -1703,7 +1706,8 @@ LEARNING FROM CORRECTIONS
       // Ambiguous near-ties are rejected instead of returning a potentially irrelevant answer.
       if (!best || (second && best.score - second.score < 0.07 && best.entry.queryText !== second.entry.queryText)) return noAnswer;
       const source = best.entry.threadId ? "диалог №" + best.entry.threadId : "сохранённый диалог";
-      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). Это ранее сохранённый ответ, а не новая проверка фактов:\n\n" +
+      const provenance = best.entry.sourceProvider === "free-chatgpt-bridge" ? "Ранее получено через бесплатный ChatGPT; источник не проходил независимую проверку." : "Ранее сохранённый ответ SOLO.Chat.";
+      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + "). " + provenance + "\n\n" +
         best.answer + "\n\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
     } catch (error) {
       console.warn("[SOLO.Chat] knowledge answer retrieval skipped", String(error instanceof Error ? error.message : error).slice(0, 300));
@@ -1872,10 +1876,10 @@ LEARNING FROM CORRECTIONS
     });
     return this.getQuotaState();
   }
-  private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user") {
+  private async runChat(threadKey: string, prompt: string, operationId: string, agentRole = "user", knowledgeQuestion = prompt) {
     // Serve a sufficiently relevant stored answer before spending provider quota.
     if (agentRole === "user") {
-      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
       if (knowledgeReply && !knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
         return { reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base", provider: "knowledge-base", model: "lexical-retrieval-v1" };
       }
@@ -2038,9 +2042,9 @@ LEARNING FROM CORRECTIONS
     // When every configured model candidate is unavailable, do not spend more quota
     // retrying the same providers through the text-only chain. Answer from local knowledge.
     if (/SOLO_NO_PROVIDER_CAPACITY|Workers AI quota circuit is open/.test(harnessFailure)) {
-      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, prompt, operationId);
+      const bridgedReply = await this.requestFreeChatGPTBridge(threadKey, effectivePrompt, operationId);
       if (bridgedReply) return {
-        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\\n\\n" + bridgedReply,
+        reply: "Ответ получен через бесплатный ChatGPT в браузере и сохранён как внешний источник знаний. Проверьте важные факты:\n\n" + bridgedReply,
         status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
@@ -3478,10 +3482,10 @@ LEARNING FROM CORRECTIONS
             await this.indexKnowledgeExchange(threadKey, String(exchange.question || ""), String(exchange.answer || ""), "history-" + sourceKey);
           }
           await this.reserveQuota(operationId);
-          const result = await this.runChat(threadKey, prompt, operationId, agentRole);
+          const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
+          const result = await this.runChat(threadKey, prompt, operationId, agentRole, knowledgeQuestion);
           if (agentRole === "user" && result.reply && result.provider !== "knowledge-base") {
-            const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
-            await this.indexKnowledgeExchange(threadKey, knowledgeQuestion, String(result.reply), operationId);
+            await this.indexKnowledgeExchange(threadKey, knowledgeQuestion, String(result.reply), operationId, String(result.provider || "agent-harness"));
           }
           return json(result);
         } finally {
