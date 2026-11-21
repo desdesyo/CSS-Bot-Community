@@ -6,6 +6,7 @@ on:
     branches:
       - github-chat-prototype
     paths:
+      - "web-chat/README.md"
       - "web-chat/agent-runtime/**"
       - "web-chat/public/**"
       - "web-chat/worker.js"
