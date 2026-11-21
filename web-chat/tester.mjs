@@ -139,7 +139,7 @@ test("Conversation knowledge base is shared with cloud and browser-local models 
   assert.match(agent, /localContext: localContext \|\| undefined/, "failed cloud jobs must provide retrieved memory to the local model");
   assert.match(agent, /const needsMemoryContext = agentRole === "user"/, "historical memory scans must be conditional on an explicit continuation reference");
   assert.match(agent, /const memoryContext = needsMemoryContext \? await this\.retrieveMemoryContext/, "cloud model must receive memory when a user explicitly references prior context");
-  assert.doesNotMatch(agent.slice(agent.indexOf("private async retrieveMemoryAnswer"), agent.indexOf("private async retrieveKnowledgeAnswer")), /backfillMemoryIndex/, "knowledge retrieval must not scan old chats on every request");
+  assert.doesNotMatch(agent.slice(agent.indexOf("private async retrieveMemoryContext"), agent.indexOf("private async indexKnowledgeExchange")), /backfillMemoryIndex/, "knowledge retrieval must not scan old chats on every request");
   assert.match(html, /async function generateLocalReply\(prompt,thinking,knowledgeContext=""/, "local model must accept the shared knowledge context");
   assert.match(html, /БАЗА ЗНАНИЙ ИЗ ПРЕДЫДУЩИХ ДИАЛОГОВ/, "local model prompt must include retrieved conversation knowledge");
   assert.match(html, /result\.localContext\|\|""/, "browser fallback must pass server-retrieved knowledge to Qwen");
