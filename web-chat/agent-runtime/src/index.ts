@@ -2075,7 +2075,10 @@ LEARNING FROM CORRECTIONS
         status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
-      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
+      if (allowFreeChatGPTBridge && knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
+        throw new Error("SOLO_NO_PROVIDER_CAPACITY: no relevant database answer and the free ChatGPT browser bridge is offline. " + harnessFailure);
+      }
       return {
         reply: knowledgeReply,
         status: "done",
@@ -2098,7 +2101,10 @@ LEARNING FROM CORRECTIONS
         status: "done", operationId, sessionId: sessionId || "free-chatgpt-bridge",
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
-      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, prompt);
+      const knowledgeReply = await this.retrieveKnowledgeAnswer(threadKey, knowledgeQuestion);
+      if (allowFreeChatGPTBridge && knowledgeReply.startsWith("Я пока не нашёл в собственной базе знаний")) {
+        throw new Error("SOLO_NO_PROVIDER_CAPACITY: no relevant database answer and no external model or browser bridge completed. " + reason);
+      }
       return {
         reply: knowledgeReply,
         status: "done",
