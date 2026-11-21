@@ -1414,7 +1414,30 @@ LEARNING FROM CORRECTIONS
   private async runDirectModel(prompt: string) {
     const failures: string[] = [];
     const system = "You are SOLO.Chat, a capable Russian-first assistant. Answer directly, accurately and honestly. Never claim that you used tools or completed actions unless they were actually executed.";
+    const assertProviderAvailable = async (provider: string) => {
+      const key = "provider:circuit:" + provider;
+      const until = await this.ctx.storage.get<number>(key);
+      if (until && until > Date.now()) {
+        throw new Error(provider + " skipped until " + new Date(until).toISOString() + " (provider circuit breaker)");
+      }
+      if (until) {
+        await this.ctx.storage.delete(key);
+        await this.ctx.storage.delete("provider:circuit-meta:" + provider);
+      }
+    };
+    const openProviderCircuit = async (provider: string, status: number, detail: string) => {
+      const quota = /RESOURCE_EXHAUSTED|quota|billing|insufficient credit/i.test(detail);
+      const auth = status === 401 || status === 403 || status === 402;
+      const duration = quota || auth ? 6 * 60 * 60 * 1000 : status === 429 ? 5 * 60 * 1000 : status === 503 ? 90 * 1000 : 60 * 1000;
+      const retryAt = Date.now() + duration;
+      await this.ctx.storage.put("provider:circuit:" + provider, retryAt);
+      await this.ctx.storage.put("provider:circuit-meta:" + provider, {
+        openedAt: Date.now(), retryAt, reason: quota ? "quota" : auth ? "auth" : status === 429 ? "rate-limit" : "transient",
+        error: (provider + " HTTP " + status + ": " + detail).slice(0, 500)
+      });
+    };
     const runCompatible = async (provider: string, endpoint: string, apiKey: string, model: string, extra: Record<string, unknown> = {}) => {
+      await assertProviderAvailable(provider);
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -1425,7 +1448,13 @@ LEARNING FROM CORRECTIONS
         body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }], max_tokens: 2048, ...extra })
       });
       const data: any = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(provider + " API " + response.status + ": " + String(data.error?.message || data.error || "request failed").slice(0, 350));
+      if (!response.ok) {
+        const detail = String(data.error?.message || data.error || "request failed").slice(0, 350);
+        if ([401, 402, 403, 429, 500, 502, 503, 504].includes(response.status)) await openProviderCircuit(provider, response.status, detail);
+        throw new Error(provider + " API " + response.status + ": " + detail);
+      }
+      await this.ctx.storage.delete("provider:circuit:" + provider);
+      await this.ctx.storage.delete("provider:circuit-meta:" + provider);
       const reply = String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
       if (!reply) throw new Error(provider + " returned no text");
       return { reply, model: String(data.model || model), provider };
@@ -1449,13 +1478,20 @@ LEARNING FROM CORRECTIONS
 
     if (this.env.OPENAI_API_KEY) {
       try {
+        await assertProviderAvailable("openai");
         const response = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ model: this.env.CHAT_MODEL || "gpt-4.1", store: false, instructions: system, input: prompt, max_output_tokens: 2048 })
         });
         const data: any = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("OpenAI API " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 350));
+        if (!response.ok) {
+          const detail = String(data.error?.message || "request failed").slice(0, 350);
+          if ([401, 402, 403, 429, 500, 502, 503, 504].includes(response.status)) await openProviderCircuit("openai", response.status, detail);
+          throw new Error("OpenAI API " + response.status + ": " + detail);
+        }
+        await this.ctx.storage.delete("provider:circuit:openai");
+        await this.ctx.storage.delete("provider:circuit-meta:openai");
         const reply = (data.output || []).flatMap((item: any) => item.content || []).filter((item: any) => item.type === "output_text").map((item: any) => String(item.text || "")).join("\n").trim();
         if (reply) return { reply, model: this.env.CHAT_MODEL || "gpt-4.1", provider: "openai" };
         throw new Error("OpenAI returned no text");
