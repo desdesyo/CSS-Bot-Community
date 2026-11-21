@@ -171,6 +171,7 @@ test("SOLO.Chat indexes completed exchanges and uses a relevance-gated knowledge
   assert.match(agent, /best\.score - second\.score < 0\.07/, "ambiguous near-ties must be rejected");
   assert.match(agent, /answerUsable/, "stored answers must pass a basic quality filter");
   assert.match(agent, /provider: "knowledge-base"/, "provider failure must resolve with a knowledge-base response");
+  assert.match(agent, /SOLO_NO_PROVIDER_CAPACITY\|Workers AI quota circuit is open/, "provider exhaustion must bypass another quota-consuming fallback attempt");
   assert.match(agent, /knowledgeQuestion = String\(body\.knowledgeQuestion \|\| prompt\)/);
   assert.match(worker, /knowledgeQuestion:message/, "the exact user question, not the full conversation prompt, must be indexed");
 });
