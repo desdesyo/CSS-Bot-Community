@@ -1119,7 +1119,7 @@ LEARNING FROM CORRECTIONS
     try {
       let timeoutId: ReturnType<typeof setTimeout>;
       const timeout = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Ответ не получен за 90 секунд. Запрос сохранён, но модели не завершили работу. Повторите попытку позже или запустите /fix для диагностики.")), 90000);
+        timeoutId = setTimeout(() => reject(new Error("SOLO_CHAT_TIMEOUT: Ответ не получен за 70 секунд. Запрос сохранён, но модели не завершили работу. Повторите попытку позже или запустите /fix для диагностики.")), 70000);
       });
       let reply = "";
       let consumedFollowups = 0;
