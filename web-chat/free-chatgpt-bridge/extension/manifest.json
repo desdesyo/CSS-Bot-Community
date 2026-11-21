@@ -3,17 +3,31 @@
   "name": "SOLO.Chat Free ChatGPT Bridge",
   "version": "1.0.0",
   "description": "Relays authenticated SOLO.Chat help requests through the signed-in ChatGPT Free browser tab.",
-  "permissions": ["storage"],
-  "host_permissions": ["http://127.0.0.1:8765/*", "https://chatgpt.com/*", "https://chat.openai.com/*"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
   "action": {
     "default_title": "SOLO.Chat Bridge settings",
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }
