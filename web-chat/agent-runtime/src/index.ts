@@ -1950,7 +1950,6 @@ LEARNING FROM CORRECTIONS
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     // Do not call the browser bridge pre-emptively: preserve SOLO.Chat model capacity first.
     // The free ChatGPT tab is a last-resort fallback only after local knowledge and configured models fail.
-    const bridgeAttempted = false;
     try {
       await this.reserveQuota(operationId);
     } catch (quotaError) {
