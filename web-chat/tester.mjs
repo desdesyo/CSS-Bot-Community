@@ -141,3 +141,5 @@ test("Conversation knowledge base is shared with cloud and browser-local models 
   assert.match(html, /БАЗА ЗНАНИЙ ИЗ ПРЕДЫДУЩИХ ДИАЛОГОВ/, "local model prompt must include retrieved conversation knowledge");
   assert.match(html, /result\.localContext\|\|""/, "browser fallback must pass server-retrieved knowledge to Qwen");
 });
+
+// Shared cloud/local knowledge base and quota-safety regression tests are kept in this file.
