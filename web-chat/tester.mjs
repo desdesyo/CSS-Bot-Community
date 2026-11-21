@@ -158,3 +158,5 @@ test("Background agent roles are blocked before reserving model quota unless exp
 
 
 
+
+// Final regression suite keeps quota guards and shared knowledge retrieval explicit.
