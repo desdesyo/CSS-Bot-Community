@@ -1,9 +1,16 @@
 (() => {
   if (window.__soloFreeBridgeInstalled) return;
   window.__soloFreeBridgeInstalled = true;
-  const LOCAL = "http://127.0.0.1:8765";
-  let busy = false;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  let busy = false;
+  const bridgeRequest = async (path, method = "GET", body = {}) => {
+    const result = await chrome.runtime.sendMessage({ type: "solo-bridge-http", path, method, body });
+    if (!result?.ok) {
+      if (result?.disabled) return null;
+      throw new Error(result?.error || "Local bridge request failed");
+    }
+    return result.data;
+  };
   const assistantNodes = () => Array.from(document.querySelectorAll('[data-message-author-role="assistant"]'));
   const assistantText = () => assistantNodes().map(node => node.innerText || node.textContent || "").join("\n\n").trim();
   const composer = () => document.querySelector('#prompt-textarea') ||
@@ -59,35 +66,25 @@
     throw new Error("Timed out waiting for ChatGPT's completed answer.");
   }
   let lastHeartbeat = 0;
-  async function heartbeat(token) {
+  async function heartbeat() {
     if (Date.now() - lastHeartbeat < 15000) return;
     lastHeartbeat = Date.now();
-    try {
-      await fetch(LOCAL + "/heartbeat", { method: "POST", headers: { "X-SOLO-Bridge-Token": token } });
-    } catch { /* local bridge can be started later */ }
+    await bridgeRequest("heartbeat", "POST");
   }
   async function poll() {
     if (busy) return;
-    const { bridgeToken, enabled } = await chrome.storage.local.get(["bridgeToken", "enabled"]);
-    if (!enabled || !bridgeToken) return;
     busy = true;
     try {
-      await heartbeat(bridgeToken);
-      const response = await fetch(LOCAL + "/next", { headers: { "X-SOLO-Bridge-Token": bridgeToken } });
-      if (!response.ok) throw new Error("Local bridge is not available (" + response.status + ").");
-      const data = await response.json();
-      if (!data.task) return;
+      await heartbeat();
+      const data = await bridgeRequest("next");
+      if (!data?.task) return;
       const task = data.task;
       let answer = "", error = "";
       try {
         const instruction = "Ты — вспомогательный бесплатный ChatGPT для SOLO.Chat. Ответь на запрос пользователя по существу, на русском языке, если пользователь не просит другой язык. Учитывай предоставленный контекст, но не выдумывай факты и не утверждай, что выполняла действия, которых не выполняла. Если данных недостаточно, прямо обозначь ограничения и задай один необходимый уточняющий вопрос. Верни только готовый ответ.\n\nЗАПРОС И КОНТЕКСТ SOLO.Chat:\n" + task.prompt;
         answer = await submitPrompt(instruction);
       } catch (failure) { error = String(failure?.message || failure).slice(0, 500); }
-      await fetch(LOCAL + "/result", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-SOLO-Bridge-Token": bridgeToken },
-        body: JSON.stringify({ requestId: task.requestId, answer, error })
-      });
+      await bridgeRequest("result", "POST", { requestId: task.requestId, answer, error });
     } catch (error) {
       console.warn("[SOLO.Chat Bridge]", String(error?.message || error));
     } finally { busy = false; }
