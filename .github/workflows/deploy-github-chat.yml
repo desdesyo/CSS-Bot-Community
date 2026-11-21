@@ -33,6 +33,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate canonical public SOLO.Chat links
+        run: |
+          set -euo pipefail
+          mapfile -t worker_hosts < <(grep -RhoE 'https://[A-Za-z0-9.-]+\.workers\.dev' README.md web-chat/README.md .github/workflows/deploy-github-chat.yml | sort -u)
+          if [[ "${#worker_hosts[@]}" -ne 1 || "${worker_hosts[0]}" != "${CHAT_ENDPOINT%/}" ]]; then
+            echo "::error::Public Worker links do not match the single canonical CHAT_ENDPOINT."
+            printf 'Found: %s\n' "${worker_hosts[@]}"
+            exit 1
+          fi
+          grep -Fq "[Open SOLO.Chat](${CHAT_ENDPOINT%/}/)" README.md
+          grep -Fq "[Open SOLO.Chat](${CHAT_ENDPOINT%/}/)" web-chat/README.md
+          echo "All documented SOLO.Chat Worker links resolve to the canonical deployment hostname."
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
