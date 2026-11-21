@@ -163,7 +163,7 @@ jobs:
                 echo "- Public app: [Open SOLO.Chat]($ENDPOINT/)"
                 echo "- Authenticated health: **PASS**"
                 echo "- Worker version: $VERSION"
-                echo "- Source branch: github-chat-prototype"
+                echo "- Source branch: $GITHUB_WORK_BRANCH"
               } >> "$GITHUB_STEP_SUMMARY"
               echo "Post-deploy authenticated health and version check passed: $ENDPOINT/"
               exit 0
