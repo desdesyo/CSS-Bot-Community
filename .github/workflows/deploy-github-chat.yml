@@ -168,6 +168,7 @@ jobs:
           fi
           BROWSER_DONE=false
           BROWSER_CAPACITY_DEGRADED=false
+          BROWSER_THREAD="$(jq -r '.thread' browser-chat-accepted.json)"
           for attempt in $(seq 1 240); do
             BROWSER_STATUS_CODE="$(curl --silent --show-error --max-time 20 -o browser-chat-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/chat/status?operationId=$BROWSER_OPERATION" || true)"
             if [[ "$BROWSER_STATUS_CODE" != "200" ]]; then
@@ -206,13 +207,38 @@ jobs:
             sleep 2
           done
           if [[ "$BROWSER_CAPACITY_DEGRADED" == "true" ]]; then
+            # Exercise the same persistence endpoint used after WebGPU generation in the browser.
+            # This synthetic probe verifies server completion/history only; it does not pretend
+            # that GitHub Actions executed the browser's WebGPU model.
+            LOCAL_FALLBACK_REPLY="SOLO_CHAT_LOCAL_FALLBACK_PERSISTENCE_OK (synthetic CI probe; browser WebGPU inference is separate)"
+            jq -n --arg operationId "$BROWSER_OPERATION" --arg reply "$LOCAL_FALLBACK_REPLY" --arg model "Qwen2.5-0.5B-Instruct-q4f16_1-MLC" '{operationId:$operationId,reply:$reply,model:$model}' > local-fallback-complete.json
+            LOCAL_COMPLETE_CODE="$(curl --silent --show-error --max-time 30 -o local-fallback-result.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" -H "Content-Type: application/json" --data @local-fallback-complete.json "$ENDPOINT/api/chat/local-complete" || true)"
+            if [[ "$LOCAL_COMPLETE_CODE" != "200" ]] || ! jq -e '.ok == true and .provider == "browser-local"' local-fallback-result.json >/dev/null; then
+              echo "::error::Browser-local fallback completion could not finalize the failed chat operation (HTTP $LOCAL_COMPLETE_CODE)."
+              cat local-fallback-result.json
+              exit 1
+            fi
+            LOCAL_STATUS_CODE="$(curl --silent --show-error --max-time 30 -o local-fallback-status.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/chat/status?operationId=$BROWSER_OPERATION" || true)"
+            if [[ "$LOCAL_STATUS_CODE" != "200" ]] || ! jq -e '.status == "done" and .provider == "browser-local" and (.reply|contains("SOLO_CHAT_LOCAL_FALLBACK_PERSISTENCE_OK"))' local-fallback-status.json >/dev/null; then
+              echo "::error::Browser-local fallback did not resolve the chat operation."
+              cat local-fallback-status.json
+              exit 1
+            fi
+            HISTORY_CODE="$(curl --silent --show-error --max-time 30 -o browser-chat-history.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/messages?thread=$BROWSER_THREAD" || true)"
+            if [[ "$HISTORY_CODE" != "200" ]] || ! jq -e --arg operation "$BROWSER_OPERATION" 'any(.messages[]; .role == "assistant" and .operationId == $operation and (.content|contains("SOLO_CHAT_LOCAL_FALLBACK_PERSISTENCE_OK")))' browser-chat-history.json >/dev/null; then
+              echo "::error::Browser-local fallback reply was not persisted in the conversation history."
+              cat browser-chat-history.json
+              exit 1
+            fi
             {
               echo "### Live browser chat acceptance"
-              echo "- Queue → Durable Object alarm → status: **ACCEPTED; GENERATION BLOCKED**"
+              echo "- Queue → Durable Object alarm → provider failure: **REPRODUCED**"
               echo "- Runtime health/version: **PASS**"
-              echo "- Inference capacity: **UNAVAILABLE**"
+              echo "- Cloud inference capacity: **UNAVAILABLE**"
+              echo "- Browser-local completion endpoint and job finalization: **PASS**"
+              echo "- Assistant fallback reply persisted in conversation history: **PASS**"
+              echo "- Note: CI used a synthetic completion payload; actual WebGPU model execution must be verified in a supported browser/device."
               echo "- Cause: configured providers exhausted their quotas or are not configured."
-              echo "- Deployment retained; no rollback attempted because rollback cannot restore provider quota."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             if [[ "$BROWSER_DONE" != "true" ]]; then
