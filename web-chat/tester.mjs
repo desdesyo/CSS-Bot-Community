@@ -307,7 +307,7 @@ test("Knowledge matcher finds Windows DISM guidance from natural Russian paraphr
     ].join("\\n"),
     content: "Вопрос пользователя: Как восстановить системные библиотеки Windows?\\n\\nОтвет SOLO.Chat: Для работающей Windows выполните DISM /Online /Cleanup-Image /RestoreHealth, затем sfc /scannow. Это восстанавливает компоненты и системные файлы Windows."
   };
-  const match = selectKnowledgeEntry("Подскажи утилиту, чтобы восстановить библиотеки виндовс без потери данных", [entry]);
+  const match = selectKnowledgeEntry("Мне нужна утилита которая восстановит библиотеки виндовс без потери данных, мне не нужна ссылка на скачивание, скачайте сам в хранилище SOLO.Chat", [entry]);
   assert.ok(match, "the natural paraphrase should retrieve the curated answer");
   assert.match(match.answer, /DISM/);
   assert.ok(match.coverage >= 0.3);
