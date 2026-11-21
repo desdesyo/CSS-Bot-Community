@@ -1894,7 +1894,6 @@ LEARNING FROM CORRECTIONS
         return { reply: knowledgeReply, status: "done", operationId, sessionId: "knowledge-base", provider: "knowledge-base", model: "lexical-retrieval-v1" };
       }
     }
-    await this.reserveQuota(operationId);
     const memoryContext = agentRole === "user" ? await this.retrieveMemoryContext(threadKey, prompt) : "";
     const effectivePrompt = memoryContext ? memoryContext + "\n\n" + prompt : prompt;
     let bridgeAttempted = false;
@@ -1907,6 +1906,7 @@ LEARNING FROM CORRECTIONS
         provider: "free-chatgpt-bridge", model: "chatgpt-free-web"
       };
     }
+    await this.reserveQuota(operationId);
     const key = "chat:session:" + threadKey.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     let sessionId = await this.ctx.storage.get<string>(key) || "";
     const workersAiCircuitOpen = await this.workersAiQuotaCircuitOpen();
