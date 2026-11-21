@@ -1737,11 +1737,11 @@ LEARNING FROM CORRECTIONS
       requestId, threadKey: String(threadKey || "default").slice(0, 80),
       operationId: String(operationId || "").slice(0, 100),
       prompt: String(prompt || "").slice(0, 16000),
-      status: "queued", createdAt: Date.now(), expiresAt: Date.now() + 180000,
+      status: "queued", createdAt: Date.now(), expiresAt: Date.now() + 240000,
       attempts: 0, bridgeId: null, leaseUntil: null
     };
     await this.ctx.storage.put(key, task);
-    const deadline = Date.now() + 90000;
+    const deadline = Date.now() + 150000;
     while (Date.now() < deadline) {
       const current = await this.ctx.storage.get<any>(key);
       if (!current) return null;
