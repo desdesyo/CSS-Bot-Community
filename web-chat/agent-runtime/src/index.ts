@@ -3356,7 +3356,7 @@ LEARNING FROM CORRECTIONS
           await this.reserveQuota(operationId);
           const threadKey = String(body.threadKey || "default");
           const result = await this.runChat(threadKey, prompt, operationId, agentRole);
-          if (agentRole === "user" && result.reply) {
+          if (agentRole === "user" && result.reply && result.provider !== "knowledge-base") {
             const knowledgeQuestion = String(body.knowledgeQuestion || prompt).trim().slice(0, 6000);
             await this.indexKnowledgeExchange(threadKey, knowledgeQuestion, String(result.reply), operationId);
           }
