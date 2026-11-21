@@ -1,6 +1,6 @@
 const STOP = new Set([
   "это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","его","её","быть","есть",
-  "без","над","под","после","перед","когда","если","тогда","ли","же","бы","вот","уже","ещё","тоже","можно","нужно","надо",
+  "без","над","под","после","перед","когда","если","тогда","ли","же","бы","вот","уже","ещё","тоже","можно","нужно","надо","какой","какая","какие","который","которую","которые","чтобы","подскажи","пожалуйста","помоги","хочу","нужна","нужен","нужны",
   "the","and","for","with","that","this","from","you","your","reply","exactly","nothing","else","call","tools","tool","do","not","only","please","answer","tell","user","current","request","context","solo","chat"
 ]);
 const SYNONYMS = [
@@ -8,7 +8,7 @@ const SYNONYMS = [
   ["usb","флешка","флешку","флешки","флешкой","накопитель","накопителя"],
   ["dism","дисм"],
   ["sfc","сфс"],
-  ["восстановить","восстановление","восстановлению","восстановлением","восстановил","восстанови"],
+  ["восстановить","восстановление","восстановлению","восстановлением","восстановил","восстанови","восстановл"],
   ["библиотека","библиотеки","библиотек","библиотекам","библиотекой","dll"],
   ["файл","файлы","файлов","файлами","данные","данных"],
   ["геймпад","контроллер","джойстик"],
@@ -41,7 +41,7 @@ function variants(token) {
 }
 export function normalizeKnowledgeTokens(value) {
   const raw = String(value || "").toLocaleLowerCase("ru").match(/[a-zа-яё0-9_]{2,}/giu) || [];
-  return [...new Set(raw.filter(token => !STOP.has(token)).map(token => stem(token)).filter(token => token.length >= 2))];
+  return [...new Set(raw.filter(token => !STOP.has(token)).map(token => stem(token)).filter(token => token.length >= 2 && !STOP.has(token)))];
 }
 export function rankKnowledgeEntries(prompt, entries) {
   const queryTokens = normalizeKnowledgeTokens(prompt);
