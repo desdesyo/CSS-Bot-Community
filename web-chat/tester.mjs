@@ -202,6 +202,7 @@ test("SOLO.Chat serves database answers first and can consult the free ChatGPT b
   assert.match(agent, /url\.pathname === "\/api\/chatgpt-bridge\/heartbeat"/);
   assert.match(agent, /sourceProvider: String\(sourceProvider/);
   assert.match(agent, /reviewRequired: sourceProvider === "free-chatgpt-bridge"/);
+  assert.match(agent, /no relevant database answer and the free ChatGPT browser bridge is offline/, "unanswered jobs must remain eligible for browser-local completion");
   assert.match(agent, /url\.pathname\.startsWith\("\/api\/chatgpt-bridge\/"\)/, "the Durable Object router must expose bridge queue endpoints");
   assert.match(bridge, /server\.listen\(port, "127\.0\.0\.1"/, "local relay must bind only to loopback");
   assert.match(bridge, /X-SOLO-Bridge-Token/);
