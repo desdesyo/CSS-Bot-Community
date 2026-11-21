@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SOLO.Chat Bridge</title>
+  <style>
+    body{font:14px system-ui,sans-serif;width:300px;padding:14px;color:#202124}
+    label{display:block;font-weight:600;margin:0 0 6px}
+    input{box-sizing:border-box;width:100%;padding:9px;border:1px solid #aaa;border-radius:6px}
+    button{margin-top:10px;padding:8px 12px;border:0;border-radius:6px;background:#1a73e8;color:white}
+    p{line-height:1.45;color:#555}
+    #status{min-height:20px}
+  </style>
+</head>
+<body>
+  <h3>SOLO.Chat Bridge</h3>
+  <label for="token">Local bridge token</label>
+  <input id="token" type="password" autocomplete="off" placeholder="Paste localBridgeToken">
+  <button id="save">Save and enable</button>
+  <p id="status">Open ChatGPT in this browser and keep the tab available.</p>
+  <script src="popup.js"></script>
+</body>
+</html>
