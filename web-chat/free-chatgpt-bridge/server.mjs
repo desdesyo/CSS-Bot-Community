@@ -96,8 +96,6 @@ const server = http.createServer(async (req, res) => {
     pending.deliveredAt = Date.now();
     return sendJson(res, 200, { task: { requestId: pending.requestId, prompt: pending.prompt, attempts: pending.attempts } });
   }
-    return sendJson(res, 200, { task: { requestId: pending.requestId, prompt: pending.prompt, attempts: pending.attempts } });
-  }
   if (url.pathname === "/result" && req.method === "POST") {
     let raw = "";
     for await (const chunk of req) {
