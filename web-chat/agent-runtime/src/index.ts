@@ -1555,64 +1555,6 @@ LEARNING FROM CORRECTIONS
     throw new Error("Не удалось получить ответ от ИИ. " + failures.join(" | "));
   }
 
-  private async embedMemoryText(text: string): Promise<number[] | null> {
-    const input = String(text || "").slice(0, 6000);
-    const parseVector = (raw: any): number[] | null => {
-      const values = Array.isArray(raw?.[0]) ? raw[0] : raw;
-      if (!Array.isArray(values) || values.length < 128) return null;
-      const vector = values.map((value: any) => Number(value));
-      return vector.every(Number.isFinite) ? vector : null;
-    };
-    if (this.env.OPENAI_API_KEY) {
-      try {
-        const response = await fetch("https://api.openai.com/v1/embeddings", {
-          method: "POST",
-          headers: { Authorization: "Bearer " + this.env.OPENAI_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "text-embedding-3-small", input })
-        });
-        const data: any = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("OpenAI embeddings HTTP " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 220));
-        const vector = parseVector(data.data?.[0]?.embedding);
-        if (vector) return vector;
-        throw new Error("OpenAI embeddings returned an invalid vector");
-      } catch (error) {
-        console.warn("[SOLO.Chat] OpenAI semantic embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
-      }
-    }
-    if (this.env.GEMINI_API_KEY) {
-      try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + encodeURIComponent(this.env.GEMINI_API_KEY), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "models/gemini-embedding-001", content: { parts: [{ text: input }] }, outputDimensionality: 768 })
-        });
-        const data: any = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("Gemini embeddings HTTP " + response.status + ": " + String(data.error?.message || "request failed").slice(0, 220));
-        const vector = parseVector(data.embedding?.values);
-        if (vector) return vector;
-        throw new Error("Gemini embeddings returned an invalid vector");
-      } catch (error) {
-        console.warn("[SOLO.Chat] Gemini semantic embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
-      }
-    }
-    try {
-      const result: any = await this.env.AI.run("@cf/baai/bge-m3" as any, { text: [input] } as any);
-      const vector = parseVector(result?.data);
-      if (vector) return vector;
-      throw new Error("Workers AI returned an invalid vector");
-    } catch (error) {
-      console.warn("[SOLO.Chat] semantic memory embedding unavailable", String(error instanceof Error ? error.message : error).slice(0, 300));
-      return null;
-    }
-  }
-
-  private memoryCosine(a: number[], b: number[]) {
-    if (!a.length || a.length !== b.length) return 0;
-    let dot = 0, aa = 0, bb = 0;
-    for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; aa += a[i] * a[i]; bb += b[i] * b[i]; }
-    return aa && bb ? dot / (Math.sqrt(aa) * Math.sqrt(bb)) : 0;
-  }
-
   private memoryLexicalScore(query: string, text: string) {
     const stop = new Set(["это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","the","and","for","with","that","this","from"]);
     const tokens = (value: string) => new Set((String(value || "").toLocaleLowerCase("ru").match(/[a-zа-яё0-9_]{3,}/giu) || []).filter(token => !stop.has(token)));
@@ -1634,13 +1576,12 @@ LEARNING FROM CORRECTIONS
     const question = userMessages.map((message: any) => String(message.content || "")).join("\n").slice(0, 6000);
     const answer = String(assistantMessage.content || "").slice(0, 7000);
     const title = String(thread.title || "Диалог " + threadId).slice(0, 160);
-    const vector = await this.embedMemoryText(title + "\n" + question);
     const id = crypto.randomUUID();
     await this.ctx.storage.put("memory:entry:" + id, {
       id, threadId, title, operationId, createdAt: assistantMessage.createdAt || thread.updatedAt || Date.now(),
       queryText: question,
       content: ("Вопрос пользователя:\n" + question + "\n\nОтвет SOLO.Chat:\n" + answer).slice(0, 12000),
-      vector: vector || []
+      vector: []
     });
     await this.ctx.storage.put(indexedKey, true);
     return true;
@@ -1673,16 +1614,13 @@ LEARNING FROM CORRECTIONS
       const recent = Array.isArray(currentThread?.messages) ? currentThread.messages.slice(-8) : [];
       const recentContext = recent.map((message: any) => (message.role === "user" ? "Пользователь: " : "SOLO.Chat: ") + String(message.content || "").slice(0, 900)).join("\n");
       const query = [currentThread?.title || "", recentContext, String(prompt || "")].filter(Boolean).join("\n").slice(0, 9000);
-      const queryVector = await this.embedMemoryText(query);
       const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
       const entries = Array.from(listed.values()).sort((a: any, b: any) => Number(b.createdAt || 0) - Number(a.createdAt || 0)).slice(0, 1500);
       const ranked = entries.map((entry: any) => {
-        const score = queryVector && Array.isArray(entry.vector) && entry.vector.length
-          ? this.memoryCosine(queryVector, entry.vector)
-          : this.memoryLexicalScore(query, String(entry.queryText || "") + "\n" + String(entry.content || ""));
+        const score = this.memoryLexicalScore(query, String(entry.queryText || "") + "\n" + String(entry.content || ""));
         return { entry, score };
       }).sort((a, b) => b.score - a.score);
-      const threshold = queryVector ? 0.22 : 0.08;
+      const threshold = 0.08;
       const selected = ranked.filter(item => item.score >= threshold).slice(0, 5);
       if (!selected.length) return "";
       const sections = selected.map(({ entry, score }) =>
@@ -3060,14 +2998,22 @@ LEARNING FROM CORRECTIONS
         if (!/^[a-zA-Z0-9_-]{1,100}$/.test(operationId)) return json({ error: "Invalid operation ID" }, 400);
         const job = await this.ctx.storage.get<BrowserChatJob>("browser-chat:job:" + operationId);
         if (!job) return json({ error: "Operation not found" }, 404);
+        const localFallbackReady = job.status === "failed" && isBrowserLocalFallbackEligible(job.error);
+        const localPrompt = localFallbackReady
+          ? [job.prompt, ...(job.followups || [])].filter(Boolean).join("\n\nУточнение пользователя:\n")
+          : undefined;
+        const localContext = localFallbackReady
+          ? await this.retrieveMemoryContext(String(job.threadId), String(localPrompt || job.prompt || ""))
+          : undefined;
         return json({
           operationId, thread: job.threadId, status: job.status,
           reply: job.status === "done" ? job.reply : undefined,
           error: job.status === "failed" ? job.error : undefined,
           provider: job.provider || undefined, model: job.model || undefined,
           degraded: Boolean(job.fallbackReason), fallbackReason: job.fallbackReason || undefined,
-          localPrompt: job.status === "failed" && isBrowserLocalFallbackEligible(job.error) ? job.prompt : undefined,
-          followups: job.status === "failed" && isBrowserLocalFallbackEligible(job.error) ? (job.followups || []) : undefined,
+          localPrompt,
+          localContext: localContext || undefined,
+          followups: localFallbackReady ? (job.followups || []) : undefined,
           createdAt: job.createdAt, updatedAt: job.updatedAt
         });
       }
