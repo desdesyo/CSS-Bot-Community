@@ -1672,7 +1672,7 @@ LEARNING FROM CORRECTIONS
     try {
       await this.backfillMemoryIndex(6);
       const normalize = (value: string) => {
-        const stop = new Set(["это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","его","её","быть","есть","the","and","for","with","that","this","from","you","your"]);
+        const stop = new Set(["это","что","как","для","или","при","про","там","тут","мне","меня","мы","вы","ты","он","она","они","его","её","быть","есть","the","and","for","with","that","this","from","you","your","reply","exactly","nothing","else","call","tools","tool","do","not","only","please","answer","tell","user","current","request","context","solo","chat"]);
         return (String(value || "").toLocaleLowerCase("ru").match(/[a-zа-яё0-9_]{3,}/giu) || [])
           .filter(token => !stop.has(token))
           .map(token => token.length > 5 ? token.replace(/(иями|ями|ами|ого|ему|ыми|ими|ее|ие|ые|ое|ей|ий|ый|ой|ая|яя|ою|ею|ам|ям|ах|ях|ов|ев|ом|ем|ы|и|а|я|у|ю|е|о)$/u, "") : token)
@@ -1690,6 +1690,11 @@ LEARNING FROM CORRECTIONS
       const listed = await this.ctx.storage.list<any>({ prefix: "memory:entry:" });
       const ranked = Array.from(listed.values()).map((entry: any) => {
         const storedQuestion = String(entry.queryText || "");
+        const queryMarkers = Array.from(new Set(String(prompt || "").match(/\\b[A-Z][A-Z0-9_]{5,}\\b/g) || []));
+        const entryMarkers = Array.from(new Set(storedQuestion.match(/\\b[A-Z][A-Z0-9_]{5,}\\b/g) || []));
+        const markerConflict = queryMarkers.length > 0 &&
+          (!entryMarkers.length || !queryMarkers.some(marker => entryMarkers.includes(marker)));
+        if (markerConflict) return { entry, score: 0, coverage: 0, answer: "", answerUsable: false };
         const entryTokens = new Set(normalize(storedQuestion));
         let overlap = 0;
         for (const token of queryTokens) if (entryTokens.has(token)) overlap++;
