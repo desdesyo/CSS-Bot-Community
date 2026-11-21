@@ -1750,10 +1750,10 @@ LEARNING FROM CORRECTIONS
         const threadId = /^\\d+$/.test(String(threadKey)) ? Number(threadKey) : 0;
         const thread = threadId ? await this.ctx.storage.get<any>("browser-chat:thread:" + threadId) : null;
         const recentQuestions = Array.isArray(thread?.messages)
-          ? thread.messages.filter((item: any) => item?.role === "user").slice(-3).map((item: any) => String(item.content || "")).join("\\n")
+          ? thread.messages.filter((item: any) => item?.role === "user").slice(-3).map((item: any) => String(item.content || "")).join("\n")
           : "";
         if (recentQuestions && recentQuestions !== prompt) {
-          best = selectKnowledgeEntry(recentQuestions + "\\n" + prompt,
+          best = selectKnowledgeEntry(recentQuestions + "\n" + prompt,
             Array.from((await this.ctx.storage.list<any>({ prefix: "memory:entry:" })).values()));
         }
       }
@@ -1766,8 +1766,8 @@ LEARNING FROM CORRECTIONS
         : best.entry.sourceProvider === "curated-seed"
           ? "Проверенный стартовый материал базы SOLO.Chat."
           : "Ранее сохранённый ответ SOLO.Chat.";
-      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + ", совпадение " + Math.round(best.score * 100) + "%). " + provenance + "\\n\\n" +
-        best.answer + "\\n\\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
+      return "Я нашёл подходящий материал в базе знаний SOLO.Chat (" + source + ", совпадение " + Math.round(best.score * 100) + "%). " + provenance + "\n\n" +
+        best.answer + "\n\nЕсли ситуация отличается от исходного вопроса, уточните детали — я не буду автоматически считать старый ответ универсальным.";
     } catch (error) {
       console.warn("[SOLO.Chat] knowledge answer retrieval skipped", String(error instanceof Error ? error.message : error).slice(0, 300));
       return noAnswer;
