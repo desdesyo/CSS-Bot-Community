@@ -1,8 +1,6 @@
 name: SOLO.Chat Model Monitor
 
 on:
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:

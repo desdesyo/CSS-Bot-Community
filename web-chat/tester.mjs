@@ -121,7 +121,7 @@ test("Browser local WebGPU fallback is wired to provider failures and persisted 
   const agent = await read("./agent-runtime/src/index.ts");
   assert.match(html, /isLocalFallbackEligible\(result\.error\)\s*&&\s*localFallbackAllowed/, "eligible cloud failures must enter the browser-local fallback");
   assert.match(html, /CreateMLCEngine\("Qwen2\.5-0\.5B-Instruct-q4f16_1-MLC"/, "browser-local model must be initialized");
-  assert.match(html, /await generateLocalReply\(result\.localPrompt\s*\|\|\s*message,\s*thinking\)/, "fallback must generate a real local reply");
+  assert.match(html, /await generateLocalReply\(result\.localPrompt\s*\|\|\s*message,\s*thinking,\s*result\.localContext\s*\|\|\s*""\)/, "fallback must generate a real local reply with shared knowledge context");
   assert.match(html, /api\("\/api\/chat\/local-complete"/, "local reply must be sent to the server for persistence");
   assert.match(agent, /url\.pathname === "\/api\/chat\/local-complete"/, "server completion endpoint must exist");
   assert.match(agent, /job\.status !== "failed" \|\| !isBrowserLocalFallbackEligible\(job\.error\)/, "server must reject local completion for non-recoverable failures");

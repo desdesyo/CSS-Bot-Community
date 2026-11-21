@@ -1,11 +1,6 @@
 name: CSSBC Agent Orchestrator
 
 on:
-  issues:
-    types: [opened, labeled]
-  workflow_run:
-    workflows: ["GitHub Chat checks", "CSSBC Core CI", "Deploy GitHub Chat to Cloudflare"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       task:

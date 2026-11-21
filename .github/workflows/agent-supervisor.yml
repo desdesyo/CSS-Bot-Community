@@ -1,14 +1,7 @@
 name: Agent Supervisor Audit
 
 on:
-  schedule:
-    - cron: "43 */4 * * *"
   workflow_dispatch:
-  issues:
-    types: [opened, edited, labeled, unlabeled, closed]
-  workflow_run:
-    workflows: ["CSSBC Agent Orchestrator", "GitHub Chat checks", "Deploy GitHub Chat to Cloudflare"]
-    types: [completed]
 
 permissions:
   actions: read

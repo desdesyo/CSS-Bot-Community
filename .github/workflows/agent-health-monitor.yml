@@ -1,12 +1,7 @@
 name: SOLO.Chat Health Monitor
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Deploy GitHub Chat to Cloudflare", "GitHub Chat checks"]
-    types: [completed]
 
 permissions:
   actions: read
