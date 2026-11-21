@@ -57,10 +57,19 @@
     }
     throw new Error("Timed out waiting for ChatGPT's completed answer.");
   }
+  let lastHeartbeat = 0;
+  async function heartbeat(token) {
+    if (Date.now() - lastHeartbeat < 15000) return;
+    lastHeartbeat = Date.now();
+    try {
+      await fetch(LOCAL + "/heartbeat", { method: "POST", headers: { "X-SOLO-Bridge-Token": token } });
+    } catch { /* local bridge can be started later */ }
+  }
   async function poll() {
     if (busy) return;
     const { bridgeToken, enabled } = await chrome.storage.local.get(["bridgeToken", "enabled"]);
     if (!enabled || !bridgeToken) return;
+    await heartbeat(bridgeToken);
     busy = true;
     try {
       const response = await fetch(LOCAL + "/next", { headers: { "X-SOLO-Bridge-Token": bridgeToken } });
