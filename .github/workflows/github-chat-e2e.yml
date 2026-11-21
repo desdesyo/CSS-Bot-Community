@@ -1,14 +1,6 @@
 name: GitHub Chat live end-to-end test
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/github-chat-e2e.yml"
-  workflow_run:
-    workflows: ["Deploy GitHub Chat to Cloudflare"]
-    types: [completed]
-    branches: [github-chat-prototype]
   workflow_dispatch:
 
 permissions:

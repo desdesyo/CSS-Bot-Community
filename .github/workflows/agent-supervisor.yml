@@ -1,11 +1,7 @@
 name: Agent Supervisor Audit
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
   workflow_dispatch:
-  issues:
-    types: [opened, edited, labeled]
 
 permissions:
   actions: read

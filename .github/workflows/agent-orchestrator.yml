@@ -1,19 +1,6 @@
 name: CSSBC Agent Orchestrator
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/agent-orchestrator.yml"
-  issues:
-    types: [opened, labeled]
-  issue_comment:
-    types: [created]
-  workflow_run:
-    workflows: ["GitHub Chat checks", "Deploy GitHub Chat to Cloudflare", "GitHub Chat live end-to-end test", "CSSBC Core CI"]
-    types: [completed]
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       task:
