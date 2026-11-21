@@ -6,7 +6,7 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 
 ## SOLO.Chat
 
-**[Open the live SOLO.Chat web app](https://cssbc-github-chat.descapan.workers.dev/)**
+**[Open SOLO.Chat](https://cssbc-github-chat.descapan.workers.dev/)**
 
 The app is deployed from the `github-chat-prototype` branch. Its deployment workflow publishes this link only after the authenticated Worker health/version check passes: [Deploy GitHub Chat](.github/workflows/deploy-github-chat.yml). The application and deployment details are in [web-chat/README.md](web-chat/README.md).
 
