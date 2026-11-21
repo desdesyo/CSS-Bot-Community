@@ -36,7 +36,10 @@ test("Configured AI providers share a persistent round-robin with per-provider f
     assert.ok(agent.includes('"'+provider+'"') || agent.includes('("'+provider+'")'), `provider missing from rotation: ${provider}`);
   }
   assert.match(agent, /return this\.rotateProviderCandidates\(candidates/);
+  assert.match(agent, /provider:rotation:last-tool/);
+  assert.match(agent, /await this\.ctx\.storage\.put\("provider:rotation:last-tool", providerKey\)/, "the provider that actually succeeded must become the next rotation anchor");
   assert.match(agent, /Pi provider attempt threw; rotating provider/);
+  assert.match(agent, /provider:circuit:/, "failed providers must be isolated by circuit breaker");
 });
 
 test("Browser UI includes status polling and failure handling", async () => {
