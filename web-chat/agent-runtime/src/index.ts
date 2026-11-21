@@ -1169,7 +1169,7 @@ LEARNING FROM CORRECTIONS
       const thread = await this.ctx.storage.get<any>(threadKey);
       if (!thread) throw new Error("Диалог не найден");
       const alreadySaved = (thread.messages || []).some((message: any) => message.role === "assistant" && message.operationId === job.operationId);
-      if (!alreadySaved) thread.messages.push({ role: "assistant", content: reply, files: [], operationId: job.operationId });
+      if (!alreadySaved) thread.messages.push({ role: "assistant", content: reply, files: [], operationId: job.operationId, provider: job.provider || "unknown", model: job.model || null });
       thread.updatedAt = Date.now();
       await this.ctx.storage.put(threadKey, thread);
       await this.indexMemoryExchange(job.threadId, thread, job.operationId);
@@ -1583,6 +1583,9 @@ LEARNING FROM CORRECTIONS
     await this.ctx.storage.put("memory:entry:" + id, {
       id, threadId, title, operationId, createdAt: assistantMessage.createdAt || thread.updatedAt || Date.now(),
       queryText: question,
+      sourceProvider: String(assistantMessage.provider || "agent-harness").slice(0, 80),
+      answerQuality: assistantMessage.provider === "free-chatgpt-bridge" ? "external-unverified" : "completed",
+      reviewRequired: assistantMessage.provider === "free-chatgpt-bridge",
       content: ("Вопрос пользователя:\n" + question + "\n\nОтвет SOLO.Chat:\n" + answer).slice(0, 12000),
       vector: []
     });
