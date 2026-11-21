@@ -145,6 +145,7 @@ jobs:
         id: smoke
         env:
           CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GITHUB_WORK_BRANCH: github-chat-prototype
         run: |
           set -euo pipefail
           test -n "$CHAT_ENDPOINT" || { echo "::error::Missing CSSBC_CHAT_ENDPOINT for post-deploy smoke test"; exit 1; }
