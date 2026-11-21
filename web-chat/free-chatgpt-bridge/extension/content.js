@@ -70,9 +70,9 @@
     if (busy) return;
     const { bridgeToken, enabled } = await chrome.storage.local.get(["bridgeToken", "enabled"]);
     if (!enabled || !bridgeToken) return;
-    await heartbeat(bridgeToken);
     busy = true;
     try {
+      await heartbeat(bridgeToken);
       const response = await fetch(LOCAL + "/next", { headers: { "X-SOLO-Bridge-Token": bridgeToken } });
       if (!response.ok) throw new Error("Local bridge is not available (" + response.status + ").");
       const data = await response.json();
