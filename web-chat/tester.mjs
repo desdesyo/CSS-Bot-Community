@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { rankKnowledgeEntries, selectKnowledgeEntry } from "./agent-runtime/src/knowledge-matcher.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -289,4 +290,43 @@ test("Deployment health summary receives its source branch instead of failing un
   const smoke = workflow.slice(workflow.indexOf("id: smoke"), workflow.indexOf("id: model_smoke"));
   assert.match(smoke, /GITHUB_WORK_BRANCH:\s*github-chat-prototype/);
   assert.match(smoke, /\$GITHUB_WORK_BRANCH/);
+});
+
+test("Knowledge matcher finds Windows DISM guidance from natural Russian paraphrases", async () => {
+  const corpus = await read("./agent-runtime/src/knowledge-seed.ts");
+  assert.match(corpus, /windows-repair-libraries/);
+  const entry = {
+    id: "windows-repair-libraries",
+    queryText: [
+      "Как восстановить системные библиотеки и компоненты Windows без потери личных файлов?",
+      "восстановить библиотеки Windows",
+      "восстановить библиотеки виндовс без потери данных",
+      "какая утилита чинит системные файлы Windows",
+      "DISM RestoreHealth и SFC Scannow"
+    ].join("\\n"),
+    content: "Вопрос пользователя: Как восстановить системные библиотеки Windows?\\n\\nОтвет SOLO.Chat: Для работающей Windows выполните DISM /Online /Cleanup-Image /RestoreHealth, затем sfc /scannow. Это восстанавливает компоненты и системные файлы Windows."
+  };
+  const match = selectKnowledgeEntry("Подскажи утилиту, чтобы восстановить библиотеки виндовс без потери данных", [entry]);
+  assert.ok(match, "the natural paraphrase should retrieve the curated answer");
+  assert.match(match.answer, /DISM/);
+  assert.ok(match.coverage >= 0.3);
+});
+
+test("Knowledge matcher rejects unrelated topics and unreviewed external answers", async () => {
+  const entry = (id, question, answer, reviewRequired = false) => ({
+    id, queryText: question, content: "Ответ SOLO.Chat: " + answer, reviewRequired
+  });
+  const unrelated = entry("audio", "Какие наушники выбрать для сведения музыки?", "Выбирайте мониторные наушники с ровной АЧХ и проверяйте микс на нескольких системах.");
+  const pending = entry("pending", "Как восстановить библиотеки Windows через DISM?", "Выполните DISM и SFC для восстановления системных файлов Windows.", true);
+  assert.equal(selectKnowledgeEntry("Как восстановить системные библиотеки Windows?", [unrelated]), null);
+  assert.equal(selectKnowledgeEntry("Как восстановить библиотеки Windows через DISM?", [pending]), null);
+});
+
+test("Knowledge matcher uses exact technical markers to prevent cross-project answers", async () => {
+  const entry = {
+    id: "css", queryText: "Как исправить CSSBC_WORKER_TOKEN в проекте?",
+    content: "Ответ SOLO.Chat: Проверьте конфигурацию переменной CSSBC_WORKER_TOKEN и права доступа."
+  };
+  assert.equal(selectKnowledgeEntry("Как исправить DISM_RESTORE_TOKEN в Windows?", [entry]), null);
+  assert.ok(rankKnowledgeEntries("Как исправить CSSBC_WORKER_TOKEN?", [entry]).length > 0);
 });
