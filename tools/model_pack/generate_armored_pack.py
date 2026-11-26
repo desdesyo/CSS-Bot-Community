@@ -8,7 +8,7 @@ blockout bodies. Compile with the matching CS:S v34 studiomdl/vtex toolchain.
 from pathlib import Path
 import argparse, math, struct
 
-BONES = [
+SOURCE_UNITS_PER_METER = 39.37007874  # Source engine units are inches.\n\nBONES = [
  (0,"root",-1),(1,"pelvis",0),(2,"spine",1),(3,"head",2),
  (4,"upperarm_L",2),(5,"forearm_L",4),(6,"upperarm_R",2),(7,"forearm_R",6),
  (8,"thigh_L",1),(9,"calf_L",8),(10,"thigh_R",1),(11,"calf_R",10),
