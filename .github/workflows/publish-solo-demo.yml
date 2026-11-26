@@ -5,6 +5,7 @@ on:
     paths:
       - "engine/client/**"
       - "engine/play.html"
+      - "engine/import.html"
       - ".github/workflows/publish-solo-demo.yml"
   workflow_dispatch:
 permissions:
@@ -23,6 +24,7 @@ jobs:
         run: |
           mkdir -p dist
           cp engine/play.html dist/index.html
+          cp engine/import.html dist/import.html
           mkdir -p dist/client
           cp -R engine/client/. dist/client/
           touch dist/.nojekyll
