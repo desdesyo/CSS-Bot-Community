@@ -18,7 +18,7 @@
 #scoreTable{width:100%;border-collapse:collapse;font-size:13px}
 #scoreTable th,#scoreTable td{padding:8px 6px;border-bottom:1px solid #40545b;text-align:left}
 #scoreTable th{color:#8dd6c6}
-#panelHint{font-size:12px;color:#a9b8bd}
+#panelHint{font-size:12px;color:#a9b8bd}#padInfo{font-size:12px;color:#d1dcdf;line-height:1.45}#padGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:10px 0}#padGrid div{background:#0d1a20;padding:6px 8px;border-radius:5px;overflow-wrap:anywhere}#padGrid b{color:#8dd6c6}#padControls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}#padControls div{padding:5px 7px;background:#20343b;border-radius:4px;font-size:11px}#padControls .active{background:#315c4c;color:#fff}
 @media(pointer:coarse){#quick{top:auto;right:10px;bottom:8px;gap:5px}#quick button{padding:8px;font-size:10px}#top{right:8px;left:8px}#stats{gap:6px;font-size:10px;flex-wrap:wrap;justify-content:flex-end;max-width:72%}}
 </style>
 </head>
@@ -28,7 +28,7 @@
 <div id="touch"><button id="shareFullscreen" aria-label="Toggle fullscreen">SHARE</button><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="reload">RELOAD</button><button id="fire">FIRE</button></div>
 <div id="quick"><button id="pauseQuick">Ⅱ ПАУЗА</button><button id="scoreQuick">ТАБЛИЦА</button></div>
 <div id="panel"><div id="panelCard"></div></div><div id="toast"></div><div id="rotateNotice"><div><span>↻</span>Поверни телефон горизонтально<br><small>Игра SOLO Engine рассчитана на альбомную ориентацию</small></div></div>
-<div id="overlay"><div id="card"><h1>SOLO ENGINE</h1><p>Первый 3D FPS-билд. Тренировочная карта, вид от первого лица, оружие и боты.</p><p>ПК: WASD + мышь. Телефон: левый стик + свайп по правой части экрана.</p><button id="start">ВОЙТИ В ИГРУ</button><p><a href="./import.html" style="color:#8dd6c6">ИМПОРТ ОРИГИНАЛЬНЫХ РЕСУРСОВ CS:S v34</a></p></div></div>
+<div id="overlay"><div id="card"><h1>SOLO ENGINE</h1><p>Первый 3D FPS-билд. Тренировочная карта, вид от первого лица, оружие и боты.</p><p>ПК: WASD + мышь. Телефон: левый стик + свайп по правой части экрана.</p><button id="start">ВОЙТИ В ИГРУ</button><p><button id="openPadMenu" style="font-size:12px;padding:9px 12px">ПРОВЕРИТЬ ГЕЙМПАД</button></p><p><a href="./import.html" style="color:#8dd6c6">ИМПОРТ ОРИГИНАЛЬНЫХ РЕСУРСОВ CS:S v34</a></p></div></div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const canvas=document.querySelector('#game');
@@ -65,14 +65,30 @@ const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const botSpawn
 function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,enemyMat);body.position.y=.82;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.48,.28),dark);vest.position.set(0,.92,.02);g.add(vest);const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.75),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6})}
 function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;for(const [x,z] of botSpawns)spawnBot(x,z)}
 spawnWave();
-const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
+const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const toast=t=>{const e=document.querySelector('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',1500)};
+function showGamepadPanel(){
+ pausedBeforePad=paused;gamepadPanelOpen=true;if(started){paused=true;fire=false}
+ const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');panel.style.display='flex';
+ card.innerHTML='<h2>ДИАГНОСТИКА ГЕЙМПАДА</h2><div id="padInfo">Поиск устройств…</div><div id="padGrid"></div><h3 style="font-size:13px;color:#8dd6c6">КНОПКИ И ОСИ В РЕАЛЬНОМ ВРЕМЕНИ</h3><div id="padControls"></div><p id="padCompatibility" style="font-size:12px;color:#c2cdd1"></p><div id="panelActions"><button id="padRescan">ОБНОВИТЬ</button><button id="padClose">ЗАКРЫТЬ</button></div>';
+ document.querySelector('#padRescan').onclick=refreshGamepadPanel;document.querySelector('#padClose').onclick=()=>{gamepadPanelOpen=false;document.querySelector('#panel').style.display='none';paused=pausedBeforePad};refreshGamepadPanel();
+}
+function refreshGamepadPanel(){
+ if(!gamepadPanelOpen)return;const pads=Array.from(navigator.getGamepads?.()||[]).filter(g=>g&&g.connected);const info=document.querySelector('#padInfo'),grid=document.querySelector('#padGrid'),controls=document.querySelector('#padControls'),compat=document.querySelector('#padCompatibility');if(!info)return;
+ if(!pads.length){info.textContent='Геймпад не обнаружен браузером. Подключи его по USB/Bluetooth и нажми любую кнопку, затем «Обновить».';grid.innerHTML='';controls.innerHTML='';compat.textContent='Совместимость пока не определена. Android/браузер должен предоставлять Gamepad API.';return}
+ let p=pads.find(g=>g.index===activeGamepadIndex)||pads[0];activeGamepadIndex=p.index;const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ info.textContent='Устройство: '+p.id+' · Индекс '+p.index;
+ grid.innerHTML='<div><b>Режим:</b> '+(p.mapping==='standard'?'Standard Gamepad':'Generic / нестандартный')+'</div><div><b>Кнопок:</b> '+p.buttons.length+'</div><div><b>Осей:</b> '+p.axes.length+'</div><div><b>Вибрация:</b> '+(p.vibrationActuator?'есть':'не сообщается')+'</div>';
+ const names=p.mapping==='standard'?['A / крест','B / круг','X / квадрат','Y / треугольник','LB','RB','LT','RT','SELECT / BACK','START','L3','R3','↑ крестовина','↓ крестовина','← крестовина','→ крестовина','SHARE']:[];
+ controls.innerHTML='<div style="grid-column:1/-1;color:#8dd6c6">ОСИ</div>'+p.axes.map((v,i)=>'<div>Axis '+i+': <b>'+Number(v).toFixed(2)+'</b></div>').join('')+'<div style="grid-column:1/-1;color:#8dd6c6">КНОПКИ</div>'+p.buttons.map((b,i)=>'<div class="'+(b.pressed?'active':'')+'">'+(names[i]||('Button '+i))+': '+(b.pressed?'НАЖАТА':Number(b.value||0).toFixed(2))+'</div>').join('');
+ compat.textContent=p.mapping==='standard'?'Совместимость: браузер распознал стандартную раскладку. Доступны оси 0–3 и стандартные кнопки; управление игры использует стики, RT/триггер, A, X, START, SELECT и SHARE (если button 16 доступна).': 'Совместимость: устройство видно, но раскладка не стандартизирована. Сырые кнопки и оси отображаются; соответствие действий игры кнопкам может отличаться. Автоматическое назначение нестандартных кнопок пока не гарантируется.';
+}
 function showPanel(kind){
  const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');
  panel.style.display='flex';
  if(kind==='score'){scoreVisible=true;card.innerHTML='<h2>ТАБЛИЦА ИГРОКОВ</h2><div id="scoreRows"></div><div id="panelActions"><button id="scoreBack">ЗАКРЫТЬ</button></div>';renderScore();document.querySelector('#scoreBack').onclick=()=>hidePanel();return}
  paused=true;fire=false;card.innerHTML='<h2>ПАУЗА</h2><p>Игра остановлена. Таймер, боты и перемещение заморожены.</p><div id="panelActions"><button id="resumeGame">ПРОДОЛЖИТЬ</button><button id="showScore">ТАБЛИЦА</button><button id="exitFull">ВЫЙТИ ИЗ FULLSCREEN</button><button id="backStart">В МЕНЮ</button></div><p id="panelHint">Геймпад: START — пауза, SELECT — таблица, SHARE — вход/выход из полноэкранного режима. ESC — пауза.</p>';
- document.querySelector('#resumeGame').onclick=()=>hidePanel();document.querySelector('#showScore').onclick=()=>showPanel('score');
+ document.querySelector('#resumeGame').onclick=()=>hidePanel();document.querySelector('#showScore').onclick=()=>showPanel('score');const padBtn=document.createElement('button');padBtn.textContent='ГЕЙМПАД';padBtn.onclick=showGamepadPanel;document.querySelector('#panelActions').appendChild(padBtn);
  document.querySelector('#exitFull').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();toast('Полноэкранный режим выключен')};
  document.querySelector('#backStart').onclick=()=>{hidePanel();started=false;document.querySelector('#overlay').style.display='flex';if(document.fullscreenElement)document.exitFullscreen?.();document.exitPointerLock?.()};
  const tune=document.createElement('div');tune.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
@@ -81,7 +97,7 @@ function showPanel(kind){
  document.querySelector('#invertX').onclick=()=>{leftInvertX=!leftInvertX;document.querySelector('#invertX').textContent='ИНВЕРСИЯ X: '+(leftInvertX?'ВКЛ':'ВЫКЛ')};
  document.querySelector('#invertY').onclick=()=>{leftInvertY=!leftInvertY;document.querySelector('#invertY').textContent='ИНВЕРСИЯ Y: '+(leftInvertY?'ВКЛ':'ВЫКЛ')};
 }
-function hidePanel(){document.querySelector('#panel').style.display='none';paused=false;scoreVisible=false}
+function hidePanel(){document.querySelector('#panel').style.display='none';paused=false;scoreVisible=false;gamepadPanelOpen=false}
 function renderScore(){
  const rows=[{name:'YOU',team:'BLUE',kills,deaths:playerDeaths,alive:hp>0?'В игре':'Погиб'}];
  bots.forEach((b,i)=>rows.push({name:'BOT-'+String(i+1).padStart(2,'0'),team:'RED',kills:b.kills,deaths:b.alive?0:1,alive:b.alive?'Жив':'Устранён'}));
@@ -98,7 +114,7 @@ function look(dx,dy){yaw-=dx*.0022;pitch=Math.max(-1.35,Math.min(1.35,pitch-dy*.
 function shoot(){if(reload>0||shotCooldown>0)return;if(ammo<=0){toast('Пустой магазин — R / RELOAD');return}ammo--;shotCooldown=.105;updateHud();ray.setFromCamera(new THREE.Vector2(0,0),camera);const targets=bots.filter(b=>b.alive).flatMap(b=>b.group.children);const hits=ray.intersectObjects(targets,false);if(hits.length){const bot=bots.find(b=>b.group===hits[0].object.parent||b.group.children.includes(hits[0].object));if(bot){bot.hp-=hits[0].object.geometry.type==='SphereGeometry'?55:35;if(bot.hp<=0){bot.alive=false;scene.remove(bot.group);kills++;updateHud();toast('Противник устранён');if(bots.every(b=>!b.alive))finishRound(true,'все противники устранены')}}}muzzle.intensity=5;setTimeout(()=>muzzle.intensity=0,45)}
 function reloadGun(){if(reload>0||ammo===30||reserve===0)return;reload=1.35;toast('Перезарядка…')}
 async function start(){started=true;roundRemaining=90;updateHud();document.querySelector('#overlay').style.display='none';canvas.focus({preventScroll:true});try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen?.()}catch(e){}if(matchMedia('(pointer:coarse)').matches){try{await screen.orientation?.lock?.('landscape')}catch(e){toast('Поверни телефон горизонтально')}}else canvas.requestPointerLock?.();canvas.focus({preventScroll:true});updateOrientation();if(navigator.getGamepads?.().some(g=>g&&g.connected))toast('Геймпад активен — управление передано игре');else toast('Тренировка началась')}
-document.querySelector('#start').onclick=start;
+document.querySelector('#start').onclick=start;document.querySelector('#openPadMenu').onclick=showGamepadPanel;
 document.addEventListener('pointerlockchange',()=>locked=document.pointerLockElement===canvas);
 canvas.addEventListener('click',()=>{if(started&&!matchMedia('(pointer:coarse)').matches&&!locked)canvas.requestPointerLock?.()});
 document.addEventListener('mousemove',e=>{if(locked)look(e.movementX,e.movementY)});
@@ -114,8 +130,8 @@ function blocked(x,z){return Math.abs(x)>30||Math.abs(z)>28||[[-13,-8,3.9,1.5],[
 function updateOrientation(){document.querySelector('#rotateNotice').style.display=started&&matchMedia('(pointer:coarse)').matches&&innerHeight>innerWidth?'flex':'none'}
 addEventListener('resize',updateOrientation);screen.orientation?.addEventListener?.('change',updateOrientation);
 let activeGamepadIndex=null,gamepadPauseWasDown=false,gamepadShareWasDown=false;
-addEventListener('gamepadconnected',e=>{activeGamepadIndex=e.gamepad.index;toast('Геймпад подключён')});
-addEventListener('gamepaddisconnected',e=>{if(activeGamepadIndex===e.gamepad.index)activeGamepadIndex=null;toast('Геймпад отключён')});
+addEventListener('gamepadconnected',e=>{activeGamepadIndex=e.gamepad.index;toast('Геймпад подключён: '+e.gamepad.id);if(gamepadPanelOpen)refreshGamepadPanel()});
+addEventListener('gamepaddisconnected',e=>{if(activeGamepadIndex===e.gamepad.index)activeGamepadIndex=null;toast('Геймпад отключён');if(gamepadPanelOpen)refreshGamepadPanel()});
 function readGamepad(){
  const pads=navigator.getGamepads?.()||[];
  let p=activeGamepadIndex===null?Array.from(pads).find(g=>g&&g.connected):pads[activeGamepadIndex];
@@ -140,7 +156,7 @@ function readGamepad(){
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),.04);if(!started){renderer.render(scene,camera);return}
+function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),.04);if(gamepadPanelOpen)refreshGamepadPanel();if(!started){renderer.render(scene,camera);return}
 const pad=readGamepad();
 if(paused){renderer.render(scene,camera);return}
 if(!roundEnded){roundRemaining=Math.max(0,roundRemaining-dt);if(roundRemaining===0)finishRound(false,'время вышло')}
