@@ -62,7 +62,7 @@ def remap_mesh(path: Path, ref_nodes, ref_node_lines, ref_skeleton_lines):
     out[1:next(i for i,x in enumerate(out) if x.strip()=="end")+1] = ["nodes", *ref_node_lines, "end"]
     # Re-find triangles after replacing the node section.
     tri_start = next(i for i, x in enumerate(out) if x.strip() == "triangles")
-    tri_end = next(i for i in range(tri_start + 1, len(out)) if out[i].strip() == "end")
+    tri_end = next((i for i in range(tri_start + 1, len(out)) if out[i].strip() == "end"), len(out))
     out[tri_start+1:tri_end] = [
         remap_vertex_line(line, mapping) if is_vertex_line(line) else line
         for line in out[tri_start+1:tri_end]
