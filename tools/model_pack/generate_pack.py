@@ -39,7 +39,7 @@ def joints(s):
         10:(.115*s,0,.57*s), 11:(.115*s,0,.20*s),
     }
 
-def cuboids(s, helmet):
+def cuboids(s, helmet, role):
     p = [
         ((0,0,.92*s),(.19*s,.12*s,.14*s),1,"gear"),
         ((0,0,1.22*s),(.23*s,.13*s,.27*s),2,"cloth"),
@@ -66,6 +66,30 @@ def cuboids(s, helmet):
         p.append(((0,0,1.64*s),(.13*s,.12*s,.09*s),3,"gear"))
     if helmet == "heavy_helmet":
         p.append(((0,-.17*s,1.27*s),(.23*s,.035*s,.25*s),2,"gear"))
+    # Role-specific silhouettes and readable support equipment.
+    if role == "support_medic":
+        p += [
+            ((0,.17*s,1.22*s),(.16*s,.09*s,.20*s),2,"gear"),
+            ((0,-.193*s,1.35*s),(.055*s,.018*s,.055*s),2,"gear_red"),
+            ((-.22*s,-.12*s,1.43*s),(.045*s,.025*s,.07*s),2,"gear_red"),
+        ]
+    elif role == "support_sniper":
+        p += [
+            ((0,.17*s,1.18*s),(.18*s,.09*s,.23*s),2,"gear"),
+            ((-.20*s,-.10*s,1.46*s),(.09*s,.045*s,.035*s),2,"gear"),
+            ((.20*s,-.10*s,1.46*s),(.09*s,.045*s,.035*s),2,"gear"),
+        ]
+    elif role == "support_heavy":
+        p += [
+            ((-.22*s,0,1.38*s),(.13*s,.14*s,.12*s),2,"gear"),
+            ((.22*s,0,1.38*s),(.13*s,.14*s,.12*s),2,"gear"),
+            ((-.115*s,-.11*s,.58*s),(.11*s,.045*s,.09*s),8,"gear"),
+            ((.115*s,-.11*s,.58*s),(.11*s,.045*s,.09*s),10,"gear"),
+        ]
+    elif role == "ct_recon":
+        p.append(((.19*s,.15*s,1.28*s),(.08*s,.07*s,.13*s),2,"gear"))
+    elif role == "t_insurgent":
+        p.append(((0,.15*s,1.10*s),(.13*s,.07*s,.18*s),1,"gear"))
     return p
 
 def triangles(center, half):
@@ -103,7 +127,7 @@ def normal_of(tri):
     length=math.sqrt(sum(x*x for x in n)) or 1.0
     return tuple(x/length for x in n)
 
-def write_reference(path, cloth, gear, scale, helmet):
+def write_reference(path, cloth, gear, scale, helmet, role):
     j=joints(scale)
     with path.open("w",encoding="ascii",newline="\n") as f:
         f.write("version 1\n")
@@ -111,7 +135,7 @@ def write_reference(path, cloth, gear, scale, helmet):
         f.write("skeleton\n")
         write_skeleton_frame(f,0,scale)
         f.write("end\ntriangles\n")
-        for center,half,bone,mat in cuboids(scale,helmet):
+        for center,half,bone,mat in cuboids(scale,helmet,role):
             material=cloth if mat=="cloth" else gear if mat=="gear" else mat
             pivot=j[bone]
             for tri in triangles(center,half):
@@ -160,7 +184,7 @@ def generate(output):
     for role,cloth,gear,scale,helmet in ROLES:
         folder=output/role
         folder.mkdir(parents=True,exist_ok=True)
-        write_reference(folder/"model.smd",cloth,gear,scale,helmet)
+        write_reference(folder/"model.smd",cloth,gear,scale,helmet,role)
         write_idle(folder/"idle.smd",scale)
         write_walk(folder/"walk.smd",scale)
         qc=f'''// Original CSSBC procedural character source.
