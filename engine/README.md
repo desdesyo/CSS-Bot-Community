@@ -26,7 +26,7 @@ The server listens on port 8080 by default. For remote cross-play, deploy it on 
 
 ## Current limitations
 
-- Multiplayer is an early shared-session movement prototype. Server snapshots synchronize player positions; authoritative weapon damage, map collision, bots, matchmaking, accounts, anti-cheat and production deployment are not implemented.
+- Multiplayer is an early shared-session prototype. The server authoritatively processes player movement, basic wall collision, fire cooldown, bullets, hits and health snapshots. It does not yet include shared bots, round flow, purchases, matchmaking, accounts, anti-cheat or production deployment.
 - The local offline training mode has simple bots and shooting, but is not yet the original Source engine or CS:S assets.
 - No public game server is deployed by this repository yet. Two devices cannot connect over the internet until the session server is deployed and the client is hosted over HTTPS.
 - Use only assets from a locally owned CS:S installation via a future importer; this prototype contains no Valve assets.
