@@ -433,23 +433,23 @@ async function uploadControlLogs(){
 }
 function handleControlLogButton(){if(controlUploadBusy)return;if(!controlRecording){if(controlLogs.length){controlLogEnabled=false;uploadControlLogs();return}startControlRecording();return}logEvent('recording-stop',{records:controlLogs.length});controlRecording=false;controlLogEnabled=false;persistControlLogs(true);uploadControlLogs()}
 
-const GAME_DIAG_KEY='solo_engine_game_diagnostics_v1',GAME_DIAG_LIMIT=9000;
+const GAME_DIAG_KEY='solo_engine_game_diagnostics_v1',GAME_DIAG_LIMIT=900;
 let gameDiagLogs=[],gameDiagRecording=false,lastGameDiagAt=0,lastDiagPlayerPos=null,gameDiagUploadBusy=false;
 try{const saved=JSON.parse(localStorage.getItem(GAME_DIAG_KEY)||'[]');if(Array.isArray(saved))gameDiagLogs=saved.slice(-GAME_DIAG_LIMIT)}catch(e){}
 function persistGameDiag(){try{localStorage.setItem(GAME_DIAG_KEY,JSON.stringify(gameDiagLogs.slice(-GAME_DIAG_LIMIT)))}catch(e){}}
 function sampleGameDiagnostics(dt,blockedX,blockedZ){
  if(!gameDiagRecording||!started||paused)return;
- const now=performance.now();if(now-lastGameDiagAt<200)return;lastGameDiagAt=now;
+ const now=performance.now();if(now-lastGameDiagAt<350)return;lastGameDiagAt=now;
  const player={x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)};
  const velocity=lastDiagPlayerPos?{x:+((player.x-lastDiagPlayerPos.x)/Math.max(dt,.001)).toFixed(3),z:+((player.z-lastDiagPlayerPos.z)/Math.max(dt,.001)).toFixed(3)}:{x:0,z:0};lastDiagPlayerPos=player;
  const botRows=bots.map(b=>{
-  let boneData=[];if(b.realModel)b.realModel.traverse(o=>{if(o.isBone&&boneData.length<24)boneData.push({name:o.name,rx:+o.rotation.x.toFixed(3),ry:+o.rotation.y.toFixed(3),rz:+o.rotation.z.toFixed(3),x:+o.position.x.toFixed(3),y:+o.position.y.toFixed(3),z:+o.position.z.toFixed(3)})});
-  return {id:b.index,team:b.team,alive:b.alive,hp:b.hp,x:+b.group.position.x.toFixed(3),y:+b.group.position.y.toFixed(3),z:+b.group.position.z.toFixed(3),yaw:+b.group.rotation.y.toFixed(3),walkBlend:+(b.walkBlend||0).toFixed(3),phase:+(b.phase||0).toFixed(3),state:b.realState||((b.walkBlend||0)>.1?'procedural-walk':'procedural-idle'),hasModel:!!b.realModel,mixerTime:+(b.realMixer?.time||0).toFixed(3),bones:boneData,proceduralArms:(b.arms||[]).map(l=>({side:l.side,shoulder:+l.shoulder.rotation.x.toFixed(3),elbow:+l.elbow.rotation.x.toFixed(3)})),proceduralLegs:(b.legs||[]).map(l=>({side:l.side,hip:+l.hip.rotation.x.toFixed(3),knee:+l.knee.rotation.x.toFixed(3)}))};
+  let boneData=[];if(b.realModel)b.realModel.traverse(o=>{if(o.isBone&&boneData.length<12)boneData.push({name:o.name,rx:+o.rotation.x.toFixed(3),ry:+o.rotation.y.toFixed(3),rz:+o.rotation.z.toFixed(3),x:+o.position.x.toFixed(3),y:+o.position.y.toFixed(3),z:+o.position.z.toFixed(3)})});
+  return {id:b.index,team:b.team,alive:b.alive,hp:b.hp,x:+b.group.position.x.toFixed(3),y:+b.group.position.y.toFixed(3),z:+b.group.position.z.toFixed(3),yaw:+b.group.rotation.y.toFixed(3),walkBlend:+(b.walkBlend||0).toFixed(3),phase:+(b.phase||0).toFixed(3),state:b.realState||((b.walkBlend||0)>.1?'procedural-walk':'procedural-idle'),hasModel:!!b.realModel,mixerTime:+(b.realMixer?.time||0).toFixed(3),wallContactX:blocked(b.group.position.x+.16,b.group.position.z),wallContactZ:blocked(b.group.position.x,b.group.position.z+.16),bones:boneData,proceduralArms:(b.arms||[]).map(l=>({side:l.side,shoulder:+l.shoulder.rotation.x.toFixed(3),elbow:+l.elbow.rotation.x.toFixed(3)})),proceduralLegs:(b.legs||[]).map(l=>({side:l.side,hip:+l.hip.rotation.x.toFixed(3),knee:+l.knee.rotation.x.toFixed(3)}))};
  });
  const overlaps=[];for(let i=0;i<bots.length;i++)if(bots[i].alive)for(let j=i+1;j<bots.length;j++)if(bots[j].alive){const d=Math.hypot(bots[i].group.position.x-bots[j].group.position.x,bots[i].group.position.z-bots[j].group.position.z);if(d<1.35)overlaps.push({a:bots[i].index,b:bots[j].index,d:+d.toFixed(3)})}
  gameDiagLogs.push({kind:'game-diagnostic',t:Math.round(now),wall:new Date().toISOString(),dt:+dt.toFixed(4),fps:dt>0?Math.round(1/dt):0,categories:{
   physics:{playerPosition:player,playerVelocity:velocity,playerWallBlockedX:!!blockedX,playerWallBlockedZ:!!blockedZ,botCount:bots.length,aliveBots:bots.filter(b=>b.alive).length},
-  collisions:{playerBlockedX:!!blockedX,playerBlockedZ:!!blockedZ,botOverlaps:overlaps},
+  collisions:{playerBlockedX:!!blockedX,playerBlockedZ:!!blockedZ,botWallContacts:botRows.filter(b=>b.wallContactX||b.wallContactZ).map(b=>({id:b.id,x:b.wallContactX,z:b.wallContactZ})),botOverlaps:overlaps},
   skeleton:{bots:botRows.map(b=>({id:b.id,hasModel:b.hasModel,boneCount:b.bones.length,bones:b.bones,proceduralArms:b.proceduralArms,proceduralLegs:b.proceduralLegs}))},
   animations:{bots:botRows.map(b=>({id:b.id,state:b.state,walkBlend:b.walkBlend,phase:b.phase,mixerTime:b.mixerTime,alive:b.alive}))},
   bots:botRows
@@ -506,7 +506,7 @@ function showControlLogPanel(){const wasPaused=paused;if(started){paused=true;fi
 window.addEventListener('error',e=>logEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno}));
 window.addEventListener('unhandledrejection',e=>logEvent('unhandled-rejection',{reason:String(e.reason)}));
 document.addEventListener('visibilitychange',()=>logEvent('visibility',{state:document.visibilityState}));
-window.addEventListener('beforeunload',()=>persistControlLogs(true));
+window.addEventListener('beforeunload',()=>{persistControlLogs(true);persistGameDiag()});
 
 addEventListener('gamepadconnected',e=>{activeGamepadIndex=e.gamepad.index;currentPadSnapshot={id:e.gamepad.id,index:e.gamepad.index,mapping:e.gamepad.mapping,axes:Array.from(e.gamepad.axes),buttons:e.gamepad.buttons.map(b=>+b.value.toFixed(3))};logEvent('gamepad-connected',currentPadSnapshot);toast('Геймпад подключён: '+e.gamepad.id);if(gamepadPanelOpen)refreshGamepadPanel()});
 addEventListener('gamepaddisconnected',e=>{logEvent('gamepad-disconnected',{id:e.gamepad.id,index:e.gamepad.index});if(activeGamepadIndex===e.gamepad.index)activeGamepadIndex=null;currentPadSnapshot=null;toast('Геймпад отключён');if(gamepadPanelOpen)refreshGamepadPanel()});
