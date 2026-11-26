@@ -43,6 +43,8 @@ jobs:
             throw new Error('Gamepad axis selection and reset controls are required');
           }
           if (!html.includes('lastPadPanelRefresh>150')) throw new Error('Gamepad diagnostics refresh must be throttled');
+          if (!html.includes('function analyzeControlLogs(') || !html.includes('diagnostics:analyzeControlLogs(controlLogs)')) throw new Error('Control log analyzer and uploaded diagnostics summary are required');
+          if (!html.includes('function updateAimSensitivity(dt)') || !html.includes('dynamicLookSensitivity')) throw new Error('Distance-based right-stick sensitivity is required');
           if (!html.includes("localStorage.setItem(CONTROL_TOKEN_KEY,token)") || !html.includes("function clearControlToken()")) {
             throw new Error('Control log token must persist locally and have a user-accessible clear action');
           }
