@@ -8,6 +8,7 @@
 - QC generation with baseline eye/hand/weapon attachments and hitboxes.
 - Windows compile/install script: tools/model_pack/install_css_v34.ps1.
 - C++ model registry: src/CSSBC_ModelRoster.h/.cpp, containing all 27 model paths and faction/support-tier lookup.
+- Engine boundary: src/CSSBC_ModelRuntime.h/.cpp exposes ApplyPlayerModel and ApplySupportPlayerModel through IPlayerModelAdapter; tests verify the exact model paths and reject invalid entity/role inputs.
 - CI tests for source generation, retargeting, installer syntax, and the C++ roster registry.
 
 ## Compiled game assets
@@ -18,7 +19,7 @@ See docs/CSS_V34_MODEL_INSTALLATION.md for requirements and commands.
 
 ## Runtime integration not yet implemented
 
-The repository is still an engine-independent C++ gameplay core. It is not a CS:S v34 game DLL, server plugin, or SourceMod plugin. The model registry provides stable model paths and role lookup, but no loaded game-side component currently calls the Source entity model-setting APIs.
+The repository is still an engine-independent C++ gameplay core. It is not a CS:S v34 game DLL, server plugin, or SourceMod plugin. The model registry and engine-boundary assignment API provide stable model paths and a SetPlayerModel adapter contract, but no loaded game-side component currently implements that contract with the CS:S v34 entity APIs.
 
 Consequently:
 - The installer can put all 27 compiled models into the game content tree once run on a Windows machine with the correct compiler tools.
