@@ -57,9 +57,9 @@ def parse_smd(path: Path):
                 weighted_ids.add(parent)
                 if len(fields) >= 11:
                     try:
-                        links = int(fields[10])
+                        links = int(fields[9])
                         for i in range(links):
-                            weighted_ids.add(int(fields[11 + i * 2]))
+                            weighted_ids.add(int(fields[10 + i * 2]))
                     except (ValueError, IndexError):
                         raise ValueError(f"SMD line {line_no}: malformed bone weights")
     if not nodes:
