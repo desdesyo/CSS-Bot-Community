@@ -46,7 +46,7 @@ class ModelPackTests(unittest.TestCase):
                         self.assertIn(line,allowed)
                     else:
                         fields=line.split()
-                        self.assertEqual(len(fields),13)
+                        self.assertEqual(len(fields),12)
                         self.assertIn(int(fields[0]),range(len(BONES)))
                         self.assertEqual(int(fields[10]),int(fields[0]))
 
