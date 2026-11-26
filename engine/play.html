@@ -41,6 +41,7 @@ try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 catch(primaryError){try{THREE=await import('https://unpkg.com/three@0.160.0/build/three.module.js')}catch(fallbackError){throw new Error('Не удалось загрузить библиотеку 3D-графики с двух CDN. Проверь подключение к интернету. Основная ошибка: '+String(primaryError)+'; резервная: '+String(fallbackError))}}
 const canvas=document.querySelector('#game');
 const isTouchDevice=matchMedia('(pointer:coarse)').matches;
+let mergeGeometries=null;if(isTouchDevice){try{({mergeGeometries}=await import('three/addons/utils/BufferGeometryUtils.js'))}catch(error){console.warn('Mobile mesh batching unavailable',error)}}
 const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPreference:'high-performance',stencil:false,depth:true});
 let qualityScale=isTouchDevice?.95:1.5,lastAppliedQuality=qualityScale,qualityWindowStart=performance.now(),qualityFrames=0;const renderScale=()=>Math.min(devicePixelRatio,isTouchDevice?1:qualityScale);
 renderer.setPixelRatio(renderScale());renderer.setSize(innerWidth,innerHeight);
@@ -191,6 +192,26 @@ function stepRagdolls(dt){if(physicsWorld&&ragdolls.length){physicsWorld.timeste
 
 function spawnTracer(from,to,color=0xffc66e){const geometry=new THREE.BufferGeometry().setFromPoints([from.clone(),to.clone()]);const material=new THREE.LineBasicMaterial({color,transparent:true,opacity:.9,depthWrite:false});const line=new THREE.Line(geometry,material);scene.add(line);tracers.push({line,life:.095,maxLife:.095})}
 const RELOAD_DURATION=1.6;const bombSite={x:20,z:-2};let bombPlanted=false,bombPlantProgress=0,bombTimer=35,bombDefuseProgress=0;const sitePad=new THREE.Mesh(new THREE.CylinderGeometry(3.1,3.1,.045,32),new THREE.MeshStandardMaterial({color:0xb58b42,roughness:.9,transparent:true,opacity:.22}));sitePad.position.set(bombSite.x,.04,bombSite.z);scene.add(sitePad);const siteRing=new THREE.Mesh(new THREE.TorusGeometry(3.1,.075,8,40),yellowMat);siteRing.rotation.x=Math.PI/2;siteRing.position.set(bombSite.x,.09,bombSite.z);scene.add(siteRing);const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);let realBotLoader=null,realBotClone=null,realBotAsset=null,realBotLoadPromise=null,realBotKtx2Loader=null;const SOLDIER_GLB_URLS=['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb','https://raw.githubusercontent.com/mrdoob/three.js/r160/examples/models/gltf/Soldier.glb'];const allySpawns=[[-4,15],[4,15],[-6,20],[6,20]];const enemySpawns=[[-17,-17],[16,-19],[-20,3],[12,5],[24,16]];
+function compactBotMeshes(root,hitMeshes){
+ if(!isTouchDevice||!mergeGeometries)return;
+ const parents=[];root.traverse(o=>parents.push(o));
+ for(const parent of parents){
+  const buckets=new Map();
+  for(const mesh of parent.children.slice()){
+   if(!mesh.isMesh||mesh.isSkinnedMesh||mesh.isInstancedMesh||Array.isArray(mesh.material)||!mesh.geometry)continue;
+   const list=buckets.get(mesh.material)||[];list.push(mesh);buckets.set(mesh.material,list);
+  }
+  for(const [material,meshes] of buckets){if(meshes.length<3)continue;
+   const pieces=[];let merged=null;
+   try{for(const mesh of meshes){mesh.updateMatrix();const geometry=mesh.geometry.clone();geometry.applyMatrix4(mesh.matrix);pieces.push(geometry)}merged=mergeGeometries(pieces,false)}catch(error){console.warn('Bot mesh batch skipped',error)}
+   if(!merged){for(const geometry of pieces)geometry.dispose();continue}
+   const combined=new THREE.Mesh(merged,material);combined.castShadow=false;combined.receiveShadow=false;combined.frustumCulled=true;combined.name='mobile-bot-batch';parent.add(combined);
+   let wasHitMesh=false;
+   for(const mesh of meshes){parent.remove(mesh);const index=hitMeshes.indexOf(mesh);if(index>=0){hitMeshes.splice(index,1);wasHitMesh=true}mesh.geometry.dispose()}
+   if(wasHitMesh)hitMeshes.push(combined);
+  }
+ }
+}
 function spawnBot(x,z,team='enemy'){
  const g=new THREE.Group(),ally=team==='ally',hitMeshes=[];
  const palette=ally
@@ -300,7 +321,7 @@ function spawnBot(x,z,team='enemy'){
  // Shadows help anchor feet to the floor on mobile where dynamic shadows are disabled.
  const shadow=new THREE.Mesh(new THREE.CircleGeometry(.42,16),new THREE.MeshBasicMaterial({color:0x090d0e,transparent:true,opacity:.25,depthWrite:false}));
  shadow.rotation.x=-Math.PI/2;shadow.position.set(0,.025,0);g.add(shadow);
- g.position.set(x,0,z);scene.add(g);
+ compactBotMeshes(g,hitMeshes);g.position.set(x,0,z);scene.add(g);
  bots.push({group:g,hitMeshes,alive:true,hp:100,kills:0,cool:Math.random()+.5,phase:Math.random()*6,index:bots.length,team,role:['cover','flank','push'][bots.length%3],arms,legs,head,torso,rifle,muzzleFlash,flashTime:0,shadow,walkBlend:0,fireKick:0,losTimer:0,hasLineOfSight:false,realModel:null,realMixer:null,realActions:null,realState:'',realCurrentAction:null});
 }function disposeBotVisuals(bot){bot.realMixer?.stopAllAction?.();const realIds=new Set();if(bot.realModel)bot.realModel.traverse(o=>realIds.add(o.id));bot.group.traverse(o=>{if(!o.isMesh)return;if(!realIds.has(o.id))o.geometry?.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];for(const material of materials)material?.dispose?.()});scene.remove(bot.group)}function spawnWave(){for(const b of bots)disposeBotVisuals(b);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'))}
 async function initRealBotModels(){if(realBotLoadPromise)return realBotLoadPromise;realBotLoadPromise=(async()=>{const errors=[];try{const [{GLTFLoader},{clone}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/utils/SkeletonUtils.js')]);realBotLoader=new GLTFLoader();realBotClone=clone;try{const {KTX2Loader}=await import('three/addons/loaders/KTX2Loader.js');realBotKtx2Loader=new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/').detectSupport(renderer);realBotLoader.setKTX2Loader(realBotKtx2Loader)}catch(textureError){console.warn('KTX2 decoder unavailable; PNG/JPEG textures remain supported',textureError)}let gltf=null;for(const url of SOLDIER_GLB_URLS){try{gltf=await realBotLoader.loadAsync(url);if(gltf?.scene)break}catch(error){errors.push(url+': '+String(error?.message||error))}}if(!gltf?.scene)throw new Error(errors.join(' | ')||'GLB не содержит сцену');realBotAsset=gltf;await attachRealBotModels();toast('3D-модель солдата загружена · анимации подключены');return true}catch(error){console.error('Soldier GLB load failed',error);toast('Модель солдата недоступна. Игра продолжит работу с резервной моделью.');realBotLoadPromise=null;return false}})();return realBotLoadPromise}
