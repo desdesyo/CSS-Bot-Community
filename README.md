@@ -57,3 +57,12 @@ The mobile-first SOLO Engine compatibility and migration requirements are docume
 ## PC + Android cross-play
 
 The shared PC/Android client and authoritative multiplayer architecture are specified in [docs/SOLO_CROSSPLAY_PC_ANDROID.md](docs/SOLO_CROSSPLAY_PC_ANDROID.md). The goal is one game build and one ruleset: Android touch/gamepad and PC keyboard/mouse/gamepad players join the same server. This is an implementation contract; multiplayer is not yet implemented.
+
+
+## Development cadence (mandatory)
+
+Every change must produce a concrete, verifiable increment. No feature may go more than 3 days without a runnable increment; larger work is split into vertical slices. Completion requires implementation, automated tests and playable verification—not just documentation or a commit. See [docs/DEVELOPMENT_CADENCE.md](docs/DEVELOPMENT_CADENCE.md).
+
+## First playable prototype
+
+A small Android/PC browser training prototype and a WebSocket shared-session server are in [engine/](engine/). See [engine/README.md](engine/README.md) for launch and test instructions. This is an early prototype, not yet a CS:S-compatible release or public multiplayer service.
