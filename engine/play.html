@@ -50,8 +50,15 @@ const camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.08,150);came
 const hemi=new THREE.HemisphereLight(0xc8d9df,0x252c27,1.65);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffd49a,2.65);sun.position.set(-18,28,14);sun.castShadow=!isTouchDevice;if(!isTouchDevice){sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-35;sun.shadow.camera.right=35;sun.shadow.camera.top=35;sun.shadow.camera.bottom=-35}scene.add(sun);
 const mat=(color,roughness=.85)=>new THREE.MeshStandardMaterial({color,roughness});
+function surfaceTexture(base,grain,repeatX,repeatY){
+ const cv=document.createElement('canvas');cv.width=cv.height=256;const cx=cv.getContext('2d');cx.fillStyle=base;cx.fillRect(0,0,256,256);
+ for(let i=0;i<5200;i++){const v=Math.random();cx.fillStyle=v>.5?'rgba(255,255,255,.045)':'rgba(0,0,0,.065)';const s=.5+Math.random()*2.2;cx.fillRect(Math.random()*256,Math.random()*256,s,s)}
+ for(let i=0;i<24;i++){cx.strokeStyle='rgba(12,18,19,.12)';cx.lineWidth=.5+Math.random();cx.beginPath();const x=Math.random()*256,y=Math.random()*256;cx.moveTo(x,y);cx.lineTo(x+(Math.random()-.5)*36,y+(Math.random()-.5)*36);cx.stroke()}
+ const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(repeatX,repeatY);tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());return tex;
+}
+const concreteTexture=surfaceTexture('#687174',0,3,2),floorTexture=surfaceTexture('#42494a',0,12,12),metalTexture=surfaceTexture('#343b3d',0,2,2);
 const aimTargets=[];
-const concrete=mat(0x667276),dark=mat(0x354348),floorMat=mat(0x465255),metal=mat(0x252c30,.48),enemyMat=mat(0x9d4935),skin=mat(0xb98c70),green=mat(0x506b58);
+const concrete=new THREE.MeshStandardMaterial({color:0x9aa0a0,map:concreteTexture,roughness:.96}),dark=mat(0x30393b),floorMat=new THREE.MeshStandardMaterial({color:0x9da2a0,map:floorTexture,roughness:.98}),metal=new THREE.MeshStandardMaterial({color:0x777e7e,map:metalTexture,roughness:.55,metalness:.38}),enemyMat=mat(0x9d4935),skin=mat(0xb98c70),green=mat(0x506b58);
 function box(x,y,z,sx,sy,sz,m,cast=true){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m);o.position.set(x,y,z);o.castShadow=cast;o.receiveShadow=true;scene.add(o);aimTargets.push(o);return o}
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(90,90),floorMat);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
 const lineMat=new THREE.MeshStandardMaterial({color:0xc4b58e,roughness:1,transparent:true,opacity:.62}),yellowMat=new THREE.MeshStandardMaterial({color:0xc18b3f,roughness:1});
@@ -66,6 +73,33 @@ for(const [x,z,sx,sy,sz] of [[-13,-8,7,2.2,2.4],[11,-13,8,2.5,2.6],[-5,9,9,2.1,2
 // container-like site on right
 box(22,1.6,-2,5,3.2,11,green);for(let z=-6;z<4;z+=1.1)box(19.45,1.6,z,.08,3,.05,metal);
 for(let x=-27;x<28;x+=9){box(x,4.5,-29,1.1,.3,.3,metal);if(!isTouchDevice){const lamp=new THREE.PointLight(0xffd7a1,18,14);lamp.position.set(x,4.1,-27);scene.add(lamp)}}
+// Warehouse architecture: exposed steel roof trusses, skylight strips and overhead services.
+const beamMat=mat(0x20292b,.58),roofMat=mat(0x30383a,.92),glassRoof=new THREE.MeshStandardMaterial({color:0x9da9a5,roughness:.32,metalness:.12,transparent:true,opacity:.28});
+for(let z=-24;z<=24;z+=12){
+ box(0,5.15,z,62,.22,.32,beamMat);
+ box(0,5.55,z,62,.12,.18,metal);
+ for(const x of [-28,-21,-14,-7,0,7,14,21,28])box(x,5.38,z,.16,.42,.16,beamMat);
+ box(0,5.82,z,9,.035,3.8,glassRoof,false);
+}
+for(const x of [-28,-14,0,14,28]){
+ box(x,5.45,0,.24,.2,54,beamMat);
+ box(x,5.1,0,.12,.12,54,metal);
+}
+for(const z of [-22,-10,2,14,26]){
+ box(0,4.65,z,58,.12,.12,beamMat);
+ for(const x of [-26,-13,0,13,26])box(x,4.72,z,.1,.32,.1,metal);
+}
+// Wall bays, shutter ribs and ventilation ducts make the arena read as a real facility.
+for(const x of [-29,-15,0,15,29]){
+ box(x,2.25,-29,.16,4.1,.18,beamMat);box(x,2.25,29,.16,4.1,.18,beamMat);
+}
+for(let x=-27;x<=27;x+=3){
+ box(x,2.1,-29,.055,3.7,.06,metal);
+ box(x,2.1,29,.055,3.7,.06,metal);
+}
+for(const z of [-20,-8,4,16]){
+ box(-31,3.45,z,.3,.3,7.5,metal);box(31,3.45,z,.3,.3,7.5,metal);
+}
 // Environmental storytelling: industrial warehouse dressing
 const rust=mat(0x76553b),crateMat=mat(0x6d6048),crateDark=mat(0x49483d),rubber=mat(0x202523);
 function cylinder(x,y,z,r,h,m,segments=12){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segments),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
@@ -80,6 +114,16 @@ for(const x of [-16,-10,10,16]){detailBox(x,3.5,-25,.18,.18,8,metal);detailBox(x
 for(const x of [-24,-12,0,12,24]){detailBox(x,4.1,-26,.55,.12,.55,metal);if(!isTouchDevice){const lamp=new THREE.PointLight(0xffc77c,18,17,2);lamp.position.set(x,3.8,-26);scene.add(lamp)}}
 detailBox(24.55,1.6,-2,.1,2.8,2.2,dark);for(let y=.35;y<3;y+=.22)detailBox(24.48,y,-2,.12,.035,2.05,rust);
 for(const x of [19.5,24.5])for(const z of [-7,3])detailBox(x,.18,z,.35,.35,.35,rust);
+// Practical industrial fixtures and hazard-striped door frames.
+const lampHousing=mat(0x171d1e,.45),lampGlow=new THREE.MeshStandardMaterial({color:0xe7d8b0,emissive:0xffc77c,emissiveIntensity:1.1,roughness:.3});
+for(const [x,z] of [[-24,-25],[-8,-25],[8,-25],[24,-25],[-24,25],[0,25],[24,25]]){
+ box(x,4.65,z,1.25,.16,.42,lampHousing);box(x,4.55,z,.92,.035,.22,lampGlow,false);
+ if(!isTouchDevice){const l=new THREE.PointLight(0xffd6a0,10,13,2);l.position.set(x,4.35,z);scene.add(l)}
+}
+for(const x of [-29,29])for(const z of [-18,-6,6,18]){
+ box(x*.98,1.55,z,.08,2.9,.12,yellowMat);
+ box(x*.98,1.55,z+.28,.08,2.9,.12,metal);
+}
 // First-person rifle assembly
 const weapon=new THREE.Group();camera.add(weapon);scene.add(camera);
 const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.22,.2,.72),metal);gunBody.position.set(.34,-.29,-.62);weapon.add(gunBody);
