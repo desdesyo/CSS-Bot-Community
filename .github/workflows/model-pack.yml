@@ -1,0 +1,27 @@
+name: CSSBC model pack validation
+
+on:
+  push:
+    paths:
+      - "tools/model_pack/**"
+      - "docs/PLAYER_MODEL_PACK.md"
+      - ".github/workflows/model-pack.yml"
+  pull_request:
+    paths:
+      - "tools/model_pack/**"
+      - "docs/PLAYER_MODEL_PACK.md"
+      - ".github/workflows/model-pack.yml"
+  workflow_dispatch:
+
+jobs:
+  validate-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate source assets
+        run: python tools/model_pack/generate_pack.py --output build/cssbc-models
+      - name: Run structural tests
+        run: python -m unittest discover -s tools/model_pack -p "test_*.py" -v
