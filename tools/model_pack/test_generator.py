@@ -22,7 +22,7 @@ class ModelPackTests(unittest.TestCase):
     def test_all_roles_generate_qc_reference_and_animations(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=generate(tmp)
-            for role,cloth,gear,scale,helmet in ROLES:
+            for role,*_ in ROLES:
                 folder=root/role
                 self.assertTrue((folder/"model.smd").is_file())
                 self.assertTrue((folder/"idle.smd").is_file())
@@ -60,6 +60,15 @@ class ModelPackTests(unittest.TestCase):
                     self.assertEqual(len(parsed["nodes"]),len(BONES))
                     frame_count=text.count("\ntime ")
                     self.assertEqual(frame_count,expected_frames)
+
+    def test_roster_has_23_regular_characters_and_juggernaut(self):
+        regular=[entry for entry in ROLES if entry[1] != "special"]
+        special=[entry for entry in ROLES if entry[1] == "special"]
+        self.assertEqual(len(regular),23)
+        self.assertEqual([entry[0] for entry in special],["juggernaut"])
+        self.assertEqual(sum(entry[1] == "terrorist" for entry in regular),10)
+        self.assertEqual(sum(entry[1] == "ct" for entry in regular),10)
+        self.assertEqual(sum(entry[1] == "support" for entry in regular),3)
 
     def test_material_templates_and_tga_sources_exist(self):
         with tempfile.TemporaryDirectory() as tmp:
