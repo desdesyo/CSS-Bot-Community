@@ -33,7 +33,7 @@ MATERIALS = {
     "cloth_grey": (0.29, 0.31, 0.32), "gear_olive": (0.19, 0.23, 0.13),
     "gear_tan": (0.38, 0.31, 0.20), "gear_black": (0.08, 0.09, 0.10),
     "gear_red": (0.42, 0.07, 0.06), "gear_steel": (0.25, 0.28, 0.30),
-    "skin": (0.52, 0.37, 0.27), "boots": (0.08, 0.08, 0.07),
+    "skin": (0.52, 0.37, 0.27), "boots": (0.08, 0.08, 0.07), "skin": (0.52, 0.37, 0.27),
 }
 # Each cuboid is center(x,y,z), half-size(x,y,z), bone, material.
 def parts(scale, helmet):
