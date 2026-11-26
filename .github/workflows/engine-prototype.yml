@@ -43,7 +43,11 @@ jobs:
             throw new Error('Gamepad axis selection and reset controls are required');
           }
           if (!html.includes('lastPadPanelRefresh>150')) throw new Error('Gamepad diagnostics refresh must be throttled');
-          console.log('Inline module syntax, log initialization, camera-relative movement, and gamepad calibration: OK');
+          if (!html.includes("localStorage.setItem(CONTROL_TOKEN_KEY,token)") || !html.includes("function clearControlToken()")) {
+            throw new Error('Control log token must persist locally and have a user-accessible clear action');
+          }
+          if (!html.includes("localStorage.removeItem(CONTROL_TOKEN_KEY)")) throw new Error('Saved control token clear path is missing');
+          console.log('Inline module syntax, log initialization, camera-relative movement, gamepad calibration, and persistent token storage: OK');
           NODE
   server:
     runs-on: ubuntu-latest
