@@ -69,7 +69,7 @@ jobs:
           if (!html.includes('lookPointers=new Map()') || !html.includes("lookArea.addEventListener('pointermove'")) throw new Error('Independent multi-touch look input is required');
           if (!html.includes("new THREE.AnimationMixer(model)") || !html.includes("playRealBotAnimation(bot,'Idle')") || !html.includes("movingNow?(dist>13?'Run':'Walk')")) throw new Error('Imported soldier locomotion animations must be wired into the bot update');
           if (!html.includes('официальных примеров Three.js') || !html.includes('mrdoob/three.js/tree/r160/examples/models/gltf')) throw new Error('Soldier GLB source attribution is missing');
-          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('minQuality=isTouchDevice?.9:1.0,maxQuality=isTouchDevice?1.65:1.9')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
+          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('minQuality=isTouchDevice?1.05:1.0,maxQuality=isTouchDevice?1.65:1.75')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
           if (!html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
           if (!html.includes('livingAllies=[],livingEnemies=[]') || !html.includes('b.losTimer=.14')) throw new Error('Bot AI work must reuse team lists and throttle line-of-sight checks');
