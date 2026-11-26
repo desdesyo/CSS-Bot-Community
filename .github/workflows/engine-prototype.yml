@@ -56,11 +56,12 @@ jobs:
           if (!html.includes('function updateAimSensitivity(dt)') || !html.includes('dynamicLookSensitivity')) throw new Error('Aim sensitivity controller is required');
           if (!html.includes('fireBtn.addEventListener(\'pointermove\'') || !html.includes('applyTouchLook(dx,dy)')) throw new Error('Touch fire button must support simultaneous fire-and-look drag');
           if (!html.includes('dynamicLookSensitivity=(fire||pad.fire)?1:')) throw new Error('Right-stick sensitivity must not be reduced while firing');
-          if (!html.includes('sepX+=ox/od*push*2.6') || !html.includes('Final pairwise separation prevents overlapping capsules')) throw new Error('Bot collision avoidance and separation are required');
+          if (!html.includes('sepX+=ux*push*4.2') || !html.includes('Final pairwise separation prevents overlapping capsules') || !html.includes('Math.cos((a.index+1)*2.399)')) throw new Error('Deterministic bot collision separation is required');
           if (!html.includes('b.group.rotation.y+=turnDelta*Math.min(1,dt*12)')) throw new Error('Bot yaw must interpolate without unstable full-angle snaps');
           if (!html.includes("import('three/addons/loaders/GLTFLoader.js')") || !html.includes('function attachRealBotModels()')) throw new Error('Rigged soldier GLB loader and model attachment are required');
           if (!html.includes("https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb") || !html.includes("https://raw.githubusercontent.com/mrdoob/three.js/r160/examples/models/gltf/Soldier.glb")) throw new Error('Verified primary and fallback soldier GLB assets are required');
           if (!html.includes('size=isTouchDevice?1024:2048') || !html.includes('bumpMap:concreteTexture') || !html.includes('anisotropy=Math.min(isTouchDevice?8:16')) throw new Error('HD PBR texture pipeline is required');
+          if (!html.includes("import('three/addons/loaders/KTX2Loader.js')") || !html.includes('setKTX2Loader(realBotKtx2Loader)')) throw new Error('KTX2 compressed texture support is required');
           if (!html.includes('ACESFilmicToneMapping') || !html.includes('sun.castShadow=true') || !html.includes('RoomEnvironment')) throw new Error('PBR lighting, tone mapping and shadow pipeline are required');
           if (!html.includes('function spawnBallisticProjectile(') || !html.includes('p.velocity.y-=9.81*dt') || !html.includes('function updateProjectiles(dt)')) throw new Error('Projectile travel, gravity and collision simulation are required');
           if (!html.includes('@dimforge/rapier3d-compat@0.17.3') || !html.includes('function makeRagdoll(') || !html.includes('JointData.spherical')) throw new Error('Rapier articulated ragdoll physics is required');
