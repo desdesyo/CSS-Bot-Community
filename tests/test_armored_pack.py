@@ -38,7 +38,7 @@ class ArmoredPackTests(unittest.TestCase):
                 self.assertIn("\nend\n", smd)
                 used = {line for line in smd.splitlines() if line in pack.PALETTE}
                 self.assertTrue(used)
-                vertex_lines = smd.split("triangles\\n", 1)[1].splitlines()
+                vertex_lines = smd.split("triangles\n", 1)[1].splitlines()
                 z_values = []
                 for index, line in enumerate(vertex_lines):
                     if line in pack.PALETTE:
