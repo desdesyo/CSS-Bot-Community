@@ -162,15 +162,20 @@ $hboxset "default"
 {chr(10).join(hitboxes)}
 
 $sequence "idle" "idle.smd" fps 30 loop ACT_IDLE 1
+$sequence "idle_all_01" "idle.smd" fps 30 loop
 $sequence "walk" "walk.smd" fps 30 loop ACT_WALK 1
+$sequence "walk_all" "walk.smd" fps 30 loop
 $sequence "run" "walk.smd" fps 36 loop ACT_RUN 1
+$sequence "run_all" "walk.smd" fps 36 loop
 $sequence "crouch_idle" "idle.smd" fps 30 loop ACT_CROUCHIDLE 1
 $sequence "crouch_walk" "walk.smd" fps 24 loop ACT_WALK_CROUCH 1
+$sequence "jump" "walk.smd" fps 30
 '''
 
 def build(pack: Path, reference: Path):
     ref_text = reference.read_text(encoding="utf-8-sig")
-    _, ref_nodes_lines, ref_skel_lines = sections(ref_text)
+    _, ref_nodes_lines, raw_ref_skel_lines = sections(ref_text)
+    ref_skel_lines = [line for line in raw_ref_skel_lines if not line.strip().startswith("time ")]
     ref_nodes = parse_nodes(ref_nodes_lines)
     if len(ref_nodes) < 50:
         raise ValueError(f"Reference skeleton unexpectedly small: {len(ref_nodes)} bones")
