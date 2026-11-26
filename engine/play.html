@@ -17,14 +17,16 @@
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const canvas=document.querySelector('#game');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const isTouchDevice=matchMedia('(pointer:coarse)').matches;
+const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPreference:'high-performance',stencil:false,depth:true});
+const renderScale=()=>Math.min(devicePixelRatio,isTouchDevice?1.25:1.65);
+renderer.setPixelRatio(renderScale());renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=!isTouchDevice;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x87979a);scene.fog=new THREE.Fog(0x87979a,28,85);
 const camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.08,150);camera.position.set(0,1.7,12);
 const hemi=new THREE.HemisphereLight(0xc8d9df,0x354039,2.0);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffe5c2,2.2);sun.position.set(-12,22,8);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-35;sun.shadow.camera.right=35;sun.shadow.camera.top=35;sun.shadow.camera.bottom=-35;scene.add(sun);
+const sun=new THREE.DirectionalLight(0xffe5c2,2.2);sun.position.set(-12,22,8);sun.castShadow=!isTouchDevice;if(!isTouchDevice){sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-35;sun.shadow.camera.right=35;sun.shadow.camera.top=35;sun.shadow.camera.bottom=-35}scene.add(sun);
 const mat=(color,roughness=.85)=>new THREE.MeshStandardMaterial({color,roughness});
 const concrete=mat(0x667276),dark=mat(0x354348),floorMat=mat(0x465255),metal=mat(0x252c30,.48),enemyMat=mat(0x9d4935),skin=mat(0xb98c70),green=mat(0x506b58);
 function box(x,y,z,sx,sy,sz,m,cast=true){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m);o.position.set(x,y,z);o.castShadow=cast;o.receiveShadow=true;scene.add(o);return o}
@@ -84,7 +86,9 @@ function readGamepad(){
  const reloadDown=pressed(2)||pressed(3)||pressed(1);
  if(reloadDown&&!gamepadReloadWasDown)reloadGun();
  gamepadReloadWasDown=reloadDown;
- return {x:dead(p.axes[0]||0),y:dead(p.axes[1]||0),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
+ // Некоторые Android-геймпады отдают оси левого стика в обратной полярности.
+ // Инвертируем только перемещение; правый стик (обзор камеры) оставляем без изменений.
+ return {x:-dead(p.axes[0]||0),y:-dead(p.axes[1]||0),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -101,7 +105,7 @@ const v=new THREE.Vector3(side,0,forward);if(v.lengthSq()>1)v.normalize();v.mult
 for(const b of bots){if(!b.alive)continue;const p=b.group.position,dist=Math.hypot(camera.position.x-p.x,camera.position.z-p.z);b.cool-=dt;b.phase+=dt;const ang=Math.atan2(camera.position.x-p.x,camera.position.z-p.z);b.group.rotation.y=ang;if(dist>5){const step=Math.min(1,dt*1.25);const tx=p.x+Math.sin(ang)*step,tz=p.z+Math.cos(ang)*step;if(!blocked(tx,p.z))p.x=tx;if(!blocked(p.x,tz))p.z=tz}else{p.x+=Math.sin(b.phase*1.7)*dt*.18;p.z+=Math.cos(b.phase*1.3)*dt*.18}
 if(dist<23&&b.cool<=0){b.cool=1.1+Math.random()*1.2;if(Math.random()<.38){hp=Math.max(0,hp-8);updateHud();if(hp===0){finishRound(false,'ты погиб')}}}}
 renderer.render(scene,camera)}
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.8))});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(renderScale())});
 updateHud();tick();
 </script>
 </body></html>
