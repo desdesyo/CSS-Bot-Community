@@ -4,8 +4,9 @@ on:
   push:
     paths:
       - "tools/model_pack/**"
-      - "src/CSSBC_ModelRoster.*"
+      - "src/CSSBC_Model*"
       - "tests/model_roster_tests.cpp"
+      - "tests/model_runtime_tests.cpp"
       - "CMakeLists.txt"
       - "docs/PLAYER_MODEL_PACK.md"
       - ".github/workflows/model-pack.yml"
@@ -109,4 +110,4 @@ jobs:
       - name: Build C++ core and roster test
         run: cmake --build build --parallel
       - name: Run model roster test
-        run: ctest --test-dir build -R cssbc_model_roster_tests --output-on-failure
+        run: ctest --test-dir build -R "cssbc_model_(roster|runtime)_tests" --output-on-failure
