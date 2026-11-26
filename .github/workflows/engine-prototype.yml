@@ -60,9 +60,13 @@ jobs:
           if (!html.includes('b.group.rotation.y+=turnDelta*Math.min(1,dt*12)')) throw new Error('Bot yaw must interpolate without unstable full-angle snaps');
           if (!html.includes("import('three/addons/loaders/GLTFLoader.js')") || !html.includes('function attachRealBotModels()')) throw new Error('Rigged soldier GLB loader and model attachment are required');
           if (!html.includes("https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb") || !html.includes("https://raw.githubusercontent.com/mrdoob/three.js/r160/examples/models/gltf/Soldier.glb")) throw new Error('Verified primary and fallback soldier GLB assets are required');
-          if (!html.includes('size=isTouchDevice?1024:2048') || !html.includes('bumpMap:concreteTexture') || !html.includes('anisotropy=Math.min(isTouchDevice?8:16')) throw new Error('HD PBR texture pipeline is required');
+          if (!html.includes('size=isTouchDevice?512:2048') || !html.includes('bumpMap:concreteTexture') || !html.includes('anisotropy=Math.min(isTouchDevice?2:16')) throw new Error('HD PBR texture pipeline is required');
           if (!html.includes("import('three/addons/loaders/KTX2Loader.js')") || !html.includes('setKTX2Loader(realBotKtx2Loader)')) throw new Error('KTX2 compressed texture support is required');
-          if (!html.includes('ACESFilmicToneMapping') || !html.includes('sun.castShadow=true') || !html.includes('RoomEnvironment')) throw new Error('PBR lighting, tone mapping and shadow pipeline are required');
+          if (!html.includes('ACESFilmicToneMapping') || !html.includes('sun.castShadow=!isTouchDevice') || !html.includes('RoomEnvironment')) throw new Error('PBR lighting, tone mapping and shadow pipeline are required');
+          if (!html.includes('if(!isTouchDevice)void initRealBotModels()') || !html.includes('skeletonHeight=boneMaxY-boneMinY') || !html.includes('renderer.shadowMap.enabled=!isTouchDevice')) throw new Error('Mobile character normalization and safe render profile are required');
+          if (!html.includes('function compactBotMeshes(') || !html.includes('mergeGeometries(pieces,false)') || !html.includes('function disposeBotVisuals(')) throw new Error('Mobile bot draw-call batching and geometry disposal are required');
+          if (!html.includes('now-lastSkeletonDiagAt>=2500') || !html.includes('boneData.length>=12')) throw new Error('Skeleton diagnostics must be throttled and size-limited');
+          if (!html.includes('setLinearDamping(.85).setAngularDamping(2.4)') || !html.includes('if(speed>14)') || !html.includes('cuboid(250,.15,250)')) throw new Error('Ragdoll stability and floor bounds must be enforced');
           if (!html.includes('function spawnBallisticProjectile(') || !html.includes('p.velocity.y-=9.81*dt') || !html.includes('function updateProjectiles(dt)')) throw new Error('Projectile travel, gravity and collision simulation are required');
           const sunDeclaration = html.indexOf('const sun=');
           const sunShadowUse = html.indexOf('sun.shadow.mapSize');
@@ -87,8 +91,8 @@ jobs:
           if (!html.includes("new THREE.AnimationMixer(model)") || !html.includes("playRealBotAnimation(bot,'Idle')") || !html.includes("movingNow?(dist>13?'Run':'Walk')")) throw new Error('Imported soldier locomotion animations must be wired into the bot update');
           if (!html.includes('b.realRecoil=.18') || !html.includes('b.realRightArmBone.rotation.x') || !html.includes('b.realSpineBone.rotation.x')) throw new Error('Skinned soldier firing recoil must animate upper body bones');
           if (!html.includes('Используется компактная процедурная модель бойца') || !html.includes('spawnWave();updateHud()')) throw new Error('Training mode must use the compact procedural soldier while the rigged model is disabled');
-          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('minQuality=isTouchDevice?1.05:1.0,maxQuality=isTouchDevice?1.65:1.75')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
-          if (!html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
+          if (!html.includes('antialias:!isTouchDevice') || !html.includes('qualityScale=isTouchDevice?.95:1.5') || !html.includes('minQuality=isTouchDevice?.65:1.0,maxQuality=isTouchDevice?1.0:1.75')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
+          if (!html.includes('qualityScale=isTouchDevice?.95:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
           if (!html.includes('livingAllies=[],livingEnemies=[]') || !html.includes('b.losTimer=.14')) throw new Error('Bot AI work must reuse team lists and throttle line-of-sight checks');
           if (!html.includes('if(!isTouchDevice){const lamp=new THREE.PointLight')) throw new Error('Mobile point-light budget must be limited');
