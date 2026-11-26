@@ -26,3 +26,19 @@ Export one compatible player reference model from the user's own CS:S v34 instal
 6. Only after those checks publish a runtime pack containing MDL/VVD/VTX/VMT/VTF assets.
 
 No step above is considered complete merely because a QC file compiles.
+## Automated reference preflight
+
+The repository now includes `tools/model_pack/inspect_v34_reference.py`.
+Run it against the exact reference pair extracted from the target CS:S v34
+installation:
+
+```sh
+python tools/model_pack/inspect_v34_reference.py --smd reference.smd --qc reference.qc
+```
+
+The JSON report inventories the node hierarchy, weighted bone IDs, skeleton
+frames, QC sequences, attachments, hitbox sets and eye/illumination positions.
+It also reports conservative candidate name matches for the procedural mesh
+bones. These matches are only a preflight: the bind pose and animation contract
+must still be checked before any retargeting. The inspector deliberately does
+not rewrite or fabricate the reference rig.
