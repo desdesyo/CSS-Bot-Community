@@ -37,6 +37,31 @@ end
             self.assertEqual(result["weighted_bones"], [0, 1, 2])
             self.assertEqual(result["frames"], [0])
 
+    def test_parses_multiple_vertex_influences(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            smd = Path(tmp) / "weighted.smd"
+            smd.write_text('''version 1
+nodes
+0 "root" -1
+1 "bone_a" 0
+2 "bone_b" 0
+end
+skeleton
+time 0
+0 0 0 0 0 0 0
+1 0 0 1 0 0 0
+2 0 0 2 0 0 0
+end
+triangles
+material
+1 0 0 0 0 0 1 0 0 2 1 0.75 2 0.25
+1 1 0 0 0 0 1 1 0 1 1 1.0
+2 0 1 0 0 0 1 0 1 1 2 1.0
+end
+''', encoding="utf-8")
+            result = inspector.parse_smd(smd)
+            self.assertEqual(result["weighted_bones"], [1, 2])
+
     def test_rejects_missing_parent(self):
         with tempfile.TemporaryDirectory() as tmp:
             smd = Path(tmp) / "bad.smd"
