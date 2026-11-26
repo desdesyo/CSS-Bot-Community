@@ -36,7 +36,7 @@ jobs:
           }
           const movementDefaults = /leftInvertX=false,leftInvertY=false/.test(html);
           if (!movementDefaults) throw new Error('Gamepad must start with standard axis polarity; calibration is user-controlled');
-          if (!html.includes('const dx=v.x*cos+v.z*sin,dz=-v.x*sin+v.z*cos;')) {
+          if (!html.includes('const dx=moveX*cos+moveZ*sin,dz=-moveX*sin+moveZ*cos;')) {
             throw new Error('Camera-relative movement basis regression: movement must follow camera yaw');
           }
           if (!html.includes('leftAxisX=0,leftAxisY=1') || !html.includes('padAxisX') || !html.includes('padAxisY') || !html.includes('padResetAxes')) {
