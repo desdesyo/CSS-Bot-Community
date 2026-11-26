@@ -87,18 +87,86 @@ const stock=new THREE.Mesh(new THREE.BoxGeometry(.16,.17,.32),mat(0x303b35));sto
 const sight=new THREE.Mesh(new THREE.BoxGeometry(.05,.08,.08),metal);sight.position.set(.34,-.15,-.78);weapon.add(sight);
 const muzzle=new THREE.PointLight(0xffb45b,0,4);muzzle.position.set(.34,-.24,-1.4);weapon.add(muzzle);
 const coverPoints=[[-17,-5],[5,-16],[15,1],[-10,17],[24,12],[-25,7]];const bots=[];const bombSite={x:20,z:-2};let bombPlanted=false,bombPlantProgress=0,bombTimer=35,bombDefuseProgress=0;const sitePad=new THREE.Mesh(new THREE.CylinderGeometry(3.1,3.1,.045,32),new THREE.MeshStandardMaterial({color:0xb58b42,roughness:.9,transparent:true,opacity:.22}));sitePad.position.set(bombSite.x,.04,bombSite.z);scene.add(sitePad);const siteRing=new THREE.Mesh(new THREE.TorusGeometry(3.1,.075,8,40),yellowMat);siteRing.rotation.x=Math.PI/2;siteRing.position.set(bombSite.x,.09,bombSite.z);scene.add(siteRing);const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const allySpawns=[[-4,15],[4,15],[-6,20],[6,20]];const enemySpawns=[[-17,-17],[16,-19],[-20,3],[12,5],[24,16]];
-function spawnBot(x,z,team='enemy'){const g=new THREE.Group();const ally=team==='ally',bodyColor=ally?0x355d83:0x4b5549;const body=new THREE.Mesh(botGeo,mat(bodyColor));body.position.y=.82;body.castShadow=true;g.add(body);
- const head=new THREE.Mesh(new THREE.SphereGeometry(.205,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);
- const helmet=new THREE.Mesh(new THREE.SphereGeometry(.235,12,8,0,Math.PI*2,0,Math.PI*.62),mat(ally?0x294b70:0x343e36));helmet.position.y=1.66;helmet.castShadow=true;g.add(helmet);
- const visor=new THREE.Mesh(new THREE.BoxGeometry(.31,.07,.18),mat(0x202b2a,.35));visor.position.set(0,1.57,-.16);g.add(visor);
- const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.52,.34),mat(ally?0x244765:0x303a32));vest.position.set(0,.96,-.015);g.add(vest);
- const chest=new THREE.Mesh(new THREE.BoxGeometry(.48,.26,.035),mat(ally?0x477ca4:0x59634e));chest.position.set(0,1.02,-.2);g.add(chest);
- for(const sx of [-.25,.25]){const pouch=new THREE.Mesh(new THREE.BoxGeometry(.16,.22,.13),mat(0x202820));pouch.position.set(sx,.84,-.205);g.add(pouch);const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.42,3,7),mat(0x4a5547));arm.position.set(sx*2,.98,-.02);arm.rotation.z=sx<0?-.16:.16;g.add(arm);const boot=new THREE.Mesh(new THREE.BoxGeometry(.23,.22,.38),rubber);boot.position.set(sx*.55,.12,-.07);g.add(boot);const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.43,3,7),mat(0x343d34));leg.position.set(sx*.55,.43,0);g.add(leg)}
- const pack=new THREE.Mesh(new THREE.BoxGeometry(.48,.55,.2),mat(0x252e28));pack.position.set(0,1.02,.22);g.add(pack);
- const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.78),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);
- const barrelTip=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.16,8),dark);barrelTip.rotation.x=Math.PI/2;barrelTip.position.set(.28,1.02,-.81);g.add(barrelTip);
- g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6,index:bots.length,team,role:['cover','flank','push'][bots.length%3]})}
-function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'))}
+function spawnBot(x,z,team='enemy'){
+ const g=new THREE.Group(),ally=team==='ally';
+ const palette=ally?{cloth:0x344f62,vest:0x263f51,armor:0x45677c,helmet:0x263f54,pad:0x1c303d,skin:0x987b64,web:0x182a34}: {cloth:0x3b4437,vest:0x30392d,armor:0x56604a,helmet:0x30382e,pad:0x252d23,skin:0x987b64,web:0x20271e};
+ const cloth=mat(palette.cloth),vestMat=mat(palette.vest),armor=mat(palette.armor),helmetMat=mat(palette.helmet),padMat=mat(palette.pad),skinMat=mat(palette.skin),web=mat(palette.web),darkMetal=mat(0x171c1b,.7),glass=mat(0x182a2b,.22);
+ const add=(geo,m,xp,yp,zp,rx=0,ry=0,rz=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(xp,yp,zp);o.rotation.set(rx,ry,rz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
+ const box=(w,h,d,m,xp,yp,zp,rx=0,ry=0,rz=0)=>add(new THREE.BoxGeometry(w,h,d),m,xp,yp,zp,rx,ry,rz);
+ const capsule=(r,len,m,xp,yp,zp,rz=0)=>add(new THREE.CapsuleGeometry(r,len,5,10),m,xp,yp,zp,0,0,rz);
+ const sphere=(r,m,xp,yp,zp,sx=1,sy=1,sz=1)=>{const o=add(new THREE.SphereGeometry(r,16,12),m,xp,yp,zp);o.scale.set(sx,sy,sz);return o};
+ const cylinder=(rt,rb,h,m,xp,yp,zp,rx=0,rz=0)=>add(new THREE.CylinderGeometry(rt,rb,h,12),m,xp,yp,zp,rx,0,rz);
+ // Anatomical silhouette: pelvis, tapered torso, neck and separate head.
+ capsule(.22,.22,cloth,0,.79,0);
+ capsule(.285,.48,cloth,0,1.13,0);
+ sphere(.285,vestMat,0,1.19,-.035,1.08,1.18,.72);
+ capsule(.105,.12,skinMat,0,1.49,0);
+ sphere(.185,skinMat,0,1.68,-.015,.94,1.12,.9);
+ // Helmet shell, rim, front mount and dark eye protection.
+ sphere(.205,helmetMat,0,1.79,.005,1.08,.72,1.02);
+ box(.39,.035,.34,web,0,1.69,-.018);
+ box(.24,.055,.045,armor,0,1.76,-.195);
+ box(.27,.065,.025,glass,0,1.665,-.178);
+ for(const sx of [-1,1]){sphere(.052,padMat,sx*.184,1.67,-.005,.75,1.2,.8);box(.035,.09,.04,web,sx*.19,1.59,-.02)}
+ // Plate carrier, shoulder protection, front plates and MOLLE webbing.
+ box(.59,.48,.29,vestMat,0,1.12,-.015);
+ box(.42,.29,.045,armor,0,1.2,-.177);
+ box(.22,.11,.025,padMat,0,1.12,-.208);
+ for(const y of [.91,1.0,1.09,1.18,1.27])box(.49,.018,.018,web,0,y,-.197);
+ for(const sx of [-1,1]){
+  box(.17,.21,.19,armor,sx*.285,1.35,-.005,0,0,sx*-.12);
+  box(.15,.2,.16,vestMat,sx*.235,.92,-.19);
+  box(.13,.17,.12,padMat,sx*.235,.91,-.285);
+  box(.11,.12,.035,armor,sx*.235,.91,-.35);
+  box(.055,.23,.055,web,sx*.12,1.16,-.19);
+  // articulated arms with elbow pads and gloves
+  const upper=capsule(.085,.27,cloth,sx*.39,1.12,-.015,sx*-.18);
+  sphere(.095,armor,sx*.405,1.27,-.018,1,1,.95);
+  const fore=capsule(.073,.26,cloth,sx*.43,.91,-.12,sx*.32);
+  sphere(.078,padMat,sx*.43,.91,-.13);
+  const glove=sphere(.075,web,sx*.43,.75,-.19,.9,.85,1.1);
+  box(.12,.035,web,sx*.43,.79,-.19);
+  // legs and knee protection, with separate boots
+  capsule(.115,.36,cloth,sx*.145,.48,0,sx*-.035);
+  box(.19,.14,armor,sx*.145,.42,-.11);
+  box(.16,.17,padMat,sx*.145,.4,-.185);
+  box(.18,.12,web,sx*.145,.31,-.015);
+  box(.19,.15,darkMetal,sx*.145,.105,-.065);
+  box(.2,.07,padMat,sx*.145,.055,-.11);
+  // thigh cargo pocket and straps
+  box(.13,.18,vestMat,sx*.15,.56,-.105);
+  box(.14,.025,web,sx*.15,.58,-.177);
+  box(.025,.13,web,sx*.15,.55,-.19);
+ }
+ // Backpack, radio, antenna, utility belt and side holster.
+ box(.39,.48,.2,padMat,0,1.08,.205);
+ box(.29,.22,.045,vestMat,0,1.12,.32);
+ box(.11,.24,web,0,1.28,.33);
+ cylinder(.018,.018,.34,darkMetal,.22,1.42,.16);
+ box(.18,.17,vestMat,-.36,1.05,.035);
+ box(.12,.22,padMat,-.37,.88,-.005);
+ box(.55,.075,web,0,.82,-.015);
+ box(.13,.16,darkMetal,.34,.82,-.03);
+ // Rifle held across the chest: stock, receiver, handguard, magazine, sights and barrel.
+ const rifle= new THREE.Group();rifle.position.set(.23,1.03,-.29);rifle.rotation.z=-.08;g.add(rifle);
+ const gun=(geo,m,xp,yp,zp,rx=0,ry=0,rz=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(xp,yp,zp);o.rotation.set(rx,ry,rz);o.castShadow=true;rifle.add(o);return o};
+ gun(new THREE.BoxGeometry(.12,.13,.66),darkMetal,0,0,-.12);
+ gun(new THREE.BoxGeometry(.14,.15,.27),mat(0x333b36),0,0,.19);
+ gun(new THREE.BoxGeometry(.105,.27,.14),web,0,-.18,.1,-.12);
+ gun(new THREE.BoxGeometry(.1,.11,.28),mat(0x303a34),0,.01,-.43);
+ gun(new THREE.CylinderGeometry(.025,.03,.34,10),darkMetal,0,0,-.64,Math.PI/2);
+ gun(new THREE.BoxGeometry(.045,.055,.075),armor,0,.105,-.08);
+ gun(new THREE.BoxGeometry(.04,.06,.055),darkMetal,0,.105,-.39);
+ for(const zz of [-.28,-.34,-.4])gun(new THREE.BoxGeometry(.16,.025,.025),armor,0,-.005,zz);
+ // Sling and chest-mounted radio details.
+ box(.035,.42,.035,web,.2,1.13,-.12,0,0,-.45);
+ box(.08,.13,.045,padMat,-.32,1.28,-.12);
+ box(.045,.035,.012,armor,-.32,1.29,-.15);
+ g.position.set(x,0,z);scene.add(g);
+ const visual={arms:g.children.filter((o,i)=>false),legs:g.children.filter((o,i)=>false)};
+ const moving=g.children.filter(o=>o.geometry&&o.geometry.type==='CapsuleGeometry');
+ bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6,index:bots.length,team,role:['cover','flank','push'][bots.length%3],moving});
+}function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'))}
 spawnWave();
 const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let weaponKick=0;let aimAssist=true;let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const toast=t=>{const e=document.querySelector('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',1500)};
@@ -212,7 +280,7 @@ for(const b of bots){if(!b.alive)continue;
  if(b.team==='enemy'){const d=Math.hypot(camera.position.x-p.x,camera.position.z-p.z);target={player:true,x:camera.position.x,z:camera.position.z};targetDist=d}
  for(const candidate of hostiles){const d=Math.hypot(candidate.group.position.x-p.x,candidate.group.position.z-p.z);if(d<targetDist){target={bot:candidate,x:candidate.group.position.x,z:candidate.group.position.z};targetDist=d}}
  if(!target)continue;
- const dxp=target.x-p.x,dzp=target.z-p.z,dist=targetDist,ang=Math.atan2(dxp,dzp);b.cool-=dt;b.phase+=dt;b.group.rotation.y=ang;
+ const dxp=target.x-p.x,dzp=target.z-p.z,dist=targetDist,ang=Math.atan2(dxp,dzp);b.cool-=dt;b.phase+=dt;b.group.rotation.y=ang;for(let j=0;j<b.moving.length;j++){const limb=b.moving[j];if(j>=2){limb.rotation.z=Math.sin(b.phase*7+(j%2)*Math.PI)*.16;limb.position.y=(j%2===0?.48:.48)+Math.max(0,Math.sin(b.phase*7+(j%2)*Math.PI))*.025}}
  const clear=(()=>{const steps=Math.ceil(dist/.65);for(let i=1;i<steps;i++){const t=i/steps;if(blocked(p.x+dxp*t,p.z+dzp*t))return false}return true})();
  const flankSide=b.index%2===0?1:-1;let tx=target.x-Math.sin(ang)*7+Math.cos(ang)*flankSide*(b.role==='flank'?4:1.5),tz=target.z-Math.cos(ang)*7-Math.sin(ang)*flankSide*(b.role==='flank'?4:1.5);if(b.team==='enemy'&&!bombPlanted){tx=bombSite.x;tz=bombSite.z}
  if(b.role==='cover'&&dist<18){const cover=coverPoints.reduce((best,c)=>Math.hypot(c[0]-target.x,c[1]-target.z)<Math.hypot(best[0]-target.x,best[1]-target.z)?c:best,coverPoints[0]);tx=cover[0];tz=cover[1]}
