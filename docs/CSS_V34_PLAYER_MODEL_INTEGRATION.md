@@ -1,49 +1,29 @@
-# CS:S v34 player-model integration
+# CS:S v34 player-model integration status
 
-## Implemented source rig
+## Implemented source model pipeline
 
-The pack no longer relies on the original 12-bone procedural skeleton. The build
-pipeline now vendors a 56-bone ValveBiped reference SMD from the public
-`robotboy655/gmod-animations` repository and attributes its original authors
-in `tools/model_pack/reference/ATTRIBUTION.md`.
+- 27 original procedural character source meshes and materials.
+- Full ValveBiped reference skeleton and bone-weight remapping.
+- Full-hierarchy idle/walk source animation files.
+- QC generation with baseline eye/hand/weapon attachments and hitboxes.
+- Windows compile/install script: tools/model_pack/install_css_v34.ps1.
+- C++ model registry: src/CSSBC_ModelRoster.h/.cpp, containing all 27 model paths and faction/support-tier lookup.
+- CI tests for source generation, retargeting, installer syntax, and the C++ roster registry.
 
-The new `tools/model_pack/build_valvebiped_pack.py`:
-- replaces the procedural node hierarchy and bind pose with the full ValveBiped reference;
-- remaps every generated vertex influence to the corresponding ValveBiped bone;
-- creates full-hierarchy idle and walk animation SMDs;
-- writes QC files with eye, right/left hand, weapon and clip attachment points;
-- writes hitboxes for head, chest, stomach, arms and legs;
-- adds idle/walk/run/crouch/jump sequence aliases used by Source player/NPC animation paths.
+## Compiled game assets
 
-Build the source pack:
+The Windows installer requires a matching CS:S v34-compatible studiomdl.exe and vtex.exe. It generates and compiles all 27 assets in a temporary staging game directory, verifies each MDL/VVD/DX90 VTX output, then installs the assets and roster manifest under cstrike. Existing CSSBC model/material directories are backed up before replacement. Stock Valve player models are not overwritten.
 
-```sh
-python tools/model_pack/generate_armored_pack.py --output build/cssbc-models
-python tools/model_pack/build_valvebiped_pack.py --pack build/cssbc-models
-```
+See docs/CSS_V34_MODEL_INSTALLATION.md for requirements and commands.
 
-The CI workflow runs this pipeline for all 27 characters and publishes the
-resulting SMD/QC/material source pack as an artifact.
+## Runtime integration not yet implemented
 
-## Compatibility boundary
+The repository is still an engine-independent C++ gameplay core. It is not a CS:S v34 game DLL, server plugin, or SourceMod plugin. The model registry provides stable model paths and role lookup, but no loaded game-side component currently calls the Source entity model-setting APIs.
 
-The vendored skeleton is a ValveBiped reference from the Garry's Mod animation
-source repository. ValveBiped is a widely reused Source skeleton, but this
-reference is **not** claimed to be an extracted CS:S v34 player model. The QC
-is CSSBC-authored and provides a conservative baseline; exact CS:S v34
-animation include names, attachment orientation, hitbox dimensions and model
-viewer behavior still need validation with the target v34 toolchain.
+Consequently:
+- The installer can put all 27 compiled models into the game content tree once run on a Windows machine with the correct compiler tools.
+- CS:S bots and players do not automatically select those custom paths yet.
+- Support purchases and Juggernaut logic are not yet connected to actual CS:S entity spawning/model assignment.
+- The 27 models have not been compiled or inspected on the user's actual CS:S v34 installation in this environment.
 
-The pipeline does not yet compile MDL/VVD/VTX/VMT/VTF binaries because the
-matching CS:S v34 `studiomdl` and `vtex` executables are not available in
-GitHub Actions. HLMV inspection and an in-game CS:S v34 test are also
-outstanding. Do not label the artifact as a tested drop-in game pack until
-those steps pass.
-
-## Automated reference preflight
-
-For a later exact-v34 correction, the repository also includes
-`tools/model_pack/inspect_v34_reference.py`. It accepts a reference SMD and
-QC, reports the hierarchy, weighted bones, sequences, attachments and hitbox
-declarations, and identifies candidate ValveBiped matches. This is an optional
-verification path; the current build no longer blocks on user-supplied files.
+The remaining required work is a v34-compatible game-side adapter that selects a roster entry for each player/bot entity and connects support/Juggernaut spawning to the game runtime. This must be built and tested against the exact v34 SDK/game interfaces; the 2013 SDK or a generic ValveBiped reference must not be represented as proof of v34 binary compatibility.
