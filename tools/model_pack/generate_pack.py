@@ -33,7 +33,7 @@ MATERIALS = {
     "cloth_grey": (0.29, 0.31, 0.32), "gear_olive": (0.19, 0.23, 0.13),
     "gear_tan": (0.38, 0.31, 0.20), "gear_black": (0.08, 0.09, 0.10),
     "gear_red": (0.42, 0.07, 0.06), "gear_steel": (0.25, 0.28, 0.30),
-    "skin": (0.52, 0.37, 0.27), "boots": (0.08, 0.08, 0.07), "skin": (0.52, 0.37, 0.27),
+    "skin": (0.52, 0.37, 0.27), "boots": (0.08, 0.08, 0.07), "skin": (0.52, 0.37, 0.27), "skin": (0.52, 0.37, 0.27),
 }
 # Each cuboid is center(x,y,z), half-size(x,y,z), bone, material.
 def parts(scale, helmet):
@@ -122,10 +122,12 @@ $sequence "idle" "idle.smd" fps 30 loop
 '''
         (folder/"{0}.qc".format(role)).write_text(qc,encoding="utf-8")
     # Material templates: replace $basetexture with authored VTFs before release.
+    material_dir = OUT/"materials"/"models"/"cssbc"/"player"
+    material_dir.mkdir(parents=True, exist_ok=True)
     for name,rgb in MATERIALS.items():
-        (OUT/f"{name}.vmt").write_text(
-            '"VertexLitGeneric"\\n{\\n  "$basetexture" "models/cssbc/player/'+name+
-            '"\\n  "$color" "[%d %d %d]"\\n  "$surfaceprop" "cloth"\\n}\\n' %
+        (material_dir/f"{name}.vmt").write_text(
+            '"VertexLitGeneric"\n{\n  "$basetexture" "models/cssbc/player/'+name+
+            '"\n  "$color" "[%d %d %d]"\n  "$surfaceprop" "cloth"\n}\n' %
             tuple(round(c*255) for c in rgb), encoding="utf-8")
     print(f"Generated {len(ROLES)} original SMD/QC character sources in {OUT}")
 
