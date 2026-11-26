@@ -4,11 +4,17 @@ on:
   push:
     paths:
       - "tools/model_pack/**"
+      - "src/CSSBC_ModelRoster.*"
+      - "tests/model_roster_tests.cpp"
+      - "CMakeLists.txt"
       - "docs/PLAYER_MODEL_PACK.md"
       - ".github/workflows/model-pack.yml"
   pull_request:
     paths:
       - "tools/model_pack/**"
+      - "src/CSSBC_ModelRoster.*"
+      - "tests/model_roster_tests.cpp"
+      - "CMakeLists.txt"
       - "docs/PLAYER_MODEL_PACK.md"
       - ".github/workflows/model-pack.yml"
   workflow_dispatch:
@@ -44,3 +50,22 @@ jobs:
           path: build/cssbc-models/
           if-no-files-found: error
           retention-days: 30
+
+  validate-windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell installer
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "tools/model_pack/install_css_v34.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            exit 1
+          }
