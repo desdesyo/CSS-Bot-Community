@@ -1,44 +1,49 @@
-# CS:S v34 player-model integration gate
+# CS:S v34 player-model integration
 
-The 27 procedural outputs are source meshes, not yet drop-in player models.
+## Implemented source rig
 
-## What is corrected in this stage
+The pack no longer relies on the original 12-bone procedural skeleton. The build
+pipeline now vendors a 56-bone ValveBiped reference SMD from the public
+`robotboy655/gmod-animations` repository and attributes its original authors
+in `tools/model_pack/reference/ATTRIBUTION.md`.
 
-- All authored dimensions are converted from meters to Source engine units (39.37007874 units per meter).
-- QC eye and illumination positions use the same unit conversion.
-- CI checks that generated model height is in a human-sized Source-unit range.
+The new `tools/model_pack/build_valvebiped_pack.py`:
+- replaces the procedural node hierarchy and bind pose with the full ValveBiped reference;
+- remaps every generated vertex influence to the corresponding ValveBiped bone;
+- creates full-hierarchy idle and walk animation SMDs;
+- writes QC files with eye, right/left hand, weapon and clip attachment points;
+- writes hitboxes for head, chest, stomach, arms and legs;
+- adds idle/walk/run/crouch/jump sequence aliases used by Source player/NPC animation paths.
 
-## Why the game-ready rig is not fabricated
-
-A valid CS:S player model must match the target game's player skeleton, animation conventions, hitbox layout, and weapon/utility attachment names. A generic 12-bone skeleton with invented attachment points can compile into an MDL and still fail in-game (T-pose, broken locomotion, missing weapons, bad hit registration). The target v34 player reference SMD/QC is therefore a required input for the next conversion stage.
-
-## Required reference input
-
-Export one compatible player reference model from the user's own CS:S v34 installation using a Source model tool such as Crowbar. Supply its reference SMD and QC (or a legally obtained equivalent source reference). Do not use a random Source game skeleton: branch/game differences matter.
-
-## Remaining build steps
-
-1. Compare the reference skeleton and attachment definitions with the generated source.
-2. Retarget the 27 meshes to the exact ValveBiped bone names and bind pose.
-3. Add and verify the target model's hitbox set and required attachments.
-4. Compile QC and materials with the matching v34 studiomdl/vtex toolchain.
-5. Inspect all models in HLMV, then test them in a local CS:S v34 session.
-6. Only after those checks publish a runtime pack containing MDL/VVD/VTX/VMT/VTF assets.
-
-No step above is considered complete merely because a QC file compiles.
-## Automated reference preflight
-
-The repository now includes `tools/model_pack/inspect_v34_reference.py`.
-Run it against the exact reference pair extracted from the target CS:S v34
-installation:
+Build the source pack:
 
 ```sh
-python tools/model_pack/inspect_v34_reference.py --smd reference.smd --qc reference.qc
+python tools/model_pack/generate_armored_pack.py --output build/cssbc-models
+python tools/model_pack/build_valvebiped_pack.py --pack build/cssbc-models
 ```
 
-The JSON report inventories the node hierarchy, weighted bone IDs, skeleton
-frames, QC sequences, attachments, hitbox sets and eye/illumination positions.
-It also reports conservative candidate name matches for the procedural mesh
-bones. These matches are only a preflight: the bind pose and animation contract
-must still be checked before any retargeting. The inspector deliberately does
-not rewrite or fabricate the reference rig.
+The CI workflow runs this pipeline for all 27 characters and publishes the
+resulting SMD/QC/material source pack as an artifact.
+
+## Compatibility boundary
+
+The vendored skeleton is a ValveBiped reference from the Garry's Mod animation
+source repository. ValveBiped is a widely reused Source skeleton, but this
+reference is **not** claimed to be an extracted CS:S v34 player model. The QC
+is CSSBC-authored and provides a conservative baseline; exact CS:S v34
+animation include names, attachment orientation, hitbox dimensions and model
+viewer behavior still need validation with the target v34 toolchain.
+
+The pipeline does not yet compile MDL/VVD/VTX/VMT/VTF binaries because the
+matching CS:S v34 `studiomdl` and `vtex` executables are not available in
+GitHub Actions. HLMV inspection and an in-game CS:S v34 test are also
+outstanding. Do not label the artifact as a tested drop-in game pack until
+those steps pass.
+
+## Automated reference preflight
+
+For a later exact-v34 correction, the repository also includes
+`tools/model_pack/inspect_v34_reference.py`. It accepts a reference SMD and
+QC, reports the hierarchy, weighted bones, sequences, attachments and hitbox
+declarations, and identifies candidate ValveBiped matches. This is an optional
+verification path; the current build no longer blocks on user-supplied files.
