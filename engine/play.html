@@ -203,7 +203,7 @@ function compactBotMeshes(root,hitMeshes){
   }
   for(const [material,meshes] of buckets){if(meshes.length<3)continue;
    const pieces=[];let merged=null;
-   try{for(const mesh of meshes){mesh.updateMatrix();const geometry=mesh.geometry.clone();geometry.applyMatrix4(mesh.matrix);pieces.push(geometry)}merged=mergeGeometries(pieces,false)}catch(error){console.warn('Bot mesh batch skipped',error)}
+   try{for(const mesh of meshes){mesh.updateMatrix();const geometry=mesh.geometry.clone();geometry.applyMatrix4(mesh.matrix);pieces.push(geometry)}merged=mergeGeometries(pieces,false);if(merged)for(const geometry of pieces)geometry.dispose()}catch(error){console.warn('Bot mesh batch skipped',error)}
    if(!merged){for(const geometry of pieces)geometry.dispose();continue}
    const combined=new THREE.Mesh(merged,material);combined.castShadow=false;combined.receiveShadow=false;combined.frustumCulled=true;combined.name='mobile-bot-batch';parent.add(combined);
    let wasHitMesh=false;
