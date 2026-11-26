@@ -44,7 +44,7 @@ jobs:
           }
           if (!html.includes('lastPadPanelRefresh>150')) throw new Error('Gamepad diagnostics refresh must be throttled');
           if (!html.includes("Math.atan2(-dxp,-dzp)")) throw new Error('Bot weapon facing must point toward its selected target');
-          if (!html.includes("spawnTracer(muzzleFrom,targetPoint")) throw new Error('Bot shots must have visible muzzle/tracer feedback');
+          if (!html.includes('spawnBallisticProjectile(muzzleFrom,shotDir.normalize(),b.team,b,target,155)') || !html.includes('b.muzzleFlash.visible=true')) throw new Error('Bot shots must use visible muzzle flash and physical projectile travel');
           if (!html.includes("muzzleFlash.visible=b.flashTime>0")) throw new Error('Bot muzzle flash state must be animated');
           if (!html.includes("headshot?100:bodyHit?34:20")) throw new Error('Player damage must distinguish head, body, and limb/equipment hits');
           if (!html.includes("const RELOAD_DURATION=1.6")) throw new Error('Reload duration must be shared by timing and animation');
