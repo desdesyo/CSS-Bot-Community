@@ -4,6 +4,7 @@ on:
     branches: [feature/solo-crossplay-foundation]
     paths:
       - "engine/client/**"
+      - "engine/play.html"
       - ".github/workflows/publish-solo-demo.yml"
   workflow_dispatch:
 permissions:
@@ -21,7 +22,9 @@ jobs:
       - name: Prepare static game
         run: |
           mkdir -p dist
-          cp -R engine/client/. dist/
+          cp engine/play.html dist/index.html
+          mkdir -p dist/client
+          cp -R engine/client/. dist/client/
           touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
