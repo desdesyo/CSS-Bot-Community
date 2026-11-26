@@ -48,3 +48,7 @@ The portable C++ core can be built with CMake:
     ctest --test-dir build --output-on-failure
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for engine integration requirements.
+
+## SOLO Engine migration contract
+
+The mobile-first SOLO Engine compatibility and migration requirements are documented in [docs/SOLO_ENGINE_COMPATIBILITY.md](docs/SOLO_ENGINE_COMPATIBILITY.md). This defines the Source asset import pipeline, Android browser and gamepad targets, engine boundaries, CSSBC module portability requirements and acceptance criteria. It is a target contract; the engine and importer are not yet implemented.
