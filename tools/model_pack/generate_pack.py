@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import math
+import struct
 
 BONES = [
     (0, "root", -1), (1, "pelvis", 0), (2, "spine", 1), (3, "head", 2),
@@ -132,6 +133,18 @@ def write_idle(path, scale):
         write_skeleton_frame(f,30,scale,0.0)
         f.write("end\n")
 
+def write_tga(path, rgb):
+    # Small original 32-bit uncompressed TGA swatch; vtex converts it to VTF.
+    width=height=16
+    header=struct.pack("<BBBHHBHHHHBB",0,0,2,0,0,0,0,0,width,height,32,0x28)
+    pixels=bytearray()
+    for y in range(height):
+        for x in range(width):
+            shade=0.92 if ((x//4+y//4)%2) else 1.0
+            r,g,b=(max(0,min(255,int(c*shade))) for c in rgb)
+            pixels.extend((b,g,r,255))
+    path.write_bytes(header+pixels)
+
 def generate(output):
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
@@ -153,6 +166,7 @@ $sequence "idle" "idle.smd" fps 30 loop
     matdir=output/"materials"/"models"/"cssbc"/"player"
     matdir.mkdir(parents=True,exist_ok=True)
     for name,rgb in MATERIALS.items():
+        write_tga(matdir/f"{name}.tga",rgb)
         (matdir/f"{name}.vmt").write_text(
             '"VertexLitGeneric"\n{\n'
             f'  "$basetexture" "models/cssbc/player/{name}"\n'
