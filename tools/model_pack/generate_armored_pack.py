@@ -8,7 +8,9 @@ blockout bodies. Compile with the matching CS:S v34 studiomdl/vtex toolchain.
 from pathlib import Path
 import argparse, math, struct
 
-SOURCE_UNITS_PER_METER = 39.37007874  # Source engine units are inches.\n\nBONES = [
+SOURCE_UNITS_PER_METER = 39.37007874  # Source engine units are inches.
+
+BONES = [
  (0,"root",-1),(1,"pelvis",0),(2,"spine",1),(3,"head",2),
  (4,"upperarm_L",2),(5,"forearm_L",4),(6,"upperarm_R",2),(7,"forearm_R",6),
  (8,"thigh_L",1),(9,"calf_L",8),(10,"thigh_R",1),(11,"calf_R",10),
@@ -50,6 +52,7 @@ PALETTE = {
  "red":(100,20,17),
 }
 def bones_pos(s):
+ s = s * SOURCE_UNITS_PER_METER
  return {0:(0,0,0),1:(0,0,.91*s),2:(0,0,1.22*s),3:(0,0,1.59*s),
  4:(-.31*s,0,1.27*s),5:(-.34*s,0,.98*s),6:(.31*s,0,1.27*s),7:(.34*s,0,.98*s),
  8:(-.13*s,0,.57*s),9:(-.13*s,0,.20*s),10:(.13*s,0,.57*s),11:(.13*s,0,.20*s)}
@@ -75,6 +78,8 @@ def box(c,r):
 def build_parts(role, faction, archetype, scale, headgear, cloth_mat, armor_mat):
  p=[]
  def add(c,r,b,m,kind="ell"):
+  c = tuple(v * SOURCE_UNITS_PER_METER for v in c)
+  r = tuple(v * SOURCE_UNITS_PER_METER for v in r)
   p.append((c,r,b,m,kind))
  # Anatomical base: overlapping smooth forms, tapered limbs and neck.
  add((0,0,.91*scale),(.205,.145,.16),1,"webbing")
@@ -196,8 +201,8 @@ $modelname "cssbc/player/{rid}.mdl"
 $body "body" "model.smd"
 $cdmaterials "models/cssbc/player"
 $surfaceprop "flesh"
-$eyeposition 0 0 1.60
-$illumposition 0 0 0.9
+$eyeposition 0 0 {1.60*SOURCE_UNITS_PER_METER:.3f}
+$illumposition 0 0 {0.9*SOURCE_UNITS_PER_METER:.3f}
 $sequence "idle" "idle.smd" fps 30 loop
 $sequence "walk" "walk.smd" fps 30 loop
 '''
