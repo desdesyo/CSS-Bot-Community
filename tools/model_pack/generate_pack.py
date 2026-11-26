@@ -12,14 +12,33 @@ BONES = [
     (8, "thigh_L", 1), (9, "calf_L", 8),
     (10, "thigh_R", 1), (11, "calf_R", 10),
 ]
+# 23 regular playable/support characters plus one separately balanced Juggernaut.
+# Tuple: model id, faction, clothing material, equipment material, scale, headgear.
 ROLES = [
-    ("t_raider", "cloth_tan", "gear_olive", 1.00, "head_wrap"),
-    ("t_insurgent", "cloth_dark", "gear_tan", 0.97, "balaclava"),
-    ("ct_assault", "cloth_navy", "gear_black", 1.02, "helmet"),
-    ("ct_recon", "cloth_olive", "gear_black", 0.96, "helmet"),
-    ("support_medic", "cloth_olive", "gear_red", 1.00, "helmet"),
-    ("support_sniper", "cloth_grey", "gear_black", 0.98, "hood"),
-    ("support_heavy", "cloth_dark", "gear_steel", 1.10, "heavy_helmet"),
+    ("t_raider", "terrorist", "cloth_tan", "gear_olive", 1.00, "head_wrap"),
+    ("t_insurgent", "terrorist", "cloth_dark", "gear_tan", 0.97, "balaclava"),
+    ("t_saboteur", "terrorist", "cloth_dark", "gear_olive", 0.98, "balaclava"),
+    ("t_rifleman", "terrorist", "cloth_tan", "gear_tan", 1.01, "head_wrap"),
+    ("t_breacher", "terrorist", "cloth_dark", "gear_steel", 1.03, "heavy_helmet"),
+    ("t_scout", "terrorist", "cloth_olive", "gear_tan", 0.94, "hood"),
+    ("t_veteran", "terrorist", "cloth_grey", "gear_olive", 1.02, "balaclava"),
+    ("t_militia", "terrorist", "cloth_olive", "gear_tan", 0.99, "head_wrap"),
+    ("t_operative", "terrorist", "cloth_navy", "gear_black", 0.98, "balaclava"),
+    ("t_demolition", "terrorist", "cloth_dark", "gear_red", 1.04, "heavy_helmet"),
+    ("ct_assault", "ct", "cloth_navy", "gear_black", 1.02, "helmet"),
+    ("ct_recon", "ct", "cloth_olive", "gear_black", 0.96, "helmet"),
+    ("ct_pointman", "ct", "cloth_navy", "gear_steel", 1.04, "heavy_helmet"),
+    ("ct_engineer", "ct", "cloth_olive", "gear_tan", 1.00, "helmet"),
+    ("ct_marksman", "ct", "cloth_grey", "gear_black", 0.98, "hood"),
+    ("ct_riot", "ct", "cloth_dark", "gear_steel", 1.06, "heavy_helmet"),
+    ("ct_urban", "ct", "cloth_grey", "gear_black", 1.00, "helmet"),
+    ("ct_desert", "ct", "cloth_tan", "gear_black", 1.00, "helmet"),
+    ("ct_naval", "ct", "cloth_navy", "gear_steel", 0.99, "helmet"),
+    ("ct_veteran", "ct", "cloth_olive", "gear_steel", 1.03, "helmet"),
+    ("support_medic", "support", "cloth_olive", "gear_red", 1.00, "helmet"),
+    ("support_sniper", "support", "cloth_grey", "gear_black", 0.98, "hood"),
+    ("support_heavy", "support", "cloth_dark", "gear_steel", 1.10, "heavy_helmet"),
+    ("juggernaut", "special", "cloth_dark", "gear_steel", 1.22, "heavy_helmet"),
 ]
 MATERIALS = {
     "cloth_tan": (110, 87, 56), "cloth_dark": (41, 46, 48),
@@ -79,7 +98,7 @@ def cuboids(s, helmet, role):
             ((-.20*s,-.10*s,1.46*s),(.09*s,.045*s,.035*s),2,"gear"),
             ((.20*s,-.10*s,1.46*s),(.09*s,.045*s,.035*s),2,"gear"),
         ]
-    elif role == "support_heavy":
+    elif role in ("support_heavy", "juggernaut"):
         p += [
             ((-.22*s,0,1.38*s),(.13*s,.14*s,.12*s),2,"gear"),
             ((.22*s,0,1.38*s),(.13*s,.14*s,.12*s),2,"gear"),
@@ -181,7 +200,7 @@ def write_walk(path, scale):
 def generate(output):
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
-    for role,cloth,gear,scale,helmet in ROLES:
+    for role,faction,cloth,gear,scale,helmet in ROLES:
         folder=output/role
         folder.mkdir(parents=True,exist_ok=True)
         write_reference(folder/"model.smd",cloth,gear,scale,helmet,role)
@@ -214,4 +233,4 @@ if __name__=="__main__":
     parser.add_argument("--output",default=str(Path(__file__).resolve().parent/"generated"))
     args=parser.parse_args()
     result=generate(args.output)
-    print(f"Generated {len(ROLES)} original character source sets: {result}")
+    print(f"Generated {len(ROLES)-1} regular characters + Juggernaut ({len(ROLES)} total): {result}")
