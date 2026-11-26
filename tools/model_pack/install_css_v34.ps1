@@ -3,7 +3,6 @@ param(
     [string]$GameRoot = "C:\Games\Counter-Strike Source v34",
     [string]$StudioMdlPath = "",
     [string]$VtexPath = "",
-    [switch]$ReplaceStockModels,
     [switch]$DryRun
 )
 $ErrorActionPreference = "Stop"
@@ -132,9 +131,6 @@ try {
     Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $targetCfg "player_roster.json") -Force
     $Installed = $true
 
-    if ($ReplaceStockModels) {
-        Write-Warning "Stock replacement was not performed. The CS:S v34 runtime does not yet select these custom model paths; replacing eight stock models would expose only eight fixed variants and hide the rest of the 27-character roster."
-    }
     Write-Host ("Installed 27 compiled model assets into: " + $TargetModels)
     Write-Host ("Roster manifest: " + (Join-Path $targetCfg "player_roster.json"))
     if (Test-Path $BackupRoot) { Write-Host ("Backup: " + $BackupRoot) }
