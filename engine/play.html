@@ -62,10 +62,10 @@ const stock=new THREE.Mesh(new THREE.BoxGeometry(.16,.17,.32),mat(0x303b35));sto
 const sight=new THREE.Mesh(new THREE.BoxGeometry(.05,.08,.08),metal);sight.position.set(.34,-.15,-.78);weapon.add(sight);
 const muzzle=new THREE.PointLight(0xffb45b,0,4);muzzle.position.set(.34,-.24,-1.4);weapon.add(muzzle);
 const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const botSpawns=[[-17,-17],[16,-19],[-20,3],[6,18],[24,16],[-4,-26]];
-function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,enemyMat);body.position.y=.82;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.48,.28),dark);vest.position.set(0,.92,.02);g.add(vest);const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.75),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,cool:Math.random()+.5,phase:Math.random()*6})}
+function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,enemyMat);body.position.y=.82;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.48,.28),dark);vest.position.set(0,.92,.02);g.add(vest);const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.75),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6})}
 function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;for(const [x,z] of botSpawns)spawnBot(x,z)}
 spawnWave();
-const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
+const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const toast=t=>{const e=document.querySelector('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',1500)};
 function showPanel(kind){
  const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');
@@ -75,11 +75,16 @@ function showPanel(kind){
  document.querySelector('#resumeGame').onclick=()=>hidePanel();document.querySelector('#showScore').onclick=()=>showPanel('score');
  document.querySelector('#exitFull').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();toast('Полноэкранный режим выключен')};
  document.querySelector('#backStart').onclick=()=>{hidePanel();started=false;document.querySelector('#overlay').style.display='flex';if(document.fullscreenElement)document.exitFullscreen?.();document.exitPointerLock?.()};
+ const tune=document.createElement('div');tune.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
+ tune.innerHTML='<button id="invertX">ИНВЕРСИЯ X: '+(leftInvertX?'ВКЛ':'ВЫКЛ')+'</button><button id="invertY">ИНВЕРСИЯ Y: '+(leftInvertY?'ВКЛ':'ВЫКЛ')+'</button>';
+ document.querySelector('#panelCard').insertBefore(tune,document.querySelector('#panelHint'));
+ document.querySelector('#invertX').onclick=()=>{leftInvertX=!leftInvertX;document.querySelector('#invertX').textContent='ИНВЕРСИЯ X: '+(leftInvertX?'ВКЛ':'ВЫКЛ')};
+ document.querySelector('#invertY').onclick=()=>{leftInvertY=!leftInvertY;document.querySelector('#invertY').textContent='ИНВЕРСИЯ Y: '+(leftInvertY?'ВКЛ':'ВЫКЛ')};
 }
 function hidePanel(){document.querySelector('#panel').style.display='none';paused=false;scoreVisible=false}
 function renderScore(){
- const rows=[{name:'YOU',team:'BLUE',kills,deaths:wins+losses,alive:hp>0?'В игре':'Погиб'}];
- bots.forEach((b,i)=>rows.push({name:'BOT-'+String(i+1).padStart(2,'0'),team:'RED',kills:0,deaths:b.alive?0:1,alive:b.alive?'Жив':'Устранён'}));
+ const rows=[{name:'YOU',team:'BLUE',kills,deaths:playerDeaths,alive:hp>0?'В игре':'Погиб'}];
+ bots.forEach((b,i)=>rows.push({name:'BOT-'+String(i+1).padStart(2,'0'),team:'RED',kills:b.kills,deaths:b.alive?0:1,alive:b.alive?'Жив':'Устранён'}));
  const html='<table id="scoreTable"><thead><tr><th>ИГРОК</th><th>КОМАНДА</th><th>УБИЙСТВА</th><th>СМЕРТИ</th><th>СТАТУС</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+r.name+'</td><td>'+r.team+'</td><td>'+r.kills+'</td><td>'+r.deaths+'</td><td>'+r.alive+'</td></tr>').join('')+'</tbody></table>';
  document.querySelector('#scoreRows').innerHTML=html;
 }
@@ -88,7 +93,7 @@ function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscree
 document.querySelector('#pauseQuick').onclick=togglePause;document.querySelector('#scoreQuick').onclick=()=>{if(!started)return;showPanel('score')};document.querySelector('#fullQuick').onclick=toggleFullscreen;
 function updateHud(){document.querySelector('#health').textContent='HP '+hp;document.querySelector('#ammo').textContent=ammo+' / '+reserve;document.querySelector('#frags').textContent='KILLS '+kills+' · W '+wins+' / L '+losses;document.querySelector('#round').textContent='ROUND '+roundNumber+' · '+String(Math.floor(roundRemaining/60)).padStart(2,'0')+':'+String(Math.ceil(roundRemaining%60)).padStart(2,'0');document.querySelector('#roundState').textContent=roundEnded?'NEXT ROUND '+Math.ceil(roundRestartIn)+'s':'ELIMINATE HOSTILES'}
 function finishRound(won,reason){if(roundEnded)return;roundEnded=true;roundRestartIn=4;if(won)wins++;else losses++;fire=false;toast((won?'РАУНД ВЫИГРАН — ':'РАУНД ПРОИГРАН — ')+reason);updateHud()}
-function resetRound(){roundNumber++;roundRemaining=90;roundEnded=false;roundRestartIn=0;hp=100;ammo=30;reserve=90;reload=0;shotCooldown=0;kills=0;camera.position.set(0,1.7,12);yaw=0;pitch=0;camera.rotation.set(0,0,0);spawnWave();updateHud()}
+function resetRound(){roundNumber++;roundRemaining=90;roundEnded=false;roundRestartIn=0;hp=100;ammo=30;reserve=90;reload=0;shotCooldown=0;kills=0;playerDeaths=0;camera.position.set(0,1.7,12);yaw=0;pitch=0;camera.rotation.set(0,0,0);spawnWave();updateHud()}
 function look(dx,dy){yaw-=dx*.0022;pitch=Math.max(-1.35,Math.min(1.35,pitch-dy*.0022));camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0)}
 function shoot(){if(reload>0||shotCooldown>0)return;if(ammo<=0){toast('Пустой магазин — R / RELOAD');return}ammo--;shotCooldown=.105;updateHud();ray.setFromCamera(new THREE.Vector2(0,0),camera);const targets=bots.filter(b=>b.alive).flatMap(b=>b.group.children);const hits=ray.intersectObjects(targets,false);if(hits.length){const bot=bots.find(b=>b.group===hits[0].object.parent||b.group.children.includes(hits[0].object));if(bot){bot.hp-=hits[0].object.geometry.type==='SphereGeometry'?55:35;if(bot.hp<=0){bot.alive=false;scene.remove(bot.group);kills++;updateHud();toast('Противник устранён');if(bots.every(b=>!b.alive))finishRound(true,'все противники устранены')}}}muzzle.intensity=5;setTimeout(()=>muzzle.intensity=0,45)}
 function reloadGun(){if(reload>0||ammo===30||reserve===0)return;reload=1.35;toast('Перезарядка…')}
@@ -131,7 +136,7 @@ function readGamepad(){
  if(scoreDown&&!scoreVisible&&started&&!paused)showPanel('score');
  if(!scoreDown&&scoreVisible)hidePanel();
  // Standard Gamepad mapping: left stick X/Y = axes 0/1; up is negative Y.
- return {x:dead(p.axes[0]||0),y:dead(p.axes[1]||0),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
+ return {x:dead(p.axes[0]||0)*(leftInvertX?-1:1),y:dead(p.axes[1]||0)*(leftInvertY?-1:1),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -148,7 +153,7 @@ const forward=(keys.has('KeyW')||keys.has('ArrowUp')?-1:0)+(keys.has('KeyS')||ke
 const side=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)+(keys.has('KeyA')||keys.has('ArrowLeft')?-1:0)+moveStick.x+pad.x;
 const v=new THREE.Vector3(side,0,forward);if(v.lengthSq()>1)v.normalize();v.multiplyScalar(7.2*dt);const sin=Math.sin(yaw),cos=Math.cos(yaw);const dx=v.x*cos-v.z*sin,dz=v.x*sin+v.z*cos;const nx=camera.position.x+dx,nz=camera.position.z+dz;if(!blocked(nx,camera.position.z))camera.position.x=nx;if(!blocked(camera.position.x,nz))camera.position.z=nz;
 for(const b of bots){if(!b.alive)continue;const p=b.group.position,dist=Math.hypot(camera.position.x-p.x,camera.position.z-p.z);b.cool-=dt;b.phase+=dt;const ang=Math.atan2(camera.position.x-p.x,camera.position.z-p.z);b.group.rotation.y=ang;if(dist>5){const step=Math.min(1,dt*1.25);const tx=p.x+Math.sin(ang)*step,tz=p.z+Math.cos(ang)*step;if(!blocked(tx,p.z))p.x=tx;if(!blocked(p.x,tz))p.z=tz}else{p.x+=Math.sin(b.phase*1.7)*dt*.18;p.z+=Math.cos(b.phase*1.3)*dt*.18}
-if(dist<23&&b.cool<=0){b.cool=1.1+Math.random()*1.2;if(Math.random()<.38){hp=Math.max(0,hp-8);updateHud();if(hp===0){finishRound(false,'ты погиб')}}}}
+if(dist<23&&b.cool<=0){b.cool=1.1+Math.random()*1.2;if(Math.random()<.38){hp=Math.max(0,hp-8);if(hp===0){playerDeaths++;b.kills++;finishRound(false,'ты погиб')}updateHud()}}}
 renderer.render(scene,camera)}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(renderScale())});
 updateHud();tick();
