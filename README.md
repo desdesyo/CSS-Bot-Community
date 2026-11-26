@@ -52,3 +52,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for engine integration requirem
 ## SOLO Engine migration contract
 
 The mobile-first SOLO Engine compatibility and migration requirements are documented in [docs/SOLO_ENGINE_COMPATIBILITY.md](docs/SOLO_ENGINE_COMPATIBILITY.md). This defines the Source asset import pipeline, Android browser and gamepad targets, engine boundaries, CSSBC module portability requirements and acceptance criteria. It is a target contract; the engine and importer are not yet implemented.
+
+
+## PC + Android cross-play
+
+The shared PC/Android client and authoritative multiplayer architecture are specified in [docs/SOLO_CROSSPLAY_PC_ANDROID.md](docs/SOLO_CROSSPLAY_PC_ANDROID.md). The goal is one game build and one ruleset: Android touch/gamepad and PC keyboard/mouse/gamepad players join the same server. This is an implementation contract; multiplayer is not yet implemented.
