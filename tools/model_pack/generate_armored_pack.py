@@ -205,7 +205,7 @@ $sequence "walk" "walk.smd" fps 30 loop
  mat=out/"materials"/"models"/"cssbc"/"player";mat.mkdir(parents=True,exist_ok=True)
  for name,rgb in PALETTE.items():
   write_tga(mat/f"{name}.tga",rgb)
-  (mat/f"{name}.vmt").write_text('"VertexLitGeneric"\n{\n'+f' "$basetexture" "models/cssbc/player/{name}"\n "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\n "$surfaceprop" cloth_mat\n'+'}\n',encoding="utf-8")
+  (mat/f"{name}.vmt").write_text('"VertexLitGeneric"\n{\n'+f' "$basetexture" "models/cssbc/player/{name}"\n "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\n "$surfaceprop" "cloth"\n'+'}\n',encoding="utf-8")
  return out
 if __name__=="__main__":
  ap=argparse.ArgumentParser();ap.add_argument("--output",default=str(Path(__file__).resolve().parent/"generated"));a=ap.parse_args()
