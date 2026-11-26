@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - "tools/model_pack/**"
-      - "tests/test_armored_pack.py"
+      - "tests/test_armored_pack.py"\n      - "tests/test_reference_inspector.py"
       - ".github/workflows/model-pack-validation.yml"
   push:
     branches: [main]
@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile generator
-        run: python -m py_compile tools/model_pack/generate_armored_pack.py
+        run: python -m py_compile tools/model_pack/generate_armored_pack.py tools/model_pack/inspect_v34_reference.py
       - name: Run source-pack tests
         run: python -m unittest discover -s tests -p "test_armored_pack.py" -v
-      - name: Generate all 27 source models
+      - name: Run reference-inspector tests\n        run: python -m unittest discover -s tests -p "test_reference_inspector.py" -v\n      - name: Generate all 27 source models
         run: python tools/model_pack/generate_armored_pack.py --output /tmp/cssbc-model-pack
