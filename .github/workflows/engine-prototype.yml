@@ -58,6 +58,10 @@ jobs:
           if (!html.includes('dynamicLookSensitivity=(fire||pad.fire)?1:')) throw new Error('Right-stick sensitivity must not be reduced while firing');
           if (!html.includes('sepX+=ox/od*push*2.6') || !html.includes('Final pairwise separation prevents overlapping capsules')) throw new Error('Bot collision avoidance and separation are required');
           if (!html.includes('b.group.rotation.y+=turnDelta*Math.min(1,dt*12)')) throw new Error('Bot yaw must interpolate without unstable full-angle snaps');
+          if (!html.includes("import('three/addons/loaders/GLTFLoader.js')") || !html.includes('function attachRealBotModels()')) throw new Error('Rigged soldier GLB loader and model attachment are required');
+          if (!html.includes("https://vinish-models.pages.dev/soldiers/infantry-soldier.glb") || !html.includes("https://vinish-models.pages.dev/soldiers/winter-soldier.glb")) throw new Error('Real soldier model assets are missing');
+          if (!html.includes("new THREE.AnimationMixer(model)") || !html.includes("playRealBotAnimation(bot,'Idle')") || !html.includes("movingNow?(dist>13?'Run':'Walk')")) throw new Error('Imported soldier locomotion animations must be wired into the bot update');
+          if (!html.includes('vinish.dev') || !html.includes('CC BY 4.0') || !html.includes('free-3d-models/soldiers')) throw new Error('Soldier model attribution required by CC BY 4.0 is missing');
           if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('minQuality=isTouchDevice?1.05:1.0,maxQuality=isTouchDevice?1.65:1.75')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
           if (!html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
