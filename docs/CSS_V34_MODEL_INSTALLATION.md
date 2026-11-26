@@ -42,7 +42,7 @@ The installer backs up existing CSSBC model/material directories beside the game
 
 Installing custom model binaries does not make CS:S bots select arbitrary model paths. The repository's C++ gameplay core is engine-independent and is not a CS:S v34 server/game DLL. A game-side adapter must still assign the model path to each player/bot entity and connect support tiers/Juggernaut spawning to actual game entities.
 
-The installer therefore installs all 27 compiled assets and a machine-readable roster manifest, but it does not claim that all 27 characters are selectable or visible in a live match yet. The ReplaceStockModels switch is retained only as an explicit warning gate; it intentionally does not replace stock models because doing so would expose only a subset and hide the full roster.
+The installer therefore installs all 27 compiled assets and a machine-readable roster manifest, but it does not claim that all 27 characters are selectable or visible in a live match yet. It deliberately does not replace stock Valve player models: doing so would expose only a subset and hide the full roster.
 
 ## Rollback
 
