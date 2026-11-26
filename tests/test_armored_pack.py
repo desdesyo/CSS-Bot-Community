@@ -38,6 +38,17 @@ class ArmoredPackTests(unittest.TestCase):
                 self.assertIn("\nend\n", smd)
                 used = {line for line in smd.splitlines() if line in pack.PALETTE}
                 self.assertTrue(used)
+                vertex_lines = smd.split("triangles\\n", 1)[1].splitlines()
+                z_values = []
+                for index, line in enumerate(vertex_lines):
+                    if line in pack.PALETTE:
+                        for vertex in vertex_lines[index + 1:index + 4]:
+                            fields = vertex.split()
+                            z_values.append(float(fields[3]))
+                self.assertTrue(z_values)
+                height = max(z_values) - min(z_values)
+                self.assertGreater(height, 60.0)
+                self.assertLess(height, 100.0)
             for name in pack.PALETTE:
                 tga = material_dir / (name + ".tga")
                 self.assertEqual(tga.stat().st_size, 18 + 32 * 32 * 4)
