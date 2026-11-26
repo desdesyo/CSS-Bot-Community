@@ -19,7 +19,7 @@ test('two clients share one session and server-authoritative shots damage the ot
     const wa = await welcomeA, wb = await welcomeB;
     assert.equal(wa.type, 'welcome'); assert.equal(wb.type, 'welcome');
     const pa = session.players.get(wa.id), pb = session.players.get(wb.id);
-    pa.x = 300; pa.y = 300; pb.x = 420; pb.y = 300;
+    pa.x = 300; pa.y = 350; pb.x = 420; pb.y = 350;
 
     const damage = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('damage snapshot timeout')), 2000);
