@@ -58,15 +58,46 @@ for(const [x,z,sx,sy,sz] of [[-13,-8,7,2.2,2.4],[11,-13,8,2.5,2.6],[-5,9,9,2.1,2
 // container-like site on right
 box(22,1.6,-2,5,3.2,11,green);for(let z=-6;z<4;z+=1.1)box(19.45,1.6,z,.08,3,.05,metal);
 for(let x=-27;x<28;x+=9){box(x,4.5,-29,1.1,.3,.3,metal);const lamp=new THREE.PointLight(0xffd7a1,22,14);lamp.position.set(x,4.1,-27);scene.add(lamp)}
+// Environmental storytelling: industrial warehouse dressing
+const rust=mat(0x76553b),crateMat=mat(0x6d6048),crateDark=mat(0x49483d),rubber=mat(0x202523);
+function cylinder(x,y,z,r,h,m,segments=12){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segments),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+function detailBox(x,y,z,w,h,d,m){return box(x,y,z,w,h,d,m)}
+for(const [x,z] of [[-25,-7],[-25,-2],[-24,3],[25,-19],[25,-14],[25,-9],[8,22],[-12,-24]]){detailBox(x,.72,z,2.1,1.44,2.1,crateMat);detailBox(x,1.46,z,2.18,.1,2.18,crateDark);for(const sx of [-.92,.92])for(const sz of [-.92,.92])detailBox(x+sx,.72,z+sz,.09,1.42,.09,rust);detailBox(x,.72,z,2.12,.07,.07,rust);detailBox(x,.72,z,.07,.07,2.12,rust)}
+for(const [x,z] of [[-8,-18],[-6,-18],[14,18],[16,18],[-28,18]]){cylinder(x,.62,z,.42,1.24,rust,16);cylinder(x,.16,z,.44,.12,metal,16);cylinder(x,1.08,z,.44,.09,metal,16);for(const y of [.38,.82])cylinder(x,y,z,.425,.045,yellowMat,16)}
+for(const [x,z] of [[-9,0],[-8,0],[-7,0],[20,12],[21,12],[22,12]]){cylinder(x,.65,z,.12,1.3,yellowMat,10);cylinder(x,1.3,z,.16,.08,metal,10)}
+detailBox(-29,2.1,-20,5.5,4.2,.45,dark);detailBox(-29,1.7,-19.72,4.2,3.1,.08,metal);
+for(let y=.35;y<3.1;y+=.28)detailBox(-29,y,-19.64,4.05,.035,.035,rust);
+for(let x=-28;x<=28;x+=14){detailBox(x,4.05,-29,.22,.22,5.8,metal);detailBox(x,4.05,29,.22,.22,5.8,metal)}
+for(const x of [-16,-10,10,16]){detailBox(x,3.5,-25,.18,.18,8,metal);detailBox(x,3.5,-21,.18,1.1,.18,metal);detailBox(x,3.5,-29,.18,1.1,.18,metal)}
+for(const x of [-24,-12,0,12,24]){detailBox(x,4.1,-26,.55,.12,.55,metal);const lamp=new THREE.PointLight(0xffc77c,isTouchDevice?9:18,17,2);lamp.position.set(x,3.8,-26);scene.add(lamp)}
+detailBox(24.55,1.6,-2,.1,2.8,2.2,dark);for(let y=.35;y<3;y+=.22)detailBox(24.48,y,-2,.12,.035,2.05,rust);
+for(const x of [19.5,24.5])for(const z of [-7,3])detailBox(x,.18,z,.35,.35,.35,rust);
 // First-person rifle assembly
 const weapon=new THREE.Group();camera.add(weapon);scene.add(camera);
 const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.22,.2,.72),metal);gunBody.position.set(.34,-.29,-.62);weapon.add(gunBody);
+const receiverTop=new THREE.Mesh(new THREE.BoxGeometry(.19,.055,.56),dark);receiverTop.position.set(.34,-.16,-.65);weapon.add(receiverTop);
+const handguard=new THREE.Mesh(new THREE.BoxGeometry(.2,.16,.38),mat(0x394239));handguard.position.set(.34,-.27,-.91);weapon.add(handguard);
+const magazine=new THREE.Mesh(new THREE.BoxGeometry(.14,.32,.19),mat(0x171d1a));magazine.position.set(.34,-.51,-.57);magazine.rotation.x=-.12;weapon.add(magazine);
+const grip=new THREE.Mesh(new THREE.BoxGeometry(.12,.25,.16),mat(0x252c28));grip.position.set(.34,-.48,-.42);grip.rotation.x=-.18;weapon.add(grip);
+const rearSight=new THREE.Mesh(new THREE.BoxGeometry(.055,.09,.07),metal);rearSight.position.set(.34,-.12,-.47);weapon.add(rearSight);
+for(const z of [-.78,-.84,-.9,-.96]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.23,.025,.025),metal);rail.position.set(.34,-.18,z);weapon.add(rail)}
+const handMat=mat(0x9a795f);for(const side of [-1,1]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.38,3,7),mat(0x343b34));arm.position.set(.34+side*.2,-.47,-.28);arm.rotation.x=-.85;weapon.add(arm);const glove=new THREE.Mesh(new THREE.SphereGeometry(.105,8,7),handMat);glove.position.set(.34+side*.19,-.34,-.55);weapon.add(glove)}
 const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.55,10),dark);barrel.rotation.x=Math.PI/2;barrel.position.set(.34,-.24,-1.1);weapon.add(barrel);
 const stock=new THREE.Mesh(new THREE.BoxGeometry(.16,.17,.32),mat(0x303b35));stock.position.set(.34,-.31,-.18);weapon.add(stock);
 const sight=new THREE.Mesh(new THREE.BoxGeometry(.05,.08,.08),metal);sight.position.set(.34,-.15,-.78);weapon.add(sight);
 const muzzle=new THREE.PointLight(0xffb45b,0,4);muzzle.position.set(.34,-.24,-1.4);weapon.add(muzzle);
 const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const botSpawns=[[-17,-17],[16,-19],[-20,3],[6,18],[24,16],[-4,-26]];
-function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,enemyMat);body.position.y=.82;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.48,.28),dark);vest.position.set(0,.92,.02);g.add(vest);const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.75),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6})}
+function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,mat(0x4b5549));body.position.y=.82;body.castShadow=true;g.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.205,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);
+ const helmet=new THREE.Mesh(new THREE.SphereGeometry(.235,12,8,0,Math.PI*2,0,Math.PI*.62),mat(0x343e36));helmet.position.y=1.66;helmet.castShadow=true;g.add(helmet);
+ const visor=new THREE.Mesh(new THREE.BoxGeometry(.31,.07,.18),mat(0x202b2a,.35));visor.position.set(0,1.57,-.16);g.add(visor);
+ const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.52,.34),mat(0x303a32));vest.position.set(0,.96,-.015);g.add(vest);
+ const chest=new THREE.Mesh(new THREE.BoxGeometry(.48,.26,.035),mat(0x59634e));chest.position.set(0,1.02,-.2);g.add(chest);
+ for(const sx of [-.25,.25]){const pouch=new THREE.Mesh(new THREE.BoxGeometry(.16,.22,.13),mat(0x202820));pouch.position.set(sx,.84,-.205);g.add(pouch);const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.42,3,7),mat(0x4a5547));arm.position.set(sx*2,.98,-.02);arm.rotation.z=sx<0?-.16:.16;g.add(arm);const boot=new THREE.Mesh(new THREE.BoxGeometry(.23,.22,.38),rubber);boot.position.set(sx*.55,.12,-.07);g.add(boot);const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.43,3,7),mat(0x343d34));leg.position.set(sx*.55,.43,0);g.add(leg)}
+ const pack=new THREE.Mesh(new THREE.BoxGeometry(.48,.55,.2),mat(0x252e28));pack.position.set(0,1.02,.22);g.add(pack);
+ const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.78),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);
+ const barrelTip=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.16,8),dark);barrelTip.rotation.x=Math.PI/2;barrelTip.position.set(.28,1.02,-.81);g.add(barrelTip);
+ g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6})}
 function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;for(const [x,z] of botSpawns)spawnBot(x,z)}
 spawnWave();
 const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
