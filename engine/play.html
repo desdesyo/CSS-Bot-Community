@@ -293,7 +293,7 @@ async function checkFreshControlLogs(){
   const listResponse=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/logs/controls?ref='+encodeURIComponent(CONTROL_BRANCH),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
   if(!listResponse.ok)throw new Error('GitHub API HTTP '+listResponse.status);
   const files=await listResponse.json();if(!Array.isArray(files))throw new Error('GitHub вернул неожиданный формат списка');
-  const latest=files.filter(x=>x&&x.type==='file'&&/\\.json$/i.test(x.name||'')).sort((a,b)=>b.name.localeCompare(a.name)).slice(0,5);
+  const latest=files.filter(x=>x&&x.type==='file'&&/\.json$/i.test(x.name||'')).sort((a,b)=>b.name.localeCompare(a.name)).slice(0,5);
   if(!latest.length){out.textContent='В logs/controls пока нет загруженных JSON-журналов.';return}
   const loaded=await Promise.allSettled(latest.map(async file=>{const response=await fetch(file.download_url,{cache:'no-store'});if(!response.ok)throw new Error(file.name+': HTTP '+response.status);const data=await response.json();if(!Array.isArray(data.events))throw new Error(file.name+': нет массива events');return {file,data}}));
   const rows=[];
