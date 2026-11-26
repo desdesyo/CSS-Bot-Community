@@ -76,6 +76,11 @@ jobs:
           if (!html.includes('function mobileTouchOnly()') || !html.includes('handleMobileEmptyMagazine')) throw new Error('Automatic ammo fallback must remain touch-only');
           if (!html.includes('function throwGrenade()') || !html.includes('if(p.explosive){const center=to.clone()')) throw new Error('Grenade throw and area damage behavior is required');
           if (!html.includes('function knifeAttack()')) throw new Error('Knife melee attack is required');
+          if (!html.includes('id="miniMap"') || !html.includes('function drawMinimap(')) throw new Error('Live minimap canvas and renderer are required');
+          if (!html.includes("b.team==='ally'?'#65d7d0':'#ff6557'") || !html.includes('ctx.rotate(-yaw)')) throw new Error('Minimap must show team markers and player heading');
+          if (!html.includes('id="hpFill"') || !html.includes('id="armorFill"') || !html.includes('id="trustFill"')) throw new Error('HP, armor and reserved mana/trust HUD meters are required');
+          if (!html.includes('const incoming=8,absorbed=Math.min(armor,Math.ceil(incoming*.65))')) throw new Error('Armor must absorb a portion of incoming player damage');
+          if (!html.includes('#mapPanel{left:9px;top:72px') || !html.includes('#mapPanel{position:fixed;left:16px;bottom:16px')) throw new Error('HUD minimap must avoid the Android joystick and anchor bottom-left on desktop');
           if (!html.includes('@dimforge/rapier3d-compat@0.17.3') || !html.includes('function makeRagdoll(') || !html.includes('JointData.spherical')) throw new Error('Rapier articulated ragdoll physics is required');
           if (!html.includes('function damageBot(') || !html.includes('function killBot(')) throw new Error('Unified hit damage and death handling are required');
           if (!html.includes('lookPointers=new Map()') || !html.includes("lookArea.addEventListener('pointermove'")) throw new Error('Independent multi-touch look input is required');
