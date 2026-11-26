@@ -86,7 +86,7 @@ const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.55,10),dark);b
 const stock=new THREE.Mesh(new THREE.BoxGeometry(.16,.17,.32),mat(0x303b35));stock.position.set(.34,-.31,-.18);weapon.add(stock);
 const sight=new THREE.Mesh(new THREE.BoxGeometry(.05,.08,.08),metal);sight.position.set(.34,-.15,-.78);weapon.add(sight);
 const muzzle=new THREE.PointLight(0xffb45b,0,4);muzzle.position.set(.34,-.24,-1.4);weapon.add(muzzle);
-const coverPoints=[[-17,-5],[5,-16],[15,1],[-10,17],[24,12],[-25,7]];const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const allySpawns=[[-4,15],[4,15],[-6,20],[6,20]];const enemySpawns=[[-17,-17],[16,-19],[-20,3],[6,18],[24,16]];
+const coverPoints=[[-17,-5],[5,-16],[15,1],[-10,17],[24,12],[-25,7]];const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const allySpawns=[[-4,15],[4,15],[-6,20],[6,20]];const enemySpawns=[[-17,-17],[16,-19],[-20,3],[12,5],[24,16]];
 function spawnBot(x,z,team='enemy'){const g=new THREE.Group();const ally=team==='ally',bodyColor=ally?0x355d83:0x4b5549;const body=new THREE.Mesh(botGeo,mat(bodyColor));body.position.y=.82;body.castShadow=true;g.add(body);
  const head=new THREE.Mesh(new THREE.SphereGeometry(.205,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);
  const helmet=new THREE.Mesh(new THREE.SphereGeometry(.235,12,8,0,Math.PI*2,0,Math.PI*.62),mat(ally?0x294b70:0x343e36));helmet.position.y=1.66;helmet.castShadow=true;g.add(helmet);
