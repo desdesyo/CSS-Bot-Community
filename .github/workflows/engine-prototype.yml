@@ -34,7 +34,12 @@ jobs:
           if (declaration < 0 || firstRead < declaration) {
             throw new Error('controlLogs is read before its let declaration');
           }
-          console.log('Inline module syntax and controlLogs initialization order: OK');
+          const movementDefaults = /leftInvertX=true,leftInvertY=true/.test(html);
+          if (!movementDefaults) throw new Error('Known reversed gamepad movement axes must default to corrected inversion');
+          if (!html.includes("localStorage.setItem(PAD_SETTINGS_KEY") || !html.includes("padResetAxes")) {
+            throw new Error('Gamepad calibration settings must persist and provide a reset control');
+          }
+          console.log('Inline module syntax, log initialization, and gamepad calibration defaults: OK');
           NODE
   server:
     runs-on: ubuntu-latest
