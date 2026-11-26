@@ -69,3 +69,14 @@ jobs:
             $errors | Format-List
             exit 1
           }
+
+  validate-runtime-roster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure C++ model roster test
+        run: cmake -S . -B build
+      - name: Build C++ core and roster test
+        run: cmake --build build --parallel
+      - name: Run model roster test
+        run: ctest --test-dir build -R cssbc_model_roster_tests --output-on-failure
