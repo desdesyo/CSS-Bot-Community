@@ -72,40 +72,40 @@ def box(c,r):
     [(-1,-1,-1),(1,-1,-1),(1,1,-1),(-1,1,-1),(-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1)]]
  f=[(0,2,1),(0,3,2),(4,5,6),(4,6,7),(0,1,5),(0,5,4),(1,2,6),(1,6,5),(2,3,7),(2,7,6),(3,0,4),(3,4,7)]
  return v,f
-def build_parts(role, faction, archetype, scale, headgear):
+def build_parts(role, faction, archetype, scale, headgear, cloth_mat, armor_mat):
  p=[]
  def add(c,r,b,m,kind="ell"):
   p.append((c,r,b,m,kind))
  # Anatomical base: overlapping smooth forms, tapered limbs and neck.
  add((0,0,.91*scale),(.205,.145,.16),1,"webbing")
- add((0,0,1.22*scale),(.255,.155,.285),2,"cloth")
+ add((0,0,1.22*scale),(.255,.155,.285),2,cloth_mat)
  add((0,0,1.56*scale),(.105,.105,.145),3,"skin")
  for side,bone in [(-1,4),(1,6)]:
-  add((side*.30*scale,0,1.27*scale),(.115,.12,.205),bone,"cloth")
-  add((side*.34*scale,0,1.00*scale),(.082,.09,.19),bone+1,"cloth")
+  add((side*.30*scale,0,1.27*scale),(.115,.12,.205),bone,cloth_mat)
+  add((side*.34*scale,0,1.00*scale),(.082,.09,.19),bone+1,cloth_mat)
   add((side*.35*scale,-.005,.80*scale),(.085,.09,.105),bone+1,"rubber")
  for side,bone in [(-1,8),(1,10)]:
-  add((side*.13*scale,0,.57*scale),(.115,.13,.285),bone,"cloth")
-  add((side*.13*scale,0,.205*scale),(.082,.095,.205),bone+1,"cloth")
+  add((side*.13*scale,0,.57*scale),(.115,.13,.285),bone,cloth_mat)
+  add((side*.13*scale,0,.205*scale),(.082,.095,.205),bone+1,cloth_mat)
   add((side*.13*scale,-.035,.055*scale),(.105,.16,.065),bone+1,"rubber")
  # Plate carrier with raised segmented plates, cummerbund and shoulder armor.
- add((0,-.148,1.25*scale),(.205,.035,.205),2,"armor","box")
- add((0,.145,1.25*scale),(.205,.035,.205),2,"armor","box")
+ add((0,-.148,1.25*scale),(.205,.035,.205),2,armor_mat,"box")
+ add((0,.145,1.25*scale),(.205,.035,.205),2,armor_mat,"box")
  add((0,-.157,1.08*scale),(.19,.035,.055),2,"webbing","box")
  for side in (-1,1):
-  add((side*.225,-.025,1.34*scale),(.105,.14,.105),2,"armor")
+  add((side*.225,-.025,1.34*scale),(.105,.14,.105),2,armor_mat)
   add((side*.21,-.15,1.18*scale),(.065,.035,.085),2,"webbing","box")
   add((side*.205,-.155,1.04*scale),(.055,.03,.07),2,"webbing","box")
-  add((side*.13,-.12,.62*scale),(.075,.045,.105),8 if side<0 else 10,"armor","box")
+  add((side*.13,-.12,.62*scale),(.075,.045,.105),8 if side<0 else 10,armor_mat,"box")
  # Role-specific head protection.
  if headgear in ("highcut","visor","heavy","juggernaut"):
-  add((0,0,1.68*scale),(.145,.135,.095),3,"armor")
+  add((0,0,1.68*scale),(.145,.135,.095),3,armor_mat)
   add((0,-.105,1.62*scale),(.12,.045,.025),3,"lens","box")
   add((.12,0,1.68*scale),(.035,.05,.04),3,"webbing","box")
  elif headgear=="hood":
-  add((0,.015,1.62*scale),(.14,.13,.14),3,"cloth")
+  add((0,.015,1.62*scale),(.14,.13,.14),3,cloth_mat)
  elif headgear=="balaclava":
-  add((0,0,1.59*scale),(.12,.115,.145),3,"cloth")
+  add((0,0,1.59*scale),(.12,.115,.145),3,cloth_mat)
  elif headgear=="wrap":
   add((0,0,1.68*scale),(.14,.13,.07),3,"webbing")
  else:
@@ -115,11 +115,11 @@ def build_parts(role, faction, archetype, scale, headgear):
   for z in (1.08,1.18):
    add((side*.115,-.185,z*scale),(.052,.035,.045),2,"webbing","box")
  add((.18,.155,1.29*scale),(.075,.065,.13),2,"webbing","box")
- add((-.18,.16,1.25*scale),(.09,.07,.16),2,"armor","box")
+ add((-.18,.16,1.25*scale),(.09,.07,.16),2,armor_mat,"box")
  if archetype in ("breacher","elite","juggernaut"):
-  add((0,-.19,1.42*scale),(.20,.04,.075),2,"armor","box")
+  add((0,-.19,1.42*scale),(.20,.04,.075),2,armor_mat,"box")
   for side in (-1,1):
-   add((side*.27,0,1.38*scale),(.105,.145,.13),2,"armor")
+   add((side*.27,0,1.38*scale),(.105,.145,.13),2,armor_mat)
  if archetype=="sniper":
   add((0,.20,1.18*scale),(.16,.09,.23),2,"webbing","box")
   add((-.2,-.1,1.48*scale),(.09,.04,.04),2,"lens")
@@ -127,12 +127,12 @@ def build_parts(role, faction, archetype, scale, headgear):
   add((-.20,.14,1.12*scale),(.07,.06,.17),2,"webbing","box")
  if archetype=="juggernaut":
   # Oversized layered armor and reinforced limbs; retains original intimidating identity.
-  add((0,-.19,1.27*scale),(.29,.075,.30),2,"armor","box")
-  add((0,.18,1.25*scale),(.29,.09,.31),2,"armor","box")
+  add((0,-.19,1.27*scale),(.29,.075,.30),2,armor_mat,"box")
+  add((0,.18,1.25*scale),(.29,.09,.31),2,armor_mat,"box")
   for side in (-1,1):
-   add((side*.29,0,1.42*scale),(.16,.17,.19),2,"armor")
-   add((side*.34,-.02,1.0*scale),(.115,.13,.18),7 if side>0 else 5,"armor")
-   add((side*.14,-.12,.57*scale),(.13,.06,.13),8 if side<0 else 10,"armor","box")
+   add((side*.29,0,1.42*scale),(.16,.17,.19),2,armor_mat)
+   add((side*.34,-.02,1.0*scale),(.115,.13,.18),7 if side>0 else 5,armor_mat)
+   add((side*.14,-.12,.57*scale),(.13,.06,.13),8 if side<0 else 10,armor_mat,"box")
   add((0,-.13,1.72*scale),(.15,.045,.035),3,"lens","box")
  return p
 def normal(a,b,c):
@@ -154,11 +154,10 @@ def write_smd(path,parts,s):
   f.write("end\ntriangles\n")
   for center,r,bone,mat,kind in parts:
    verts,faces=ellipsoid(center,r) if kind=="ell" else box(center,r)
-   pivot=jp[bone]
    for face in faces:
     tri=[verts[k] for k in face]; nx,ny,nz=normal(*tri);f.write(mat+"\n")
     for k,v in enumerate(tri):
-     f.write(f"{bone} {v[0]-pivot[0]:.6f} {v[1]-pivot[1]:.6f} {v[2]-pivot[2]:.6f} {nx:.6f} {ny:.6f} {nz:.6f} {k==1:.1f} {k==2:.1f} 1 {bone} 1.0\n")
+     f.write(f"{bone} {v[0]:.6f} {v[1]:.6f} {v[2]:.6f} {nx:.6f} {ny:.6f} {nz:.6f} {k==1:.1f} {k==2:.1f} 1 {bone} 1.0\n")
 def write_anim(path,s,walk=False):
  jp=bones_pos(s)
  with path.open("w",encoding="ascii",newline="\n") as f:
@@ -189,7 +188,7 @@ def generate(out):
  out=Path(out);out.mkdir(parents=True,exist_ok=True)
  for rid,fac,arch,cloth,armor,head,scale in ROLES:
   folder=out/rid;folder.mkdir(parents=True,exist_ok=True)
-  parts=build_parts(rid,fac,arch,scale,head)
+  parts=build_parts(rid,fac,arch,scale,head,cloth,armor)
   write_smd(folder/"model.smd",parts,scale)
   write_anim(folder/"idle.smd",scale);write_anim(folder/"walk.smd",scale,True)
   qc=f'''// CSSBC original armored operator source; complete player animation contract still required.
@@ -206,7 +205,7 @@ $sequence "walk" "walk.smd" fps 30 loop
  mat=out/"materials"/"models"/"cssbc"/"player";mat.mkdir(parents=True,exist_ok=True)
  for name,rgb in PALETTE.items():
   write_tga(mat/f"{name}.tga",rgb)
-  (mat/f"{name}.vmt").write_text('"VertexLitGeneric"\n{\n'+f' "$basetexture" "models/cssbc/player/{name}"\n "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\n "$surfaceprop" "cloth"\n'+'}\n',encoding="utf-8")
+  (mat/f"{name}.vmt").write_text('"VertexLitGeneric"\n{\n'+f' "$basetexture" "models/cssbc/player/{name}"\n "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\n "$surfaceprop" cloth_mat\n'+'}\n',encoding="utf-8")
  return out
 if __name__=="__main__":
  ap=argparse.ArgumentParser();ap.add_argument("--output",default=str(Path(__file__).resolve().parent/"generated"));a=ap.parse_args()
