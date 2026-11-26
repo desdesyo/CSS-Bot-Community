@@ -6,13 +6,28 @@
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111a20;color:#e8edf2;font:14px system-ui,sans-serif}#game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}#hud{position:fixed;inset:0;pointer-events:none}#top{position:absolute;top:12px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;text-shadow:0 2px 5px #000;font-weight:700}#brand{color:#8dd6c6;letter-spacing:2px}#stats{display:flex;gap:14px}#round{color:#c8d8e4}#roundState{color:#f4d58c}#health{color:#8de0ae}#ammo{color:#f4d58c}#hint{position:absolute;top:52px;left:14px;padding:6px 9px;border-radius:5px;background:#081116aa;color:#c5d1d6;font-size:12px}#cross{position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%)}#cross:before,#cross:after{content:"";position:absolute;background:#eafff3;box-shadow:0 0 3px #000}#cross:before{width:2px;height:18px;left:8px}#cross:after{height:2px;width:18px;top:8px}#bottom{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);padding:7px 12px;border-radius:5px;background:#081116aa;color:#c5d1d6;font-size:12px;white-space:nowrap}#touch{display:none;position:absolute;inset:0;pointer-events:none}#stick{position:absolute;left:22px;bottom:28px;width:120px;height:120px;border:2px solid #dce9e877;border-radius:50%;background:#10202b77;pointer-events:auto;touch-action:none}#nub{position:absolute;width:46px;height:46px;left:35px;top:35px;border-radius:50%;background:#b6d7d0bb}#fire,#reload{position:absolute;right:24px;bottom:42px;width:82px;height:82px;border-radius:50%;background:#8b352e;border:2px solid #e5a69f;color:white;font-weight:800;pointer-events:auto;touch-action:none}#reload{right:118px;bottom:30px;width:58px;height:58px;background:#31545d;border-color:#9ab8c0;font-size:11px}#look{position:absolute;right:0;top:70px;width:58%;height:58%;pointer-events:auto;touch-action:none}#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#081116dd;z-index:5}#card{max-width:420px;margin:18px;padding:24px;border:1px solid #49616a;border-radius:12px;background:#17252d;text-align:center;box-shadow:0 15px 60px #0009}#card h1{margin:0 0 8px;color:#8dd6c6;letter-spacing:2px}#card p{color:#c2cdd1;line-height:1.5}button{padding:12px 20px;border:1px solid #6ba89c;border-radius:7px;background:#24574e;color:white;font-weight:800;font-size:15px}#toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);padding:8px 14px;background:#111d;color:#fff;border-radius:6px;display:none}#rotateNotice{display:none;position:fixed;inset:0;z-index:8;background:#071117;color:#e8edf2;align-items:center;justify-content:center;text-align:center;padding:28px;font-weight:700;font-size:18px}#rotateNotice span{display:block;font-size:44px;margin-bottom:16px}@media(pointer:coarse) and (orientation:landscape){#stick{left:max(22px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom))}#fire{right:max(24px,env(safe-area-inset-right));bottom:max(28px,env(safe-area-inset-bottom))}#reload{right:max(118px,calc(env(safe-area-inset-right) + 94px));bottom:max(20px,env(safe-area-inset-bottom))}}
 @media(pointer:coarse){#touch{display:block}#bottom{display:none}#hint{font-size:11px}}
+
+#quick{position:fixed;right:12px;top:58px;z-index:4;display:flex;gap:6px;pointer-events:auto}
+#quick button{padding:7px 10px;font-size:11px;background:#172a32dd;border-color:#78949a}
+#panel{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;background:#071117dd;padding:16px}
+#panelCard{width:min(520px,96vw);max-height:90vh;overflow:auto;background:#17252d;border:1px solid #58717a;border-radius:12px;padding:20px;box-shadow:0 16px 60px #000b}
+#panelCard h2{margin:0 0 12px;color:#8dd6c6;letter-spacing:1px}
+#panelCard p{color:#c2cdd1}
+#panelActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+#panelActions button{flex:1;min-width:120px}
+#scoreTable{width:100%;border-collapse:collapse;font-size:13px}
+#scoreTable th,#scoreTable td{padding:8px 6px;border-bottom:1px solid #40545b;text-align:left}
+#scoreTable th{color:#8dd6c6}
+#panelHint{font-size:12px;color:#a9b8bd}
+@media(pointer:coarse){#quick{top:auto;right:10px;bottom:8px;gap:5px}#quick button{padding:8px;font-size:10px}#top{right:8px;left:8px}#stats{gap:6px;font-size:10px;flex-wrap:wrap;justify-content:flex-end;max-width:72%}}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="hud"><div id="top"><span id="brand">SOLO ENGINE · 3D FPS</span><div id="stats"><span id="round">ROUND 1 · 01:30</span><span id="roundState">ELIMINATE HOSTILES</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="frags">KILLS 0 · W 0 / L 0</span></div></div><div id="hint">WASD — движение · мышь — обзор · ЛКМ — огонь · R — перезарядка</div><div id="cross"></div><div id="bottom">Найди противников · укрывайся за бетонными блоками</div></div>
 <div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="reload">RELOAD</button><button id="fire">FIRE</button></div>
-<div id="toast"></div><div id="rotateNotice"><div><span>↻</span>Поверни телефон горизонтально<br><small>Игра SOLO Engine рассчитана на альбомную ориентацию</small></div></div>
+<div id="quick"><button id="pauseQuick">Ⅱ ПАУЗА</button><button id="scoreQuick">ТАБЛИЦА</button><button id="fullQuick">⛶ ЭКРАН</button></div>
+<div id="panel"><div id="panelCard"></div></div><div id="toast"></div><div id="rotateNotice"><div><span>↻</span>Поверни телефон горизонтально<br><small>Игра SOLO Engine рассчитана на альбомную ориентацию</small></div></div>
 <div id="overlay"><div id="card"><h1>SOLO ENGINE</h1><p>Первый 3D FPS-билд. Тренировочная карта, вид от первого лица, оружие и боты.</p><p>ПК: WASD + мышь. Телефон: левый стик + свайп по правой части экрана.</p><button id="start">ВОЙТИ В ИГРУ</button><p><a href="./import.html" style="color:#8dd6c6">ИМПОРТ ОРИГИНАЛЬНЫХ РЕСУРСОВ CS:S v34</a></p></div></div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -50,8 +65,27 @@ const bots=[];const botGeo=new THREE.CapsuleGeometry(.38,.82,4,8);const botSpawn
 function spawnBot(x,z){const g=new THREE.Group();const body=new THREE.Mesh(botGeo,enemyMat);body.position.y=.82;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),skin);head.position.y=1.55;head.castShadow=true;g.add(head);const vest=new THREE.Mesh(new THREE.BoxGeometry(.72,.48,.28),dark);vest.position.set(0,.92,.02);g.add(vest);const rifle=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.75),metal);rifle.position.set(.28,1.02,-.36);g.add(rifle);g.position.set(x,0,z);scene.add(g);bots.push({group:g,hp:100,alive:true,cool:Math.random()+.5,phase:Math.random()*6})}
 function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;for(const [x,z] of botSpawns)spawnBot(x,z)}
 spawnWave();
-const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
+const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let started=false,locked=false,paused=false,scoreVisible=false,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const toast=t=>{const e=document.querySelector('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',1500)};
+function showPanel(kind){
+ const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');
+ panel.style.display='flex';
+ if(kind==='score'){scoreVisible=true;card.innerHTML='<h2>ТАБЛИЦА ИГРОКОВ</h2><div id="scoreRows"></div><div id="panelActions"><button id="scoreBack">ЗАКРЫТЬ</button></div>';renderScore();document.querySelector('#scoreBack').onclick=()=>hidePanel();return}
+ paused=true;fire=false;card.innerHTML='<h2>ПАУЗА</h2><p>Игра остановлена. Таймер, боты и перемещение заморожены.</p><div id="panelActions"><button id="resumeGame">ПРОДОЛЖИТЬ</button><button id="showScore">ТАБЛИЦА</button><button id="exitFull">ВЫЙТИ ИЗ FULLSCREEN</button><button id="backStart">В МЕНЮ</button></div><p id="panelHint">Геймпад: START — пауза, SELECT — таблица, Y — полноэкранный режим. ESC — пауза.</p>';
+ document.querySelector('#resumeGame').onclick=()=>hidePanel();document.querySelector('#showScore').onclick=()=>showPanel('score');
+ document.querySelector('#exitFull').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();toast('Полноэкранный режим выключен')};
+ document.querySelector('#backStart').onclick=()=>{hidePanel();started=false;document.querySelector('#overlay').style.display='flex';if(document.fullscreenElement)document.exitFullscreen?.();document.exitPointerLock?.()};
+}
+function hidePanel(){document.querySelector('#panel').style.display='none';paused=false;scoreVisible=false}
+function renderScore(){
+ const rows=[{name:'YOU',team:'BLUE',kills,deaths:wins+losses,alive:hp>0?'В игре':'Погиб'}];
+ bots.forEach((b,i)=>rows.push({name:'BOT-'+String(i+1).padStart(2,'0'),team:'RED',kills:0,deaths:b.alive?0:1,alive:b.alive?'Жив':'Устранён'}));
+ const html='<table id="scoreTable"><thead><tr><th>ИГРОК</th><th>КОМАНДА</th><th>УБИЙСТВА</th><th>СМЕРТИ</th><th>СТАТУС</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+r.name+'</td><td>'+r.team+'</td><td>'+r.kills+'</td><td>'+r.deaths+'</td><td>'+r.alive+'</td></tr>').join('')+'</tbody></table>';
+ document.querySelector('#scoreRows').innerHTML=html;
+}
+function togglePause(){if(!started)return;if(paused){hidePanel();return}showPanel('pause')}
+function toggleFullscreen(){if(document.fullscreenElement)document.exitFullscreen?.();else document.documentElement.requestFullscreen?.().catch(()=>toast('Fullscreen недоступен'))}
+document.querySelector('#pauseQuick').onclick=togglePause;document.querySelector('#scoreQuick').onclick=()=>{if(!started)return;showPanel('score')};document.querySelector('#fullQuick').onclick=toggleFullscreen;
 function updateHud(){document.querySelector('#health').textContent='HP '+hp;document.querySelector('#ammo').textContent=ammo+' / '+reserve;document.querySelector('#frags').textContent='KILLS '+kills+' · W '+wins+' / L '+losses;document.querySelector('#round').textContent='ROUND '+roundNumber+' · '+String(Math.floor(roundRemaining/60)).padStart(2,'0')+':'+String(Math.ceil(roundRemaining%60)).padStart(2,'0');document.querySelector('#roundState').textContent=roundEnded?'NEXT ROUND '+Math.ceil(roundRestartIn)+'s':'ELIMINATE HOSTILES'}
 function finishRound(won,reason){if(roundEnded)return;roundEnded=true;roundRestartIn=4;if(won)wins++;else losses++;fire=false;toast((won?'РАУНД ВЫИГРАН — ':'РАУНД ПРОИГРАН — ')+reason);updateHud()}
 function resetRound(){roundNumber++;roundRemaining=90;roundEnded=false;roundRestartIn=0;hp=100;ammo=30;reserve=90;reload=0;shotCooldown=0;kills=0;camera.position.set(0,1.7,12);yaw=0;pitch=0;camera.rotation.set(0,0,0);spawnWave();updateHud()}
@@ -64,7 +98,8 @@ document.addEventListener('pointerlockchange',()=>locked=document.pointerLockEle
 canvas.addEventListener('click',()=>{if(started&&!matchMedia('(pointer:coarse)').matches&&!locked)canvas.requestPointerLock?.()});
 document.addEventListener('mousemove',e=>{if(locked)look(e.movementX,e.movementY)});
 const gameKeys=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','PageUp','PageDown','Home','End']);
-document.addEventListener('keydown',e=>{if(started&&(gameKeys.has(e.code)||e.code.startsWith('Key')||e.code.startsWith('Shift')))e.preventDefault();keys.add(e.code);if(e.code==='KeyR')reloadGun()});
+document.addEventListener('keydown',e=>{if(started&&(gameKeys.has(e.code)||e.code.startsWith('Key')||e.code.startsWith('Shift')))e.preventDefault();keys.add(e.code);if(e.code==='KeyR')reloadGun();if(e.code==='Escape'&&started){e.preventDefault();togglePause()}if(e.code==='Tab'&&started){e.preventDefault();if(!scoreVisible)showPanel('score');else hidePanel()}});
+document.addEventListener('keyup',e=>{if(e.code==='Tab'&&scoreVisible)hidePanel()});
 document.addEventListener('keyup',e=>{if(started&&gameKeys.has(e.code))e.preventDefault();keys.delete(e.code)});
 document.addEventListener('mousedown',e=>{if(e.button===0&&started)fire=true});document.addEventListener('mouseup',()=>fire=false);document.addEventListener('contextmenu',e=>e.preventDefault());
 let lookPointer=null,lastTouch=null;const lookArea=document.querySelector('#look');lookArea.addEventListener('pointerdown',e=>{lookPointer=e.pointerId;lastTouch={x:e.clientX,y:e.clientY};lookArea.setPointerCapture(e.pointerId)});lookArea.addEventListener('pointermove',e=>{if(e.pointerId===lookPointer&&lastTouch){look(e.clientX-lastTouch.x,e.clientY-lastTouch.y);lastTouch={x:e.clientX,y:e.clientY}}});lookArea.addEventListener('pointerup',()=>{lookPointer=null;lastTouch=null});lookArea.addEventListener('pointercancel',()=>{lookPointer=null;lastTouch=null});
@@ -73,7 +108,7 @@ const fireBtn=document.querySelector('#fire');fireBtn.addEventListener('pointerd
 function blocked(x,z){return Math.abs(x)>30||Math.abs(z)>28||[[-13,-8,3.9,1.5],[11,-13,4.4,1.6],[-5,9,4.9,1.5],[18,8,2.9,3],[-21,13,2.9,2],[2,-22,2.9,1.8]].some(([a,b,r,s])=>Math.abs(x-a)<r&&Math.abs(z-b)<s)}
 function updateOrientation(){document.querySelector('#rotateNotice').style.display=started&&matchMedia('(pointer:coarse)').matches&&innerHeight>innerWidth?'flex':'none'}
 addEventListener('resize',updateOrientation);screen.orientation?.addEventListener?.('change',updateOrientation);
-let activeGamepadIndex=null;
+let activeGamepadIndex=null,gamepadPauseWasDown=false,gamepadFullWasDown=false;
 addEventListener('gamepadconnected',e=>{activeGamepadIndex=e.gamepad.index;toast('Геймпад подключён')});
 addEventListener('gamepaddisconnected',e=>{if(activeGamepadIndex===e.gamepad.index)activeGamepadIndex=null;toast('Геймпад отключён')});
 function readGamepad(){
@@ -81,23 +116,33 @@ function readGamepad(){
  let p=activeGamepadIndex===null?Array.from(pads).find(g=>g&&g.connected):pads[activeGamepadIndex];
  if(!p||!p.connected){p=Array.from(pads).find(g=>g&&g.connected);activeGamepadIndex=p?p.index:null}
  if(!p)return {x:0,y:0,lookX:0,lookY:0,fire:false};
- const dead=v=>Math.abs(v)<.16?0:v;
+ const dead=v=>{const a=Math.abs(v);return a<.18?0:Math.sign(v)*((a-.18)/.82)};
  const pressed=i=>!!p.buttons[i]?.pressed;
- const reloadDown=pressed(2)||pressed(3)||pressed(1);
+ const reloadDown=pressed(2);
  if(reloadDown&&!gamepadReloadWasDown)reloadGun();
  gamepadReloadWasDown=reloadDown;
- // Некоторые Android-геймпады отдают оси левого стика в обратной полярности.
- // Инвертируем только перемещение; правый стик (обзор камеры) оставляем без изменений.
- return {x:-dead(p.axes[0]||0),y:-dead(p.axes[1]||0),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
+ const pauseDown=pressed(9);
+ if(pauseDown&&!gamepadPauseWasDown)togglePause();
+ gamepadPauseWasDown=pauseDown;
+ const fullDown=pressed(3);
+ if(fullDown&&!gamepadFullWasDown)toggleFullscreen();
+ gamepadFullWasDown=fullDown;
+ const scoreDown=pressed(8);
+ if(scoreDown&&!scoreVisible&&started&&!paused)showPanel('score');
+ if(!scoreDown&&scoreVisible)hidePanel();
+ // Standard Gamepad mapping: left stick X/Y = axes 0/1; up is negative Y.
+ return {x:dead(p.axes[0]||0),y:dead(p.axes[1]||0),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),.04);if(!started){renderer.render(scene,camera);return}
 const pad=readGamepad();
+if(paused){renderer.render(scene,camera);return}
 if(!roundEnded){roundRemaining=Math.max(0,roundRemaining-dt);if(roundRemaining===0)finishRound(false,'время вышло')}
 if(roundEnded){roundRestartIn-=dt;if(roundRestartIn<=0)resetRound();renderer.render(scene,camera);return}
 if(shotCooldown>0)shotCooldown-=dt;if(reload>0){reload-=dt;if(reload<=0){const n=Math.min(30-ammo,reserve);ammo+=n;reserve-=n;updateHud()}}
 if(fire||pad.fire)shoot();
+if(scoreVisible)renderScore();
 if(pad.lookX||pad.lookY)look(pad.lookX*dt*950,pad.lookY*dt*950);
 const forward=(keys.has('KeyW')||keys.has('ArrowUp')?-1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0)+moveStick.y+pad.y;
 const side=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)+(keys.has('KeyA')||keys.has('ArrowLeft')?-1:0)+moveStick.x+pad.x;
