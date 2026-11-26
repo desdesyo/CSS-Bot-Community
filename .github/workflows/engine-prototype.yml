@@ -53,8 +53,13 @@ jobs:
           if (!html.includes("box(0,5.92,0,63,.22,59,roofMat,false)")) throw new Error('Warehouse roof deck is missing');
           if (html.includes("for(let z=-24;z<=24;z+=12)")) throw new Error('Dense roof lattice regression: use the simplified roof layout');
           if (!html.includes('function analyzeControlLogs(') || !html.includes('diagnostics:analyzeControlLogs(controlLogs)')) throw new Error('Control log analyzer and uploaded diagnostics summary are required');
-          if (!html.includes('function updateAimSensitivity(dt)') || !html.includes('dynamicLookSensitivity')) throw new Error('Distance-based right-stick sensitivity is required');
-          if (!html.includes('qualityScale=isTouchDevice?1.0:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
+          if (!html.includes('function updateAimSensitivity(dt)') || !html.includes('dynamicLookSensitivity')) throw new Error('Aim sensitivity controller is required');
+          if (!html.includes('fireBtn.addEventListener(\'pointermove\'') || !html.includes('applyTouchLook(dx,dy)')) throw new Error('Touch fire button must support simultaneous fire-and-look drag');
+          if (!html.includes('dynamicLookSensitivity=(fire||pad.fire)?1:')) throw new Error('Right-stick sensitivity must not be reduced while firing');
+          if (!html.includes('sepX+=ox/od*push*2.6') || !html.includes('Final pairwise separation prevents overlapping capsules')) throw new Error('Bot collision avoidance and separation are required');
+          if (!html.includes('b.group.rotation.y+=turnDelta*Math.min(1,dt*12)')) throw new Error('Bot yaw must interpolate without unstable full-angle snaps');
+          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('minQuality=isTouchDevice?1.05:1.0,maxQuality=isTouchDevice?1.65:1.75')) throw new Error('Mobile render quality must not be capped at one pixel per CSS pixel');
+          if (!html.includes('qualityScale=isTouchDevice?1.35:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
           if (!html.includes('livingAllies=[],livingEnemies=[]') || !html.includes('b.losTimer=.14')) throw new Error('Bot AI work must reuse team lists and throttle line-of-sight checks');
           if (!html.includes('if(!isTouchDevice){const lamp=new THREE.PointLight')) throw new Error('Mobile point-light budget must be limited');
