@@ -13,6 +13,9 @@ The same browser client runs on Android and desktop:
 - Offline single-player training with five simple bots.
 - Redesigned HUD: GTA V-inspired live minimap (player heading, ally/enemy markers, cover and bomb site), plus Soul Knight-inspired readable status bars.
 - HP and armor bars are functional; armor absorbs part of incoming damage before HP.
+- Camera field of view widened to 86° to reduce the oversized close-up feel and show more of the arena; player movement reduced from 7.2 to 4.6 world units/s and bot movement was reduced proportionally.
+- The problematic external rigged Soldier model is no longer loaded in the training round; the compact procedural soldier is retained until the imported skeleton/animation can be corrected. No oversized Juggernaut class is present in this prototype.
+- Grenades now use a recognizable segmented body and throw animation, a visible arcing projectile with bounce and a 2.65-second fuse, plus an expanding flash/ring and particle burst on detonation.
 - The third meter occupies the former mana slot as a reserved placeholder for future per-character team trust. It is intentionally inactive and does not yet represent a gameplay trust value.
 - Desktop minimap sits at bottom-left; Android moves it to the upper-left so it does not overlap the movement joystick.
 - Optional WebSocket session connection for phone + PC in the same room.
