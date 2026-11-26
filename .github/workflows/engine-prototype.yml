@@ -74,7 +74,7 @@ jobs:
           if (!html.includes('const l1Down=pressed(4)') || !html.includes('selectWheelByPoint(innerWidth/2+rx*110')) throw new Error('Android gamepad L1 + right-stick weapon wheel handling is required');
           if (!html.includes('id="weaponSelect"')) throw new Error('Touchscreen weapon selector control is required');
           if (!html.includes('function mobileTouchOnly()') || !html.includes('handleMobileEmptyMagazine')) throw new Error('Automatic ammo fallback must remain touch-only');
-          if (!html.includes('function throwGrenade()') || !html.includes('if(p.explosive){const center=to.clone()')) throw new Error('Grenade throw and area damage behavior is required');
+          if (!html.includes('function throwGrenade()') || !html.includes('function spawnGrenadeProjectile(') || !html.includes('p.fuse<=0') || !html.includes('function createGrenadeExplosion(') || !html.includes('grenadeThrowAnim=1')) throw new Error('Grenade mesh, throw animation, fuse and visible explosion are required');
           if (!html.includes('function knifeAttack()')) throw new Error('Knife melee attack is required');
           if (!html.includes('id="miniMap"') || !html.includes('function drawMinimap(')) throw new Error('Live minimap canvas and renderer are required');
           if (!html.includes("b.team==='ally'?'#65d7d0':'#ff6557'") || !html.includes('ctx.rotate(-yaw)')) throw new Error('Minimap must show team markers and player heading');
