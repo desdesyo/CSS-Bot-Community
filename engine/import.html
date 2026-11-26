@@ -28,7 +28,7 @@ async function inspect(file,path){
  if(e==='vpk'){valid=head[0]===0x34&&head[1]===0x12&&head[2]===0xaa&&head[3]===0x55;detail=valid?'VPK signature 0x55AA1234':'Неизвестная сигнатура VPK'}
  else if(e==='bsp'){valid=ascii(head.slice(0,4))==='VBSP';detail=valid?'Source BSP header':'Ожидалась сигнатура VBSP'}
  else if(e==='mdl'){valid=ascii(head.slice(0,4))==='IDST';detail=valid?'Studio MDL header':'Ожидалась сигнатура IDST'}
- else if(e==='vtf'){valid=ascii(head.slice(0,4))==='VTF\\0';detail=valid?'Valve Texture Format':'Ожидалась сигнатура VTF'}
+ else if(e==='vtf'){valid=(ascii(head.slice(0,3))==='VTF'&&head[3]===0);detail=valid?'Valve Texture Format':'Ожидалась сигнатура VTF'}
  else if(e==='wav'){valid=ascii(head.slice(0,4))==='RIFF'&&ascii(head.slice(8,12))==='WAVE';detail=valid?'RIFF/WAVE':'Не WAV RIFF'}
  else if(e==='vtx'){valid=file.size>16;detail='VTX binary (структурная проверка будет на этапе конвертера)'}
  else if(e==='vvd'){valid=ascii(head.slice(0,4))==='IDSV';detail=valid?'Studio VVD header':'Ожидалась сигнатура IDSV'}
@@ -53,7 +53,7 @@ async function importFiles(list){
   done++;$('progress').value=Math.round(done/chosen.length*100);$('status').textContent='Обработано '+done+' / '+chosen.length;
  }
  manifest.summary={files:chosen.length,valid:ok,warning:bad,totalBytes:total};
- tx.objectStore(META).put({id:'current',manifest});await txDone(tx);db.close();
+ const db=await dbOpen(),tx=db.transaction([STORE,META],'readwrite');for(const item of pending)tx.objectStore(STORE).put(item);tx.objectStore(META).put({id:'current',manifest});await txDone(tx);db.close();
  $('summary').textContent='Импортировано локально: '+ok+' корректных · '+bad+' с предупреждениями · '+chosen.length+' всего.';
  $('status').textContent='Готово. Файлы находятся только в IndexedDB этого браузера на этом устройстве.';
  $('manifest').disabled=false;await refreshStorage();
