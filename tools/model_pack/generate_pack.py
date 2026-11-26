@@ -41,7 +41,7 @@ def joints(s):
 
 def cuboids(s, helmet):
     p = [
-        ((0,0,.92*s),(.19*s,.12*s,.14*s),1,"gear_olive"),
+        ((0,0,.92*s),(.19*s,.12*s,.14*s),1,"gear"),
         ((0,0,1.22*s),(.23*s,.13*s,.27*s),2,"cloth"),
         ((0,-.137*s,1.22*s),(.18*s,.025*s,.19*s),2,"gear"),
         ((0,0,1.58*s),(.115*s,.11*s,.13*s),3,"skin"),
@@ -82,7 +82,7 @@ def write_nodes(f):
         f.write(f'{i} "{n}" {parent}\n')
     f.write("end\n")
 
-def write_skeleton_frame(f, frame, s, breathing=0.0):
+def write_skeleton_frame(f, frame, s, breathing=0.0, walk_phase=None):
     j=joints(s)
     f.write(f"time {frame}\n")
     for i,n,parent in BONES:
@@ -145,6 +145,15 @@ def write_tga(path, rgb):
             pixels.extend((b,g,r,255))
     path.write_bytes(header+pixels)
 
+def write_walk(path, scale):
+    with path.open("w",encoding="ascii",newline="\n") as f:
+        f.write("version 1\n")
+        write_nodes(f)
+        f.write("skeleton\n")
+        for frame in range(31):
+            write_skeleton_frame(f,frame,scale,0.0,2.0*math.pi*frame/30.0)
+        f.write("end\n")
+
 def generate(output):
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
@@ -153,6 +162,7 @@ def generate(output):
         folder.mkdir(parents=True,exist_ok=True)
         write_reference(folder/"model.smd",cloth,gear,scale,helmet)
         write_idle(folder/"idle.smd",scale)
+        write_walk(folder/"walk.smd",scale)
         qc=f'''// Original CSSBC procedural character source.
 $modelname "cssbc/player/{role}.mdl"
 $body "body" "model.smd"
@@ -161,6 +171,7 @@ $surfaceprop "flesh"
 $eyeposition 0 0 1.60
 $illumposition 0 0 0.9
 $sequence "idle" "idle.smd" fps 30 loop
+$sequence "walk" "walk.smd" fps 30 loop
 '''
         (folder/f"{role}.qc").write_text(qc,encoding="utf-8")
     matdir=output/"materials"/"models"/"cssbc"/"player"
