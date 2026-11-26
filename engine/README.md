@@ -11,6 +11,10 @@ The same browser client runs on Android and desktop:
 - Weapon wheel slots: primary rifle, pistol, grenade and knife. Rifle/pistol have separate magazines and reserve ammo; grenade has a limited count and area damage; knife is a short-range melee attack.
 - Touch-only mobile assist: automatically switches to the other firearm when the current magazine empties; reload starts automatically only after both firearm magazines are empty. This assist is disabled whenever a gamepad is connected and is not enabled on PC.
 - Offline single-player training with five simple bots.
+- Redesigned HUD: GTA V-inspired live minimap (player heading, ally/enemy markers, cover and bomb site), plus Soul Knight-inspired readable status bars.
+- HP and armor bars are functional; armor absorbs part of incoming damage before HP.
+- The third meter occupies the former mana slot as a reserved placeholder for future per-character team trust. It is intentionally inactive and does not yet represent a gameplay trust value.
+- Desktop minimap sits at bottom-left; Android moves it to the upper-left so it does not overlap the movement joystick.
 - Optional WebSocket session connection for phone + PC in the same room.
 
 Open `client/index.html` through a local static web server (for example `python -m http.server 8000` from `engine`) or host `client/` as a static site. For secure remote browser access, serve the client over HTTPS.
