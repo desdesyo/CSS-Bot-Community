@@ -40,13 +40,13 @@ async function importFiles(list){
  const all=Array.from(list),chosen=all.filter(f=>ext(f.webkitRelativePath||f.name)&&exts.has(ext(f.webkitRelativePath||f.name)));
  if(!chosen.length){$('status').textContent='Не найдены поддерживаемые файлы. Выбери cstrike или VPK/BSP и связанные файлы.';return}
  const total=chosen.reduce((n,f)=>n+f.size,0);$('status').textContent='Найдено '+chosen.length+' ресурсов ('+(total/1048576).toFixed(1)+' МБ). Проверяю…';$('progress').value=0;$('results').innerHTML='';
- const db=await dbOpen(),tx=db.transaction([STORE,META],'readwrite'),store=tx.objectStore(STORE),records=[];let ok=0,bad=0,done=0;
+ const pending=[];let ok=0,bad=0,done=0;
  manifest={schema:1,game:'Counter-Strike: Source',variant:'v34 (user supplied)',createdAt:new Date().toISOString(),files:[],summary:{}};
  for(const f of chosen){
   const path=(f.webkitRelativePath||f.name).replace(/^.*?cstrike\//i,'').replace(/^cstrike\//i,'');
   try{
    const check=await inspect(f,path),record={path,size:f.size,type:f.type||'',format:ext(path),category:classify(path),valid:check.valid,validation:check.detail,sha256:check.hash||null};
-   records.push(record);manifest.files.push(record);store.put({path,blob:f,size:f.size,format:record.format,sha256:record.sha256,importedAt:manifest.createdAt});
+   pending.push({path,blob:f,size:f.size,format:record.format,sha256:record.sha256,importedAt:manifest.createdAt});manifest.files.push(record);
    if(check.valid)ok++;else bad++;
    const li=document.createElement('div');li.textContent=(check.valid?'✓ ':'⚠ ')+path+' — '+check.detail;$('results').append(li);
   }catch(err){bad++;manifest.files.push({path,size:f.size,format:ext(path),valid:false,validation:String(err)})}
