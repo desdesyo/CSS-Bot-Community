@@ -11,6 +11,7 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 ## Core systems
 
 - Support tiers: $1k / $3k / $9k squad / $16k Juggernaut (NPC support tiers are design targets; squad spawning is not implemented).
+- 27-character model registry with faction and support-tier model-path lookup. Windows compile/install pipeline is in tools/model_pack/install_css_v34.ps1; it requires the matching v34 studiomdl/vtex toolchain. The game-side model assignment adapter is not yet implemented.
 - Juggernaut purchase and health configuration.
 - Six individually damageable armor plates (core/design stage; not wired to CS:S player entities).
 - Tactical decision brain (bomb retake, trade, escort, retreat, objective push/rotate) with squad role orders.
