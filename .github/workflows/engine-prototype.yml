@@ -23,10 +23,11 @@ jobs:
           const fs = require('node:fs');
           const { execFileSync } = require('node:child_process');
           const html = fs.readFileSync('engine/play.html', 'utf8');
-          const moduleScript = html.match(/<script type="module">([\\s\\S]*?)<\\/script>/);
-          if (!moduleScript) throw new Error('SOLO Engine module script is missing');
+          const moduleStart = html.indexOf('<script type="module">');
+          const moduleEnd = html.indexOf('</script>', moduleStart);
+          if (moduleStart < 0 || moduleEnd < 0) throw new Error('SOLO Engine module script is missing');
           const modulePath = '/tmp/solo-engine-inline.mjs';
-          fs.writeFileSync(modulePath, moduleScript[1]);
+          fs.writeFileSync(modulePath, html.slice(moduleStart + '<script type="module">'.length, moduleEnd));
           execFileSync(process.execPath, ['--check', modulePath], { stdio: 'inherit' });
           const declaration = html.indexOf('let controlLogs=');
           const firstRead = html.indexOf('if(controlLogs.length)');
