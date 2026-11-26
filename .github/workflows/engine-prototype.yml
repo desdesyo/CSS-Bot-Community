@@ -43,6 +43,15 @@ jobs:
             throw new Error('Gamepad axis selection and reset controls are required');
           }
           if (!html.includes('lastPadPanelRefresh>150')) throw new Error('Gamepad diagnostics refresh must be throttled');
+          if (!html.includes("Math.atan2(-dxp,-dzp)")) throw new Error('Bot weapon facing must point toward its selected target');
+          if (!html.includes("spawnTracer(muzzleFrom,targetPoint")) throw new Error('Bot shots must have visible muzzle/tracer feedback');
+          if (!html.includes("muzzleFlash.visible=b.flashTime>0")) throw new Error('Bot muzzle flash state must be animated');
+          if (!html.includes("headshot?100:bodyHit?34:20")) throw new Error('Player damage must distinguish head, body, and limb/equipment hits');
+          if (!html.includes("const RELOAD_DURATION=1.6")) throw new Error('Reload duration must be shared by timing and animation');
+          if (!html.includes("magazine.position.y=-.51-")) throw new Error('Reload must animate the magazine, not only tilt the weapon');
+          if (!html.includes("new THREE.CylinderGeometry(.235,.29,.58,10,1)")) throw new Error('Bot torso must use a shaped tapered silhouette');
+          if (!html.includes("box(0,5.92,0,63,.22,59,roofMat,false)")) throw new Error('Warehouse roof deck is missing');
+          if (html.includes("for(let z=-24;z<=24;z+=12)")) throw new Error('Dense roof lattice regression: use the simplified roof layout');
           if (!html.includes('function analyzeControlLogs(') || !html.includes('diagnostics:analyzeControlLogs(controlLogs)')) throw new Error('Control log analyzer and uploaded diagnostics summary are required');
           if (!html.includes('function updateAimSensitivity(dt)') || !html.includes('dynamicLookSensitivity')) throw new Error('Distance-based right-stick sensitivity is required');
           if (!html.includes('qualityScale=isTouchDevice?1.0:1.5') || !html.includes('measuredFps<43')) throw new Error('Adaptive render resolution is required');
