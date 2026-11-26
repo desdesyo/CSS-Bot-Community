@@ -90,7 +90,7 @@ const coverPoints=[[-17,-5],[5,-16],[15,1],[-10,17],[24,12],[-25,7]];const bots=
 function spawnBot(x,z,team='enemy'){
  const g=new THREE.Group(),ally=team==='ally';
  const palette=ally?{cloth:0x344f62,vest:0x263f51,armor:0x45677c,helmet:0x263f54,pad:0x1c303d,skin:0x987b64,web:0x182a34}: {cloth:0x3b4437,vest:0x30392d,armor:0x56604a,helmet:0x30382e,pad:0x252d23,skin:0x987b64,web:0x20271e};
- const cloth=mat(palette.cloth),vestMat=mat(palette.vest),armor=mat(palette.armor),helmetMat=mat(palette.helmet),padMat=mat(palette.pad),skinMat=mat(palette.skin),web=mat(palette.web),darkMetal=mat(0x171c1b,.7),glass=mat(0x182a2b,.22);
+ const moving=[];const cloth=mat(palette.cloth),vestMat=mat(palette.vest),armor=mat(palette.armor),helmetMat=mat(palette.helmet),padMat=mat(palette.pad),skinMat=mat(palette.skin),web=mat(palette.web),darkMetal=mat(0x171c1b,.7),glass=mat(0x182a2b,.22);
  const add=(geo,m,xp,yp,zp,rx=0,ry=0,rz=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(xp,yp,zp);o.rotation.set(rx,ry,rz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o};
  const box=(w,h,d,m,xp,yp,zp,rx=0,ry=0,rz=0)=>add(new THREE.BoxGeometry(w,h,d),m,xp,yp,zp,rx,ry,rz);
  const capsule=(r,len,m,xp,yp,zp,rz=0)=>add(new THREE.CapsuleGeometry(r,len,5,10),m,xp,yp,zp,0,0,rz);
@@ -120,23 +120,23 @@ function spawnBot(x,z,team='enemy'){
   box(.11,.12,.035,armor,sx*.235,.91,-.35);
   box(.055,.23,.055,web,sx*.12,1.16,-.19);
   // articulated arms with elbow pads and gloves
-  const upper=capsule(.085,.27,cloth,sx*.39,1.12,-.015,sx*-.18);
+  const upper=capsule(.085,.27,cloth,sx*.39,1.12,-.015,sx*-.18);moving.push(upper);
   sphere(.095,armor,sx*.405,1.27,-.018,1,1,.95);
-  const fore=capsule(.073,.26,cloth,sx*.43,.91,-.12,sx*.32);
+  const fore=capsule(.073,.26,cloth,sx*.43,.91,-.12,sx*.32);moving.push(fore);
   sphere(.078,padMat,sx*.43,.91,-.13);
   const glove=sphere(.075,web,sx*.43,.75,-.19,.9,.85,1.1);
-  box(.12,.035,web,sx*.43,.79,-.19);
+  box(.12,.035,.025,web,sx*.43,.79,-.19);
   // legs and knee protection, with separate boots
-  capsule(.115,.36,cloth,sx*.145,.48,0,sx*-.035);
+  const thigh=capsule(.115,.36,cloth,sx*.145,.48,0,sx*-.035);moving.push(thigh);
   box(.19,.14,armor,sx*.145,.42,-.11);
   box(.16,.17,padMat,sx*.145,.4,-.185);
-  box(.18,.12,web,sx*.145,.31,-.015);
+  box(.18,.12,.035,web,sx*.145,.31,-.015);
   box(.19,.15,darkMetal,sx*.145,.105,-.065);
   box(.2,.07,padMat,sx*.145,.055,-.11);
   // thigh cargo pocket and straps
   box(.13,.18,vestMat,sx*.15,.56,-.105);
-  box(.14,.025,web,sx*.15,.58,-.177);
-  box(.025,.13,web,sx*.15,.55,-.19);
+  box(.14,.025,.025,web,sx*.15,.58,-.177);
+  box(.025,.13,.025,web,sx*.15,.55,-.19);
  }
  // Backpack, radio, antenna, utility belt and side holster.
  box(.39,.48,.2,padMat,0,1.08,.205);
@@ -145,7 +145,7 @@ function spawnBot(x,z,team='enemy'){
  cylinder(.018,.018,.34,darkMetal,.22,1.42,.16);
  box(.18,.17,vestMat,-.36,1.05,.035);
  box(.12,.22,padMat,-.37,.88,-.005);
- box(.55,.075,web,0,.82,-.015);
+ box(.55,.075,.035,web,0,.82,-.015);
  box(.13,.16,darkMetal,.34,.82,-.03);
  // Rifle held across the chest: stock, receiver, handguard, magazine, sights and barrel.
  const rifle= new THREE.Group();rifle.position.set(.23,1.03,-.29);rifle.rotation.z=-.08;g.add(rifle);
@@ -163,8 +163,6 @@ function spawnBot(x,z,team='enemy'){
  box(.08,.13,.045,padMat,-.32,1.28,-.12);
  box(.045,.035,.012,armor,-.32,1.29,-.15);
  g.position.set(x,0,z);scene.add(g);
- const visual={arms:g.children.filter((o,i)=>false),legs:g.children.filter((o,i)=>false)};
- const moving=g.children.filter(o=>o.geometry&&o.geometry.type==='CapsuleGeometry');
  bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6,index:bots.length,team,role:['cover','flank','push'][bots.length%3],moving});
 }function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'))}
 spawnWave();
@@ -280,7 +278,7 @@ for(const b of bots){if(!b.alive)continue;
  if(b.team==='enemy'){const d=Math.hypot(camera.position.x-p.x,camera.position.z-p.z);target={player:true,x:camera.position.x,z:camera.position.z};targetDist=d}
  for(const candidate of hostiles){const d=Math.hypot(candidate.group.position.x-p.x,candidate.group.position.z-p.z);if(d<targetDist){target={bot:candidate,x:candidate.group.position.x,z:candidate.group.position.z};targetDist=d}}
  if(!target)continue;
- const dxp=target.x-p.x,dzp=target.z-p.z,dist=targetDist,ang=Math.atan2(dxp,dzp);b.cool-=dt;b.phase+=dt;b.group.rotation.y=ang;for(let j=0;j<b.moving.length;j++){const limb=b.moving[j];if(j>=2){limb.rotation.z=Math.sin(b.phase*7+(j%2)*Math.PI)*.16;limb.position.y=(j%2===0?.48:.48)+Math.max(0,Math.sin(b.phase*7+(j%2)*Math.PI))*.025}}
+ const dxp=target.x-p.x,dzp=target.z-p.z,dist=targetDist,ang=Math.atan2(dxp,dzp);b.cool-=dt;b.phase+=dt;b.group.rotation.y=ang;for(let j=0;j<b.moving.length;j++){const limb=b.moving[j],swing=Math.sin(b.phase*7+(j%2)*Math.PI);limb.rotation.z=(j%3===2?0.035:0)+swing*.12;}for(let j=0;j<b.moving.length;j++){const limb=b.moving[j];if(j>=2){limb.rotation.z=Math.sin(b.phase*7+(j%2)*Math.PI)*.16;limb.position.y=(j%2===0?.48:.48)+Math.max(0,Math.sin(b.phase*7+(j%2)*Math.PI))*.025}}
  const clear=(()=>{const steps=Math.ceil(dist/.65);for(let i=1;i<steps;i++){const t=i/steps;if(blocked(p.x+dxp*t,p.z+dzp*t))return false}return true})();
  const flankSide=b.index%2===0?1:-1;let tx=target.x-Math.sin(ang)*7+Math.cos(ang)*flankSide*(b.role==='flank'?4:1.5),tz=target.z-Math.cos(ang)*7-Math.sin(ang)*flankSide*(b.role==='flank'?4:1.5);if(b.team==='enemy'&&!bombPlanted){tx=bombSite.x;tz=bombSite.z}
  if(b.role==='cover'&&dist<18){const cover=coverPoints.reduce((best,c)=>Math.hypot(c[0]-target.x,c[1]-target.z)<Math.hypot(best[0]-target.x,best[1]-target.z)?c:best,coverPoints[0]);tx=cover[0];tz=cover[1]}
