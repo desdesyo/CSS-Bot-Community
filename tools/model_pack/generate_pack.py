@@ -76,14 +76,14 @@ def triangles(center, half):
     return [(v[i],v[j],v[k]) for i,j,k in faces]
 
 def write_nodes(f):
-    f.write("nodes\\n")
+    f.write("nodes\n")
     for i,n,parent in BONES:
-        f.write(f'{i} "{n}" {parent}\\n')
-    f.write("end\\n")
+        f.write(f'{i} "{n}" {parent}\n')
+    f.write("end\n")
 
 def write_skeleton_frame(f, frame, s, breathing=0.0):
     j=joints(s)
-    f.write(f"time {frame}\\n")
+    f.write(f"time {frame}\n")
     for i,n,parent in BONES:
         x,y,z=j[i]
         if parent >= 0:
@@ -92,7 +92,7 @@ def write_skeleton_frame(f, frame, s, breathing=0.0):
         # Tiny torso/head movement for a subtle idle loop.
         if i == 2: z += breathing
         if i == 3: z += breathing * .35
-        f.write(f"{i} {x:.6f} {y:.6f} {z:.6f} 0 0 0\\n")
+        f.write(f"{i} {x:.6f} {y:.6f} {z:.6f} 0 0 0\n")
 
 def normal_of(tri):
     a,b,c=tri
@@ -104,33 +104,33 @@ def normal_of(tri):
 
 def write_reference(path, cloth, gear, scale, helmet):
     j=joints(scale)
-    with path.open("w",encoding="ascii",newline="\\n") as f:
-        f.write("version 1\\n")
+    with path.open("w",encoding="ascii",newline="\n") as f:
+        f.write("version 1\n")
         write_nodes(f)
-        f.write("skeleton\\n")
+        f.write("skeleton\n")
         write_skeleton_frame(f,0,scale)
-        f.write("end\\ntriangles\\n")
+        f.write("end\ntriangles\n")
         for center,half,bone,mat in cuboids(scale,helmet):
             material=cloth if mat=="cloth" else gear if mat=="gear" else mat
             pivot=j[bone]
             for tri in triangles(center,half):
                 nx,ny,nz=normal_of(tri)
-                f.write(material+"\\n")
+                f.write(material+"\n")
                 for idx,point in enumerate(tri):
                     x,y,z=(point[k]-pivot[k] for k in range(3))
                     uv=((0,0),(1,0),(1,1))[idx]
-                    f.write(f"{bone} {x:.6f} {y:.6f} {z:.6f} {nx:.6f} {ny:.6f} {nz:.6f} {uv[0]} {uv[1]} 1 {bone} 1.0\\n")
-        f.write("end\\n")
+                    f.write(f"{bone} {x:.6f} {y:.6f} {z:.6f} {nx:.6f} {ny:.6f} {nz:.6f} {uv[0]} {uv[1]} 1 {bone} 1.0\n")
+        f.write("end\n")
 
 def write_idle(path, scale):
-    with path.open("w",encoding="ascii",newline="\\n") as f:
-        f.write("version 1\\n")
+    with path.open("w",encoding="ascii",newline="\n") as f:
+        f.write("version 1\n")
         write_nodes(f)
-        f.write("skeleton\\n")
+        f.write("skeleton\n")
         write_skeleton_frame(f,0,scale,0.0)
         write_skeleton_frame(f,15,scale,0.012*scale)
         write_skeleton_frame(f,30,scale,0.0)
-        f.write("end\\n")
+        f.write("end\n")
 
 def generate(output):
     output=Path(output)
@@ -154,10 +154,10 @@ $sequence "idle" "idle.smd" fps 30 loop
     matdir.mkdir(parents=True,exist_ok=True)
     for name,rgb in MATERIALS.items():
         (matdir/f"{name}.vmt").write_text(
-            '"VertexLitGeneric"\\n{\\n'
-            f'  "$basetexture" "models/cssbc/player/{name}"\\n'
-            f'  "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\\n'
-            '  "$surfaceprop" "cloth"\\n}\\n',encoding="utf-8")
+            '"VertexLitGeneric"\n{\n'
+            f'  "$basetexture" "models/cssbc/player/{name}"\n'
+            f'  "$color" "[{rgb[0]} {rgb[1]} {rgb[2]}]"\n'
+            '  "$surfaceprop" "cloth"\n}\n',encoding="utf-8")
     return output
 
 if __name__=="__main__":
