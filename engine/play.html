@@ -30,8 +30,14 @@
 <div id="quick"><button id="pauseQuick">Ⅱ ПАУЗА</button><button id="scoreQuick">ТАБЛИЦА</button><button id="logsQuick">ЛОГИ</button></div>
 <div id="panel"><div id="panelCard"></div></div><div id="toast"></div><div id="rotateNotice"><div><span>↻</span>Поверни телефон горизонтально<br><small>Игра SOLO Engine рассчитана на альбомную ориентацию</small></div></div>
 <div id="overlay"><div id="card"><h1>SOLO ENGINE</h1><p>Первый 3D FPS-билд. Тренировочная карта, вид от первого лица, оружие и боты.</p><p>ПК: WASD + мышь. Телефон: левый стик + свайп по правой части экрана.</p><button id="start">ВОЙТИ В ИГРУ</button><p><button id="openPadMenu" style="font-size:12px;padding:9px 12px">ПРОВЕРИТЬ ГЕЙМПАД</button></p><p><a href="./import.html" style="color:#8dd6c6">ИМПОРТ ОРИГИНАЛЬНЫХ РЕСУРСОВ CS:S v34</a></p></div></div>
+<div id="engineError" role="alert" style="display:none;position:fixed;z-index:20;left:12px;right:12px;top:50%;transform:translateY(-50%);max-width:640px;margin:auto;padding:18px;background:#241719;border:1px solid #d36b61;color:#fff;border-radius:8px;box-shadow:0 12px 50px #000c;font:14px/1.5 system-ui,sans-serif;overflow-wrap:anywhere"><b style="color:#ff9a8e">SOLO ENGINE — ошибка запуска</b><div id="engineErrorText" style="margin-top:8px;white-space:pre-wrap"></div><button onclick="location.reload()" style="margin-top:12px">ПОВТОРИТЬ ЗАПУСК</button></div>
+<script>
+(()=>{const show=(title,detail)=>{const p=document.getElementById('engineError'),t=document.getElementById('engineErrorText');if(p&&t){p.style.display='block';t.textContent=title+(detail?'\\n'+detail:'')}};window.addEventListener('error',e=>{if(e.message||e.error)show('Не удалось запустить 3D-модуль.',e.message||String(e.error))});window.addEventListener('unhandledrejection',e=>show('Ошибка загрузки или выполнения 3D-модуля.',String(e.reason?.stack||e.reason||'Неизвестная ошибка')));const c=document.getElementById('game');c?.addEventListener('webglcontextlost',e=>{e.preventDefault();show('Потерян графический контекст WebGL.','Закрой другие вкладки с 3D-графикой и нажми «Повторить запуск».')});})();
+</script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+let THREE;
+try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js')}
+catch(primaryError){try{THREE=await import('https://unpkg.com/three@0.160.0/build/three.module.js')}catch(fallbackError){throw new Error('Не удалось загрузить библиотеку 3D-графики с двух CDN. Проверь подключение к интернету. Основная ошибка: '+String(primaryError)+'; резервная: '+String(fallbackError))}}
 const canvas=document.querySelector('#game');
 const isTouchDevice=matchMedia('(pointer:coarse)').matches;
 const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPreference:'high-performance',stencil:false,depth:true});
