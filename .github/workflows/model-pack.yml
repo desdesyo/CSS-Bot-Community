@@ -50,6 +50,36 @@ jobs:
           path: build/cssbc-models/
           if-no-files-found: error
           retention-days: 30
+      - name: Assemble Windows installer bundle
+        shell: bash
+        run: |
+          mkdir -p build/CSSBC-27-Model-Installer/tools/model_pack/reference
+          cp tools/model_pack/generate_armored_pack.py build/CSSBC-27-Model-Installer/tools/model_pack/
+          cp tools/model_pack/build_valvebiped_pack.py build/CSSBC-27-Model-Installer/tools/model_pack/
+          cp tools/model_pack/install_css_v34.ps1 build/CSSBC-27-Model-Installer/tools/model_pack/
+          cp tools/model_pack/Install-CSSBC-Models.bat build/CSSBC-27-Model-Installer/
+          cp tools/model_pack/reference/valvebiped_reference.smd tools/model_pack/reference/ATTRIBUTION.md build/CSSBC-27-Model-Installer/tools/model_pack/reference/
+          cat > build/CSSBC-27-Model-Installer/README.txt <<'EOF'
+          CSSBC 27-character CS:S v34 model installer
+
+          1. Extract this folder.
+          2. Ensure Python 3, and a matching CS:S v34 studiomdl.exe and vtex.exe are available.
+          3. Double-click Install-CSSBC-Models.bat.
+          4. If compiler tools are not in the game bin folder, run the batch file from PowerShell with -StudioMdlPath and -VtexPath arguments.
+
+          The installer compiles and installs all 27 custom model assets, then writes cstrike/cfg/cssbc/player_roster.json.
+          It does not replace stock models and does not yet add the CS:S game-DLL adapter needed for bots to select the custom models.
+          See https://github.com/desdesyo/CSS-Bot-Community/blob/main/docs/CSS_V34_MODEL_INSTALLATION.md
+          EOF
+          cd build
+          zip -qr CSSBC-27-Model-Installer.zip CSSBC-27-Model-Installer
+      - name: Publish Windows installer bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cssbc-27-model-installer-windows
+          path: build/CSSBC-27-Model-Installer.zip
+          if-no-files-found: error
+          retention-days: 30
 
   validate-windows-installer:
     runs-on: windows-latest
