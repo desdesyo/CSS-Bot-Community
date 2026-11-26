@@ -173,18 +173,19 @@ function spawnBot(x,z,team='enemy'){
  bots.push({group:g,hp:100,alive:true,kills:0,cool:Math.random()+.5,phase:Math.random()*6,index:bots.length,team,role:['cover','flank','push'][bots.length%3],moving});
 }function spawnWave(){for(const b of bots)scene.remove(b.group);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'))}
 spawnWave();
-const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let weaponKick=0;let aimAssist=true;let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=true,leftInvertY=true,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
+const ray=new THREE.Raycaster();ray.far=65;const clock=new THREE.Clock();const keys=new Set();let weaponKick=0;let aimAssist=true;let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const toast=t=>{const e=document.querySelector('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',1500)};
-const PAD_SETTINGS_KEY='solo_engine_gamepad_settings_v1';
-function savePadSettings(){try{localStorage.setItem(PAD_SETTINGS_KEY,JSON.stringify({invertX:leftInvertX,invertY:leftInvertY}))}catch(e){}}
-try{const cfg=JSON.parse(localStorage.getItem(PAD_SETTINGS_KEY)||'null');if(cfg&&typeof cfg==='object'){if(typeof cfg.invertX==='boolean')leftInvertX=cfg.invertX;if(typeof cfg.invertY==='boolean')leftInvertY=cfg.invertY}}catch(e){}
+const PAD_SETTINGS_KEY='solo_engine_gamepad_settings_v2';
+let leftAxisX=0,leftAxisY=1,lastPadPanelRefresh=0;
+function savePadSettings(){try{localStorage.setItem(PAD_SETTINGS_KEY,JSON.stringify({invertX:leftInvertX,invertY:leftInvertY,axisX:leftAxisX,axisY:leftAxisY}))}catch(e){}}
+try{const cfg=JSON.parse(localStorage.getItem(PAD_SETTINGS_KEY)||'null');if(cfg&&typeof cfg==='object'){if(typeof cfg.invertX==='boolean')leftInvertX=cfg.invertX;if(typeof cfg.invertY==='boolean')leftInvertY=cfg.invertY;if(Number.isInteger(cfg.axisX)&&cfg.axisX>=0&&cfg.axisX<8)leftAxisX=cfg.axisX;if(Number.isInteger(cfg.axisY)&&cfg.axisY>=0&&cfg.axisY<8)leftAxisY=cfg.axisY}}catch(e){}
 function showGamepadPanel(){
  pausedBeforePad=paused;gamepadPanelOpen=true;if(started){paused=true;fire=false}
  const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');panel.style.display='flex';
- card.innerHTML='<h2>ДИАГНОСТИКА ГЕЙМПАДА</h2><div id="padInfo">Поиск устройств…</div><div id="padGrid"></div><h3 style="font-size:13px;color:#8dd6c6">КНОПКИ И ОСИ В РЕАЛЬНОМ ВРЕМЕНИ</h3><div id="padControls"></div><h3 style="font-size:13px;color:#8dd6c6">НАСТРОЙКА ДВИЖЕНИЯ</h3><p style="font-size:12px;color:#c2cdd1">Инверсия применяется только к левому стику. Правый стик (камера) не меняется.</p><div id="padSettings" style="display:flex;gap:8px;flex-wrap:wrap"><button id="padInvertX">ОСЬ X: '+(leftInvertX?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ')+'</button><button id="padInvertY">ОСЬ Y: '+(leftInvertY?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ')+'</button><button id="padResetAxes">СБРОСИТЬ ОСИ</button></div><p id="padCompatibility" style="font-size:12px;color:#c2cdd1"></p><div id="panelActions"><button id="padRescan">ОБНОВИТЬ</button><button id="padClose">ЗАКРЫТЬ</button></div>';
+ card.innerHTML='<h2>ДИАГНОСТИКА ГЕЙМПАДА</h2><div id="padInfo">Поиск устройств…</div><div id="padGrid"></div><h3 style="font-size:13px;color:#8dd6c6">КНОПКИ И ОСИ В РЕАЛЬНОМ ВРЕМЕНИ</h3><div id="padControls"></div><h3 style="font-size:13px;color:#8dd6c6">НАСТРОЙКА ДВИЖЕНИЯ</h3><p style="font-size:12px;color:#c2cdd1">Инверсия применяется только к левому стику. Правый стик (камера) не меняется.</p><div id="padSettings" style="display:flex;gap:8px;flex-wrap:wrap"><button id="padInvertX">ОСЬ X: '+(leftInvertX?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ')+'</button><button id="padInvertY">ОСЬ Y: '+(leftInvertY?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ')+'</button><button id="padAxisX">ОСЬ X: '+leftAxisX+'</button><button id="padAxisY">ОСЬ Y: '+leftAxisY+'</button><button id="padResetAxes">СБРОСИТЬ ОСИ</button></div><p id="padCompatibility" style="font-size:12px;color:#c2cdd1"></p><div id="panelActions"><button id="padRescan">ОБНОВИТЬ</button><button id="padClose">ЗАКРЫТЬ</button></div>';
  document.querySelector('#padRescan').onclick=refreshGamepadPanel;document.querySelector('#padClose').onclick=()=>{gamepadPanelOpen=false;document.querySelector('#panel').style.display='none';paused=pausedBeforePad};
- const updatePadSettings=()=>{document.querySelector('#padInvertX').textContent='ОСЬ X: '+(leftInvertX?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ');document.querySelector('#padInvertY').textContent='ОСЬ Y: '+(leftInvertY?'ИНВЕРСИЯ ВКЛ':'ИНВЕРСИЯ ВЫКЛ');savePadSettings()};
- document.querySelector('#padInvertX').onclick=()=>{leftInvertX=!leftInvertX;updatePadSettings()};document.querySelector('#padInvertY').onclick=()=>{leftInvertY=!leftInvertY;updatePadSettings()};document.querySelector('#padResetAxes').onclick=()=>{leftInvertX=false;leftInvertY=false;updatePadSettings();toast('Стандартные оси восстановлены')};refreshGamepadPanel();
+ const updatePadSettings=()=>{document.querySelector('#padInvertX').textContent='ИНВЕРСИЯ X: '+(leftInvertX?'ВКЛ':'ВЫКЛ');document.querySelector('#padInvertY').textContent='ИНВЕРСИЯ Y: '+(leftInvertY?'ВКЛ':'ВЫКЛ');document.querySelector('#padAxisX').textContent='ОСЬ X: '+leftAxisX;document.querySelector('#padAxisY').textContent='ОСЬ Y: '+leftAxisY;savePadSettings()};
+ document.querySelector('#padInvertX').onclick=()=>{leftInvertX=!leftInvertX;updatePadSettings()};document.querySelector('#padInvertY').onclick=()=>{leftInvertY=!leftInvertY;updatePadSettings()};document.querySelector('#padAxisX').onclick=()=>{const p=Array.from(navigator.getGamepads?.()||[]).find(g=>g&&g.connected);leftAxisX=(leftAxisX+1)%Math.max(1,p?.axes.length||4);updatePadSettings()};document.querySelector('#padAxisY').onclick=()=>{const p=Array.from(navigator.getGamepads?.()||[]).find(g=>g&&g.connected);leftAxisY=(leftAxisY+1)%Math.max(1,p?.axes.length||4);updatePadSettings()};document.querySelector('#padResetAxes').onclick=()=>{leftInvertX=false;leftInvertY=false;leftAxisX=0;leftAxisY=1;updatePadSettings();toast('Стандартная раскладка осей восстановлена')};refreshGamepadPanel();
 }
 function refreshGamepadPanel(){
  if(!gamepadPanelOpen)return;const pads=Array.from(navigator.getGamepads?.()||[]).filter(g=>g&&g.connected);const info=document.querySelector('#padInfo'),grid=document.querySelector('#padGrid'),controls=document.querySelector('#padControls'),compat=document.querySelector('#padCompatibility');if(!info)return;
@@ -254,7 +255,7 @@ function persistControlLogs(force=false){const now=Date.now();if(!force&&now-las
 function recordControlSample(dt,pad,forward,side,blockedX,blockedZ){
  if(!controlLogEnabled||!controlRecording)return;
  const now=performance.now();if(now-lastLogSampleAt<125)return;lastLogSampleAt=now;
- const rec={kind:'sample',session:controlSessionId,t:Math.round(now),dt:+dt.toFixed(4),fps:dt>0?Math.round(1/dt):0,device:currentPadSnapshot?.id||null,gamepadIndex:currentPadSnapshot?.index??null,mapping:currentPadSnapshot?.mapping||null,rawAxes:currentPadSnapshot?.axes||[],rawButtons:currentPadSnapshot?.buttons||[],move:{x:+(pad.x||0).toFixed(3),y:+(pad.y||0).toFixed(3),lookX:+(pad.lookX||0).toFixed(3),lookY:+(pad.lookY||0).toFixed(3),forward:+forward.toFixed(3),side:+side.toFixed(3)},touch:{x:+moveStick.x.toFixed(3),y:+moveStick.y.toFixed(3)},keys:Array.from(keys),fire:!!(fire||pad.fire),camera:{x:+camera.position.x.toFixed(2),z:+camera.position.z.toFixed(2),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3)},collision:{x:!!blockedX,z:!!blockedZ},paused,roundEnded};
+ const rec={kind:'sample',session:controlSessionId,t:Math.round(now),dt:+dt.toFixed(4),fps:dt>0?Math.round(1/dt):0,device:currentPadSnapshot?.id||null,gamepadIndex:currentPadSnapshot?.index??null,mapping:currentPadSnapshot?.mapping||null,rawAxes:currentPadSnapshot?.axes||[],rawButtons:currentPadSnapshot?.buttons||[],inputAgeMs:currentPadSnapshot?.readAt?+(performance.now()-currentPadSnapshot.readAt).toFixed(2):null,move:{x:+(pad.x||0).toFixed(3),y:+(pad.y||0).toFixed(3),lookX:+(pad.lookX||0).toFixed(3),lookY:+(pad.lookY||0).toFixed(3),forward:+forward.toFixed(3),side:+side.toFixed(3)},worldDelta:{x:+(camera.position.x).toFixed(3),z:+(camera.position.z).toFixed(3)},touch:{x:+moveStick.x.toFixed(3),y:+moveStick.y.toFixed(3)},keys:Array.from(keys),fire:!!(fire||pad.fire),camera:{x:+camera.position.x.toFixed(2),z:+camera.position.z.toFixed(2),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3)},collision:{x:!!blockedX,z:!!blockedZ},paused,roundEnded};
  controlLogs.push(rec);if(controlLogs.length>CONTROL_LOG_LIMIT)controlLogs.splice(0,controlLogs.length-CONTROL_LOG_LIMIT);persistControlLogs(false)
 }
 function controlLogPayload(){return {app:'SOLO Engine',format:2,session:controlSessionId,createdAt:new Date().toISOString(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},gamepad:currentPadSnapshot,events:controlLogs}}
@@ -289,7 +290,7 @@ function readGamepad(){
  let p=activeGamepadIndex===null?Array.from(pads).find(g=>g&&g.connected):pads[activeGamepadIndex];
  if(!p||!p.connected){p=Array.from(pads).find(g=>g&&g.connected);activeGamepadIndex=p?p.index:null}
  if(!p){currentPadSnapshot=null;return {x:0,y:0,lookX:0,lookY:0,fire:false}};
- currentPadSnapshot={id:p.id,index:p.index,mapping:p.mapping,axes:Array.from(p.axes).map(v=>+v.toFixed(3)),buttons:Array.from(p.buttons).map(b=>+Number(b.value||0).toFixed(3))};
+ currentPadSnapshot={id:p.id,index:p.index,mapping:p.mapping,axes:Array.from(p.axes).map(v=>+v.toFixed(3)),buttons:Array.from(p.buttons).map(b=>+Number(b.value||0).toFixed(3)),readAt:performance.now()};
  const dead=v=>{const a=Math.abs(v);return a<.18?0:Math.sign(v)*((a-.18)/.82)};
  const pressed=i=>!!p.buttons[i]?.pressed;
  const reloadDown=pressed(2);
@@ -305,11 +306,11 @@ function readGamepad(){
  if(scoreDown&&!scoreVisible&&started&&!paused)showPanel('score');
  if(!scoreDown&&scoreVisible)hidePanel();
  // Standard Gamepad mapping: left stick X/Y = axes 0/1; up is negative Y.
- return {x:dead(p.axes[0]||0)*(leftInvertX?-1:1),y:dead(p.axes[1]||0)*(leftInvertY?-1:1),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
+ return {x:dead(p.axes[leftAxisX]||0)*(leftInvertX?-1:1),y:dead(p.axes[leftAxisY]||0)*(leftInvertY?-1:1),lookX:dead(p.axes[2]||0),lookY:dead(p.axes[3]||0),fire:pressed(7)||pressed(0)||pressed(5)};
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),.04);if(gamepadPanelOpen)refreshGamepadPanel();if(!started){renderer.render(scene,camera);return}
+function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),.04);if(gamepadPanelOpen&&performance.now()-lastPadPanelRefresh>150){lastPadPanelRefresh=performance.now();refreshGamepadPanel()}if(!started){renderer.render(scene,camera);return}
 const pad=readGamepad();
 if(paused){renderer.render(scene,camera);return}
 if(!roundEnded){if(bombPlanted){bombTimer=Math.max(0,bombTimer-dt);if(bombTimer===0)finishRound(false,'бомба взорвалась')}else{roundRemaining=Math.max(0,roundRemaining-dt);if(roundRemaining===0)finishRound(true,'время вышло — точка удержана')}}
@@ -320,7 +321,7 @@ if(scoreVisible)renderScore();
 if(pad.lookX||pad.lookY)look(pad.lookX*dt*560,pad.lookY*dt*560,.82);
 const forward=(keys.has('KeyW')||keys.has('ArrowUp')?-1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0)+moveStick.y+pad.y;
 const side=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)+(keys.has('KeyA')||keys.has('ArrowLeft')?-1:0)+moveStick.x+pad.x;
-const v=new THREE.Vector3(side,0,forward);if(v.lengthSq()>1)v.normalize();v.multiplyScalar(7.2*dt);const sin=Math.sin(yaw),cos=Math.cos(yaw);const dx=v.x*cos-v.z*sin,dz=v.x*sin+v.z*cos;const nx=camera.position.x+dx,nz=camera.position.z+dz,blockedX=blocked(nx,camera.position.z),blockedZ=blocked(camera.position.x,nz);if(!blockedX)camera.position.x=nx;if(!blockedZ)camera.position.z=nz;recordControlSample(dt,pad,forward,side,blockedX,blockedZ);
+const v=new THREE.Vector3(side,0,forward);if(v.lengthSq()>1)v.normalize();v.multiplyScalar(7.2*dt);const sin=Math.sin(yaw),cos=Math.cos(yaw);const dx=v.x*cos+v.z*sin,dz=-v.x*sin+v.z*cos;const nx=camera.position.x+dx,nz=camera.position.z+dz,blockedX=blocked(nx,camera.position.z),blockedZ=blocked(camera.position.x,nz);if(!blockedX)camera.position.x=nx;if(!blockedZ)camera.position.z=nz;recordControlSample(dt,pad,forward,side,blockedX,blockedZ);
 weaponKick=Math.max(0,weaponKick-dt*.42);weapon.position.z=weaponKick;
 for(const b of bots){if(!b.alive)continue;
  const p=b.group.position,hostiles=b.team==='ally'?bots.filter(x=>x.alive&&x.team==='enemy'):bots.filter(x=>x.alive&&x.team==='ally');
