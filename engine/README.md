@@ -5,9 +5,11 @@ This is the first concrete playable slice, not yet a CS:S recreation.
 ## Client
 
 The same browser client runs on Android and desktop:
-- Android touch joystick + FIRE button.
-- PC keyboard/mouse.
-- Standard gamepad axes and right trigger.
+- Android touch joystick + FIRE button and an on-screen weapon wheel.
+- PC keyboard/mouse; hold TAB and move the mouse to choose a weapon, release TAB to confirm; keys 1–4 are quick slots.
+- Android gamepad; hold L1 and use the right stick to choose a weapon, release L1 to confirm.
+- Weapon wheel slots: primary rifle, pistol, grenade and knife. Rifle/pistol have separate magazines and reserve ammo; grenade has a limited count and area damage; knife is a short-range melee attack.
+- Touch-only mobile assist: automatically switches to the other firearm when the current magazine empties; reload starts automatically only after both firearm magazines are empty. This assist is disabled whenever a gamepad is connected and is not enabled on PC.
 - Offline single-player training with five simple bots.
 - Optional WebSocket session connection for phone + PC in the same room.
 
