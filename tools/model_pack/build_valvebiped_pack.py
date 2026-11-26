@@ -56,7 +56,8 @@ def remap_mesh(path: Path, ref_nodes, ref_node_lines, ref_skeleton_lines):
             raise ValueError(f"Reference skeleton missing required bone: {name}")
         mapping[old_id] = ref_nodes[name]
     tri_start = next(i for i, x in enumerate(lines) if x.strip() == "triangles")
-    tri_end = next(i for i in range(tri_start + 1, len(lines)) if lines[i].strip() == "end")
+    tri_end = next((i for i in range(tri_start + 1, len(lines)) if lines[i].strip() == "end"), len(lines))
+    had_triangle_end = tri_end < len(lines)
     out = lines[:]
     out[1:next(i for i,x in enumerate(out) if x.strip()=="end")+1] = ["nodes", *ref_node_lines, "end"]
     # Re-find triangles after replacing the node section.
@@ -66,6 +67,8 @@ def remap_mesh(path: Path, ref_nodes, ref_node_lines, ref_skeleton_lines):
         remap_vertex_line(line, mapping) if is_vertex_line(line) else line
         for line in out[tri_start+1:tri_end]
     ]
+    if not had_triangle_end:
+        out.append("end")
     # Replace the original small skeleton with the complete reference bind pose.
     sk_start = next(i for i, x in enumerate(out) if x.strip() == "skeleton")
     sk_end = next(i for i in range(sk_start + 1, len(out)) if out[i].strip() == "end")
