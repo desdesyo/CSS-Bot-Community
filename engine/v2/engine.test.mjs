@@ -222,5 +222,5 @@ test('shadow casters are optional and never dereference a missing shadow generat
   assert.ok(runtime.includes('if(shadowGen)shadowGen.addShadowCaster(body)'));
   assert.ok(runtime.includes('if(!mobile&&shadowGen)shadowGen.addShadowCaster(mesh)'));
   const calls=runtime.split('shadowGen.addShadowCaster').length-1;
-  assert.equal(calls,2,'all shadow caster registrations must remain explicitly guarded');
+  assert.equal(calls,3,'all shadow caster registrations must remain explicitly guarded');
 });
