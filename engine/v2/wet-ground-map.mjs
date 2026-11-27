@@ -195,6 +195,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(roughRand()>.55){roughCtx.fillStyle='rgba(75,75,75,.28)';roughCtx.beginPath();roughCtx.ellipse(px+rw*.5,py+rh*.5,rw*.25,rh*.18,0,0,Math.PI*2);roughCtx.fill();}
   }
   cobbleRough.update(false);cobbleRough.gammaSpace=false;cobbleRough.wrapU=cobbleRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  cobbleRough.uScale=cobbleTex.uScale;cobbleRough.vScale=cobbleTex.vScale;
   cobble.roughnessTexture=cobbleRough;
   cobbleTex.uScale=mobile?7:10;cobbleTex.vScale=mobile?8:12;
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
@@ -720,6 +721,56 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     const wire=B.MeshBuilder.CreateTube('overhead street cable',{path:[new B.Vector3(-13,8.1,z),new B.Vector3(0,7.6,z-2),new B.Vector3(13,8.1,z)],radius:.025,tessellation:5},scene);
     wire.material=iron;wire.isPickable=false;
   }
+  // WEST SERVICE TUNNEL — a genuinely walkable covered passage through the outer block.
+  // Open at both ends, with curved masonry portals, repeated structural ribs and drainage.
+  const tunnelX=-49.5,tunnelZ=-4,tunnelLength=22,tunnelWidth=3.2,tunnelSpring=2.0,tunnelRadius=1.6;
+  const tunnelFloor=floor('west service tunnel worn stone floor',tunnelX,tunnelZ,tunnelWidth,tunnelLength,.045,stone);
+  tunnelFloor.receiveShadows=true;
+  for(const side of [-1,1]){
+    box('west service tunnel thick masonry sidewall',tunnelX+side*1.72,1.78,tunnelZ,.42,3.56,tunnelLength,brick,true);
+    box('west service tunnel stone base course',tunnelX+side*1.53,.28,tunnelZ,.18,.56,tunnelLength,trim,false);
+    box('west service tunnel wall coping',tunnelX+side*1.72,3.52,tunnelZ,.52,.18,tunnelLength,stone,false);
+    for(let lampZ=-13;lampZ<=5;lampZ+=6){
+      box('service tunnel recessed amber wall lamp',tunnelX+side*1.48,2.62,lampZ,.08,.34,.48,glow,false);
+      box('service tunnel lamp steel hood',tunnelX+side*1.42,2.83,lampZ,.18,.08,.58,iron,false);
+    }
+  }
+  box('west service tunnel reinforced roof',tunnelX,3.68,tunnelZ,tunnelWidth+.35,.32,tunnelLength+.5,roof,false);
+  for(let ribZ=-14;ribZ<=6;ribZ+=3.5){
+    const ribPath=[];
+    for(let step=0;step<=16;step++){
+      const angle=Math.PI*step/16;
+      ribPath.push(new B.Vector3(tunnelX-tunnelRadius*Math.cos(angle),tunnelSpring+tunnelRadius*Math.sin(angle),ribZ));
+    }
+    const rib=B.MeshBuilder.CreateTube('service tunnel curved stone ceiling rib',{path:ribPath,radius:.14,tessellation:8},scene);
+    rib.material=trim;rib.isPickable=false;
+  }
+  for(const portalZ of [-15,7]){
+    const portalPath=[];
+    for(let step=0;step<=24;step++){
+      const angle=Math.PI*step/24;
+      portalPath.push(new B.Vector3(tunnelX-tunnelRadius*Math.cos(angle),tunnelSpring+tunnelRadius*Math.sin(angle),portalZ));
+    }
+    const portal=B.MeshBuilder.CreateTube('service tunnel carved stone portal arch',{path:portalPath,radius:.3,tessellation:10},scene);
+    portal.material=trim;portal.isPickable=false;
+    for(const side of [-1,1]){
+      box('service tunnel portal dressed jamb',tunnelX+side*1.6,1.0,portalZ,.42,2.0,.58,stone,false);
+      for(let course=0;course<4;course++)
+        box('service tunnel portal masonry joint',tunnelX+side*1.6,.28+course*.48,portalZ+.31,.46,.035,.035,iron,false);
+    }
+    box('service tunnel portal keystone',tunnelX,3.73,portalZ,.58,.48,.58,trim,false);
+  }
+  // Narrow drainage channels and grates collect water along both tunnel walls.
+  for(const side of [-1,1]){
+    box('service tunnel drainage channel',tunnelX+side*1.35,.09,tunnelZ,.16,.08,tunnelLength-.4,iron,false);
+    for(let grateZ=-14;grateZ<=6;grateZ+=2)
+      box('service tunnel drain grate',tunnelX+side*1.35,.14,grateZ,.2,.025,.62,trim,false);
+  }
+  const tunnelCable=B.MeshBuilder.CreateTube('service tunnel overhead electrical conduit',{
+    path:[new B.Vector3(tunnelX-.9,3.25,-14),new B.Vector3(tunnelX-.9,3.25,-4),new B.Vector3(tunnelX-.9,3.25,6)],radius:.045,tessellation:6
+  },scene);
+  tunnelCable.material=iron;tunnelCable.isPickable=false;
+
   // Old doors, lintels, wall stains and iron balcony details on street-facing elevations.
   for(const [x,z] of [[-12,-29],[12,-9],[-12,15],[12,34],[-33,-27],[33,18]]){
     box('weathered doorway stone frame',x,1.25,z,.18,2.5,2.3,trim,false);
