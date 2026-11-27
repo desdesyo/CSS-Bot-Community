@@ -88,9 +88,14 @@ test('safe spawn ignores overhead-only geometry', () => {
   const beam = [{name:'beam',minX:-2,maxX:2,minY:3,minY:3,maxY:4,minZ:-42,maxZ:-40}];
   assert.deepEqual(findSafePlayerSpawn([{x:0,z:-41}], beam), {x:0,z:-41});
 });
-test('safe spawn returns null when all candidates overlap solid geometry', () => {
+test('safe spawn searches for a nearby clear landing point when the authored point is blocked', () => {
   const wall = [{name:'wall',minX:-5,maxX:5,minY:0,maxY:4,minZ:-42,maxZ:-40}];
-  assert.equal(findSafePlayerSpawn([{x:0,z:-41}], wall), null);
+  const spawn = findSafePlayerSpawn([{x:0,z:-41}], wall);
+  assert.ok(spawn);
+  assert.ok(Math.hypot(spawn.x, spawn.z + 41) <= 14.01);
+  const nx = Math.max(-5, Math.min(spawn.x, 5));
+  const nz = Math.max(-42, Math.min(spawn.z, -40));
+  assert.ok((spawn.x-nx)**2 + (spawn.z-nz)**2 >= .48**2);
 });
 
 
