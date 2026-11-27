@@ -80,16 +80,26 @@ function buildPlayerWeapon(){
 function selectWeapon(slot,source='unknown'){
   const previous=state.weaponSlot;
   if(!['rifle','pistol','knife'].includes(slot)||!weaponRoot){gameLogEvent('weapon-select-rejected',{requested:slot,source,hasWeaponRoot:!!weaponRoot});return false;}
+  // Update gameplay state and HUD first; a viewmodel animation error must never make
+  // the on-screen weapon buttons appear to do nothing.
   state.weaponSlot=slot;
-  gameLogEvent('weapon-select',{from:previous,to:slot,source,changed:previous!==slot});
-  weaponViewmodel?.select(slot);
-  rifleRoot?.setEnabled(slot==='rifle');
-  pistolRoot?.setEnabled(slot==='pistol');
-  knifeRoot?.setEnabled(slot==='knife');
-  for(const button of document.querySelectorAll('[data-weapon]'))button.classList.toggle('selected',button.dataset.weapon===slot);
-  const ammo=slot==='knife'?'MELEE':state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
-  $('ammo').textContent=ammo;
+  for(const button of document.querySelectorAll('#weaponBar [data-weapon]')){
+    const active=button.dataset.weapon===slot;
+    button.classList.toggle('selected',active);
+    button.setAttribute('aria-pressed',String(active));
+  }
+  $('ammo').textContent=slot==='knife'?'MELEE':state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
   $('weaponName').textContent=slot==='rifle'?'M4 CARBINE':slot==='pistol'?'9MM PISTOL':'COMBAT KNIFE';
+  try{
+    weaponViewmodel?.select(slot);
+    rifleRoot?.setEnabled(slot==='rifle');
+    pistolRoot?.setEnabled(slot==='pistol');
+    knifeRoot?.setEnabled(slot==='knife');
+  }catch(error){
+    gameLogEvent('weapon-viewmodel-error',{slot,message:String(error?.message||error)});
+    console.error('Weapon viewmodel switch failed',error);
+  }
+  gameLogEvent('weapon-select',{from:previous,to:slot,source,changed:previous!==slot,confirmed:state.weaponSlot===slot});
   return true;
 }
 function createBotWeapon(root,id,team){
@@ -398,20 +408,20 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
-  let lastWeaponPointerAt=0;
-  for(const button of document.querySelectorAll('[data-weapon]')){
+  // Use the native click activation for weapon changes. The old pointerdown handler
+  // cancelled touch's synthesized click, which made the controls fragile on Android.
+  for(const button of document.querySelectorAll('#weaponBar [data-weapon]')){
     button.style.touchAction='manipulation';
+    button.style.pointerEvents='auto';
+    button.setAttribute('aria-pressed',String(button.dataset.weapon===state.weaponSlot));
     button.addEventListener('pointerdown',e=>{
-      lastWeaponPointerAt=performance.now();
-      if(e.pointerType==='touch')e.preventDefault();
-      e.stopPropagation();e.stopImmediatePropagation();
       gameLogEvent('weapon-control-pointerdown',{weapon:button.dataset.weapon,pointerType:e.pointerType,pointerId:e.pointerId,x:e.clientX,y:e.clientY});
-      selectWeapon(button.dataset.weapon,'pointerdown-'+e.pointerType);
-    },{passive:false});
+    },{passive:true});
     button.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
       gameLogEvent('weapon-control-click',{weapon:button.dataset.weapon,pointerType:e.pointerType||'unknown',detail:e.detail});
-      if(performance.now()-lastWeaponPointerAt<800)return;
-      selectWeapon(button.dataset.weapon,'click-fallback');
+      selectWeapon(button.dataset.weapon,'native-click');
     });
   }
   $('fullScreen').addEventListener('click',toggleFullscreen);
