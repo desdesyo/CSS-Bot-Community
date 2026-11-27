@@ -1688,8 +1688,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   for(const mesh of scene.meshes.slice(lateStaticStart)){
     if(!mesh||mesh.isDisposed?.()||mesh.checkCollisions||!mesh.material||mesh.getTotalVertices?.()===0)continue;
     if(dynamicNames.some(name=>mesh.name.includes(name))||mesh.infiniteDistance) {lateKept.push(mesh);continue;}
-    // Keep parented parked-car parts and alpha/reflection surfaces intact.
-    if(mesh.parent||mesh.material.alpha<.999||mesh.material.reflectionTexture||mesh.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND){lateKept.push(mesh);continue;}
+    // Map-authored parent transforms are static; MergeMeshes bakes their world transforms into the shared batch.
+    // Keep only transparent and reflection surfaces separate so detailed props retain their materials/UVs.
+    if(mesh.material.alpha<.999||mesh.material.reflectionTexture||mesh.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND){lateKept.push(mesh);continue;}
     const key=mesh.material.uniqueId;
     if(!lateGroups.has(key))lateGroups.set(key,[]);
     lateGroups.get(key).push(mesh);
