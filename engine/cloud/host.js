@@ -4,7 +4,7 @@ const signalUrl = qs.get('signal') || 'wss://YOUR-SIGNAL-HOST.example';
 const token = qs.get('token') || '';
 const status = document.getElementById('status');
 const frame = document.getElementById('game');
-let socket, pc, stream, peerReady = false;
+let socket, pc, stream, peerReady = false; const pendingIce = [];
 const say = value => { status.textContent = value; };
 if (!/^[A-Z0-9]{6,12}$/.test(room) || !token || signalUrl.includes('YOUR-SIGNAL-HOST')) {
   say('Укажи room, signal и host token в URL'); throw new Error('Cloud host configuration missing');
@@ -30,6 +30,7 @@ async function makePeer() {
 async function handleOffer(description) {
   await makePeer();
   await pc.setRemoteDescription(description);
+  for (const candidate of pendingIce.splice(0)) await pc.addIceCandidate(candidate);
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
   send({ type: 'answer', description: pc.localDescription });
@@ -44,7 +45,7 @@ async function connect() {
       if (message.type === 'joined') { say('Комната ' + room + ' · ожидаю игрока'); if (message.peerReady) peerReady = true; }
       if (message.type === 'peer-ready') { peerReady = true; say('Игрок найден · готовлю видеопоток'); }
       if (message.type === 'offer') await handleOffer(message.description);
-      if (message.type === 'ice' && pc?.remoteDescription) await pc.addIceCandidate(message.candidate);
+      if (message.type === 'ice' && message.candidate) { if (pc?.remoteDescription) await pc.addIceCandidate(message.candidate); else pendingIce.push(message.candidate); }
       if (message.type === 'peer-left') { pc?.close(); pc = null; say('Игрок отключился'); }
     } catch (error) { say('Ошибка WebRTC: ' + error.message); }
   });
