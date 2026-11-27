@@ -182,7 +182,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   for(const z of [-4.9,4.9]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
     const barrier=box('canal bank collision barrier',x,.95,z,w,1.9,.32,invisible,true,false);
     barrier.visibility=0;
-    barrier.isVisible=false;
+    barrier.isVisible=true;
   }
   for(const z of [-5.7,5.7]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
     box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
