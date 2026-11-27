@@ -14,7 +14,11 @@ async function makePeer() {
   if (pc) { pc.close(); pc = null; }
   const canvas = frame.contentDocument?.querySelector('#renderCanvas');
   if (!canvas?.captureStream) throw new Error('Canvas captureStream недоступен в этом браузере');
-  stream = canvas.captureStream(60);\n  const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');\n  const debug=gl?.getExtension('WEBGL_debug_renderer_info');\n  const gpu=debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'WebGL renderer hidden by browser';\n  say('GPU: '+gpu+' · Canvas '+canvas.width+'×'+canvas.height);
+  stream = canvas.captureStream(60);
+  const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');
+  const debug=gl?.getExtension('WEBGL_debug_renderer_info');
+  const gpu=debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'WebGL renderer hidden by browser';
+  say('GPU: '+gpu+' · Canvas '+canvas.width+'×'+canvas.height);
   pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   pc.onicecandidate = e => { if (e.candidate) send({ type: 'ice', candidate: e.candidate }); };
   pc.onconnectionstatechange = () => say('WebRTC: ' + pc.connectionState);
@@ -53,7 +57,9 @@ async function connect() {
   socket.addEventListener('close', () => say('Сигнальный сервер отключён'));
   send({ type: 'join', role: 'host', room, token });
 }
-document.getElementById('launch').addEventListener('click', () => {
+document.getElementById('launch').addEventListener('click', async () => {
+  try { if(!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); } catch {}
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   const start = frame.contentDocument?.getElementById('start');
   if (start && !start.disabled) start.click();
   else say('Игра ещё загружается');
