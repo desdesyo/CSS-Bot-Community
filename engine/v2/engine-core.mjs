@@ -82,3 +82,59 @@ export function findSafePlayerSpawn(candidates, colliders = [], radius = 0.36, p
   for (const point of candidates || []) if (clear(point)) return { x: point.x, z: point.z };
   return null;
 }
+
+
+/** A* navigation over the arena's static AABB collision map. */
+export function findPathAStar(start, target, colliders = [], radius = 0.42, cellSize = 1.5) {
+  const minX=-53,minZ=-42,maxX=53,maxZ=42;
+  const width=Math.ceil((maxX-minX)/cellSize),height=Math.ceil((maxZ-minZ)/cellSize);
+  const toCell=p=>({x:Math.max(0,Math.min(width-1,Math.round((p.x-minX)/cellSize))),z:Math.max(0,Math.min(height-1,Math.round((p.z-minZ)/cellSize)))});
+  const toWorld=c=>({x:minX+c.x*cellSize,z:minZ+c.z*cellSize});
+  const key=(x,z)=>x+","+z,startCell=toCell(start),goal=toCell(target);
+  const blocked=(x,z)=>{
+    if(x<0||z<0||x>=width||z>=height)return true;
+    const p=toWorld({x,z});
+    for(const b of colliders){
+      if(b.maxY<=0.04||b.minY>=1.68)continue;
+      const nx=Math.max(b.minX,Math.min(p.x,b.maxX)),nz=Math.max(b.minZ,Math.min(p.z,b.maxZ));
+      const dx=p.x-nx,dz=p.z-nz;
+      if(dx*dx+dz*dz<(radius+0.10)*(radius+0.10))return true;
+    }
+    return false;
+  };
+  const startKey=key(startCell.x,startCell.z),goalKey=key(goal.x,goal.z);
+  if(startKey===goalKey)return [target];
+  const open=[{...startCell,g:0,f:Math.hypot(goal.x-startCell.x,goal.z-startCell.z)}];
+  const came=new Map(),cost=new Map([[startKey,0]]),closed=new Set();
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  let found=false,iterations=0;
+  while(open.length&&iterations++<5000){
+    open.sort((a,b)=>a.f-b.f);const cur=open.shift(),ck=key(cur.x,cur.z);
+    if(closed.has(ck))continue;
+    if(ck===goalKey){found=true;break}
+    closed.add(ck);
+    for(const [dx,dz] of dirs){
+      const x=cur.x+dx,z=cur.z+dz,k=key(x,z);
+      if(closed.has(k)||blocked(x,z))continue;
+      if(dx&&dz&&(blocked(cur.x+dx,cur.z)||blocked(cur.x,cur.z+dz)))continue;
+      const ng=cur.g+(dx&&dz?1.4142:1);
+      if(ng>=(cost.get(k)??Infinity))continue;
+      cost.set(k,ng);came.set(k,ck);
+      open.push({x,z,g:ng,f:ng+Math.hypot(goal.x-x,goal.z-z)});
+    }
+  }
+  if(!found)return [target];
+  const result=[];let k=goalKey;
+  while(k!==startKey&&came.has(k)){
+    const [x,z]=k.split(",").map(Number);result.push(toWorld({x,z}));k=came.get(k);
+  }
+  result.reverse();result.push(target);
+  const smooth=[];
+  for(let i=0;i<result.length;i++){
+    if(i===0||i===result.length-1){smooth.push(result[i]);continue}
+    const a=smooth[smooth.length-1],b=result[i],c=result[i+1];
+    const abx=b.x-a.x,abz=b.z-a.z,bcx=c.x-b.x,bcz=c.z-b.z;
+    if(Math.abs(abx*bcz-abz*bcx)>0.08)smooth.push(b);
+  }
+  return smooth;
+}
