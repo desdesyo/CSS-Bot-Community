@@ -758,8 +758,20 @@ function updatePlayer(dt) {
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
+async function enterImmersiveMode(){
+  // Browsers require a real user gesture before fullscreen/orientation lock.
+  try{
+    if(!document.fullscreenElement){
+      const request=document.documentElement.requestFullscreen?.({navigationUI:'hide'});
+      if(request)await request;
+    }
+  }catch(error){console.info('Fullscreen request was blocked by the browser',error)}
+  try{
+    if(screen.orientation?.lock)await screen.orientation.lock('landscape');
+  }catch(error){console.info('Landscape lock is unavailable in this browser context',error)}
+}
 function toggleFullscreen(){
-  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
+  if(!document.fullscreenElement)void enterImmersiveMode();
   else document.exitFullscreen?.().catch(()=>{});
 }
 function endRound(won,reason='ROUND COMPLETE'){
@@ -1047,7 +1059,7 @@ async function boot() {
     buildBots();buildPlayerWeapon();initInput();drawMinimap();
     window.addEventListener('resize',()=>engine.resize());
     const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
-    $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
+    $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',()=>{void enterImmersiveMode();start()});$('startFullscreen').addEventListener('click',()=>{void enterImmersiveMode()});
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
