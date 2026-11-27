@@ -7,10 +7,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.url)), 'utf8');
+const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8');
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-8'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-9'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -24,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-8'));
+  assert.ok(html.includes('./engine.js?v=20261127-9'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -143,4 +144,19 @@ test('gamepad jump and sprint are integrated into player movement and reset on r
   assert.ok(runtime.includes('state.gamepad.sprint?6.2:4.6'));
   assert.ok(runtime.includes('camera.position.y=1.65+state.gamepad.jumpOffset'));
   assert.ok(runtime.includes('state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0'));
+});
+
+test('weapon fire produces visible travelling tracers and uses wall-safe aim assistance', () => {
+  assert.ok(runtime.includes('function findAssistedAimDirection()'));
+  assert.ok(runtime.includes('function spawnBulletTracer('));
+  assert.ok(runtime.includes("'bullet-tracer'"));
+  assert.ok(runtime.includes('scene.pickWithRay(sight'));
+  assert.ok(runtime.includes('spawnBulletTracer(camera.position.clone(),direction,distance)'));
+});
+test('radar is placed on the left side and remains compact on mobile', () => {
+  assert.ok(html.includes('#radar{position:fixed;left:12px;right:auto;'));
+});
+test('doorways are recessed and upper window mullions follow their own floor height', () => {
+  assert.ok(geometry.includes('recessed open doorway shadow'));
+  assert.ok(geometry.includes("centerY,z+sgn*.25,W-.08,.055,.035"));
 });
