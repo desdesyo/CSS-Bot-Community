@@ -4,8 +4,8 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const root = new B.TransformNode('solo-fps-viewmodel', scene);
   root.parent = camera;
   root.position.set(.16, -.31, .68);
-  // The scene uses Babylon's default left-handed camera (+Z forward). Flip the authored -Z weapon axis so the muzzle, pistol barrel and knife blade point into the scene rather than back through the camera.
-  root.rotation.set(0, Math.PI, 0);
+  // The arms stay in their authored orientation; each weapon mesh is flipped independently below to face the camera's +Z forward axis.
+  root.rotation.set(0, 0, 0);
   root.scaling.setAll(1.0);
 
   const material = (name, hex, roughness = .7, metallic = 0) => {
@@ -195,6 +195,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   // Carbine assembly. The weapon is split into receiver, bolt, magazine and handguard
   // so its moving parts can be animated independently during reload and firing.
   const rifle = node('M4A1-realistic-viewmodel');
+  rifle.rotation.y=Math.PI;
   const receiver = node('upper-lower-receiver', rifle);
   roundedBox('upper receiver',receiver,[0,.02,0],[.15,.115,.39],m.polymer,.024);
   // Receiver machining, engraved controls and fasteners catch highlights at close range.
@@ -298,6 +299,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   muzzleFlash.isVisible = false;
   // Detailed compact 9mm service pistol: frame, moving slide, controls and magazine.
   const pistol = node('9mm-service-pistol');
+  pistol.rotation.y=Math.PI;
   pistol.setEnabled(false);
   const pistolFrame=node('pistol-frame',pistol);
   roundedBox('pistol polymer frame',pistolFrame,[.015,-.075,-.015],[.105,.095,.235],m.polymer,.018);
@@ -337,6 +339,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
 
   // Full-tang tactical knife with guard, textured scales, pommel and faceted point.
   const knife=node('combat-knife');
+  knife.rotation.y=Math.PI;
   knife.setEnabled(false);
   const knifeHandle=node('knife-handle',knife);
   box('knife tang',knifeHandle,[.015,-.12,.075],[.035,.045,.20],m.metalDark);
