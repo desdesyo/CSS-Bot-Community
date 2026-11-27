@@ -415,21 +415,36 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
-  // Use the native click activation for weapon changes. The old pointerdown handler
-  // cancelled touch's synthesized click, which made the controls fragile on Android.
-  for(const button of document.querySelectorAll('#weaponBar [data-weapon]')){
-    button.style.touchAction='manipulation';
+  // Capture weapon taps at document level, before the canvas/look handlers.
+  // Android touch browsers may suppress the synthesized click; pointerdown is authoritative.
+  const weaponBar=$('weaponBar');
+  weaponBar.style.pointerEvents='auto';
+  weaponBar.style.zIndex='20';
+  for(const button of weaponBar.querySelectorAll('[data-weapon]')){
     button.style.pointerEvents='auto';
+    button.style.touchAction='none';
     button.setAttribute('aria-pressed',String(button.dataset.weapon===state.weaponSlot));
-    button.addEventListener('pointerdown',e=>{
-      gameLogEvent('weapon-control-pointerdown',{weapon:button.dataset.weapon,pointerType:e.pointerType,pointerId:e.pointerId,x:e.clientX,y:e.clientY});
-    },{passive:true});
-    button.addEventListener('click',e=>{
+  }
+  if(!window.__soloWeaponCapture){
+    window.__soloWeaponCapture=true;
+    document.addEventListener('pointerdown',e=>{
+      const button=e.target?.closest?.('#weaponBar [data-weapon]');
+      if(!button)return;
       e.preventDefault();
       e.stopPropagation();
-      gameLogEvent('weapon-control-click',{weapon:button.dataset.weapon,pointerType:e.pointerType||'unknown',detail:e.detail});
-      selectWeapon(button.dataset.weapon,'native-click');
-    });
+      e.stopImmediatePropagation();
+      const slot=button.dataset.weapon;
+      gameLogEvent('weapon-tap-captured',{slot,pointerType:e.pointerType||'unknown',x:e.clientX,y:e.clientY,target:e.target?.tagName});
+      selectWeapon(slot,'document-pointerdown-'+(e.pointerType||'unknown'));
+    },{capture:true,passive:false});
+    document.addEventListener('touchstart',e=>{
+      const button=e.target?.closest?.('#weaponBar [data-weapon]');
+      if(!button)return;
+      e.preventDefault();
+      const slot=button.dataset.weapon;
+      gameLogEvent('weapon-touchstart-captured',{slot,touches:e.touches?.length||0});
+      selectWeapon(slot,'document-touchstart');
+    },{capture:true,passive:false});
   }
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
