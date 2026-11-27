@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 
@@ -147,4 +148,22 @@ test('each player deployment is colocated with five allied spawn slots', () => {
 test('spawn compounds keep both factions separated by a long approach', () => {
   const ct=getPlayerSpawn('CT'),t=getPlayerSpawn('T');
   assert.ok(Math.hypot(ct.x-t.x,ct.z-t.z)>=76);
+});
+
+
+test('mobile HUD controls stay above the look touch surface', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const css = html.match(/<style>([\\s\\S]*?)<\\/style>/)?.[1] ?? '';
+  const rule = selector => css.match(new RegExp(selector + '\\{([^}]*)\\}'));
+  const actions = rule('#actions')?.[1] ?? '';
+  const touch = rule('#touch')?.[1] ?? '';
+  const look = rule('#look')?.[1] ?? '';
+  const weaponBar = rule('#weaponBar')?.[1] ?? '';
+  const overlay = rule('#overlay')?.[1] ?? '';
+  assert.match(actions, /z-index:12/);
+  assert.match(touch, /z-index:5/);
+  assert.match(look, /top:116px/);
+  assert.match(look, /bottom:132px/);
+  assert.match(weaponBar, /z-index:13/);
+  assert.match(overlay, /z-index:20/);
 });
