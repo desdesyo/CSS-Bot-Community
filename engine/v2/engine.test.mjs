@@ -236,4 +236,7 @@ test('short test sessions retain incomplete rounds and upload accumulated diagno
   assert.match(engine, /shortSessionsAccumulationRounds:8/);
   assert.match(engine, /developerSessionRounds=0;developerLastUploadError=null/);
   assert.match(engine, /rounds:developerRoundBatch\.slice\(\)/);
+  assert.match(engine, /developerForceUpload\|\|developerSessionRounds>=5/);
+  assert.match(engine, /uploadDue:developerForceUpload/);
+  assert.match(engine, /if\(now-fieldExploreLastPlan<1600\)return bot\.fieldExploreGoal\|\|null/);
 });
