@@ -95,7 +95,7 @@ function makeBot(id, team, x,z, waypoints) {
   const stock=box('rifle-stock-'+id,0,0,0,.085,.12,.22,poly,false);stock.parent=rifleRoot;stock.position.z=-.25;
   const magazine=box('rifle-magazine-'+id,0,0,0,.075,.19,.10,poly,false);magazine.parent=rifleRoot;magazine.position.set(0,-.13,.04);
   root.position.set(x,0,z);
-  const bot={id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,pack,gun,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0,lastFire:0,realModel:null,realAnimations:[],realAnimation:null};
+  const bot={id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,pack,gun,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0,lastFire:0,fallbackParts:[vest,plate,helmet,gun,barrel,stock,magazine],realModel:null,realAnimations:[],realAnimation:null};
   state.bots.push(bot);return root;
 }
 function buildBots() {
@@ -122,7 +122,7 @@ function attachSoldierModel(bot){
  const tint=bot.team==='ally'?new BABYLON.Color3(.76,.88,1):new BABYLON.Color3(1,.86,.70);
  for(const mesh of rig.getChildMeshes(false)){mesh.isPickable=false;mesh.receiveShadows=true;if(mesh.material?.clone){const m=mesh.material.clone('soldier-'+bot.id+'-mat');if(m.albedoColor)m.albedoColor=m.albedoColor.multiply(tint);mesh.material=m}if(!mobile)shadowGen.addShadowCaster(mesh)}
  for(const part of [bot.body,bot.head,bot.leftArm,bot.rightArm,bot.leftLeg,bot.rightLeg,bot.pack,bot.gun])if(part)part.visibility=0;
- bot.realModel=rig;bot.realAnimations=instance.animationGroups||[];
+ for(const part of bot.fallbackParts||[])if(part)part.visibility=0;bot.realModel=rig;bot.realAnimations=instance.animationGroups||[];
  const run=bot.realAnimations.find(a=>/run|walk/i.test(a.name)),idle=bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
  if(run){run.start(true);run.speedRatio=1.12;bot.realAnimation=run}else if(idle){idle.start(true);bot.realAnimation=idle}
 }
@@ -205,7 +205,7 @@ function reload(){
     if(!state.started){state.reloading=false;if(button){button.disabled=false;button.textContent='RELOAD';}return;}
     const n=Math.min(cap-w.ammo,w.reserve);w.ammo+=n;w.reserve-=n;state.reloading=false;updateAmmoHud();
     if(button){button.disabled=false;button.textContent='RELOAD';}
-  },1250);
+  },1600);
 }
 
 function findAssistedAimDirection(){
@@ -268,7 +268,7 @@ function fire() {
   const forward=findAssistedAimDirection(),right=camera.getDirection(BABYLON.Axis.X),origin=camera.position.clone().add(forward.scale(.68)).add(right.scale(.19)).add(new BABYLON.Vector3(0,-.18,0));
   const spread=state.weapon==='pistol'?.0025:.0011+Math.random()*.0018;
   const direction=forward.add(right.scale((Math.random()-.5)*spread)).add(new BABYLON.Vector3(0,(Math.random()-.5)*spread,0)).normalize();
-  showMuzzleFlash();state.recoilPitch=Math.min(.09,state.recoilPitch+.012+Math.random()*.004);
+  state.weaponKick=.04;showMuzzleFlash();state.recoilPitch=Math.min(.09,state.recoilPitch+.012+Math.random()*.004);
   spawnBallisticProjectile(origin,direction,w.damage);updateAmmoHud();
 }
 
@@ -407,6 +407,7 @@ async function boot() {
       if(state.started) {
         if(state.firing)fire();
         updateProjectiles(dt);
+        if(state.recoilPitch){camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+state.recoilPitch));state.recoilPitch*=Math.exp(-dt*20);if(state.recoilPitch<.00008)state.recoilPitch=0;}
         if(state.weaponKick){for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ+state.weaponKick;}state.weaponKick*=Math.exp(-dt*45);if(state.weaponKick<.0005){state.weaponKick=0;for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ;}}}
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
         if(now-state.lastHud>100){drawRadar();state.lastHud=now;}
