@@ -224,3 +224,11 @@ test('shadow casters are optional and never dereference a missing shadow generat
   const calls=runtime.split('shadowGen.addShadowCaster').length-1;
   assert.equal(calls,3,'all shadow caster registrations must remain explicitly guarded');
 });
+
+test('firing has a defined muzzle flash handler and expires the flash without allocating per-shot meshes',()=>{
+  assert.match(runtime,/function showMuzzleFlash\\(\\)\\s*\\{/);
+  assert.ok(runtime.includes('state.muzzleFlash.setEnabled(true)'));
+  assert.ok(runtime.includes('state.muzzleFlashUntil=performance.now()+55'));
+  assert.ok(runtime.includes('now>=state.muzzleFlashUntil'));
+  assert.ok(runtime.includes('state.muzzleFlash.setEnabled(false)'));
+});
