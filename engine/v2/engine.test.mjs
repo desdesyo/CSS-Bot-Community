@@ -243,6 +243,6 @@ test('short test sessions retain incomplete rounds and upload accumulated diagno
 
 test('engine entrypoint remains valid JavaScript after stripping browser-only imports and boot invocation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const parseable = engine.replace(/^import\\s+.*?;\\s*$/gm, '').replace(/\\nboot\\(\\);\\s*$/, '\\n');
+  const parseable = engine.split(String.fromCharCode(10)).filter(line => !line.startsWith('import ')).join(String.fromCharCode(10)).replace('boot();', '');
   assert.doesNotThrow(() => new Function(parseable));
 });
