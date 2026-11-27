@@ -448,9 +448,9 @@ function updateBotMotion(dt) {
       const steer=avoidLength>.001?Math.min(1.25,avoidLength*1.55)*dt:0;
       const moveX=next.x-bot.root.position.x+(avoidX/Math.max(.001,avoidLength))*steer;
       const moveZ=next.z-bot.root.position.z+(avoidZ/Math.max(.001,avoidLength))*steer;
-      const localColliders=queryCollisionSpatialIndex(collisionIndex,bot.root.position.x-2.2,bot.root.position.x+2.2,bot.root.position.z-2.2,bot.root.position.z+2.2);
-      // Collision helper expects eye-height Y, matching the player camera's convention.
-      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:moveX,z:moveZ},localColliders,.38,1.72,.07);
+      // Collision helper queries the same spatial hash per swept substep, avoiding
+      // repeated scans of even the bot's prefiltered collider list.
+      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:moveX,z:moveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
         if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
@@ -747,7 +747,7 @@ function updatePlayer(dt) {
   // Babylon cameras look down local -Z; movement must use the same forward vector.
   const movement=cameraRelativeMovement(yaw,forward/len,strafe/len);
   const before={x:camera.position.x,z:camera.position.z};
-  const resolved=moveWithAabbCollisions(camera.position,{x:movement.x*speed,z:movement.z*speed},collisionBoxes,.36,1.72,.10);
+  const resolved=moveWithAabbCollisions(camera.position,{x:movement.x*speed,z:movement.z*speed},collisionBoxes,.36,1.72,.10,collisionIndex);
   camera.position.x=resolved.x;camera.position.z=resolved.z;
   state.lastMove={requested:{x:+(movement.x*speed).toFixed(4),z:+(movement.z*speed).toFixed(4)},actual:{x:+(camera.position.x-before.x).toFixed(4),z:+(camera.position.z-before.z).toFixed(4)},blockedX:resolved.blockedX,blockedZ:resolved.blockedZ,blockedBy:resolved.blockedBy};
   if((resolved.blockedX||resolved.blockedZ)&&!state.lastMoveWasBlocked)gameLogEvent('player-collision',state.lastMove);
