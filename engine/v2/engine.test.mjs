@@ -319,3 +319,21 @@ test('field atlas persistence is deferred while gameplay diagnostics are recordi
   const persist = engine.slice(start, end);
   assert.equal(persist.includes('if(gameLogRecording){fieldAtlas.persistPending=true;return;}'), true);
 });
+
+test('Wet Ground bridge mouths are wide, visible, and have continuous road approaches', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /low pale stone bridge parapet/);
+  assert.match(map, /north bridge road approach/);
+  assert.match(map, /south bridge road approach/);
+  assert.match(map, /\[\[-40\.5,25\],\[0,24\],\[40\.5,25\]\]/);
+  assert.match(map, /barrier\.isVisible=false/);
+  assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
+});
+test('Wet Ground adds grounded street interiors and outer rainy landscape without blocking routes', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /GROCERY shop rear interior wall/);
+  assert.match(map, /CAFE stocked wall shelf/);
+  assert.match(map, /north rain-soaked terrain shoulder/);
+  assert.match(map, /dense wet street tree canopy/);
+  assert.match(map, /rain-worn roadside boulder/);
+});
