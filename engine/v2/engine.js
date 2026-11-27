@@ -4,7 +4,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0 };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -16,16 +16,19 @@ let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], pla
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
   m.position.set(x,y,z); m.material=material; m.receiveShadows=true; m.checkCollisions=!!collide;
-  if(cast) shadowGen.addShadowCaster(m);
+  if(cast && !mobile) shadowGen.addShadowCaster(m);
   return m;
 }
 function buildMap() {
   const asphalt=mat('district asphalt','#343c3b',.96),road=mat('road worn tar','#252d2d',.98),sidewalk=mat('aged sidewalk','#777b73',.92),brick=mat('weathered brick','#75665a',.92),plaster=mat('aged plaster','#aaa18d',.94),concrete=mat('site concrete','#777c78',.9),metal=mat('industrial steel','#343d3d',.52,.58),roof=mat('roof tar','#3c4240',.96),glass=mat('dark window glass','#263b40',.28,.25),yellow=mat('site safety yellow','#d2ad4d',.55,.18),white=mat('road paint','#c8c6b5',.75);
-  const ground=BABYLON.MeshBuilder.CreateGround('district-ground',{width:112,height:92,subdivisions:2},scene);ground.material=asphalt;ground.receiveShadows=true;
-  const groundPatch=(name,x,z,w,d,m)=>{const p=BABYLON.MeshBuilder.CreateGround(name,{width:w,height:d},scene);p.position.set(x,.012,z);p.material=m;p.receiveShadows=true;return p;};
-  groundPatch('main asphalt avenue',0,0,17,88,road);
-  groundPatch('west side street',-23,0,8,84,road);groundPatch('east side street',23,0,8,84,road);
-  for(const x of [-12,12,-29,29])groundPatch('concrete pavement',x,0,2.2,86,sidewalk);
+  const mapMeshStart=scene.meshes.length;
+  const ground=BABYLON.MeshBuilder.CreateGround('district-ground',{width:112,height:92,subdivisions:1},scene);ground.material=asphalt;ground.receiveShadows=!mobile;
+  // Every overlay has a deliberate height. The old shared Y=.012 made road, rail bed,
+  // sidewalks and site aprons coplanar; overlapping depth buffers caused floor flicker.
+  const groundPatch=(name,x,z,w,d,m,elevation=.025)=>{const p=BABYLON.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);p.position.set(x,elevation,z);p.material=m;p.receiveShadows=!mobile;return p;};
+  groundPatch('main asphalt avenue',0,0,17,88,road,.025);
+  groundPatch('west side street',-23,0,8,84,road,.035);groundPatch('east side street',23,0,8,84,road,.035);
+  for(const x of [-12,12,-29,29])groundPatch('concrete pavement',x,0,2.2,86,sidewalk,.045);
   box('north perimeter wall',0,2.8,-45,112,5.6,.9,concrete);box('south perimeter wall',0,2.8,45,112,5.6,.9,concrete);
   box('west perimeter wall',-55.5,2.8,0,.9,5.6,90,concrete);box('east perimeter wall',55.5,2.8,0,.9,5.6,90,concrete);
   const wall=(name,x,y,z,w,h,d,m=brick,collide=true)=>box(name,x,y,z,w,h,d,m,true,collide);
@@ -88,7 +91,7 @@ function buildMap() {
   const cargo=(x,z,w=3,d=2,h=2)=>{box('cargo container',x,h/2,z,w,h,d,metal);box('container roof lip',x,h+.05,z,w+.12,.1,d+.12,yellow,false,false);};
   cargo(-10,-25,3,5,2.4);cargo(10,-9,3,5,2.4);cargo(-10,7,3,4,2.1);cargo(10,15,3,4,2.1);
   // Bombsite A: open industrial loading yard close to the CT landing zone.
-  groundPatch('bombsite concrete apron',0,23,25,18,concrete);
+  groundPatch('bombsite concrete apron',0,23,25,18,concrete,.055);
   for(const [x,z,w,d] of [[-12,14,.25,18],[12,14,.25,18],[-12,32,.25,18],[12,32,.25,18]])box('bombsite painted boundary',x,.025,z,w,.035,d,yellow,false,false);
   for(const [x,z] of [[-8,20],[8,27]])cargo(x,z,3,5,2.5);
   box('bombsite plant platform',0,.12,23,4,.22,3,yellow,false,false);
@@ -97,8 +100,8 @@ function buildMap() {
   for(const [x,z,w,d] of [[-8,34,4,1.1],[8,34,4,1.1],[-14,23,1.1,4],[14,23,1.1,4]])box('site concrete cover',x,.65,z,w,1.3,d,concrete);
   // Distinct faction landing aprons. T is deliberately far from A; CT is staged beside it.
   const tMark=mat('T landing paint','#8d493d',.78),ctMark=mat('CT landing paint','#496b86',.78);
-  groundPatch('T landing apron',0,-36,22,9,tMark);
-  groundPatch('CT landing apron',0,34,22,8,ctMark);
+  groundPatch('T landing apron',0,-36,22,9,tMark,.065);
+  groundPatch('CT landing apron',0,34,22,8,ctMark,.065);
   for(const x of [-10,10]){
     box('T landing boundary',x,.03,-36,.16,.04,8,yellow,false,false);
     box('CT landing boundary',x,.03,34,.16,.04,7,yellow,false,false);
@@ -106,9 +109,9 @@ function buildMap() {
   box('T landing sign',0,2.5,-42,5,1.1,.18,tMark,false,false);
   box('CT landing sign',0,2.5,42,5,1.1,.18,ctMark,false,false);
   // NORTH DOCKS: freight rails, container gantry and fortified faction deployment compounds.
-  groundPatch('freight rail bed',0,-4,8,58,road);
-  for(const x of [-2.8,2.8])box('freight rail steel',x,.055,-4,.16,.09,58,metal,false,false);
-  for(let z=-31;z<=23;z+=4)box('rail sleeper',0,.035,z,6.2,.07,.28,roof,false,false);
+  groundPatch('freight rail bed',0,-4,8,58,road,.075);
+  for(const x of [-2.8,2.8])box('freight rail steel',x,.125,-4,.16,.09,58,metal,false,false);
+  for(let z=-31;z<=23;z+=4)box('rail sleeper',0,.105,z,6.2,.07,.28,roof,false,false);
   for(const x of [-20,20]){
     box('gantry crane left leg',x-2.2,4.4,-5,.55,8.8,.55,metal,false,false);
     box('gantry crane right leg',x+2.2,4.4,-5,.55,8.8,.55,metal,false,false);
@@ -132,9 +135,12 @@ function buildMap() {
   for(const x of [-18,18])for(const z of [-26,0,28]){
     const pole=box('streetlight pole',x,3,z,.12,6,.12,metal,false,false);
     box('streetlight head',x,6,z,.8,.16,.35,yellow,false,false);
-    const light=new BABYLON.PointLight('streetlight glow',new BABYLON.Vector3(x,5.7,z),scene);light.diffuse=new BABYLON.Color3(.82,.74,.56);light.intensity=mobile?.12:.22;light.range=11;
+    if(!mobile){const light=new BABYLON.PointLight('streetlight glow',new BABYLON.Vector3(x,5.7,z),scene);light.diffuse=new BABYLON.Color3(.82,.74,.56);light.intensity=.22;light.range=11;}
   }
   for(const [x,z] of [[-47,-36],[47,-36],[-47,36],[47,36]])box('utility cabinet',x,.8,z,2,1.6,1.4,metal);
+  // Static level geometry never moves: freeze transforms once to avoid recomputing
+  // hundreds of world matrices on every mobile frame.
+  for(const mesh of scene.meshes.slice(mapMeshStart)){mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();}
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
@@ -605,6 +611,24 @@ function updateAimAssist(dt) {
   camera.rotation.y+=yawDelta*strength;
   camera.rotation.x+=(pitch-camera.rotation.x)*strength;
 }
+function drawMinimap(){
+  const canvas=$('minimap'),ctx=canvas?.getContext('2d');if(!ctx||!scene)return;
+  const size=canvas.width,pad=8,spanX=112,spanZ=92,scale=(size-pad*2)/spanX;
+  const px=x=>pad+(x+56)*scale,py=z=>pad+(z+46)*scale;
+  ctx.clearRect(0,0,size,size);ctx.fillStyle='#101a20e8';ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle='#8b9a91';ctx.lineWidth=1;ctx.strokeRect(pad,pad,spanX*scale,spanZ*scale);
+  ctx.strokeStyle='#ffffff18';ctx.beginPath();ctx.moveTo(px(0),pad);ctx.lineTo(px(0),size-pad);ctx.moveTo(pad,py(0));ctx.lineTo(size-pad,py(0));ctx.stroke();
+  // Collision silhouettes give the player an actual top-down map, not just radar dots.
+  ctx.fillStyle='#9aa69b55';
+  for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
+  ctx.fillStyle='#d6b36e';ctx.fillRect(px(-4),py(19),8*scale,8*scale);ctx.fillStyle='#1b2020';ctx.font='bold 9px system-ui';ctx.fillText('A',px(0)-3,py(23)+4);
+  ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
+  ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
+  for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
+  const x=px(camera.position.x),y=py(camera.position.z),angle=camera.rotation.y;
+  ctx.save();ctx.translate(x,y);ctx.rotate(-angle);ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('N',size/2-3,7);
+}
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
@@ -785,9 +809,11 @@ async function boot() {
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         const shieldSeconds=Math.max(0,Math.ceil((state.spawnProtectedUntil-now)/1000));$('safeStatus').textContent=shieldSeconds>0?'SAFE '+shieldSeconds:'';$('safeStatus').style.display=shieldSeconds>0?'inline-flex':'none';
         if(state.roundTime<=0)endRound(false);
-        if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
+        const aiTick=mobile?.25:.125;
+        if(state.aiAccumulator>=aiTick){state.aiAccumulator%=aiTick;updateBotAI()}
         if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
       }
+      if(state.started&&now-state.minimapAt>=120){drawMinimap();state.minimapAt=now;}
       captureGameplayLog(rawDt,now);
       state.frameSamples.push(Math.min(250,rawDt*1000));
       if(now-state.sampleAt>=2000){
