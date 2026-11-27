@@ -26,3 +26,12 @@
 - Для прямой записи в GitHub браузеру нужен ранее сохранённый Fine-grained token с Contents: Read and write для `desdesyo/CSS-Bot-Community`. Если токен отсутствует или отозван, кнопка логов показывает необходимость настройки; нельзя утверждать, что автоматическая отправка работает без действительного токена.
 - Сбор идёт с интервалом 1 секунда для игровых кадров и ограниченными буферами, чтобы не перегружать Redmi 12. Не включать скриншот каждого кадра или постоянные тяжёлые трассировки.
 - Не называть этого бота автономным программистом, способным менять исходники: его роль — автономный полевой QA-наблюдатель, который собирает и передаёт фактическую диагностику для разработчика.
+
+
+## Field developer: маршрутный атлас и обход карты
+- FIELD DEVELOPER records its actual movement as route samples, persists visited 3 m map cells, and explores the nearest unvisited walkable cells using A* navigation.
+- The walkable grid is derived from the current map collision geometry. Unreachable cells and stuck/path-blocked events are reported separately; never label inaccessible space as inspected.
+- Route samples are saved into a capped route library. Allied bots can receive randomly selected learned route segments in later rounds; starting patrol routes are randomized as well.
+- Near-obstacle positions during combat or blocked movement are recorded as candidate cover points, including obstacle name, distance and a line-of-sight occlusion observation. This is training data, not an automatic proof that every point is good cover.
+- The atlas persists locally across reloads and is attached to each GitHub field-developer report: map coverage, visited/unreachable cells, route library, active route and cover samples. Keep bounded buffers (700 active route points, 30 routes, 350 cover samples).
+- Diagnostic upload policy: upload after 5 completed rounds in the current continuous play session. If a play session ends before 5 rounds, retain its reports; accumulate across short sessions and force upload at 8 pending rounds. Successful upload clears the pending round/log batch, never the persistent route atlas. Failed/missing GitHub credentials retain a bounded local queue and must be surfaced to the player.
