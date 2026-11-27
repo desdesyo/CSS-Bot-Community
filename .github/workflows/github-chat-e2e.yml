@@ -1,0 +1,110 @@
+name: GitHub Chat live end-to-end test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: solo-chat-e2e
+  cancel-in-progress: false
+
+jobs:
+  live-chat:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Verify deployed chat, authentication, AI reply, and history
+        env:
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -n "$CHAT_ENDPOINT" || { echo "::error::Missing chat endpoint"; exit 1; }
+          test -n "$CHAT_APP_PASSWORD" || { echo "::error::Missing CSSBC_CHAT_APP_PASSWORD"; exit 1; }
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          AUTH="Authorization: Bearer $CHAT_APP_PASSWORD"
+
+          echo "1/5 Verify authenticated Durable Agent..."
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -H "$AUTH" "$ENDPOINT/api/agent/status" > agent-status.json
+          jq -e 'has("pending") and has("mcpServers")' agent-status.json >/dev/null
+
+          echo "2/5 Verify the workflow-scoped GitHub credential used by the agent orchestrator..."
+          echo "Target workspace: desdesyo/CSS-Bot-Community@github-chat-prototype"
+          GITHUB_WORKSPACE_OK="false"
+          # Use the same short-lived, repository-scoped token that the agent orchestrator passes to tool execution.
+          test -n "$GITHUB_TOKEN" || { echo "::error::Missing workflow-scoped GitHub token"; exit 1; }
+          DIRECT_REF_CODE="$(curl --silent --show-error --max-time 30 -w '%{http_code}' -o direct-ref.json \
+            -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" -H "User-Agent: cssbc-github-chat" \
+            "https://api.github.com/repos/desdesyo/CSS-Bot-Community/git/ref/heads/github-chat-prototype" || true)"
+          echo "Direct workflow-token Git ref read: HTTP $DIRECT_REF_CODE"
+          if [[ "$DIRECT_REF_CODE" != "200" ]]; then cat direct-ref.json; exit 1; fi
+          jq -n --arg githubToken "$GITHUB_TOKEN" '{githubToken:$githubToken}' > github-check-payload.json
+          GH_CODE="$(curl --silent --show-error --max-time 60 -w '%{http_code}' -o github-check.json \
+            -H "$AUTH" -H "Content-Type: application/json" --data @github-check-payload.json "$ENDPOINT/api/agent/github-check" || true)"
+          if [[ "$GH_CODE" == "200" ]] && jq -e '.ok == true and .read == true and .write == true and .temporaryBranchRemoved == true and .repo == "desdesyo/CSS-Bot-Community" and .branch == "github-chat-prototype"' github-check.json >/dev/null; then
+            GITHUB_WORKSPACE_OK="true"
+            echo "GitHub workspace read/write access verified using the same short-lived token used by the agent orchestrator."
+          else
+            echo "::warning::GitHub workspace access is degraded (HTTP $GH_CODE): $(head -c 500 github-check.json). Continue testing chat; report this as a separate acceptance failure."
+          fi
+
+          echo "3/5 Queue a real message through the browser chat API..."
+          MARKER="CSSBC_CHAT_E2E_${GITHUB_RUN_ID}"
+          OPERATION="e2e-${GITHUB_RUN_ID}"
+          jq -n --arg message "Connection test. Reply with the exact marker $MARKER" --arg operationId "$OPERATION" \
+            '{message:$message,operationId:$operationId,webSearch:false,files:[]}' > payload.json
+          HTTP_CODE="$(curl --silent --show-error --max-time 30 -w '%{http_code}' -o chat-response.json \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            --data @payload.json "$ENDPOINT/api/chat")"
+          if [[ "$HTTP_CODE" != "202" ]]; then
+            echo "::error::Chat queue returned HTTP $HTTP_CODE: $(head -c 500 chat-response.json)"
+            exit 1
+          fi
+          THREAD="$(jq -r '.thread' chat-response.json)"
+          jq -e --arg operation "$OPERATION" '.operationId==$operation and .status=="queued"' chat-response.json >/dev/null
+          echo "Message accepted immediately for conversation #$THREAD."
+
+          echo "4/5 Poll the durable job until the assistant replies..."
+          STATUS="queued"
+          for attempt in $(seq 1 300); do
+            curl --fail-with-body --silent --show-error --max-time 20 \
+              -H "$AUTH" "$ENDPOINT/api/chat/status?operationId=$OPERATION" > chat-status.json
+            STATUS="$(jq -r '.status' chat-status.json)"
+            if [[ "$STATUS" == "done" ]]; then
+              jq -e --arg marker "$MARKER" '.reply|type=="string" and contains($marker)' chat-status.json >/dev/null
+              break
+            fi
+            if [[ "$STATUS" == "failed" ]]; then
+              echo "::error::Assistant job failed: $(jq -r '.error' chat-status.json)"
+              exit 1
+            fi
+            sleep 2
+          done
+          if [[ "$STATUS" != "done" ]]; then
+            echo "::error::Assistant job did not finish within ten minutes."
+            exit 1
+          fi
+
+          echo "4/5 Verify user and assistant messages were persisted..."
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "$AUTH" "$ENDPOINT/api/messages?thread=$THREAD" > history.json
+          jq -e --arg marker "$MARKER" \
+            '([.messages[]|select(.role=="user" and (.content|contains($marker)))]|length)>0 and ([.messages[]|select(.role=="assistant" and (.content|length>0))]|length)>0 and all(.messages[]; .role=="user" or .role=="assistant")' \
+            history.json >/dev/null
+
+          echo "5/5 Verify conversation appears in the chat sidebar..."
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "$AUTH" "$ENDPOINT/api/threads" > threads.json
+          jq -e --argjson thread "$THREAD" 'any(.threads[]; .number==$thread)' threads.json >/dev/null
+
+          if [[ "$GITHUB_WORKSPACE_OK" != "true" ]]; then
+            echo "::error::Chat and Q&A history passed, but the workflow-scoped GitHub token cannot complete the repository read/write check. Required target: desdesyo/CSS-Bot-Community@github-chat-prototype with Contents read/write."
+            exit 1
+          fi
+          echo "PASS: authenticated chat, immediate job acceptance, background AI generation, durable result polling, history reload, sidebar listing, and GitHub workspace read/write all work."

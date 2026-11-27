@@ -1,0 +1,2 @@
+#include "CSSBC_MVP.h"
+namespace cssbc{void MVPScore::Add(int id,EventKind e,float v){switch(e){case EventKind::BombAction:case EventKind::Rescue:case EventKind::CoverFire:case EventKind::PlateCracked:case EventKind::PlateBroken:score_[id]+=v;break;default:break;}}float MVPScore::Get(int id)const{auto i=score_.find(id);return i==score_.end()?0:i->second;}}

@@ -1,0 +1,45 @@
+name: SOLO.Chat Health Monitor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: solo-chat-health-monitor
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check live app and queue a repair task on failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_ENDPOINT: https://cssbc-github-chat.descapan.workers.dev
+          CHAT_APP_PASSWORD: ${{ secrets.CSSBC_CHAT_APP_PASSWORD }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$CHAT_APP_PASSWORD" ]]; then
+            echo "::error::Health monitor cannot authenticate because CSSBC_CHAT_APP_PASSWORD is missing."
+            exit 1
+          fi
+          ENDPOINT="${CHAT_ENDPOINT%/}"
+          CODE="$(curl --silent --show-error --max-time 20 -o health.json -w '%{http_code}' -H "Authorization: Bearer $CHAT_APP_PASSWORD" "$ENDPOINT/api/health" || true)"
+          if [[ "$CODE" == "200" ]] && jq -e '.ok == true' health.json >/dev/null; then
+            echo "SOLO.Chat HTTP health passed: $(jq -r '.service + " · " + .checkedAt' health.json)"
+            exit 0
+          fi
+          BODY="$(printf 'Task-Key: AUTO-HEALTH\nAgent-Target: %s@github-chat-prototype\n\n## Objective\nRestore the deployed SOLO.Chat service. Authenticated health endpoint returned HTTP %s.\n\n## Acceptance criteria\n- Identify whether the failure is DNS, TLS, Worker routing, authentication, Durable Object runtime, or deployment propagation.\n- Repair the root cause with the smallest safe change.\n- Run GitHub Chat checks and deploy smoke test successfully.\n- Preserve user data and never expose credentials.\n\n## Evidence\n- Health endpoint: %s/api/health\n- Response code: %s\n- Body: %s\n- Implementation: pending\n- Verification run: pending\n' "$REPO" "$CODE" "$ENDPOINT" "$CODE" "$(cat health.json 2>/dev/null || echo 'No response body')")"
+          for name in agent-task agent-generated agent-chat-runtime agent-health-alert status:queued status:in-progress status:review status:done; do gh label create "$name" --repo "$REPO" --color d73a4a --force >/dev/null 2>&1 || true; done
+          EXISTING="$(gh api "repos/$REPO/issues?state=open&per_page=100" | jq -r '[.[]|select(.pull_request==null and (.labels|any(.name=="agent-health-alert")))][0].number // empty')"
+          if [[ -n "$EXISTING" ]]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "Health check still failing: HTTP $CODE. Monitor run: $GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" >/dev/null
+          else
+            gh issue create --repo "$REPO" --title "[Self-Heal] SOLO.Chat health check failed" --body "$BODY" --label agent-task --label agent-generated --label agent-chat-runtime --label agent-health-alert --label status:queued
+          fi
+          exit 1

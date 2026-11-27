@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Upload artifact descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "mediaType", "length", "sha256", "purpose"],
+  "properties": {
+    "name": { "type": "string", "maxLength": 128 },
+    "mediaType": { "type": "string", "maxLength": 128 },
+    "length": { "type": "integer", "minimum": 0, "maximum": 1048576 },
+    "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "purpose": { "type": "string", "maxLength": 256 }
+  }
+}

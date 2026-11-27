@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#101820"><title>SOLO Engine — импорт CS:S v34</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101820;color:#e8edf2;font:15px system-ui,sans-serif;padding:22px}main{max-width:850px;margin:auto}h1{color:#8dd6c6}p{line-height:1.55;color:#c5d1d6}.panel{background:#192831;border:1px solid #38515b;border-radius:12px;padding:18px;margin:14px 0}button,.pick{display:inline-block;padding:12px 16px;border:1px solid #6ba89c;border-radius:8px;background:#24574e;color:white;font-weight:700;font-size:14px;cursor:pointer}button.secondary{background:#273943;border-color:#657a82}input{display:none}progress{width:100%;height:14px}#status{white-space:pre-wrap;color:#b9d8d0}#results{max-height:380px;overflow:auto;font:13px ui-monospace,monospace}li{margin:5px 0;overflow-wrap:anywhere}.muted{color:#9eb0b7;font-size:13px}.warn{color:#f2cd8d}.good{color:#8de0ae}a{color:#8dd6c6}code{color:#f4d58c}
+</style></head><body><main>
+<a href="./play.html">← Назад в игру</a><h1>Импорт ресурсов Counter-Strike: Source v34</h1>
+<p>Выбери папку <code>cstrike</code> из своей установленной игры. Обработка выполняется прямо в браузере: файлы не отправляются на сервер и не попадают в GitHub. Импортёр сохраняет локальную копию поддерживаемых ресурсов и создаёт манифест с контрольными суммами.</p>
+<div class="panel"><h3>1. Выбрать папку игры</h3><p class="muted">На ПК выбери папку <code>cstrike</code> или корневую папку игры. На Android можно выбрать отдельные VPK/BSP-файлы через файловый менеджер.</p>
+<label class="pick" for="folder">Выбрать папку cstrike</label> <label class="pick" for="files">Выбрать файлы</label>
+<input id="folder" type="file" webkitdirectory directory multiple><input id="files" type="file" multiple accept=".vpk,.bsp,.mdl,.vtx,.vvd,.vtf,.vmt,.wav,.mp3,.nav,.ain,.phy,.ani,.spr">
+<p class="muted">Поддерживаемые форматы: VPK, BSP, MDL/VTX/VVD, VTF/VMT, WAV/MP3, NAV/AIN/PHY/ANI. Исходные файлы Valve остаются только в локальном хранилище браузера.</p></div>
+<div class="panel"><h3>2. Проверка и импорт</h3><progress id="progress" max="100" value="0"></progress><p id="status">Ожидаю выбора файлов.</p><p id="summary" class="good"></p><div id="results"></div></div>
+<div class="panel"><h3>3. Локальная библиотека</h3><p id="storage" class="muted">Проверяю хранилище…</p><button id="manifest" class="secondary" disabled>Скачать манифест JSON</button> <button id="clear" class="secondary">Удалить локально импортированные файлы</button></div>
+<p class="warn">Важно: импорт и проверка файлов уже работают, но сам игровой движок пока не умеет напрямую отображать Source VPK/BSP/MDL/VTF. Этот этап собирает и проверяет локальный набор; следующий этап — конвертер карт и моделей в форматы, которые понимает SOLO Engine. Никакие оригинальные файлы не публикуются.</p>
+</main>
+<script>
+const DB='solo-css-assets-v1',STORE='assets',META='manifest';
+const $=id=>document.getElementById(id);let manifest={schema:1,game:'Counter-Strike: Source',variant:'v34 (user supplied)',createdAt:null,files:[],summary:{}};
+const exts=new Set(['vpk','bsp','mdl','vtx','vvd','vtf','vmt','wav','mp3','nav','ain','phy','ani','spr']);
+function dbOpen(){return new Promise((ok,no)=>{const q=indexedDB.open(DB,1);q.onupgradeneeded=()=>{const d=q.result;if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE,{keyPath:'path'});if(!d.objectStoreNames.contains(META))d.createObjectStore(META,{keyPath:'id'})};q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})}
+async function txDone(tx){return new Promise((ok,no)=>{tx.oncomplete=ok;tx.onerror=()=>no(tx.error);tx.onabort=()=>no(tx.error)})}
+function ext(path){return(path.split('.').pop()||'').toLowerCase()}
+function classify(path){const e=ext(path),p=path.toLowerCase();if(e==='vpk')return'VPK archive';if(e==='bsp')return'Map';if(['mdl','vtx','vvd','phy','ani'].includes(e))return'Model/physics';if(['vtf','vmt'].includes(e))return'Material/texture';if(['wav','mp3'].includes(e))return'Sound';if(['nav','ain'].includes(e))return'Navigation';return'Other'}
+async function inspect(file,path){
+ const head=new Uint8Array(await file.slice(0,16).arrayBuffer()),e=ext(path);let valid=null,detail='';
+ const ascii=(a)=>String.fromCharCode(...a);
+ if(e==='vpk'){valid=ascii(head.slice(0,4))==='')} // placeholder
+ if(e==='vpk'){valid=head[0]===0x34&&head[1]===0x12&&head[2]===0xaa&&head[3]===0x55;detail=valid?'VPK signature 0x55AA1234':'Неизвестная сигнатура VPK'}
+ else if(e==='bsp'){valid=ascii(head.slice(0,4))==='VBSP';detail=valid?'Source BSP header':'Ожидалась сигнатура VBSP'}
+ else if(e==='mdl'){valid=ascii(head.slice(0,4))==='IDST';detail=valid?'Studio MDL header':'Ожидалась сигнатура IDST'}
+ else if(e==='vtf'){valid=(ascii(head.slice(0,3))==='VTF'&&head[3]===0);detail=valid?'Valve Texture Format':'Ожидалась сигнатура VTF'}
+ else if(e==='wav'){valid=ascii(head.slice(0,4))==='RIFF'&&ascii(head.slice(8,12))==='WAVE';detail=valid?'RIFF/WAVE':'Не WAV RIFF'}
+ else if(e==='vtx'){valid=file.size>16;detail='VTX binary (структурная проверка будет на этапе конвертера)'}
+ else if(e==='vvd'){valid=ascii(head.slice(0,4))==='IDSV';detail=valid?'Studio VVD header':'Ожидалась сигнатура IDSV'}
+ else {valid=file.size>0;detail='Файл найден; формат проверяется при конвертации'}
+ let hash='';if(file.size<=256*1024*1024){const buf=await file.arrayBuffer();const digest=await crypto.subtle.digest('SHA-256',buf);hash=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+ return{valid,detail,hash};
+}
+async function importFiles(list){
+ const all=Array.from(list),chosen=all.filter(f=>ext(f.webkitRelativePath||f.name)&&exts.has(ext(f.webkitRelativePath||f.name)));
+ if(!chosen.length){$('status').textContent='Не найдены поддерживаемые файлы. Выбери cstrike или VPK/BSP и связанные файлы.';return}
+ const total=chosen.reduce((n,f)=>n+f.size,0);$('status').textContent='Найдено '+chosen.length+' ресурсов ('+(total/1048576).toFixed(1)+' МБ). Проверяю…';$('progress').value=0;$('results').innerHTML='';
+ const pending=[];let ok=0,bad=0,done=0;
+ manifest={schema:1,game:'Counter-Strike: Source',variant:'v34 (user supplied)',createdAt:new Date().toISOString(),files:[],summary:{}};
+ for(const f of chosen){
+  const path=(f.webkitRelativePath||f.name).replace(/^.*?cstrike\//i,'').replace(/^cstrike\//i,'');
+  try{
+   const check=await inspect(f,path),record={path,size:f.size,type:f.type||'',format:ext(path),category:classify(path),valid:check.valid,validation:check.detail,sha256:check.hash||null};
+   pending.push({path,blob:f,size:f.size,format:record.format,sha256:record.sha256,importedAt:manifest.createdAt});manifest.files.push(record);
+   if(check.valid)ok++;else bad++;
+   const li=document.createElement('div');li.textContent=(check.valid?'✓ ':'⚠ ')+path+' — '+check.detail;$('results').append(li);
+  }catch(err){bad++;manifest.files.push({path,size:f.size,format:ext(path),valid:false,validation:String(err)})}
+  done++;$('progress').value=Math.round(done/chosen.length*100);$('status').textContent='Обработано '+done+' / '+chosen.length;
+ }
+ manifest.summary={files:chosen.length,valid:ok,warning:bad,totalBytes:total};
+ const db=await dbOpen(),tx=db.transaction([STORE,META],'readwrite');for(const item of pending)tx.objectStore(STORE).put(item);tx.objectStore(META).put({id:'current',manifest});await txDone(tx);db.close();
+ $('summary').textContent='Импортировано локально: '+ok+' корректных · '+bad+' с предупреждениями · '+chosen.length+' всего.';
+ $('status').textContent='Готово. Файлы находятся только в IndexedDB этого браузера на этом устройстве.';
+ $('manifest').disabled=false;await refreshStorage();
+}
+async function refreshStorage(){try{const db=await dbOpen(),tx=db.transaction([STORE,META],'readonly'),req=tx.objectStore(STORE).getAll(),meta=tx.objectStore(META).get('current');const [items,m]=await Promise.all([new Promise(r=>req.onsuccess=()=>r(req.result)),new Promise(r=>meta.onsuccess=()=>r(meta.result))]);const bytes=items.reduce((n,x)=>n+x.size,0);$('storage').textContent='Локально сохранено: '+items.length+' файлов · '+(bytes/1048576).toFixed(1)+' МБ'+(m?' · манифест доступен':'');if(m){manifest=m.manifest;$('manifest').disabled=false}db.close()}catch(e){$('storage').textContent='Хранилище недоступно: '+e}}
+$('folder').addEventListener('change',e=>importFiles(e.target.files));$('files').addEventListener('change',e=>importFiles(e.target.files));
+$('manifest').onclick=()=>{const blob=new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='solo-css-v34-manifest.json';a.click();URL.revokeObjectURL(url)};
+$('clear').onclick=async()=>{if(!confirm('Удалить все импортированные файлы из локального хранилища этого браузера?'))return;const db=await dbOpen(),tx=db.transaction([STORE,META],'readwrite');tx.objectStore(STORE).clear();tx.objectStore(META).clear();await txDone(tx);db.close();manifest={schema:1,files:[]};$('results').innerHTML='';$('summary').textContent='';$('status').textContent='Локальная библиотека очищена.';$('manifest').disabled=true;refreshStorage()};
+refreshStorage();
+</script></body></html>
