@@ -651,6 +651,7 @@ function drawMinimap(){
   ctx.fillStyle='#9aa69b55';
   for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
   ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('MOKRY POL',px(-5),py(-39));
+  ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.font='bold 7px system-ui';ctx.fillText('BIOSECURE / SERVER',px(-10),py(15));ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
