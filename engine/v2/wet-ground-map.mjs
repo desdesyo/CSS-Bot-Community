@@ -19,6 +19,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const trim=mat('weathered limestone trim','#68717a',.82);
   const iron=mat('black wet iron','#171e28',.38,.72);
   const glass=mat('midnight window glass','#101d2d',.16,.42);
+  const windowIron=mat('aged window muntin iron','#222a31',.34,.62);
+  const curtain=mat('interior linen curtains','#626b6d',.92);
   const roof=mat('slate roofs','#202b39',.92);
   const amber=mat('warm lamp glass','#ffd49a',.25);
 
@@ -389,6 +391,15 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
           const frameX=face+side*.14;
           box(name+' recessed window shadow',frameX,opening.centerY,opening.z,.09,opening.height+.18,opening.width+.18,iron,false);
           box(name+' deep-set window glass',frameX+side*.055,opening.centerY,opening.z,.035,opening.height-.12,opening.width-.12,glass,false);
+          // Fine muntins, an offset curtain fold and a wet glass highlight give each opening depth.
+          box(name+' central vertical window muntin',frameX+side*.105,opening.centerY,opening.z,.055,opening.height-.16,.045,windowIron,false);
+          box(name+' horizontal window transom muntin',frameX+side*.105,opening.centerY+.12,opening.z,.055,.045,opening.width-.14,windowIron,false);
+          if((level+Math.round(opening.z*2))%3===0){
+            box(name+' hanging linen curtain left',frameX+side*.11,opening.centerY,opening.z-opening.width*.31,.035,opening.height*.78,.28,curtain,false);
+            box(name+' hanging linen curtain right',frameX+side*.11,opening.centerY,opening.z+opening.width*.31,.035,opening.height*.78,.28,curtain,false);
+          }
+          const glassGlint=box(name+' narrow reflected sky strip on glass',frameX+side*.13,opening.centerY+.08,opening.z-opening.width*.28,.018,opening.height*.58,.055,trim,false);
+          glassGlint.isPickable=false;
           for(const dz of [-opening.width/2,opening.width/2])box(name+' stone window jamb',frameX+side*.10,opening.centerY,opening.z+dz,.22,opening.height+.22,.12,trim,false);
           box(name+' stone window head',frameX+side*.10,opening.centerY+opening.height/2+.08,opening.z,.24,.14,opening.width+.18,trim,false);
           box(name+' projecting stone sill',frameX+side*.16,opening.centerY-opening.height/2-.08,opening.z,.38,.16,opening.width+.32,trim,false);
