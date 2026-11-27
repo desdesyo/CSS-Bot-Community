@@ -309,10 +309,12 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     ['west tenement B',-13,-6,10,17,7.4,stone,'west'],
     ['west tenement C',-20,17,13,14,8.5,brick,'west'],
     ['west tenement D',-13,35,8,10,7.2,plaster,'west'],
+    ['west T spawn street row',-13.5,-21,10,10,7.8,brick,'west'],
     ['east tenement A',13.5,-32,10,12,7.6,stone,'east'],
     ['east tenement B',13.5,-7,14,18,8.4,plaster,'east'],
     ['east tenement C',16,17,10,14,7.3,brick,'east'],
-    ['east tenement D',21,36,13,10,8.1,stone,'east']
+    ['east tenement D',21,36,13,10,8.1,stone,'east'],
+    ['east T spawn street row',13.5,-21,10,10,7.8,plaster,'east']
   ];
   for(const args of blocks) building(...args);
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
@@ -797,7 +799,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     root.computeWorldMatrix(true);
   };
   const buildSpawnFragment=(team,z,westFace,eastFace,westShop,eastShop)=>{
-    const label=team==='CT'?'CT':'T',inward=team==='T'?1:-1;
+    const label=(team==='CT'?'CT':'T')+'-'+Math.round(z),inward=team==='T'?1:-1;
     const at=distance=>z+inward*distance;
     for(const [side,face,shop] of [[-1,westFace,westShop],[1,eastFace,eastShop]]){
       const dir=side<0?1:-1;
@@ -885,8 +887,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       box(label+' junction box',x,6.72,at(5.5),.32,.42,.24,spawnPaint,false);
     }
   };
+  // Each faction now gets a connected ~26m authored street sequence: the landing frontage plus a second detailed frontage farther along the approach.
   buildSpawnFragment('CT',36,-8.93,14.43,'ПРОДУКТЫ','МАСТЕРСКАЯ');
+  buildSpawnFragment('CT',17,-13.43,10.93,'ПЕКАРНЯ','АТЕЛЬЕ');
   buildSpawnFragment('T',-37.5,-6.93,8.43,'АПТЕКА','КАФЕ');
+  buildSpawnFragment('T',-21,-8.43,8.43,'ЦВЕТЫ','МАГАЗИН');
 
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
