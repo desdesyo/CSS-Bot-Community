@@ -316,16 +316,49 @@ function updateBotAI() {
   }
 }
 function updateBotMotion(dt) {
-  // Continuous frame-rate movement prevents the 8 Hz AI cadence from looking like teleporting.
   for(const bot of state.bots) {
-    if(!bot.alive) continue;
-    const target=bot.waypoints[bot.index];
-    const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},{x:target[0],z:target[1]},bot.speed,dt);
-    bot.root.position.x=next.x;bot.root.position.z=next.z;
-    const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
-    let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
-    bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*7;animateHumanBot(bot.rig,true,bot.speed>2.7);
+    if(!bot.alive){
+      if(bot.deadAt){
+        const t=Math.min(1,(performance.now()-bot.deadAt)/520);
+        bot.root.rotation.x=bot.deathStartX+t*1.28;bot.root.position.y=-.12*t;
+        if(t>=1)bot.deadAt=0;
+      }
+      continue;
+    }
+    let goal=null;
+    if(bot.navPath?.length&&bot.navIndex<bot.navPath.length){
+      goal=bot.navPath[bot.navIndex];
+      if(Math.hypot(goal.x-bot.root.position.x,goal.z-bot.root.position.z)<.55)bot.navIndex++;
+      if(bot.navIndex>=bot.navPath.length){bot.navPath=[];goal=null;}
+    }
+    if(!goal&&bot.combatState==='patrol'){
+      const wp=bot.waypoints[bot.index];goal={x:wp[0],z:wp[1]};
+    }
+    if(goal){
+      const dx=goal.x-bot.root.position.x,dz=goal.z-bot.root.position.z,dist=Math.hypot(dx,dz);
+      const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},goal,bot.combatState==='patrol'?bot.speed:bot.speed*1.12,dt);
+      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:0,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},collisionBoxes,.38,1.72,.07);
+      bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
+      if((resolved.blockedX||resolved.blockedZ)&&dist>.8){bot.navPath=[];bot.navGoal=null;bot.repathAt=0;}
+      animateHumanBot(bot.rig,dist>.25,bot.speed>2.7);
+    }else animateHumanBot(bot.rig,false,false);
+    let lookAt=null;
+    if(bot.target?.kind==='player')lookAt=bot.target.position;
+    else if(bot.target?.bot)lookAt=bot.target.bot.root.position;
+    else if(goal)lookAt=new BABYLON.Vector3(goal.x,0,goal.z);
+    if(lookAt){
+      const yaw=Math.atan2(lookAt.x-bot.root.position.x,lookAt.z-bot.root.position.z);
+      const delta=Math.atan2(Math.sin(yaw-bot.root.rotation.y),Math.cos(yaw-bot.root.rotation.y));
+      bot.root.rotation.y+=delta*Math.min(1,dt*6);
+      bot.root.rotation.y=Math.atan2(Math.sin(bot.root.rotation.y),Math.cos(bot.root.rotation.y));
+    }
+    if(bot.rightHand&&bot.rifle){
+      bot.root.computeWorldMatrix(true);bot.rightHand.computeWorldMatrix(true);
+      const inverse=bot.root.getWorldMatrix().clone().invert();
+      const local=BABYLON.Vector3.TransformCoordinates(bot.rightHand.getAbsolutePosition(),inverse);
+      bot.rifle.position.set(local.x+.02,local.y-.025,local.z+.05);
+    }
+    bot.phase+=dt*7;
   }
 }
 function updateBulletPhysics(dt) {
