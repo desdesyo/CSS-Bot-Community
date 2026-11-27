@@ -34,14 +34,12 @@ try{
   'https://cdn.babylonjs.com/babylon.js',
   'https://cdn.jsdelivr.net/npm/babylonjs@7.54.3/babylon.js'
  ],'Babylon.js');
- show('Загрузка поддержки 3D-моделей…','LOADING OPTIONAL MODEL SUPPORT');
- try{
-  await loadFirst([
-   'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
-   'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
-  ],'Babylon loaders');
- }catch(error){console.warn('3D model loader unavailable; procedural soldiers will be used',error)}
- show('Запуск сцены…','INITIALIZING SCENE');
+ show('Загрузка обязательного glTF-загрузчика для настоящих 3D-бойцов…','LOADING REQUIRED GLTF SUPPORT');
+ await loadFirst([
+  'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
+  'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
+ ],'Обязательный Babylon glTF loader');
+ show('Подготовка отражений и ночного освещения…','INITIALIZING WET-NIGHT RENDERER');
  await import('./engine.js');
 }catch(error){
  console.error('SOLO Engine bootstrap failed',error);
