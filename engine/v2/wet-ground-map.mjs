@@ -547,6 +547,84 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     ['east T spawn street row',13.5,-21,10,10,7.8,plaster,'east']
   ];
   for(const args of blocks) building(...args);
+
+  // FULL DISTRICT EXTENSION — the previous layout read as one long central alley.
+  // Add a second, perpendicular street layer so the player sees connected blocks,
+  // corner buildings and real cross-street choices from more than the spawn lane.
+  const quarterBuilding=(name,cx,cz,w,d,h,material,turn=1)=>{
+    const first=scene.meshes.length;
+    building(name,cx,cz,w,d,h,material,'west');
+    const created=scene.meshes.slice(first);
+    for(const mesh of created){
+      const dx=mesh.position.x-cx,dz=mesh.position.z-cz;
+      if(turn>0){mesh.position.x=cx-dz;mesh.position.z=cz+dx;mesh.rotation.y+=Math.PI/2;}
+      else{mesh.position.x=cx+dz;mesh.position.z=cz-dx;mesh.rotation.y-=Math.PI/2;}
+      mesh.computeWorldMatrix(true);
+    }
+  };
+  // Two continuous cross-streets plus short bank-side connectors form a legible
+  // street grid. The canal remains a genuine barrier except at the three bridges.
+  floor('south district cross street',0,-20,91,6.2,.032,cobble);
+  floor('north district cross street',0,27,91,6.2,.032,cobble);
+  for(const side of [-1,1]){
+    floor('canal bank east-west market connector',side*25,5.2,39,5.2,.034,cobble);
+    for(const z of [-23.5,-16.5,23.5,30.5]){
+      floor('cross street granite pedestrian edge',side*25,z,39,.42,.072,stone);
+    }
+  }
+  for(const z of [-20,27]){
+    for(const side of [-1,1]){
+      floor('cross street granite north curb',side*25,z-3.35,40,.42,.075,stone);
+      floor('cross street granite south curb',side*25,z+3.35,40,.42,.075,stone);
+      for(let x=-43;x<=43;x+=8){
+        const grate=box('cross street storm drain',x,.09,z+(side>0?3.05:-3.05),.82,.035,.24,iron,false);
+        grate.isPickable=false;
+      }
+    }
+  }
+  // Perpendicular corner blocks occupy the gaps between the inner and outer rows.
+  // Each block has a distinct height/material and an inward-facing street elevation.
+  const quarterRows=[
+    [-31.5,-32,11,7.4,6.2,plaster,1],[-31.5,-6,10,7.2,5.8,brick,-1],
+    [-31.5,17,12,7.4,7.1,stone,1],[-31.5,35,10,7.2,6.0,brick,-1],
+    [31.5,-32,10,7.2,6.4,stone,-1],[31.5,-6,12,7.4,7.0,plaster,1],
+    [31.5,17,10,7.2,5.9,brick,-1],[31.5,35,12,7.4,7.2,stone,1]
+  ];
+  for(const [x,z,w,d,h,material,turn] of quarterRows)
+    quarterBuilding('cross-street corner tenement',x,z,w,d,h,material,turn);
+
+  // Distinct neighborhood nodes: a paved market court, loading apron and
+  // a small fenced utility yard make the district read as several places.
+  floor('west market court worn cobblestone',-31.5,-20,15.5,12.2,.052,cobble);
+  for(const [x,z] of [[-39.1,-26.1],[-23.9,-26.1],[-39.1,-13.9],[-23.9,-13.9]]){
+    box('market court dressed stone corner',x,.18,z,.48,.36,.48,trim,false);
+  }
+  cylinder('market court fountain stone basin',-31.5,.34,-20,3.6,.58,trim);
+  cylinder('market court fountain dark water',-31.5,.66,-20,2.85,.08,water);
+  cylinder('market court fountain central plinth',-31.5,.91,-20,.72,.48,stone);
+  cylinder('market court fountain upper bowl',-31.5,1.2,-20,1.28,.18,trim);
+  cylinder('market court fountain finial',-31.5,1.58,-20,.22,.62,iron);
+  for(const [x,z,rot] of [[-38,-20,0],[-25,-20,Math.PI],[ -31.5,-25,Math.PI/2],[-31.5,-15,Math.PI/2]]){
+    const bench=box('market court rain-dark timber bench',x,.38,z,2.1,.16,.58,doorWood,false);
+    bench.rotation.y=rot;
+    for(const dx of [-.72,.72])box('market court bench iron leg',x+dx,.19,z,.12,.38,.46,iron,false);
+  }
+  // An actual crossroad sightline: street nameplates and corner lanterns identify
+  // junctions so the player can orientate without the minimap.
+  const streetPlate=mat('enamel street nameplate','#172a38',.34,.42);
+  const streetPlateTex=new B.DynamicTexture('old quarter street nameplate lettering',{width:512,height:128},scene,false);
+  const streetPlateCtx=streetPlateTex.getContext();
+  streetPlateCtx.fillStyle='#172a38';streetPlateCtx.fillRect(0,0,512,128);
+  streetPlateCtx.strokeStyle='#b9a27b';streetPlateCtx.lineWidth=5;streetPlateCtx.strokeRect(6,6,500,116);
+  streetPlateCtx.fillStyle='#e0d4bb';streetPlateCtx.font='bold 42px Arial';streetPlateCtx.textAlign='center';streetPlateCtx.textBaseline='middle';
+  streetPlateCtx.fillText('OLD QUARTER',256,65);streetPlateTex.update(false);
+  streetPlate.diffuseTexture=streetPlateTex;streetPlate.emissiveTexture=streetPlateTex;streetPlate.disableLighting=true;
+  for(const [x,z] of [[-25,-23.4],[25,-23.4],[-25,30.4],[25,30.4]]){
+    const plate=box('old quarter enamel street sign',x,3.15,z,.06,.62,2.4,streetPlate,false);
+    plate.isPickable=false;
+    lamp(x+(x<0?-1.4:1.4),z+(z<0?-1.2:1.2),true);
+  }
+
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
   for(const [x,z,w,d,h] of [
     [-41,-30,9,15,6.6],[-36,-4,12,19,7.2],[-42,21,10,12,6.8],[-35,37,12,9,6.4],
