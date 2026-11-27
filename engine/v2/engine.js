@@ -24,13 +24,13 @@ function buildMap() { buildExpandedDust2(BABYLON,scene,shadowGen,mat,box); }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
   const uniform=team==='enemy'?enemyMaterial:allyMaterial;
-  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.25,radius:.27,tessellation:8,subdivisions:1},scene);body.parent=root;body.position.y=.98;body.material=uniform;body.receiveShadows=true;shadowGen.addShadowCaster(body);
-  const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.42,segments:8},scene);head.parent=root;head.position.y=1.82;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
+  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.12,radius:.21,tessellation:10,subdivisions:1},scene);body.parent=root;body.position.y=.88;body.material=uniform;body.receiveShadows=true;shadowGen.addShadowCaster(body);
+  const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.24,segments:12},scene);head.parent=root;head.position.y=1.64;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
   const armMat=mat('armour-'+id,team==='enemy'?'#4b5b54':'#465d74',.9),legMat=mat('trousers-'+id,team==='enemy'?'#39443e':'#35495c',.94);
-  const leftArm=BABYLON.MeshBuilder.CreateCapsule('left-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);leftArm.parent=root;leftArm.position.set(-.34,1.12,0);leftArm.material=armMat;
-  const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.34,1.12,0);rightArm.material=armMat;
-  const leftLeg=BABYLON.MeshBuilder.CreateCapsule('left-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);leftLeg.parent=root;leftLeg.position.set(-.16,.38,0);leftLeg.material=legMat;
-  const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.16,.38,0);rightLeg.material=legMat;
+  const leftArm=BABYLON.MeshBuilder.CreateCapsule('left-arm-'+id,{height:.66,radius:.105,tessellation:9,subdivisions:1},scene);leftArm.parent=root;leftArm.position.set(-.27,1.12,0);leftArm.material=armMat;
+  const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.27,1.12,0);rightArm.material=armMat;
+  const leftLeg=BABYLON.MeshBuilder.CreateCapsule('left-leg-'+id,{height:.72,radius:.12,tessellation:9,subdivisions:1},scene);leftLeg.parent=root;leftLeg.position.set(-.13,.39,0);leftLeg.material=legMat;
+  const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.13,.39,0);rightLeg.material=legMat;
   const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
   const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
   root.position.set(x,0,z);
@@ -61,8 +61,8 @@ function updateBotMotion(dt) {
     const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*8;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.98+Math.abs(Math.sin(bot.phase*2))*.018;
-    bot.head.position.y=1.82+Math.abs(Math.sin(bot.phase*2))*.012;
+    bot.phase+=dt*8;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.88+Math.abs(Math.sin(bot.phase*2))*.018;
+    bot.head.position.y=1.64+Math.abs(Math.sin(bot.phase*2))*.012;
   }
 }
 function fire() {
@@ -108,7 +108,7 @@ function updatePlayer(dt) {
   if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
 }
 function start() {
-  state.started=true;overlay.style.display='none';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.72,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);
+  state.started=true;overlay.style.display='none';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -119,7 +119,7 @@ async function boot() {
     engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:!mobile,powerPreference:'high-performance',audioEngine:false},false);
     engine.setHardwareScalingLevel(1/Math.min(deviceDpr,targetDpr*state.scale));
     scene=new B.Scene(engine);scene.clearColor=new B.Color4(.12,.16,.17,1);scene.ambientColor=new B.Color3(.18,.18,.17);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new B.Color3(.22,.25,.24);
-    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,38),scene);camera.minZ=.08;camera.maxZ=260;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
+    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.65,38),scene);camera.minZ=.08;camera.maxZ=260;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.68;hemi.diffuse=new B.Color3(.77,.81,.83);hemi.groundColor=new B.Color3(.24,.25,.22);
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
