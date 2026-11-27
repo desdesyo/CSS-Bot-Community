@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-13'));
+  assert.ok(html.includes('./engine.js?v=20261127-14'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
