@@ -2,7 +2,7 @@
 
 Game title: **SOLO: Wet Ground**. Engine: SOLO Engine V2.
 
-A parallel browser-FPS engine track. The legacy client remains untouched except for a separately committed adaptive-rendering correction.
+A parallel browser-FPS engine track. The legacy client remains untouched except for a separately committed adaptive-rendering correction. The active V2 map is a connected old-quarter district with perpendicular cross streets, corner tenements, a market court and canal crossings, rather than a single spawn alley.
 
 ## Why a separate engine
 The previous client is a 150 KB monolithic Three.js page with coupled rendering, AI, physics, HUD and input. V2 starts from a clean runtime boundary using Babylon.js' WebGL renderer, PBR materials, explicit shadow budget, isolated AI cadence and measured dynamic resolution.
@@ -10,7 +10,7 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 ## Current vertical slice
 - WebGL rendering with device-aware antialiasing and shadow-map budgets.
 - Image-based PBR lighting from a real CC0 night-street HDR panorama (with a compact environment fallback); scanned albedo, OpenGL normal, roughness and ambient-occlusion maps for wet cobblestone and facade masonry, generated fallback relief, individually layered slate roof courses, reflected-sky glazing, a bounded continuous rain particle field, and animated raindrop impact rings.
-- PBR material pipeline and the Wet Ground rain-soaked old-quarter map with low-rise blue-gray buildings, narrow alleys, a canal, three stone bridges, wet cobblestone, puddles and warm lanterns. Both CT and T player deployment points now have bespoke 26m spawn-quarter street fragments with illuminated shopfronts, awnings, deep glazing, street furniture, parked vehicle/bicycle dressing, crosswalks, overhead cables and additional facade normal/roughness maps.
+- PBR material pipeline and the Wet Ground rain-soaked old-quarter map with low-rise blue-gray buildings, a multi-street block layout, cross-street corner tenements, a market court fountain, narrow alleys, a canal, three stone bridges, wet cobblestone, puddles and warm lanterns. Both CT and T player deployment points now have bespoke 26m spawn-quarter street fragments with illuminated shopfronts, awnings, deep glazing, street furniture, parked vehicle/bicycle dressing, crosswalks, overhead cables and additional facade normal/roughness maps.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
 - Procedural high-detail first-person M4-style rifle, detailed 9mm service pistol and full-tang combat knife, with separate moving parts, controls, magazines, sights and materials.
