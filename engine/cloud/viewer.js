@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
-const video = $('video'), status = $('status');
-let socket, pc, channel, connected = false, statsTimer = 0, lastVideoStats = null; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false, weapon = '';
+const video = $('video'), status = $('status');\nconst weaponOrder=['rifle','pistol','grenade','knife'];
+let socket, pc, channel, connected = false, statsTimer = 0, lastVideoStats = null; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false, weapon = 'rifle';
 const say = text => { status.textContent = text; };
 function sendSignal(message) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message)); }
 function sendInput() {
@@ -60,19 +60,24 @@ async function offer() {
   sendSignal({ type: 'offer', description: pc.localDescription });
   say('Согласование видеопотока…');
 }
-$('join').addEventListener('click', () => connect().catch(error => say(error.message)));
-$('fire').addEventListener('pointerdown', e => { e.preventDefault(); $('fire').setPointerCapture(e.pointerId); fire = true; });
-for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('fire').addEventListener(event, () => { fire = false; });
+$('join').addEventListener('click', () => connect().catch(error => say(error.message)));\n$('weapon').addEventListener('pointerdown',e=>{
+  e.preventDefault();const i=weaponOrder.indexOf(weapon);weapon=weaponOrder[(i+1)%weaponOrder.length];
+  $('weapon').textContent=weapon.toUpperCase();
+});
+let firePointerId=null;
+$('fire').addEventListener('pointerdown', e => { e.preventDefault(); firePointerId=e.pointerId; try{$('fire').setPointerCapture(e.pointerId)}catch{} fire = true; });
+$('fire').addEventListener('pointermove',e=>e.preventDefault());
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) $('fire').addEventListener(event, e => { if(firePointerId!==null&&e.pointerId!==firePointerId)return;firePointerId=null;fire=false; });
 $('reload').addEventListener('pointerdown', e => { e.preventDefault(); reload = true; });
 $('jump').addEventListener('pointerdown', e => { e.preventDefault(); jump = true; });
 const stick = $('stick'), nub = $('nub'); let stickId = null, origin = null;
-stick.addEventListener('pointerdown', e => { stickId = e.pointerId; origin = { x: e.clientX, y: e.clientY }; stick.setPointerCapture(e.pointerId); });
-stick.addEventListener('pointermove', e => { if (e.pointerId !== stickId) return; const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);move.x=dx/48*k;move.y=dy/48*k;nub.style.transform='translate('+move.x*38+'px,'+move.y*38+'px)'; });
+stick.addEventListener('pointerdown', e => { e.preventDefault();stickId = e.pointerId; origin = { x: e.clientX, y: e.clientY }; try{stick.setPointerCapture(e.pointerId)}catch{} });
+stick.addEventListener('pointermove', e => { if (e.pointerId !== stickId) return;e.preventDefault(); const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);move.x=dx/48*k;move.y=dy/48*k;nub.style.transform='translate('+move.x*38+'px,'+move.y*38+'px)'; });
 const reset = () => { stickId=null;move.x=move.y=0;nub.style.transform=''; };
 stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
 let lookId = null, last = null;
-$('look').addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};$('look').setPointerCapture(e.pointerId);});
-$('look').addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;look.x+=(e.clientX-last.x)*.004;look.y+=(e.clientY-last.y)*.004;last={x:e.clientX,y:e.clientY};});
+$('look').addEventListener('pointerdown',e=>{e.preventDefault();lookId=e.pointerId;last={x:e.clientX,y:e.clientY};try{$('look').setPointerCapture(e.pointerId)}catch{}});
+$('look').addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;e.preventDefault();look.x+=(e.clientX-last.x)*.004;look.y+=(e.clientY-last.y)*.004;last={x:e.clientX,y:e.clientY};});
 $('look').addEventListener('pointerup',()=>lookId=null);$('look').addEventListener('pointercancel',()=>lookId=null);
 const held=new Set();const syncKeys=()=>{move.x=(held.has('KeyD')?1:0)-(held.has('KeyA')?1:0);move.y=(held.has('KeyS')?1:0)-(held.has('KeyW')?1:0);};window.addEventListener('keydown',e=>{held.add(e.code);syncKeys();if(e.code==='Space')jump=true;if(e.code==='KeyR')reload=true;if(e.code==='Digit1')weapon='rifle';if(e.code==='Digit2')weapon='pistol';if(e.code==='Digit3')weapon='grenade';if(e.code==='Digit4')weapon='knife';});
 window.addEventListener('keyup',e=>{held.delete(e.code);syncKeys();if(e.code==='Space')jump=false;});video.addEventListener('click',()=>video.requestPointerLock?.());window.addEventListener('mousemove',e=>{if(document.pointerLockElement===video){look.x+=e.movementX*.0022;look.y+=e.movementY*.0022;}});window.addEventListener('mousedown',e=>{if(e.button===0)fire=true;});window.addEventListener('mouseup',e=>{if(e.button===0)fire=false;});
