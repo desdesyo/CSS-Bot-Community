@@ -258,7 +258,7 @@ test('night scene has required glTF support and never silently skips real soldie
 
 test('mobile rendering uses physical device pixels and antialiasing instead of CSS-pixel upscaling', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /renderPixelRatio=Math\.min\(Math\.max\(1,window\.devicePixelRatio\|\|1\),mobile\?2\.5:1\.5\)/);
+  assert.match(engine, /renderPixelRatio=Math\.min\(Math\.max\(1,window\.devicePixelRatio\|\|1\),mobile\?1\.25:1\.5\)/);
   assert.match(engine, /function applyRenderScale\(\)\{if\(engine\)engine\.setHardwareScalingLevel\(1\/\(state\.scale\*renderPixelRatio\)\);\}/);
   assert.match(engine, /new B\.Engine\(canvas,true,\{preserveDrawingBuffer:false,stencil:false,antialias:true/);
   assert.match(engine, /state\.scale=next;applyRenderScale\(\)/);
