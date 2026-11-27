@@ -50,3 +50,15 @@ test('runtime uses the expanded Dust2 map and spawns the player at T spawn', () 
   assert.ok(runtime.includes("DUST2_EXPANDED.spawns.t"));
   assert.ok(runtime.includes("isDust2Blocked(x,z)"));
 });
+
+test('both team spawns and both bombsite centers are walkable', () => {
+  for (const p of [[0,73],[0,-73],[-83,-4],[83,4]]) assert.equal(isDust2Blocked(p[0],p[1]), false, 'blocked point '+p.join(','));
+});
+test('expanded map exposes long A route, lower B tunnel and central mid geometry', () => {
+  const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8');
+  assert.ok(geometry.includes('A upper catwalk'));
+  assert.ok(geometry.includes('B lower tunnel'));
+  assert.ok(geometry.includes('mid plaza'));
+  assert.ok(geometry.includes('A site courtyard'));
+  assert.ok(geometry.includes('B site courtyard'));
+});
