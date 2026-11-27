@@ -1,4 +1,5 @@
 name: Publish SOLO Engine V2
+# Rebuild the current tested feature/solo-engine-v2 head after renderer/map batching fixes.
 
 on:
   push:
