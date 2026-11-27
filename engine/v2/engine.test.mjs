@@ -226,7 +226,7 @@ test('shadow casters are optional and never dereference a missing shadow generat
 });
 
 test('firing has a defined muzzle flash handler and expires the flash without allocating per-shot meshes',()=>{
-  assert.match(runtime,/function showMuzzleFlash\\(\\)\\s*\\{/);
+  assert.ok(runtime.includes('function showMuzzleFlash(){'));
   assert.ok(runtime.includes('state.muzzleFlash.setEnabled(true)'));
   assert.ok(runtime.includes('state.muzzleFlashUntil=performance.now()+55'));
   assert.ok(runtime.includes('now>=state.muzzleFlashUntil'));
