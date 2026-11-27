@@ -370,7 +370,7 @@ test('both player spawn zones have authored high-detail street fragments and fac
   assert.match(map, /worn zebra crossing stripe/);
   assert.match(map, /warm spawn streetlight/);
   assert.match(map, /CT parked rain-dark sedan/);
-  assert.match(map, /bicycle front wheel/);
+  assert.match(map, /bicycle '\+wheelName\+' wheel/);
   assert.match(map, /overhead bundled power cable/);
 });
 
