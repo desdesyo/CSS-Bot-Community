@@ -317,7 +317,14 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const clamp01 = v => Math.max(0,Math.min(1,v));
   const smooth = v => {v=clamp01(v);return v*v*(3-2*v)};
   function fire() {
-    if (selected === 'knife') { if (meleeT > 0) return false; meleeT = 1; meleeHitPending = true; meleeHitReady = false; return true; }
+    if (selected === 'knife') {
+      if (meleeT > 0) return false;
+      // A knife swing is a dedicated melee animation, never a leftover firearm recoil.
+      recoil = 0; fireT = 0; shotFlash = 0;
+      muzzleFlash.isVisible = false; pistolFlash.isVisible = false;
+      meleeT = 1; meleeHitPending = true; meleeHitReady = false;
+      return true;
+    }
     recoil = Math.min(1.8,recoil + (selected === 'rifle' ? .72 : .58));
     fireT = 1;
     shotFlash = .07;
@@ -454,7 +461,13 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     knife.setEnabled(slot === 'knife');
     if (slot !== 'rifle') muzzleFlash.isVisible = false;
     if (slot !== 'pistol') pistolFlash.isVisible = false;
-    if (slot==='knife') { rightArm.rotation.z=-.12; leftArm.rotation.z=.08; }
+    if (slot==='knife') {
+      recoil=0;fireT=0;shotFlash=0;
+      bolt.position.z=-.02;bolt.position.y=.045;
+      pistolSlide.position.z=0;
+      muzzleFlash.isVisible=false;pistolFlash.isVisible=false;
+      rightArm.rotation.z=-.12;leftArm.rotation.z=.08;
+    }
   }
   return { root, rifle, pistol, knife, muzzleFlash, pistolFlash, fire, beginReload, completeReload, update, select, consumeMeleeHit, arms };
 }
