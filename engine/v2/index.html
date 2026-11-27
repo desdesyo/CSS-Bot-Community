@@ -45,6 +45,13 @@
 @keyframes soloSpin{to{transform:rotate(360deg)}}@keyframes soloLoad{from{background-position:-35% 0}to{background-position:135% 0}}
 @media(pointer:coarse){#overlay{align-items:flex-end;justify-content:center;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px)}#overlay::before{background-image:linear-gradient(0deg,rgba(3,7,10,.96) 0%,rgba(3,7,10,.74) 38%,rgba(3,7,10,.06) 82%),url("./assets/solo-menu-cover.jpeg");background-position:center 32%}#card{width:100%;max-height:min(66dvh,620px);padding:14px 16px}#overlay.is-loading{align-items:flex-end}#overlay.is-loading #card{width:100%;padding:20px 18px 28px}#overlay.is-loading #loadState::after{left:18px;right:18px;bottom:12px}}
 
+
+/* Explicit engine state wins over a stale loading class (mobile WebView recovery). */
+#overlay[data-engine-state="ready"] #loadState::before,#overlay[data-engine-state="ready"] #loadState::after,#overlay[data-engine-state="error"] #loadState::before,#overlay[data-engine-state="error"] #loadState::after{display:none!important}
+#overlay[data-engine-state="ready"] #menuLead,#overlay[data-engine-state="error"] #menuLead{display:block!important}
+#overlay[data-engine-state="ready"] #menuNav,#overlay[data-engine-state="error"] #menuNav,#overlay[data-engine-state="ready"] #teamSelect,#overlay[data-engine-state="error"] #teamSelect,#overlay[data-engine-state="ready"] #menuButtons,#overlay[data-engine-state="error"] #menuButtons{display:flex!important}
+#overlay[data-engine-state="ready"] #pane-play,#overlay[data-engine-state="error"] #pane-play{display:block!important}
+#overlay[data-engine-state="ready"] #pane-settings,#overlay[data-engine-state="ready"] #pane-logs{display:none!important}
 </style>
 </head>
 <body>
@@ -105,7 +112,8 @@ try{
  await import('./engine.js');
 }catch(error){
  console.error('SOLO Engine bootstrap failed',error);
- document.getElementById('overlay')?.classList.add('is-error');
+ const failedOverlay=document.getElementById('overlay');
+ if(failedOverlay){failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');}
  show('Не удалось загрузить графическое ядро: '+(error?.message||error),'BOOT ERROR · проверь интернет/CDN');
 }
 </script>
