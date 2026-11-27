@@ -37,18 +37,24 @@ function buildMap() {
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
-  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.35,radius:.27,tessellation:8,subdivisions:1},scene);body.parent=root;body.position.y=.92;body.material=team==='enemy'?enemyMaterial:allyMaterial;body.receiveShadows=true;shadowGen.addShadowCaster(body);
-  const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.42,segments:8},scene);head.parent=root;head.position.y=1.78;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
+  const uniform=team==='enemy'?enemyMaterial:allyMaterial;
+  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.25,radius:.27,tessellation:8,subdivisions:1},scene);body.parent=root;body.position.y=.98;body.material=uniform;body.receiveShadows=true;shadowGen.addShadowCaster(body);
+  const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.42,segments:8},scene);head.parent=root;head.position.y=1.82;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
+  const armMat=mat('armour-'+id,team==='enemy'?'#4b5b54':'#465d74',.9),legMat=mat('trousers-'+id,team==='enemy'?'#39443e':'#35495c',.94);
+  const leftArm=BABYLON.MeshBuilder.CreateCapsule('left-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);leftArm.parent=root;leftArm.position.set(-.34,1.12,0);leftArm.material=armMat;
+  const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.34,1.12,0);rightArm.material=armMat;
+  const leftLeg=BABYLON.MeshBuilder.CreateCapsule('left-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);leftLeg.parent=root;leftLeg.position.set(-.16,.38,0);leftLeg.material=legMat;
+  const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.16,.38,0);rightLeg.material=legMat;
   const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
   const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
   root.position.set(x,0,z);
-  state.bots.push({id,team,root,body,head,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0});
+  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:team==='enemy'?2.7:2.45,phase:id*.73,health:100,alive:true,fireAt:0});
   return root;
 }
 function buildBots() {
   const routes=[
-    [[-35,-30],[-25,-8],[-37,14],[-20,31]], [[35,-30],[25,-8],[37,14],[20,31]],
-    [[-44,8],[-28,0],[-10,-8],[-24,16]], [[44,8],[28,0],[10,-8],[24,16]],
+    [[-36,-30],[-36,-14],[-32,14],[-32,21],[-20,31]], [[36,-30],[36,-14],[32,14],[32,21],[20,31]],
+    [[-44,8],[-43,13],[-42,15],[-32,15],[-32,24],[-24,24]], [[44,8],[43,13],[42,15],[32,15],[32,24],[24,24]],
     [[-18,-35],[-8,-18],[8,-12],[18,-32]], [[18,35],[8,18],[-8,12],[-18,32]]
   ];
   makeBot(1,'enemy',-36,-30,routes[0]);makeBot(2,'enemy',36,-30,routes[1]);makeBot(3,'enemy',-44,8,routes[2]);
@@ -72,8 +78,8 @@ function updateBotMotion(dt) {
     const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*7;bot.body.position.y=.92+Math.abs(Math.sin(bot.phase))*.035;
-    bot.head.position.y=1.78+Math.abs(Math.sin(bot.phase))*.018;
+    bot.phase+=dt*8;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.98+Math.abs(Math.sin(bot.phase*2))*.018;
+    bot.head.position.y=1.82+Math.abs(Math.sin(bot.phase*2))*.012;
   }
 }
 function fire() {
@@ -112,9 +118,17 @@ function updatePlayer(dt) {
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
   const len=Math.hypot(forward,strafe)||1, speed=4.6*dt;
   const yaw=camera.rotation.y;
-  camera.position.x+=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
-  camera.position.z+=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
-  camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
+  const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
+  const dz=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
+  const blocked=(x,z)=> {
+    const rects=[[-22,-18,9,1],[22,-18,9,1],[-22,17,9,1],[22,17,9,1],[0,-30,1,9],[0,30,1,9],[-39,0,1,11],[39,0,1,11],
+      [-12,-9,1.55,1.55],[12,-9,1.55,1.55],[-12,10,1.55,1.55],[12,10,1.55,1.55],[-31,-22,1.55,1.55],[31,-22,1.55,1.55],[-31,22,1.55,1.55],[31,22,1.55,1.55],[-3,0,1.55,1.55],[3,0,1.55,1.55],
+      [-8,-27,2.8,1], [8,-27,2.8,1],[-8,27,2.8,1],[8,27,2.8,1]];
+    return rects.some(([cx,cz,hx,hz])=>Math.abs(x-cx)<hx+.38&&Math.abs(z-cz)<hz+.38);
+  };
+  const nextX=Math.max(-53,Math.min(53,camera.position.x+dx)),nextZ=Math.max(-42,Math.min(42,camera.position.z+dz));
+  if(!blocked(nextX,camera.position.z))camera.position.x=nextX;
+  if(!blocked(camera.position.x,nextZ))camera.position.z=nextZ;
 }
 function start() {
   state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,Math.PI,0);
