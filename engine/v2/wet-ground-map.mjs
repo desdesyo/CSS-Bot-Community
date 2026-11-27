@@ -237,6 +237,28 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const arch=B.MeshBuilder.CreateCylinder(label+' bridge arch rib',{diameter:.2,height:14,tessellation:8},scene);
       arch.position.set(x,-1.05,z);arch.rotation.z=Math.PI/2;arch.material=stone;arch.isPickable=false;
     }
+    // Load-bearing masonry arch: a true curved intrados under the deck,
+    // three parallel stone ribs and voussoir blocks rather than decorative straight cylinders.
+    const archPath=[];
+    for(let step=0;step<=20;step++){
+      const t=-Math.PI/2+Math.PI*step/20;
+      archPath.push(new B.Vector3(x,-.02-1.55*Math.cos(t),5.15*Math.sin(t)));
+    }
+    for(const offset of [-5.7,0,5.7]){
+      const rib=B.MeshBuilder.CreateTube(label+' curved stone arch intrados',{path:archPath.map(p=>new B.Vector3(p.x+offset,p.y,p.z)),radius:.22,tessellation:8},scene);
+      rib.material=stone;rib.isPickable=false;
+    }
+    for(let segment=0;segment<13;segment++){
+      const t=-Math.PI/2+Math.PI*(segment+.5)/13;
+      const voussoir=B.MeshBuilder.CreateBox(label+' bridge arch voussoir',{width:1.05,height:.34,depth:.48},scene);
+      voussoir.position.set(x,-.02-1.55*Math.cos(t),5.15*Math.sin(t));
+      voussoir.rotation.x=t;voussoir.material=trim;voussoir.isPickable=false;
+    }
+    for(const side of [-1,1]){
+      box(label+' bridge stone abutment',x+side*6.1,-.02,0,1.25,2.7,11.2,stone,false);
+      for(let course=0;course<4;course++)
+        box(label+' bridge abutment masonry course',x+side*6.78,.28+course*.48,0,.12,.055,10.7,trim,false);
+    }
     // Broad level landings and cobbled road aprons visibly connect both banks.
     floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
     floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
@@ -270,7 +292,22 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     box(name+' outer wall',x-side*w/2,h/2,z,.48,h,d,material,true);
     box(name+' inner wall north',x+side*w/2,h/2,z-d/2+.6,.48,h,d*.34,material,true);
     box(name+' inner wall south',x+side*w/2,h/2,z+d/2-.6,.48,h,d*.34,material,true);
-    box(name+' flat slate roof',x,h+.12,z,w+.45,.28,d+.45,roof,false);
+    // Broken roof silhouette: two pitched slate planes, ridge cap, eaves and chimney flashings.
+    // The shallow gable avoids the repetitive flat-box skyline of the earlier greybox.
+    const roofPlane=(sideSign)=>{
+      const plane=B.MeshBuilder.CreateBox(name+' pitched slate roof plane',{width:w*.53,height:.22,depth:d+.7},scene);
+      plane.position.set(x+sideSign*w*.255,h+.34,z);
+      plane.rotation.z=sideSign*.19;plane.material=roof;plane.isPickable=false;plane.receiveShadows=true;
+    };
+    roofPlane(-1);roofPlane(1);
+    box(name+' slate roof ridge cap',x,h+.58,z,.22,.16,d+.82,iron,false);
+    for(const edge of [-1,1]){
+      box(name+' roof eaves gutter',x+edge*w*.51,h+.08,z,.12,.14,d+.72,iron,false);
+      for(let gutter=0;gutter<Math.max(2,Math.floor(d/3));gutter++){
+        const gz=z-d*.42+gutter*(d*.84/Math.max(1,Math.floor(d/3)-1));
+        box(name+' gutter bracket',x+edge*w*.52,h+.01,gz,.18,.08,.12,trim,false);
+      }
+    }
     // Build a real inward-facing elevation with masonry piers and openings, not glazing pasted on blank walls.
     const floors=Math.max(1,Math.ceil(h/2.75));
     for(let level=0;level<floors;level++){
@@ -351,6 +388,32 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     [-41,-30,9,15,6.6],[-36,-4,12,19,7.2],[-42,21,10,12,6.8],[-35,37,12,9,6.4],
     [41,-30,12,12,7.1],[43,-4,9,18,6.7],[37,20,13,13,7.4],[43,37,9,9,6.5]
   ]) building('outer quarter row',x,z,w,d,h,brick,x<0?'west':'east');
+  // WALKABLE MASONRY ARCADES — arched thresholds frame existing alley gaps.
+  // Their curved crowns are visual geometry only; the clear opening remains traversable.
+  const arcadeSites=[[-11,5,'west'],[11,5,'east'],[-31,-16,'west'],[31,16,'east']];
+  for(const [ax,az,side] of arcadeSites){
+    const span=4.2, crown=3.35, radius=span/2;
+    for(const end of [-1,1]){
+      box('arcade dressed stone pier',ax,.0,az+end*(radius+.18),.62,crown,.62,stone,false);
+      for(let course=0;course<5;course++)
+        box('arcade pier cut-stone course',ax,.42+course*.58,az+end*(radius+.18),.68,.045,.68,trim,false);
+      box('arcade impost capital',ax,crown-.24,az+end*(radius+.18),.82,.24,.82,trim,false);
+    }
+    const curve=[];
+    for(let step=0;step<=24;step++){
+      const angle=Math.PI*step/24;
+      curve.push(new B.Vector3(ax,crown+radius*Math.sin(angle),az-radius*Math.cos(angle)));
+    }
+    const arch=B.MeshBuilder.CreateTube('continuous curved limestone arcade arch',{path:curve,radius:.31,tessellation:10},scene);
+    arch.material=trim;arch.isPickable=false;
+    const inner=B.MeshBuilder.CreateTube('dark arch intrados seam',{path:curve.map(p=>new B.Vector3(p.x,p.y-.18,p.z)),radius:.055,tessellation:8},scene);
+    inner.material=iron;inner.isPickable=false;
+    box('arcade threshold worn stone',ax,.08,az,span,.14,1.05,trim,false);
+    for(const sideSign of [-1,1]){
+      const wallLamp=box('arcade amber wall sconce',ax+sideSign*1.72,2.55,az,.12,.42,.2,glow,false);
+      wallLamp.isPickable=false;
+    }
+  }
   // Alleys are real openings between blocks; short walls, gates, bins and stoops create cover.
   for(const [x,z,w,d] of [[-11,-19,1,5],[-11,5,1,5],[-11,27,1,5],[11,-19,1,5],[11,5,1,5],[11,27,1,5],[-31,-16,1,6],[31,16,1,6]]){
     box('alley low stone divider',x,.65,z,w,1.3,d,stone,true);
@@ -561,6 +624,48 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     floor('riverside stone landing',x,0,5,11,.16,stone);
     box('canal bollard',x-2,.6,0,.3,1.2,.3,iron,false);
     box('canal bollard',x+2,.6,0,.3,1.2,.3,iron,false);
+  }
+  // LIVED-IN ROOFLINES: vents, chimney stacks, aerials, roof hatches and rain tanks.
+  const roofVent=mat('galvanized roof ventilation steel','#4b5960',.48,.66);
+  const roofOxide=mat('aged copper roof flashing','#52645f',.36,.62);
+  const roofTar=mat('roof bitumen repair patches','#151f27',.82,.08);
+  const rooftopSites=[[-13.5,-32,13,12,8.2],[-13,-6,10,17,7.4],[-20,17,13,14,8.5],[13.5,-32,10,12,7.6],[13.5,-7,14,18,8.4],[16,17,10,14,7.3]];
+  for(const [rx,rz,rw,rd,rh] of rooftopSites){
+    for(const [dx,dz] of [[-.28,-.26],[.25,.22]]){
+      box('roof tar repair membrane',rx+dx*rw,rh+.475,rz+dz*rd,rw*.24,.025,rd*.19,roofTar,false);
+    }
+    for(const [dx,dz] of [[-.3,.28],[.31,-.24]]){
+      const vx=rx+dx*rw,vz=rz+dz*rd;
+      box('roof ventilation curb',vx,rh+.72,vz,1.05,.42,.9,roofVent,false);
+      box('roof ventilation cap',vx,rh+.96,vz,1.28,.09,1.08,iron,false);
+      for(let fin=0;fin<5;fin++)box('roof vent louvre',vx-.42+fin*.21,rh+.73,vz-.47,.035,.28,.045,trim,false);
+    }
+    const tankX=rx+(rx<0?1:-1)*rw*.29,tankZ=rz+rd*.24;
+    const tank=B.MeshBuilder.CreateCylinder('aged rooftop rainwater tank',{diameter:1.05,height:1.35,tessellation:16},scene);
+    tank.position.set(tankX,rh+1.18,tankZ);tank.material=roofOxide;tank.isPickable=false;
+    const tankCap=B.MeshBuilder.CreateCylinder('rain tank domed lid',{diameter:1.08,height:.12,tessellation:16},scene);
+    tankCap.position.set(tankX,rh+1.88,tankZ);tankCap.material=iron;tankCap.isPickable=false;
+    const pipe=B.MeshBuilder.CreateTube('rooftop rain tank overflow pipe',{path:[new B.Vector3(tankX+.48,rh+1.05,tankZ),new B.Vector3(tankX+.72,rh+.72,tankZ),new B.Vector3(tankX+.72,rh+.08,tankZ)],radius:.045,tessellation:6},scene);
+    pipe.material=iron;pipe.isPickable=false;
+  }
+  // Street-level stone wear: broken curb corners, patched asphalt and damp moss at wall feet.
+  const moss=mat('rain-dark wall-foot moss','#263c35',.98);
+  for(const [mx,mz,mw] of [[-6.1,-29,4.8],[6.1,-11,3.4],[-6.1,14,4.2],[6.1,31,3.8],[-29,-4,2.8],[29,20,3.1]]){
+    const strip=B.MeshBuilder.CreateGround('thin moss growth at damp masonry foot',{width:mw,height:.34,subdivisions:1},scene);
+    strip.position.set(mx,.083,mz);strip.material=moss;strip.isPickable=false;
+  }
+  // Rain-darkened manhole covers have raised rims, radial slots and recessed centres.
+  const manholeMat=mat('cast iron manhole cover','#202a31',.56,.68);
+  for(const [hx,hz] of [[-2.8,-31],[2.4,-7],[-2.6,19],[2.7,36]]){
+    const rim=B.MeshBuilder.CreateTorus('cast iron manhole raised rim',{diameter:1.05,thickness:.075,tessellation:24},scene);
+    rim.position.set(hx,.09,hz);rim.rotation.x=Math.PI/2;rim.material=trim;rim.isPickable=false;
+    const cover=B.MeshBuilder.CreateDisc('cast iron manhole cover',{radius:.46,tessellation:24},scene);
+    cover.position.set(hx,.095,hz);cover.rotation.x=Math.PI/2;cover.material=manholeMat;cover.isPickable=false;
+    for(let slot=0;slot<8;slot++){
+      const a=slot*Math.PI/4;
+      const vent=box('manhole cover radial drain slot',hx+Math.cos(a)*.22,.105,hz+Math.sin(a)*.22,.045,.012,.16,iron,false);
+      vent.rotation.y=-a;
+    }
   }
   // Low rooflines, overhead wires and small rooftop details: no high-rise skyline.
   for(const z of [-31,-9,16,34]){
