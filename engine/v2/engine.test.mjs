@@ -11,7 +11,7 @@ const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-20'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-21'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -37,7 +37,7 @@ test('mobile build disables shadows, skips external rigged models, and uses chea
   assert.ok(runtime.includes("const cloudHost = new URLSearchParams(location.search).get('cloudHost') === '1'"));
   assert.ok(runtime.includes('shadowGen=mobile?null:new B.ShadowGenerator(cloudHost?4096:2048,sun)'));
   assert.ok(runtime.includes("if(mobile){$('loadState').textContent='Мобильный профиль: облегчённые бойцы без тяжёлых GLB-моделей.';return false;}"));
-  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
+  assert.ok(runtime.includes('function buildMapCollisionIndex()'));\n  assert.ok(runtime.includes('mapCollisionGrid.get(gx+\',\'+gz)'));\n  assert.ok(runtime.includes('m.metadata||{}),mapCollider:cast'));\n  assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
   assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
   assert.ok(!html.includes('babylonjs.loaders.min.js'));
@@ -241,4 +241,28 @@ test('V2 exposes a same-origin validated input bridge for cloud-hosted rendering
   assert.ok(runtime.includes("event.data?.type!=='SOLO_CLOUD_INPUT'"));
   assert.ok(runtime.includes('state.touchStickActive=true'));
   assert.ok(runtime.includes('state.fireTouch=input.fire===true'));
+});
+
+test('mobile touch controls suppress browser selection and preserve independent pointer capture',()=>{
+  assert.ok(html.includes('user-select:none'));
+  assert.ok(html.includes('-webkit-touch-callout:none'));
+  assert.ok(html.includes('overscroll-behavior:none'));
+  assert.ok(runtime.includes('let firePointerId=null'));
+  assert.ok(runtime.includes('fireButton.setPointerCapture(e.pointerId)'));
+  assert.ok(runtime.includes("stick.addEventListener('pointerdown',e=>{e.preventDefault()"));
+  assert.ok(runtime.includes("look.addEventListener('pointerdown',e=>{e.preventDefault()"));
+});
+test('grenade uses ballistic motion, wall collision, bounce and line-of-sight blast damage',()=>{
+  for(const token of ['velocity.y-=9.81*dt','scene.pickWithRay(ray,isMapSolid)','velocity.subtractInPlace(normal.scale(1.55*into))','fuse=2.15','const radius=6.5','if(blocked?.hit)continue']) assert.ok(runtime.includes(token),'missing grenade physics '+token);
+});
+test('player collision is indexed from actual static map geometry, not hand-authored blockers',()=>{
+  assert.ok(runtime.includes('function buildMapCollisionIndex()'));
+  assert.ok(runtime.includes('mapCollider:cast'));
+  assert.ok(runtime.includes('buildMap();buildMapCollisionIndex();'));
+  assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
+});
+test('sun disc is removed; directional sun and hemispheric fill provide stable global lighting',()=>{
+  assert.ok(!runtime.includes('sun-disc'));
+  assert.ok(runtime.includes("new B.DirectionalLight('sun'"));
+  assert.ok(runtime.includes('hemi.intensity=.82'));
 });
