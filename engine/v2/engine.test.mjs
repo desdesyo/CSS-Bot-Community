@@ -272,3 +272,26 @@ test('real rigged soldier models are mandatory; primitive placeholder soldiers a
   assert.match(bots, /отсутствует настоящая 3D-модель/);
   assert.doesNotMatch(bots, /fallback-torso|fallback-head|using procedural soldiers/);
 });
+
+
+test('Wet Ground uses physical PBR materials and real planar wet-surface reflections on mobile and desktop', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(map, /new B\.PBRMaterial\(name, scene\)/);
+  assert.match(map, /new B\.MirrorTexture\('rain-soaked street planar reflections'/);
+  assert.match(map, /cobble\.reflectionTexture=wetMirror/);
+  assert.match(map, /water\.reflectionTexture=wetMirror/);
+  assert.match(map, /puddle\.reflectionTexture=wetMirror/);
+  assert.match(map, /mobile\?256:768/);
+  assert.match(map, /old quarter clock tower shaft/);
+  assert.match(map, /night market stall counter/);
+  assert.match(engine, /TONEMAPPING_ACES/);
+  assert.match(engine, /GlowLayer\('wet quarter emissive glow'/);
+  assert.match(engine, /distant city sky bounce/);
+});
+
+test('night scene has required glTF support and never silently skips real soldier models', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /LOADING REQUIRED GLTF SUPPORT/);
+  assert.doesNotMatch(html, /procedural soldiers will be used|OPTIONAL MODEL SUPPORT/);
+});
