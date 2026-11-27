@@ -91,25 +91,32 @@ function makeBot(id, team, x,z, waypoints) {
   return root;
 }
 function buildBots() {
-  // 6v6 means 12 combatants total: the human player plus 11 bots.
-  // The player's selected side always has five AI teammates; the opposing side has six bots.
-  const routes=[
-    [[-35,-30],[-25,-8],[-37,14],[-20,31]],
-    [[35,-30],[25,-8],[37,14],[20,31]],
-    [[-44,8],[-28,0],[-10,-8],[-24,16]],
-    [[44,8],[28,0],[10,-8],[24,16]],
-    [[-18,-35],[-8,-18],[8,-12],[18,-32]],
-    [[18,-35],[8,-18],[-8,-12],[-18,-32]],
-    [[-18,35],[-8,18],[8,12],[18,32]],
-    [[18,35],[8,18],[-8,12],[-18,32]],
-    [[-42,0],[-30,-10],[-18,0],[-30,12]],
-    [[42,0],[30,-10],[18,0],[30,12]],
-    [[0,30],[-10,18],[0,8],[10,18]]
+  // The player takes the sixth landing slot; eleven AI soldiers fill the rest.
+  // T attackers advance through the central avenue and side alleys to the bombsite.
+  // CT defenders deploy beside the site and patrol its approaches.
+  const tRoutes=[
+    [[-3,-35],[-6,-27],[-7,-18],[-4,-9],[-2,2],[-1,14],[BOMB_SITE.x,BOMB_SITE.z]],
+    [[3,-37],[7,-29],[8,-20],[5,-10],[3,1],[2,13],[BOMB_SITE.x,BOMB_SITE.z]],
+    [[-6,-35],[-13,-29],[-16,-20],[-13,-10],[-8,1],[-5,13],[-2,21]],
+    [[6,-37],[13,-29],[16,-20],[13,-10],[8,1],[5,13],[2,21]],
+    [[0,-40],[0,-31],[1,-21],[0,-11],[0,0],[0,12],[BOMB_SITE.x,BOMB_SITE.z]],
+    [[-2,-36],[-2,-26],[2,-17],[7,-8],[7,3],[4,14],[1,22]]
+  ];
+  const ctRoutes=[
+    [[-8,31],[-10,26],[-9,20],[-4,17],[2,18],[8,22],[10,29]],
+    [[-3,33],[-6,28],[-6,22],[-2,18],[4,18],[9,23],[7,30]],
+    [[3,31],[6,27],[7,21],[3,17],[-3,17],[-9,22],[-8,29]],
+    [[6,33],[10,29],[11,24],[8,19],[3,18],[-3,21],[-5,29]],
+    [[0,36],[0,31],[-2,26],[-2,21],[2,19],[5,23],[3,30]],
+    [[-6,31],[-10,27],[-12,22],[-8,18],[-2,17],[5,19],[9,25]]
   ];
   const roster=createTeamRoster(state.playerTeam);
-  for(const [id,team,x,z] of roster) makeBot(id,team,x,z,routes[id-1]);
+  for(const [id,team,x,z] of roster){
+    const faction=team==='ally'?state.playerTeam:(state.playerTeam==='CT'?'T':'CT');
+    const routeSet=faction==='T'?tRoutes:ctRoutes;
+    makeBot(id,team,x,z,routeSet[(id-1)%routeSet.length]);
+  }
 }
-
 let weaponRoot, muzzleFlash, weaponViewmodel;
 function buildPlayerWeapon(){
   weaponViewmodel=createWeaponViewmodel(BABYLON,scene,camera,mobile);
@@ -184,6 +191,7 @@ function createBotWeapon(root,id,team){
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
   state.playerTeam=team;
+  playerSpawn={x:TEAM_SPAWNS[team][5][0],z:TEAM_SPAWNS[team][5][1]};
   for(const bot of state.bots) bot.root.dispose();
   state.bots.length=0;
   buildBots();
@@ -566,7 +574,7 @@ function start() {
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
+  state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
   if(!mobile)canvas.requestPointerLock?.();
 }
 
@@ -696,7 +704,7 @@ async function boot() {
     buildMap();
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=0;state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
-    playerSpawn=findSafePlayerSpawn([{x:0,z:-41},{x:0,z:40},{x:-50,z:0},{x:50,z:0},{x:-48,z:-38},{x:48,z:-38},{x:-48,z:38},{x:48,z:38}],collisionBoxes,.36,1.72,0)||{x:0,z:-41};
+    playerSpawn=findSafePlayerSpawn([{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]}],collisionBoxes,.36,1.72,0)||{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]};
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
