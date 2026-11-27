@@ -10,7 +10,7 @@ const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.ur
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-6'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-7'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -24,7 +24,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-6'));
+  assert.ok(html.includes('./engine.js?v=20261127-7'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -129,4 +129,18 @@ test('weapon fire uses per-weapon ammo, cadence and reload state', () => {
   assert.ok(runtime.includes("if(state.weapon==='knife')"));
   assert.ok(runtime.includes('function reload(){const w=currentWeapon()'));
   assert.ok(runtime.includes('updateAmmoHud();'));
+});
+
+test('full Gamepad API support maps both sticks, triggers, face buttons, bumpers and D-pad',()=>{
+  for(const token of ['function padAxis(v)','function padButton(pad,index)','function updateGamepad(dt)','pad.axes?.[0]','pad.axes?.[2]','pad.buttons?.[6]?.value','pad.buttons?.[7]?.value','padEdge(pad,0)','padEdge(pad,2)','padEdge(pad,3)','padEdge(pad,5)','padEdge(pad,8)','padEdge(pad,9)','padEdge(pad,12)','padEdge(pad,15)','gamepadconnected','gamepaddisconnected']) assert.ok(runtime.includes(token),'missing gamepad mapping '+token);
+  assert.ok(runtime.includes('state.gamepad.sprint=padButton(pad,10)'));
+  assert.ok(runtime.includes('camera.fov+=(targetFov-camera.fov)'));
+  assert.ok(runtime.includes('updateGamepad(dt);'));
+  assert.ok(html.includes('id="padStatus"'));
+});
+test('gamepad jump and sprint are integrated into player movement and reset on respawn',()=>{
+  assert.ok(runtime.includes('state.gamepad.jumpVelocity=5.1'));
+  assert.ok(runtime.includes('state.gamepad.sprint?6.2:4.6'));
+  assert.ok(runtime.includes('camera.position.y=1.65+state.gamepad.jumpOffset'));
+  assert.ok(runtime.includes('state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0'));
 });
