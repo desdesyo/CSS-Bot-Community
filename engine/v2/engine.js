@@ -7,7 +7,21 @@ import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
 const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, playerHitbox:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
-function isPlayerBlocked(x,z) { return isDust2Blocked(x,z); }
+function isMapSolid(mesh) {
+  if(!mesh||!mesh.isPickable||mesh===state.playerHitbox)return false;
+  if(/^(body-|head-|left-arm-|right-arm-|left-leg-|right-leg-|rifle-|backpack-|player-hitbox|sky-dome|sun-disc)/.test(mesh.name))return false;
+  return true;
+}
+function isPlayerBlocked(x,z) {
+  const radius=.34,y=.92;
+  for(let i=0;i<8;i++){
+    const a=i*Math.PI/4,dir=new BABYLON.Vector3(Math.cos(a),0,Math.sin(a));
+    const ray=new BABYLON.Ray(new BABYLON.Vector3(x,y,z),dir,radius);
+    const hit=scene.pickWithRay(ray,isMapSolid);
+    if(hit?.hit&&hit.distance<radius-.015)return true;
+  }
+  return false;
+}
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
   m.albedoColor = BABYLON.Color3.FromHexString(color); m.roughness = roughness; m.metallic = metallic;
@@ -98,12 +112,23 @@ function updateBotMotion(dt) {
 function fire() {
   const now=performance.now();if(now-state.lastShot<105||state.ammo<=0)return;
   state.lastShot=now;state.ammo--;const ray=camera.getForwardRay(95);
-  const hit=scene.pickWithRay(ray,m=>m.name.startsWith('body-')||m.name.startsWith('head-'));
+  const hit=scene.pickWithRay(ray,m=>m.metadata?.breakableWindow===true||m.name.startsWith('body-')||m.name.startsWith('head-'));
   if(hit?.hit&&hit.pickedMesh) {
-    const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-    if(bot&&bot.team==='enemy'&&bot.alive) {
-      bot.health-=hit.pickedMesh.name.startsWith('head-')?100:34;
-      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false)}
+    const target=hit.pickedMesh;
+    if(target.metadata?.breakableWindow){
+      target.isPickable=false;target.isVisible=false;
+      const p=hit.pickedPoint||target.getAbsolutePosition();
+      for(let i=0;i<7;i++){
+        const end=p.add(new BABYLON.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.8,(Math.random()-.5)*.8));
+        const shard=BABYLON.MeshBuilder.CreateLines('glass-shard',{points:[p,end]},scene);shard.color=new BABYLON.Color3(.55,.8,.88);shard.alpha=.85;
+        setTimeout(()=>shard.dispose(),450);
+      }
+    } else {
+      const bot=state.bots.find(b=>target.parent===b.root);
+      if(bot&&bot.team==='enemy'&&bot.alive) {
+        bot.health-=target.name.startsWith('head-')?100:34;
+        if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false)}
+      }
     }
   }
   $('ammo').textContent=state.ammo+' / '+state.reserve;
@@ -124,10 +149,21 @@ function initInput() {
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
   look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
-  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire()});
-  $('reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
+  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fire()});
+  $('reload').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();reload()});
   $('fullscreen').addEventListener('click',toggleFullscreen);
 }
+function buildSky(B){
+  const tex=new B.DynamicTexture('sunny-cloud-sky',{width:1024,height:512},scene,false);
+  const ctx=tex.getContext(),g=ctx.createLinearGradient(0,0,0,512);g.addColorStop(0,'#287bb7');g.addColorStop(.48,'#78b9df');g.addColorStop(1,'#d9e9e9');ctx.fillStyle=g;ctx.fillRect(0,0,1024,512);
+  for(let i=0;i<34;i++){const x=(i*173+61)%1120-48,y=95+(i*71)%235,scale=.55+((i*19)%65)/100;ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);const cloud=ctx.createRadialGradient(0,0,8,0,0,72);cloud.addColorStop(0,'rgba(255,255,255,.92)');cloud.addColorStop(.62,'rgba(250,252,250,.72)');cloud.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=cloud;for(let k=0;k<6;k++){ctx.beginPath();ctx.ellipse((k-2.5)*20,Math.sin(k*1.4)*8,34,22,0,0,Math.PI*2);ctx.fill();}ctx.restore();}
+  tex.update();
+  const sky=B.MeshBuilder.CreateSphere('sky-dome',{diameter:650,segments:24},scene);sky.infiniteDistance=true;sky.isPickable=false;sky.renderingGroupId=0;
+  const sm=new B.StandardMaterial('sky-dome-material',scene);sm.backFaceCulling=false;sm.disableLighting=true;sm.diffuseColor=new B.Color3(0,0,0);sm.specularColor=new B.Color3(0,0,0);sm.emissiveTexture=tex;sm.emissiveColor=new B.Color3(1,1,1);sky.material=sm;
+  const sun=B.MeshBuilder.CreateSphere('sun-disc',{diameter:13,segments:16},scene);sun.position.set(-115,128,190);sun.isPickable=false;const sunMat=new B.StandardMaterial('sun-disc-material',scene);sunMat.disableLighting=true;sunMat.emissiveColor=new B.Color3(1,.83,.48);sun.material=sunMat;
+}
+function initRadar(){const c=$('radar');if(!c)return;c.width=180;c.height=180;drawRadar();}
+function drawRadar(){const c=$('radar');if(!c)return;const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(10,20,23,.78)';ctx.fillRect(0,0,w,h);ctx.strokeStyle='rgba(225,211,177,.5)';ctx.strokeRect(1,1,w-2,h-2);const px=x=>(x+112)/224*w,pz=z=>(z+92)/184*h;ctx.fillStyle='rgba(174,151,111,.55)';for(const b of DUST2_EXPANDED.architecture){ctx.fillRect(px(b.x-b.w/2),pz(b.z-b.d/2),b.w/224*w,b.d/184*h);}ctx.fillStyle='#d2a35c';for(const p of [DUST2_EXPANDED.sites.A,DUST2_EXPANDED.sites.B]){ctx.beginPath();ctx.arc(px(p.x),pz(p.z),5,0,Math.PI*2);ctx.fill();}for(const b of state.bots){if(!b.alive)continue;ctx.fillStyle=b.team==='enemy'?'#e56d59':'#75b9df';ctx.beginPath();ctx.arc(px(b.root.position.x),pz(b.root.position.z),3.2,0,Math.PI*2);ctx.fill();}if(camera){ctx.fillStyle='#f6f2d8';ctx.beginPath();ctx.arc(px(camera.position.x),pz(camera.position.z),4.5,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f6f2d8';ctx.beginPath();ctx.moveTo(px(camera.position.x),pz(camera.position.z));ctx.lineTo(px(camera.position.x+Math.sin(camera.rotation.y)*8),pz(camera.position.z+Math.cos(camera.rotation.y)*8));ctx.stroke();}}
 function toggleFullscreen(){
   if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
   else document.exitFullscreen?.().catch(()=>{});
@@ -161,17 +197,19 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();
+    buildMap();buildBots();buildSky(B);
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.75,radius:.28,tessellation:8},scene);state.playerHitbox.position.set(0,.92,73);state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.visibility=0;
     initInput();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
     $('start').addEventListener('click',start);
+    initRadar();
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       if(state.started) {
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
+        if(now-state.lastHud>100){drawRadar();state.lastHud=now;}
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
       }
       state.frameSamples.push(dt*1000);
