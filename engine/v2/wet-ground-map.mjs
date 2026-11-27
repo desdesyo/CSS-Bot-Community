@@ -108,12 +108,12 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
         texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
         texture.uScale=repeat;texture.vScale=repeat;
         texture.anisotropicFilteringLevel=mobile?4:8;
+        material[slot]=texture;
       },()=>{
         if(material[slot]===texture)material[slot]=fallbacks[slot];
       });
       texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
       texture.uScale=repeat;texture.vScale=repeat;texture.anisotropicFilteringLevel=mobile?4:8;
-      material[slot]=texture;
     };
     bind('albedoTexture','diff',true);
     bind('bumpTexture','nor_gl',false);
