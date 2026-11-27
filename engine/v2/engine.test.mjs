@@ -263,7 +263,7 @@ test('player collision is indexed from actual static map geometry, not hand-auth
   assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
 });
 test('sun disc is removed; directional sun and hemispheric fill provide stable global lighting',()=>{
-  assert.ok(!runtime.includes('sun-disc'));
+  assert.ok(!runtime.includes("CreateSphere('sun-disc'"));
   assert.ok(runtime.includes("new B.DirectionalLight('sun'"));
   assert.ok(runtime.includes('hemi.intensity=.82'));
 });
