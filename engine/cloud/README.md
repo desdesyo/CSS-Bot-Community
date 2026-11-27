@@ -72,3 +72,10 @@ node --check ../cloud/viewer.js
 ```
 
 A successful CI run verifies the signaling protocol and syntax. It does not prove that a GPU host has been deployed or that end-to-end video streaming works on a physical Android phone.
+
+
+## GPU host: 1080p/60 capture validation
+
+The host page enters fullscreen when the host presses **ЗАПУСТИТЬ ИГРУ**. Configure the GPU host desktop display to **1920×1080 at 60 Hz**, use desktop Chrome/Chromium with hardware acceleration enabled, and keep the host tab foregrounded. The cloud-host render profile is pinned to scale 1.0 (no desktop supersampling or adaptive upscaling), so a 1920×1080 fullscreen viewport produces a 1920×1080 canvas capture. The host status reports the WebGL renderer and canvas dimensions; after a player joins it reports encoded frame dimensions, FPS and estimated bitrate. The viewer reports decoded dimensions/FPS and packet loss.
+
+A successful 1080p/60 test requires the host diagnostics to show 1920×1080 and approximately 60 FPS, and the Redmi viewer to show the same decoded dimensions and frame rate during sustained play. A local code/CI check is not a substitute for this end-to-end device test. The public Pages build does not provide a GPU host or WSS signaling service; those must be separately provisioned and configured.
