@@ -17,7 +17,7 @@ let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAsset
 let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn=getPlayerSpawn('CT'), projectileMaterial;
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
-  m.position.set(x,y,z); m.material=material; m.receiveShadows=!mobile; m.checkCollisions=!!collide;
+  m.position.set(x,y,z); m.material=material; m.receiveShadows=!mobile; m.checkCollisions=!!collide; m.isPickable=!!collide;
   if(cast && !mobile) shadowGen.addShadowCaster(m);
   return m;
 }
@@ -142,7 +142,8 @@ function buildMap() {
   for(const [x,z] of [[-47,-36],[47,-36],[-47,36],[47,36]])box('utility cabinet',x,.8,z,2,1.6,1.4,metal);
   // Static level geometry never moves: freeze transforms once to avoid recomputing
   // hundreds of world matrices on every mobile frame.
-  for(const mesh of scene.meshes.slice(mapMeshStart)){mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();}
+  const mapMeshes=scene.meshes.slice(mapMeshStart),frozenMaterials=new Set();
+  for(const mesh of mapMeshes){mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();if(mesh.material&&!frozenMaterials.has(mesh.material)){frozenMaterials.add(mesh.material);mesh.material.freeze();}}
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
@@ -628,8 +629,8 @@ function drawMinimap(){
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
   const x=px(camera.position.x),y=py(camera.position.z),angle=camera.rotation.y;
-  ctx.save();ctx.translate(x,y);ctx.rotate(-angle);ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
-  ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('N',size/2-3,7);
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI+angle);ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
