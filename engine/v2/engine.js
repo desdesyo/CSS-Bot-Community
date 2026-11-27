@@ -5,7 +5,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
-const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:180,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
+const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, gamepad:{index:-1,buttons:[],sprint:false,jumpVelocity:0,jumpOffset:0,aim:false}, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:180,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function isMapSolid(mesh) {
   if(!mesh||!mesh.isPickable||mesh===state.playerHitbox)return false;
@@ -153,7 +153,55 @@ function fire() {
   }
   updateAmmoHud();
 }
+
+const PAD_DEADZONE=.16;
+function padAxis(v){const a=Math.abs(Number(v)||0);return a<PAD_DEADZONE?0:Math.sign(v)*Math.min(1,(a-PAD_DEADZONE)/(1-PAD_DEADZONE));}
+function padButton(pad,index){const b=pad?.buttons?.[index];return !!(b&&(b.pressed||Number(b.value||0)>.5));}
+function padEdge(pad,index){const pressed=padButton(pad,index),was=!!state.gamepad.buttons[index];state.gamepad.buttons[index]=pressed;return pressed&&!was;}
+function cycleWeapon(){const i=weaponOrder.indexOf(state.weapon);selectWeapon(weaponOrder[(i+1)%weaponOrder.length]);}
+function updateGamepad(dt){
+  const pads=navigator.getGamepads?.()||[];
+  let pad=null;
+  for(const p of pads){if(p?.connected){pad=p;break;}}
+  if(!pad){state.gamepad.index=-1;state.gamepad.buttons=[];state.joy.x=state.joy.y=0;state.gamepad.aim=false;return;}
+  state.gamepad.index=pad.index;
+  const lx=padAxis(pad.axes?.[0]),ly=padAxis(pad.axes?.[1]),rx=padAxis(pad.axes?.[2]),ry=padAxis(pad.axes?.[3]);
+  state.joy.x=lx;state.joy.y=ly;
+  if(state.started){camera.rotation.y+=rx*dt*2.7;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+ry*dt*2.35));}
+  const lb=padButton(pad,4);
+  if(lb&&!state.gamepad.buttons[4])openWeaponWheel();
+  if(!lb&&state.gamepad.buttons[4]&&state.wheelOpen){
+    const ax=padAxis(pad.axes?.[2]),ay=padAxis(pad.axes?.[3]);
+    if(Math.hypot(ax,ay)>.35){const angle=(Math.atan2(ay,ax)+Math.PI*2)%(Math.PI*2);selectWeapon(weaponOrder[Math.round(angle/(Math.PI/2))%4]);}
+    else closeWeaponWheel();
+  }
+  state.gamepad.buttons[4]=lb;
+  if(padEdge(pad,0)&&state.started&&state.gamepad.jumpOffset<=.01)state.gamepad.jumpVelocity=5.1;
+  if(padEdge(pad,1))selectWeapon('knife');
+  if(padEdge(pad,2))reload();
+  if(padEdge(pad,3))cycleWeapon();
+  if(padEdge(pad,5)){selectWeapon('grenade');fire();}
+  if(padEdge(pad,8))toggleFullscreen();
+  if(padEdge(pad,9)&&!state.started)start();
+  if(padEdge(pad,12))selectWeapon('rifle');
+  if(padEdge(pad,15))selectWeapon('pistol');
+  if(padEdge(pad,13))selectWeapon('grenade');
+  if(padEdge(pad,14))selectWeapon('knife');
+  state.gamepad.sprint=padButton(pad,10);
+  const aim=Number(pad.buttons?.[6]?.value||0)>.35||padButton(pad,6);
+  state.gamepad.aim=aim;
+  const targetFov=aim?0.82:1.08;
+  if(camera)camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*12);
+  const trigger=Number(pad.buttons?.[7]?.value||0)>.35||padButton(pad,7);
+  if(trigger&&state.started)fire();
+  const bottom=$('bottom');
+  if(bottom)bottom.textContent='ГЕЙМПАД '+(pad.mapping==='standard'?'STANDARD':'CONNECTED')+' · LS движение · RS обзор · RT огонь · LT прицел · LB колесо · A прыжок · X перезарядка';
+  const badge=$('padStatus');if(badge)badge.textContent='PAD: '+(pad.mapping==='standard'?'CONNECTED':'CONNECTED · '+pad.id.slice(0,18));
+}
+
 function initInput() {
+  window.addEventListener('gamepadconnected',e=>{state.gamepad.index=e.gamepad.index;const n=$('padStatus');if(n)n.textContent='PAD: CONNECTED';});
+  window.addEventListener('gamepaddisconnected',e=>{if(state.gamepad.index===e.gamepad.index){state.gamepad.index=-1;state.joy.x=state.joy.y=0;const n=$('padStatus');if(n)n.textContent='PAD: DISCONNECTED';}});
   window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();if(e.code==='Tab'){e.preventDefault();openWeaponWheel();}if(e.code>='Digit1'&&e.code<='Digit4')selectWeapon(weaponOrder[Number(e.code.slice(-1))-1]);});
   window.addEventListener('keyup',e=>{state.keys.delete(e.code);if(e.code==='Tab'&&state.wheelOpen)closeWeaponWheel();});
   
@@ -193,17 +241,18 @@ function toggleFullscreen(){
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
-  const len=Math.hypot(forward,strafe)||1, speed=4.6*dt;
+  const len=Math.hypot(forward,strafe)||1, speed=(state.gamepad.sprint?6.2:4.6)*dt;
   const yaw=camera.rotation.y;
   const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
   const dz=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
   const nextX=Math.max(-108,Math.min(108,camera.position.x+dx)),nextZ=Math.max(-88,Math.min(88,camera.position.z+dz));
   if(!isPlayerBlocked(nextX,camera.position.z))camera.position.x=nextX;
   if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
-  if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
+  if(state.gamepad.jumpVelocity||state.gamepad.jumpOffset>0){state.gamepad.jumpOffset=Math.max(0,state.gamepad.jumpOffset+state.gamepad.jumpVelocity*dt);state.gamepad.jumpVelocity-=14*dt;if(state.gamepad.jumpOffset===0)state.gamepad.jumpVelocity=0;camera.position.y=1.65+state.gamepad.jumpOffset;}else camera.position.y=1.65;
+  if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92+state.gamepad.jumpOffset,camera.position.z);
 }
 function start() {
-  state.started=true;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
+  state.started=true;state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0;camera.position.y=1.65;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -228,8 +277,8 @@ async function boot() {
     initRadar();
     let last=performance.now();
     engine.runRenderLoop(()=>{
-      const pads=navigator.getGamepads?.()||[];let l1=false;for(const pad of pads){if(pad?.connected&&pad.buttons?.[4]?.pressed)l1=true;}if(l1&&!state.lastGamepadL1){state.wheelOpen?closeWeaponWheel():openWeaponWheel();}state.lastGamepadL1=l1;
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
+      updateGamepad(dt);
       if(state.started) {
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
         if(now-state.lastHud>100){drawRadar();state.lastHud=now;}
