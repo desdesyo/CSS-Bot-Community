@@ -2,7 +2,8 @@
  * MOKRY POL — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export function buildWetStreetMap(B, scene, mobile, shadowGen) {\n  const mapStart=scene.meshes.length;
+export function buildWetStreetMap(B, scene, mobile, shadowGen) {
+  const mapStart=scene.meshes.length;
   const C = B.Color3;
   const mat = (name, hex, roughness=.88, metallic=0) => {
     const m = mobile ? new B.StandardMaterial(name, scene) : new B.PBRMaterial(name, scene);
