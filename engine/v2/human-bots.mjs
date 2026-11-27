@@ -52,13 +52,15 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets) {
     const transform = bone.getTransformNode?.();
     if (transform) boneByName.set(bone.name,transform);
   }
+  const tintedMaterials = new Set();
   for (const node of instance.rootNodes) {
     for (const mesh of node.getChildMeshes?.(false) || []) {
       mesh.isPickable = false;
       mesh.receiveShadows = true;
       if (shadowGen && mesh.getTotalVertices() > 100) shadowGen.addShadowCaster(mesh);
       const material = mesh.material;
-      if (material?.albedoColor) {
+      if (material?.albedoColor && !tintedMaterials.has(material)) {
+        tintedMaterials.add(material);
         const tint = team === "enemy"
           ? new B.Color3(1.0,0.94,0.88)
           : new B.Color3(0.86,0.94,1.0);
@@ -72,10 +74,20 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets) {
 
   const animationGroups = {};
   for (const [name,sourceGroup] of Object.entries(assets.animations)) {
-    animationGroups[name] = sourceGroup.clone(
+    let mappedTargets = 0;
+    const group = sourceGroup.clone(
       "soldier-" + id + "-" + name,
-      target => nodeByName.get(target?.name) || boneByName.get(target?.name) || target
+      target => {
+        const mapped = nodeByName.get(target?.name) || boneByName.get(target?.name);
+        if (mapped) mappedTargets++;
+        return mapped || target;
+      }
     );
+    if (!mappedTargets) {
+      group.dispose();
+      throw new Error("Could not retarget " + name + " animation to soldier Biped skeleton");
+    }
+    animationGroups[name] = group;
   }
   const body = B.MeshBuilder.CreateCapsule("body-" + id,{height:1.45,radius:.31,tessellation:10},scene);
   body.parent=root;body.position.y=.91;body.visibility=0;body.isVisible=true;body.isPickable=true;
