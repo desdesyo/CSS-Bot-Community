@@ -200,6 +200,127 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
     box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,roof,false);
     cylinder('door handle',x+(x<0?.2:-.2),1.15,z+.55,.09,.09,amber);
   }
+
+  // UNDERGROUND BIOSECURE FACILITY — the round objective is the server room.
+  // The compact complex is built around BOMB_SITE (0, 23): two opposing
+  // approaches, a central server chamber, access-control vestibules and side labs.
+  const labWall=mat('biosecure reinforced concrete','#46515a',.84);
+  const labFloor=mat('sealed epoxy laboratory floor','#26333d',.34,.12);
+  const labWhite=mat('laboratory ceramic panels','#87939a',.58,.08);
+  const labDark=mat('server rack graphite','#111a23',.4,.34);
+  const labSteel=mat('server rack brushed steel','#53616c',.3,.72);
+  const labGlass=mat('server rack smoked glass','#172a38',.16,.48);
+  const labCyan=mat('server status cyan','#46d7e5',.22);
+  const labGreen=mat('server status green','#55dc91',.24);
+  const labRed=mat('security warning red','#c84d43',.42);
+  const labAmber=mat('biohazard amber','#e6b44f',.48);
+  if(labCyan.emissiveColor)labCyan.emissiveColor=new C(.08,.62,.78);
+  if(labGreen.emissiveColor)labGreen.emissiveColor=new C(.08,.58,.22);
+  if(labRed.emissiveColor)labRed.emissiveColor=new C(.52,.055,.025);
+  if(labAmber.emissiveColor)labAmber.emissiveColor=new C(.48,.22,.025);
+  const labZ=24;
+  floor('biosecure facility sealed floor',0,labZ,23,22,.055,labFloor);
+  floor('server chamber raised epoxy floor',0,labZ,14.2,14.2,.075,labFloor);
+  // Outer shell: north and south airlocks remain open for two-sided combat flow.
+  for(const x of [-11.5,11.5])box('biosecure exterior side wall',x,2.65,labZ,.48,5.3,22,labWall,true);
+  for(const z of [13,35]){
+    for(const x of [-8.9,8.9])box('biosecure exterior end wall',x,2.65,z,5.2,5.3,.48,labWall,true);
+    box('biosecure entry lintel',0,4.95,z,5.8,.55,.48,labWall,true);
+    for(const x of [-2.15,2.15]){
+      box('airlock reinforced door leaf',x,1.45,z,.12,2.9,.16,labSteel,false);
+      box('airlock red access indicator',x<0?-2.0:2.0,3.25,z-.28,.16,.22,.08,labRed,false);
+    }
+  }
+  // Flat roof and inner ceiling are deliberately separate: the chamber reads as
+  // an enclosed facility from inside, while all geometry remains static.
+  box('biosecure facility roof',0,5.42,labZ,23.8,.42,22.8,labWall,false,false);
+  box('server chamber acoustic ceiling',0,5.05,labZ,14.2,.22,14.2,labWhite,false,false);
+  // Inner server room with aligned north/south access portals.
+  for(const x of [-7.1,7.1])box('server chamber reinforced side wall',x,2.55,labZ,.42,5.1,14.2,labWall,true);
+  for(const z of [16.9,31.1]){
+    for(const x of [-4.55,4.55])box('server chamber partition wall',x,2.55,z,5.1,5.1,.42,labWall,true);
+    box('server chamber portal header',0,4.92,z,4.0,.36,.42,labWall,false);
+    box('server chamber sliding blast door left',-1.63,1.35,z,.10,2.7,.16,labSteel,false);
+    box('server chamber sliding blast door right',1.63,1.35,z,.10,2.7,.16,labSteel,false);
+    box('server chamber access light',0,3.45,z-.28,.72,.16,.07,labGreen,false);
+  }
+  // Airlock vestibules, observation/control bay and decontamination alcove.
+  for(const x of [-9.2,9.2]){
+    box('side laboratory partition north',x,2.3,19.4,3.9,4.6,.22,labWhite,true);
+    box('side laboratory partition south',x,2.3,28.7,3.9,4.6,.22,labWhite,true);
+    box('side laboratory inner divider',x,2.3,24, .22,4.6,5.0,labWhite,true);
+    box('side laboratory ceiling light',x,4.72,24,2.7,.08,.55,labCyan,false);
+  }
+  // Observation windows and sealed control consoles on the west side.
+  box('control room observation glass',-7.32,2.85,24, .06,1.55,3.2,labGlass,false);
+  for(const z of [21.5,24,26.5]){
+    box('control console housing',-9.25,1.12,z,1.35,1.35,.72,labDark,false);
+    box('control console screen',-8.86,1.55,z, .035,.62,.48,labCyan,false);
+    for(let i=0;i<3;i++)box('control console key',-8.84,1.12,z-.2+i*.2,.04,.06,.07,labAmber,false);
+  }
+  // Decontamination benches, chemical lockers and a visible biohazard marking.
+  for(const z of [21.5,26.5]){
+    box('decontamination locker',9.15,1.25,z,1.25,2.5,.72,labWhite,true);
+    box('decontamination locker warning panel',8.49,1.45,z,.04,.62,.35,labAmber,false);
+  }
+  box('biohazard sign plate',9.2,3.35,24,1.8,.72,.08,labDark,false);
+  box('biohazard sign amber field',9.2,3.35,24.055,1.25,.36,.035,labAmber,false);
+  // Eight full-height server cabinets in two banks. The center aisle and objective
+  // pad stay clear so players can fight and plant without snagging on tiny props.
+  const serverRack=(x,z,index)=>{
+    box('server cabinet base '+index,x,.22,z,1.28,.34,1.42,labSteel,true);
+    box('server cabinet body '+index,x,1.62,z,1.18,2.55,1.34,labDark,true);
+    box('server cabinet front glass '+index,x,1.65,z-.685,1.02,2.34,.035,labGlass,false);
+    box('server cabinet top cap '+index,x,2.94,z,1.32,.12,1.46,labSteel,false);
+    box('server cabinet side vent '+index,x+.61,1.65,z,.035,1.7,.62,labSteel,false);
+    for(let level=0;level<7;level++){
+      const y=.72+level*.285;
+      box('server module face '+index,x,y,z-.713,.76,.19,.025,labSteel,false);
+      for(let led=0;led<3;led++)box('server activity led '+index,x-.27+led*.27,y,z-.738,.045,.045,.025,(level+led+index)%5===0?labGreen:labCyan,false);
+    }
+    for(const y of [.72,1.28,1.84,2.4])cylinder('server cabinet fan '+index,x+.34,y,z-.75,.13,.025,labSteel);
+  };
+  let rackId=0;
+  for(const x of [-4.8,4.8])for(const z of [19.7,23.2,26.7,29.0])serverRack(x,z,++rackId);
+  // Raised cable trays, overhead power busbars and floor cable channels.
+  for(const x of [-5.65,5.65]){
+    box('overhead server cable tray',x,4.52,labZ,.28,.18,12.2,labSteel,false);
+    for(let z=18;z<=30;z+=1.5)box('cable tray support',x,4.18,z,.08,.58,.08,labSteel,false);
+  }
+  for(const z of [18.2,29.8]){
+    box('floor cable channel cover',0,.105,z,5.8,.035,.22,labSteel,false);
+    for(let x=-2.5;x<=2.5;x+=.5)box('floor channel slot',x,.127,z,.035,.012,.16,labDark,false);
+  }
+  // Emergency lighting, sprinkler pipes, HVAC and ceiling service panels.
+  for(const z of [18.4,22.2,25.8,29.6]){
+    box('server room ceiling light housing',0,4.82,z,5.8,.08,.34,labSteel,false);
+    box('server room ceiling light diffuser',0,4.765,z,5.25,.035,.22,labCyan,false);
+  }
+  for(const x of [-5.8,5.8]){
+    box('server room HVAC duct',x,4.55,labZ,.42,.38,11.5,labSteel,false);
+    for(const z of [19,22,25,28])box('HVAC vent grille',x,4.32,z,.58,.04,1.0,labDark,false);
+  }
+  // Environmental storytelling: warning stripes, specimen transfer case,
+  // sealed sample cooler, emergency cutoff and a conspicuous manual override.
+  box('server room emergency power cabinet',0,1.15,30.05,2.0,2.3,.48,labRed,true);
+  box('emergency power cabinet label',0,2.15,29.79,1.25,.28,.035,labWhite,false);
+  box('specimen transfer case',-5.5,.72,29.0,1.15,1.35,1.0,labWhite,true);
+  box('specimen case amber seal',-5.5,1.45,28.47,.72,.12,.035,labAmber,false);
+  box('sealed sample cooler',5.5,.62,18.9,1.25,1.1,1.0,labSteel,true);
+  box('manual containment switch',0,1.45,17.35,.78,1.15,.28,labRed,true);
+  box('containment switch guard',0,2.05,17.17,.92,.16,.08,labSteel,false);
+  // Directional signage makes the two entrances readable in combat.
+  for(const z of [13.35,34.65]){
+    box('biosecure facility sign backing',0,3.85,z,5.6,.72,.12,labDark,false);
+    box('biosecure facility sign cyan strip',0,4.22,z-.08,4.7,.08,.035,labCyan,false);
+    box('biosecure facility sign warning strip',0,3.49,z-.08,4.7,.08,.035,labAmber,false);
+  }
+  // A clean central bomb/interaction pad: no rack or console occupies its radius.
+  floor('server room objective pad',0,labZ,3.8,3.8,.095,labWhite);
+  box('server room objective pad inset',0,.105,labZ,2.5,.025,2.5,labDark,false,false);
+  for(const x of [-1.55,1.55])for(const z of [labZ-1.55,labZ+1.55])box('objective pad corner marker',x,.13,z,.22,.035,.22,labAmber,false,false);
+  // The server room is the bombsite; its approach corridors remain fully traversable.
+
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
   for(const m of authored){
