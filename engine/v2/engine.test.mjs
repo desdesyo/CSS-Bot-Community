@@ -598,3 +598,14 @@ test('map renderer starts before network-bound soldier assets and diagnostics ar
   assert.match(engine, /runtimeDiagnostics:runtimeDiagnostics\.slice\(-100\)/);
   assert.match(engine, /engine-context-lost/);
 });
+
+
+test('diagnostic and issue-report controls remain available even when scene boot fails', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const boot = engine.indexOf('async function boot()');
+  const earlyControls = engine.indexOf('installMenuControls();', boot);
+  const modelLoad = engine.indexOf('humanBotAssets=await loadHumanBotAssets(B,scene)', boot);
+  assert.ok(earlyControls > boot && earlyControls < modelLoad);
+  assert.match(engine, /\$\('issueQuick'\)\.addEventListener\('click',submitIssueReport\)/);
+  assert.match(engine, /startup:\{engineReady:!!engine,sceneReady:!!scene,cameraReady:!!camera/);
+});
