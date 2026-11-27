@@ -249,11 +249,11 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
 
   const initial = { x:.18, y:-.27, z:.72 };
   let recoil = 0, fireT = 0, reloadT = 0, reloadDuration = 1.45, reloadWeapon = null, shotFlash = 0, time = 0, meleeT = 0, switchT = 0;
-  let walking = 0, selected = 'rifle';
+  let walking = 0, selected = 'rifle', meleeHitPending = false, meleeHitReady = false;
   const clamp01 = v => Math.max(0,Math.min(1,v));
   const smooth = v => {v=clamp01(v);return v*v*(3-2*v)};
   function fire() {
-    if (selected === 'knife') { meleeT = 1; return; }
+    if (selected === 'knife') { if (meleeT > 0) return false; meleeT = 1; meleeHitPending = true; meleeHitReady = false; return true; }
     recoil = Math.min(1.8,recoil + (selected === 'rifle' ? .72 : .58));
     fireT = 1;
     shotFlash = .07;
@@ -291,6 +291,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     if (shotFlash === 0) { muzzleFlash.isVisible = false; pistolFlash.isVisible=false; }
     const previousMelee = meleeT;
     meleeT = Math.max(0,meleeT-d*3.2);
+    if (meleeHitPending && previousMelee > .62 && meleeT <= .62) { meleeHitPending = false; meleeHitReady = true; }
     switchT = Math.max(0,switchT-d*4.5);
 
     const moving = clamp01(Math.abs(movement));
@@ -360,6 +361,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
       }
     }
   }
+  function consumeMeleeHit() { const ready = meleeHitReady; meleeHitReady = false; return ready; }
   function select(slot) {
     selected = slot;
     switchT=1;
@@ -370,5 +372,5 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     if (slot !== 'pistol') pistolFlash.isVisible = false;
     if (slot==='knife') { rightArm.rotation.z=-.12; leftArm.rotation.z=.08; }
   }
-  return { root, rifle, pistol, knife, muzzleFlash, pistolFlash, fire, beginReload, completeReload, update, select, arms };
+  return { root, rifle, pistol, knife, muzzleFlash, pistolFlash, fire, beginReload, completeReload, update, select, consumeMeleeHit, arms };
 }
