@@ -10,7 +10,7 @@ const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function isMapSolid(mesh) {
   if(!mesh||!mesh.isPickable||mesh===state.playerHitbox)return false;
-  if(/^(body-|head-|left-arm-|right-arm-|left-leg-|right-leg-|rifle-|backpack-|player-hitbox|sky-dome|sun-disc)/.test(mesh.name))return false;
+  if(/^(body-|head-|left-arm-|right-arm-|left-leg-|right-leg-|rifle-|backpack-|player-hitbox|sky-dome)/.test(mesh.name))return false;
   return true;
 }
 const MAP_COLLISION_CELL=4;
