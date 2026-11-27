@@ -4,7 +4,7 @@ const signalUrl = qs.get('signal') || 'wss://YOUR-SIGNAL-HOST.example';
 const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
 const status = document.getElementById('status');
 const frame = document.getElementById('game');
-let socket, pc, stream, peerReady = false; const pendingIce = [];
+let socket, pc, stream, peerReady = false, videoSender = null, lastStats = null; const pendingIce = [];
 const say = value => { status.textContent = value; };
 if (!/^[A-Z0-9]{6,12}$/.test(room) || !token || signalUrl.includes('YOUR-SIGNAL-HOST')) {
   say('Укажи room, signal и host token в URL'); throw new Error('Cloud host configuration missing');
@@ -14,7 +14,7 @@ async function makePeer() {
   if (pc) { pc.close(); pc = null; }
   const canvas = frame.contentDocument?.querySelector('#renderCanvas');
   if (!canvas?.captureStream) throw new Error('Canvas captureStream недоступен в этом браузере');
-  stream = canvas.captureStream(60);
+  stream = canvas.captureStream(60);\n  const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');\n  const debug=gl?.getExtension('WEBGL_debug_renderer_info');\n  const gpu=debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'WebGL renderer hidden by browser';\n  say('GPU: '+gpu+' · Canvas '+canvas.width+'×'+canvas.height);
   pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   pc.onicecandidate = e => { if (e.candidate) send({ type: 'ice', candidate: e.candidate }); };
   pc.onconnectionstatechange = () => say('WebRTC: ' + pc.connectionState);
@@ -31,7 +31,7 @@ async function handleOffer(description) {
   await pc.setRemoteDescription(description);
   for (const candidate of pendingIce.splice(0)) await pc.addIceCandidate(candidate);
   // Attach the captured GPU-rendered canvas to the recv-only video transceiver offered by the player.
-  for (const track of stream.getVideoTracks()) { const sender=pc.addTrack(track, stream); try { const params=sender.getParameters(); params.encodings=params.encodings?.length?params.encodings:[{}]; params.encodings[0].maxBitrate=16000000; params.encodings[0].maxFramerate=60; await sender.setParameters(params); } catch {} }
+  for (const track of stream.getVideoTracks()) { const sender=pc.addTrack(track, stream);videoSender=sender; try { const params=sender.getParameters(); params.encodings=params.encodings?.length?params.encodings:[{}]; params.encodings[0].maxBitrate=16000000; params.encodings[0].maxFramerate=60; await sender.setParameters(params); } catch {} }
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
   send({ type: 'answer', description: pc.localDescription });
@@ -60,4 +60,19 @@ document.getElementById('launch').addEventListener('click', () => {
 });
 frame.addEventListener('load', () => say('Игровой клиент загружен · нажми «Запустить игру»'));
 connect().catch(error => say('Нет соединения: ' + error.message));
+setInterval(async()=>{
+  if(!videoSender)return;
+  try{
+    const stats=await videoSender.getStats();let line='';
+    stats.forEach(s=>{
+      if(s.type==='outbound-rtp'&&s.kind==='video'){
+        const now=performance.now(),fps=s.framesPerSecond||0,bytes=s.bytesSent||0;
+        let bitrate=0;if(lastStats){const sec=(now-lastStats.time)/1000;bitrate=Math.max(0,(bytes-lastStats.bytes)*8/sec/1000000);}
+        lastStats={time:now,bytes};
+        line=' · '+(s.frameWidth||0)+'×'+(s.frameHeight||0)+' · '+Math.round(fps)+' FPS · '+bitrate.toFixed(1)+' Mbps';
+      }
+    });
+    if(line)say('WebRTC '+pc?.connectionState+line);
+  }catch{}
+},1500);
 window.addEventListener('beforeunload', () => { send({ type: 'hangup' }); pc?.close(); socket?.close(); });
