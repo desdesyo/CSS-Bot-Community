@@ -134,21 +134,51 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(water.emissiveColor) water.emissiveColor=new C(.008,.025,.05);
   const cobble=mat('Wet Ground wet cobblestone PBR','#43596b',.13,.16);
   const makeCobbleTexture = () => {
-    const size=mobile?1024:2048, tex=new B.DynamicTexture('procedural wet cobblestone', {width:size,height:size}, scene, false);
-    const ctx=tex.getContext(), rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
-    ctx.fillStyle='#263544';ctx.fillRect(0,0,size,size);
-    const rows=mobile?18:30, cols=mobile?12:20, cw=size/cols, ch=size/rows;
+    const size=mobile?1024:2048, tex=new B.DynamicTexture('photographic irregular wet cobblestone albedo', {width:size,height:size}, scene, false);
+    const ctx=tex.getContext(),rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
+    ctx.fillStyle='#101923';ctx.fillRect(0,0,size,size);
+    const rows=mobile?26:42,cols=mobile?18:28,cw=size/cols,ch=size/rows;
     for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
-      const ox=(y%2)*cw*.48, px=x*cw+ox, py=y*ch;
-      const inset=2+rand()*3, shade=24+Math.floor(rand()*23);
-      ctx.fillStyle='rgba(5,12,20,.85)';ctx.fillRect(px+inset-2,py+inset-1,cw-inset*2+3,ch-inset*2+3);
-      ctx.fillStyle='rgb('+shade+','+(shade+10)+','+(shade+19)+')';
-      ctx.beginPath();ctx.roundRect(px+inset,py+inset,cw-inset*2,ch-inset*2,3);ctx.fill();
-      if(rand()>.68){ctx.fillStyle='rgba(112,151,184,'+(0.07+rand()*.12)+')';ctx.beginPath();ctx.ellipse(px+cw*.52,py+ch*.56,cw*.32,ch*.2,rand(),0,Math.PI*2);ctx.fill();}
-      ctx.strokeStyle='rgba(160,190,213,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px+inset+2,py+inset+2);ctx.lineTo(px+cw*.55,py+inset+1);ctx.stroke();
+      const ox=(y%2)*cw*.48,px=x*cw+ox,py=y*ch;
+      const inset=2+rand()*3,shade=31+Math.floor(rand()*26),points=[];
+      for(let k=0;k<8;k++){
+        const a=k*Math.PI/4,rx=cw*(.43+rand()*.045),ry=ch*(.43+rand()*.045);
+        points.push([px+cw*.5+Math.cos(a)*rx,py+ch*.5+Math.sin(a)*ry]);
+      }
+      ctx.fillStyle='rgba(2,7,12,.92)';ctx.beginPath();
+      points.forEach(([xx,yy],i)=>i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy));ctx.closePath();ctx.fill();
+      const grad=ctx.createLinearGradient(px,py,px+cw*.82,py+ch);
+      const lift=Math.floor(rand()*10);
+      grad.addColorStop(0,'rgb('+Math.min(90,shade+lift+8)+','+Math.min(108,shade+lift+18)+','+Math.min(124,shade+lift+28)+')');
+      grad.addColorStop(.48,'rgb('+shade+','+(shade+10)+','+(shade+20)+')');
+      grad.addColorStop(1,'rgb('+Math.max(12,shade-8)+','+Math.max(20,shade+1)+','+Math.max(28,shade+9)+')');
+      ctx.fillStyle=grad;ctx.beginPath();
+      points.forEach(([xx,yy],i)=>i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy));ctx.closePath();ctx.fill();
+      // Worn polished crown, mineral speckling and chipped corners.
+      ctx.fillStyle='rgba(155,184,202,'+(.035+rand()*.09)+')';
+      ctx.beginPath();ctx.ellipse(px+cw*(.36+rand()*.25),py+ch*(.32+rand()*.3),cw*(.16+rand()*.12),ch*(.1+rand()*.1),rand()*.5,0,Math.PI*2);ctx.fill();
+      for(let pit=0;pit<5;pit++){
+        const qx=px+rand()*cw,qy=py+rand()*ch;
+        ctx.fillStyle='rgba(4,10,16,'+(.12+rand()*.18)+')';ctx.beginPath();ctx.arc(qx,qy,.5+rand()*1.8,0,Math.PI*2);ctx.fill();
+      }
+      if(rand()>.78){
+        ctx.strokeStyle='rgba(8,15,21,.32)';ctx.lineWidth=1+rand()*1.2;ctx.beginPath();
+        const cx=px+cw*rand(),cy=py+ch*rand();ctx.moveTo(cx,cy);ctx.lineTo(cx+(rand()-.5)*cw*.24,cy+ch*.18);ctx.lineTo(cx+(rand()-.5)*cw*.36,cy+ch*.32);ctx.stroke();
+      }
+      ctx.strokeStyle='rgba(170,197,211,.12)';ctx.lineWidth=1;ctx.beginPath();
+      ctx.moveTo(px+cw*.14,py+ch*.12);ctx.lineTo(px+cw*.48,py+ch*.09);ctx.stroke();
     }
-    tex.update(false);
-    tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    // Fine multi-scale surface grain and rain-washed mineral deposits.
+    for(let i=0;i<(mobile?16000:48000);i++){
+      const v=rand()>.5?205:8,a=.012+rand()*.055;
+      ctx.fillStyle='rgba('+v+','+(v+5)+','+(v+8)+','+a+')';
+      const qx=rand()*size,qy=rand()*size,r=.3+rand()*1.25;ctx.fillRect(qx,qy,r,r);
+    }
+    for(let i=0;i<95;i++){
+      const x=rand()*size,y=rand()*size,w=2+rand()*8,h=size*(.025+rand()*.16);
+      ctx.fillStyle='rgba(4,12,18,'+(.035+rand()*.075)+')';ctx.fillRect(x,y,w,h);
+    }
+    tex.update(false);tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;
     return tex;
   };
   const cobbleTex=makeCobbleTexture();
@@ -157,11 +187,16 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,false);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
-  const normalRows=mobile?12:20,normalCols=mobile?9:15,nw=normalSize/normalCols,nh=normalSize/normalRows;
+  const normalRows=mobile?18:28,normalCols=mobile?13:20,nw=normalSize/normalCols,nh=normalSize/normalRows;
   for(let y=0;y<normalRows;y++)for(let x=0;x<normalCols;x++){
     const px=x*nw+(y%2)*nw*.46,py=y*nh;
+    normalCtx.fillStyle='rgb(91,112,239)';normalCtx.fillRect(px+1,py+1,nw-2,nh-2);
     normalCtx.strokeStyle='rgb(91,112,239)';normalCtx.lineWidth=2;normalCtx.strokeRect(px+2,py+2,nw-4,nh-4);
-    normalCtx.strokeStyle='rgb(164,144,250)';normalCtx.lineWidth=1;normalCtx.beginPath();normalCtx.moveTo(px+4,py+4);normalCtx.lineTo(px+nw*.7,py+4);normalCtx.stroke();
+    normalCtx.strokeStyle='rgb(164,144,250)';normalCtx.lineWidth=1.2;normalCtx.beginPath();normalCtx.moveTo(px+4,py+4);normalCtx.lineTo(px+nw*.7,py+4);normalCtx.stroke();
+    for(let pit=0;pit<9;pit++){
+      const px2=px+4+Math.random()*(nw-8),py2=py+4+Math.random()*(nh-8);
+      normalCtx.fillStyle='rgba(116,128,250,.28)';normalCtx.fillRect(px2,py2,1.2,1.2);
+    }
   }
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=cobbleTex.uScale;normalTex.vScale=cobbleTex.vScale;normalTex.gammaSpace=false;
   cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
