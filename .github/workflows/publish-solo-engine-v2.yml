@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - ".github/workflows/publish-solo-engine-v2.yml"
+  workflow_run:
+    workflows:
+      - "SOLO Engine V2 source checks"
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -19,12 +24,21 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/solo-engine-v2') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out SOLO Engine V2 source
+      - name: Check out tested SOLO Engine V2 source
         uses: actions/checkout@v4
         with:
-          ref: feature/solo-engine-v2
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'feature/solo-engine-v2' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run engine unit tests
+        run: node --test engine/v2/engine.test.mjs
 
       - name: Prepare static game
         shell: bash
@@ -44,7 +58,7 @@ jobs:
           test -s dist/index.html
           test -s dist/engine/v2/index.html
           test -s dist/engine/v2/engine.js
-          echo "Pages artifact prepared from feature/solo-engine-v2."
+          echo "Pages artifact prepared."
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -52,6 +66,7 @@ jobs:
           path: dist
 
   deploy:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/solo-engine-v2') }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -66,5 +81,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-# Triggered deployment workflow after registering it on the default branch.
