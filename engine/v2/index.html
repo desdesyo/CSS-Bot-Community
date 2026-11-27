@@ -12,6 +12,10 @@
 <div id="hud"><div id="top"><div id="brand">SOLO ENGINE / V2</div><div id="stats"><span id="round">ROUND 01</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><div id="bottom">WASD — движение · мышь — обзор · ЛКМ — огонь · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
 <div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire">FIRE</button></div>
 <div id="overlay"><div id="card"><h1>SOLO ENGINE V2</h1><p>Новая архитектура рендеринга. Отдельные циклы симуляции и изображения, адаптивная чёткость, мобильное управление.</p><p id="loadState">Загрузка графического ядра…</p><button id="start" disabled>ЗАПУСК</button></div></div>
+<script>
+window.addEventListener('error',event=>{const node=document.getElementById('loadState');if(node&&event.message)node.textContent='Ошибка загрузки: '+event.message;});
+window.addEventListener('unhandledrejection',event=>{const node=document.getElementById('loadState');if(node)node.textContent='Ошибка загрузки: '+(event.reason?.message||String(event.reason));});
+</script>
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
-<script type="module" src="./engine.js"></script>
+<script type="module" src="./engine.js?v=20261127-2"></script>
 </body></html>
