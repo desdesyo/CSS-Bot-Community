@@ -21,6 +21,11 @@ export const TEAM_SPAWNS = Object.freeze({
   CT: Object.freeze([[-6,31],[-3,33],[0,31],[3,33],[6,31],[0,36]])
 });
 export const BOMB_SITE = Object.freeze({x:0,z:23});
+export function getPlayerSpawn(playerTeam = 'CT') {
+  if (playerTeam !== 'CT' && playerTeam !== 'T') throw new Error('playerTeam must be CT or T');
+  const [x,z] = TEAM_SPAWNS[playerTeam][5];
+  return {x,z};
+}
 export function createTeamRoster(playerTeam = 'CT') {
   if (playerTeam !== 'CT' && playerTeam !== 'T') throw new Error('playerTeam must be CT or T');
   // The player occupies the sixth slot of their faction's landing formation.
