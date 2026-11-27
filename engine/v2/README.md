@@ -39,3 +39,13 @@ This is a new engine foundation and greybox vertical slice, not yet a CSS:S cont
 - The central objective is now a detailed biosecure facility: a fully enclosed server chamber with eight equipment racks, access portals, airlocks, a control bay, decontamination storage, emergency power, cable trays, HVAC and two opposing approaches. The bomb/interaction pad is centered in the server room; the tactical minimap marks the complex.
 - Multiple side streets, short cross alleys, recessed entrances and low cover create alternate routes and sightlines. The walkable atlas uses a new map identity so old industrial-district route data is not mixed into this level.
 - Procedural cobblestone texture is generated at runtime at 512 px on coarse/mobile devices and 1024 px on desktop; static level transforms/materials are frozen after build. Dynamic point-light count is capped and disabled on mobile.
+
+
+## Photographic PBR texture credits
+The environment uses CC0 scanned PBR material sets from Poly Haven, loaded at 1K on mobile and 2K on desktop with procedural fallbacks:
+- [Cobblestone Pavement](https://polyhaven.com/a/cobblestone_pavement) — street paving albedo, OpenGL normal and roughness.
+- [Stone Wall](https://polyhaven.com/a/stone_wall) — aged masonry albedo, OpenGL normal and roughness.
+- [Worn Brick Wall](https://polyhaven.com/a/worn_brick_wall) — weathered brickwork albedo, OpenGL normal and roughness.
+- [Plastered Wall 05](https://polyhaven.com/a/plastered_wall_05) — worn exterior plaster albedo, OpenGL normal and roughness.
+
+All four materials are released under the Poly Haven CC0 license.
