@@ -46,7 +46,7 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       slab(n+' upper reveal',x,centerY+1.03,z,W+2*T,.32,.34,m);slab(n+' lower sill',x,centerY-.58,z,W+2*T,.24,.52,trim);
       slab(n+' dark recess',x,centerY,z+sgn*.18,W,1,.035,shadow);slab(n+' glass',x,centerY,z+sgn*.21,W-.12,.88,.025,glass);
       slab(n+' vertical mullion',x,centerY,z+sgn*.25,.055,.9,.035,trim);slab(n+' horizontal mullion',x,1.4,z+sgn*.25,W-.08,.055,.035,trim);
-      slab(n+' shutter left',x-W/2-.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);slab(n+' shutter right',x+W/2+.17,1.45,z+sgn*.24,.22,1.18,.09,wood);
+      slab(n+' shutter left',x-W/2-.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);slab(n+' shutter right',x+W/2+.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);
     }else{
       slab(n+' left reveal',x,centerY+.15,z-W/2-T/2,.34,1.8,T,m);slab(n+' right reveal',x,centerY+.15,z+W/2+T/2,.34,1.8,T,m);
       slab(n+' upper reveal',x,centerY+1.03,z,.34,.32,W+2*T,m);slab(n+' lower sill',x,centerY-.58,z,.52,.24,W+2*T,trim);
