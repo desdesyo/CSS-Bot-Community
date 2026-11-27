@@ -508,6 +508,13 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
+  // Native click fallback complements pointerdown capture on Android touch browsers.
+  $('weaponBar').addEventListener('click',e=>{
+    const button=e.target?.closest?.('[data-weapon]');
+    if(!button)return;
+    const slot=button.dataset.weapon;
+    if(slot!==state.weaponSlot)selectWeapon(slot,'weaponbar-click');
+  });
   // Capture weapon taps at document level, before the canvas/look handlers.
   // Android touch browsers may suppress the synthesized click; pointerdown is authoritative.
   const weaponBar=$('weaponBar');
@@ -589,8 +596,6 @@ function updatePlayer(dt) {
   state.lastMoveWasBlocked=!!(resolved.blockedX||resolved.blockedZ);
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
-  if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
-  if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
 function toggleFullscreen(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
@@ -605,7 +610,7 @@ function endRound(won){
 function start() {
   if(state.playerDead){
     state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
-    for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
+    for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
