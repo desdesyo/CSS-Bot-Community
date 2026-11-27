@@ -10,7 +10,7 @@ const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.ur
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-4'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-5'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -24,7 +24,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-4'));
+  assert.ok(html.includes('./engine.js?v=20261127-5'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -92,4 +92,17 @@ test('building wall collision blocks solid facade but leaves the entrance gap op
   const b=DUST2_EXPANDED.architecture[0], doorX=b.x-b.w*.22;
   assert.equal(isDust2Blocked(b.x,b.z+b.d/2),true);
   assert.equal(isDust2Blocked(doorX,b.z+b.d/2),false);
+});
+
+test('runtime uses rendered mesh collision, sky, radar and breakable windows', () => {
+  assert.ok(runtime.includes('function isMapSolid(mesh)'));
+  assert.ok(runtime.includes('scene.pickWithRay(ray,isMapSolid)'));
+  assert.ok(runtime.includes('function buildSky(B)'));
+  assert.ok(runtime.includes('function drawRadar()'));
+  assert.ok(runtime.includes('metadata?.breakableWindow'));
+  assert.ok(runtime.includes('target.isPickable=false;target.isVisible=false'));
+  assert.ok(html.includes('id="radar"'));
+  const geometry=readFileSync(new URL('./dust2-map.mjs',import.meta.url),'utf8');
+  assert.ok(geometry.includes('glass.alpha=.18'));
+  assert.ok(geometry.includes('breakableWindow:true'));
 });
