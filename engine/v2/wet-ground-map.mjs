@@ -148,34 +148,45 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   waterPlane.position.y=.12;waterPlane.material=water;waterPlane.isPickable=false;
   if(!mobile){const reflection=new B.PointLight('canal reflected blue fill',new B.Vector3(0,1,-1),scene);reflection.diffuse=new C(.12,.28,.48);reflection.intensity=.32;reflection.range=38;}
   for(const [x,label] of [[-20,'west'],[20,'east']]){
-    // The bridge is a true north/south crossing: open ends face both river banks.
-    // Side rails run parallel to the crossing and never form a wall across its mouth.
-    floor(label+' arched stone bridge deck',x,0,12,16,.22,stone);
+    // Open north/south crossing with broad, visibly continuous approaches.
+    // No parapet, rail or invisible blocker spans either bridge mouth.
+    floor(label+' arched stone bridge deck',x,0,14,16,.22,stone);
     for(const side of [-1,1]){
-      const railX=x+side*5.72;
-      box(label+' bridge side parapet',railX,.72,0,.32,.82,13.2,trim,false);
-      for(let i=-5;i<=5;i++)box(label+' bridge side parapet post',railX,1.12,i*1.18,.42,.62,.42,iron,false);
-      box(label+' bridge lower stone curb',railX,.22,0,.48,.32,15.2,stone,false);
+      const railX=x+side*6.48;
+      box(label+' low pale stone bridge parapet',railX,.52,0,.28,.48,12.8,trim,false);
+      for(let i=-5;i<=5;i++)box(label+' pale stone bridge baluster',railX,.78,i*1.12,.24,.48,.24,trim,false);
+      box(label+' bridge lower stone curb',railX,.20,0,.38,.28,15.2,stone,false);
     }
     for(let i=0;i<7;i++){
       const z=-5.6+i*1.86;
-      const arch=B.MeshBuilder.CreateCylinder(label+' bridge arch rib',{diameter:.2,height:12,tessellation:8},scene);
+      const arch=B.MeshBuilder.CreateCylinder(label+' bridge arch rib',{diameter:.2,height:14,tessellation:8},scene);
       arch.position.set(x,-1.05,z);arch.rotation.z=Math.PI/2;arch.material=stone;arch.isPickable=false;
     }
-    // End paving blends the bridge into the sidewalks without a collision lip.
-    floor(label+' north bridge landing',x,-8.2,13,3,.16,stone);
-    floor(label+' south bridge landing',x,8.2,13,3,.16,stone);
+    // Broad level landings and cobbled road aprons visibly connect both banks.
+    floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
+    floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
+    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,cobble);
+    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,cobble);
+    for(const z of [-16.4,16.4]){
+      for(const side of [-1,1]){
+        const edge=box(label+' approach edge stone',x+side*7.45,.13,z,.22,.18,1.2,trim,false);
+        edge.isPickable=false;
+      }
+    }
   }
   // River-edge walls stop AI/player shortcuts through the canal; gaps align with bridges.
   const invisible=mat('canal collision barrier','#071a2a',1);
   if(invisible.alpha!==undefined)invisible.alpha=0;
-  // Wide, measured bridge openings: 12 world units, enough for a player and bots
-  // to pass without scraping the parapets. Wall segments stop exactly at each landing.
-  for(const z of [-4.9,4.9]) for(const [x,w] of [[-39.5,27],[0,28],[39.5,27]]){
+  // Broad 16-unit bridge mouths; both the visual retaining wall and collision
+  // barrier terminate outside the road deck. Invisible collision meshes never render black.
+  for(const z of [-4.9,4.9]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
     const barrier=box('canal bank collision barrier',x,.95,z,w,1.9,.32,invisible,true,false);
-    barrier.visibility=.001;
+    barrier.visibility=0;
+    barrier.isVisible=false;
   }
-  for(const z of [-5.7,5.7]) for(const [x,w] of [[-39.5,27],[0,28],[39.5,27]]) box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
+  for(const z of [-5.7,5.7]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
+    box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
+  }
   // Low-rise buildings: 2–3 floors, irregular facades, open doorways and service alleys.
   const building=(name,x,z,w,d,h,material,front)=>{
     const side=front==='west'?-1:1, face=x+side*(w/2+.07);
@@ -571,6 +582,80 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   box('server room objective pad inset',0,.105,labZ,2.5,.025,2.5,labDark,false,false);
   for(const x of [-1.55,1.55])for(const z of [labZ-1.55,labZ+1.55])box('objective pad corner marker',x,.13,z,.22,.035,.22,labAmber,false,false);
   // The server room is the bombsite; its approach corridors remain fully traversable.
+
+  // STREET-LEVEL INTERIORS: three open shop bays with readable depth,
+  // warm practical lighting, counters, shelving and stock. All small props are
+  // non-colliding; the doorway remains wide and the combat routes stay clear.
+  const shopFloor=mat('worn shop interior tile','#343e45',.72);
+  const shopWood=mat('old shop counter timber','#55483b',.78);
+  const shopMetal=mat('shop shelving painted steel','#39464c',.58,.28);
+  const shopWarm=mat('shop practical warm light','#ffc982',.24);
+  if(shopWarm.emissiveColor)shopWarm.emissiveColor=new C(.8,.34,.09);
+  const shopBays=[
+    [-11.2,-25,'GROCERY'],[11.2,-13,'CAFE'],[-11.2,10,'PHARMACY'],[11.2,29,'REPAIRS']
+  ];
+  for(const [sx,sz,label] of shopBays){
+    floor(label.toLowerCase()+' visible interior floor',sx,sz,3.55,4.1,.085,shopFloor);
+    box(label+' shop rear interior wall',sx,1.55,sz+1.92,3.55,3.1,.16,plaster,false);
+    for(const side of [-1,1]){
+      box(label+' shop side interior wall',sx+side*1.72,1.5,sz,.14,3,3.85,brick,false);
+      for(let level=0;level<3;level++){
+        box(label+' stocked wall shelf',sx+side*1.37,.72+level*.68,sz-.48,.52,.08,2.05,shopMetal,false);
+        for(let item=0;item<3;item++)box(label+' shelf stock package',sx+side*(1.28+.12*(item%2)),.9+level*.68,sz-.98+item*.48,.24,.28,.28,item===1?shopWarm:shopWood,false);
+      }
+    }
+    box(label+' service counter',sx,.58,sz+.72,2.65,1.12,.62,shopWood,false);
+    box(label+' counter worktop',sx,1.18,sz+.72,2.82,.12,.72,trim,false);
+    box(label+' interior ceiling light',sx,2.88,sz-.4,1.25,.08,.34,shopWarm,false);
+    box(label+' illuminated display',sx,1.9,sz-1.25,1.25,.48,.08,shopWarm,false);
+  }
+
+  // OUTER DISTRICT LANDSCAPE: damp earth shoulders, broken stone slopes,
+  // sparse rain-heavy trees and distant low terrain silhouettes frame the quarter.
+  const earth=mat('rain-dark roadside earth','#202c30',.98);
+  const grass=mat('wet sparse verge grass','#263b36',.96);
+  const bark=mat('rain-dark tree bark','#292b29',.94);
+  const foliage=mat('deep wet evergreen foliage','#1d302d',.94);
+  const rock=mat('embankment weathered rock','#46535a',.94);
+  const terrainStrip=(name,x,z,w,d,seed)=>{
+    const terrain=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:12},scene);
+    terrain.position.set(x,-.28,z);terrain.material=earth;terrain.receiveShadows=true;
+    const positions=terrain.getVerticesData(B.VertexBuffer.PositionKind);
+    for(let i=0;i<positions.length;i+=3){
+      const px=positions[i],pz=positions[i+2];
+      positions[i+1]=.12*Math.sin((px+seed)*.11)+.08*Math.cos((pz-seed)*.17)+.035*Math.sin(px*pz*.025);
+    }
+    terrain.updateVerticesData(B.VertexBuffer.PositionKind,positions);terrain.convertToFlatShadedMesh();terrain.isPickable=false;
+    return terrain;
+  };
+  terrainStrip('north rain-soaked terrain shoulder',0,-56,150,26,7);
+  terrainStrip('south rain-soaked terrain shoulder',0,56,150,26,19);
+  terrainStrip('west rain-soaked terrain shoulder',-58,0,26,112,31);
+  terrainStrip('east rain-soaked terrain shoulder',58,0,26,112,43);
+  const tree=(x,z,scale=1)=>{
+    const trunk=B.MeshBuilder.CreateCylinder('old quarter rain-dark tree trunk',{diameter:.34*scale,height:3.1*scale,tessellation:7},scene);
+    trunk.position.set(x,1.25*scale,z);trunk.material=bark;trunk.isPickable=false;
+    for(let i=0;i<3;i++){
+      const branch=B.MeshBuilder.CreateCylinder('bare tree branch',{diameter:.12*scale,height:1.65*scale,tessellation:6},scene);
+      branch.position.set(x+(i-1)*.48*scale,2.55*scale,z);branch.rotation.z=(i-1)*-.48;branch.material=bark;branch.isPickable=false;
+    }
+    for(const [dx,dy,dz,r] of [[0,3.75,0,1.2],[-.55,3.35,.08,.85],[.55,3.48,-.12,.9]]){
+      const crown=B.MeshBuilder.CreateSphere('dense wet street tree canopy',{diameter:2*scale,segments:mobile?5:7},scene);
+      crown.position.set(x+dx*scale,dy*scale,z+dz*scale);crown.scaling.set(1,r,.9);crown.material=foliage;crown.isPickable=false;
+    }
+  };
+  for(const [x,z,s] of [[-49,-31,.9],[-50,27,1.05],[49,-29,1],[50,30,.88],[-33,-49,.9],[34,49,1.05]])tree(x,z,s);
+  for(const [x,z] of [[-47,-40],[47,-39],[-48,40],[48,41],[-30,-45],[30,45]]){
+    const boulder=B.MeshBuilder.CreatePolyhedron('rain-worn roadside boulder',{type:1,size:1.1},scene);
+    boulder.position.set(x,.12,z);boulder.scaling.set(1.6,.7,1.1);boulder.material=rock;boulder.isPickable=false;
+  }
+  // Moss and grass clumps are clustered along the edge, never in the combat lanes.
+  for(const [x,z] of [[-48,-20],[-49,4],[49,-9],[48,17],[-28,-48],[27,48]]){
+    for(let n=0;n<(mobile?3:5);n++){
+      const tuft=B.MeshBuilder.CreateCylinder('small wet verge grass tuft',{diameter:.09,height:.34,tessellation:4},scene);
+      tuft.position.set(x+(n-2)*.13,.12,z+(n%2)*.18);tuft.rotation.z=(n-2)*.12;tuft.material=grass;tuft.isPickable=false;
+    }
+  }
 
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
