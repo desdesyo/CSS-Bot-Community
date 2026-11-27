@@ -30,6 +30,53 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     red: material('VM optic emitter', '#d64b38', .3, .25),
     flash: material('VM muzzle flash', '#ffb64d', .25, .05)
   };
+
+  // Real tiled micro-surfaces: the old viewmodel used flat solid colours only.
+  // These repeatable 1K albedo + tangent-space normal maps add cloth weave,
+  // polymer grain, fine steel brushing and rubber stipple without external assets.
+  const makeSurface=(name,pattern)=>{
+    const size=mobile?512:1024;
+    const albedo=new B.DynamicTexture(name+' albedo',{width:size,height:size},scene,true);
+    const ac=albedo.getContext();ac.fillStyle='#dedede';ac.fillRect(0,0,size,size);
+    for(let i=0;i<size*size/34;i++){
+      const x=Math.random()*size,y=Math.random()*size,v=155+Math.floor(Math.random()*85);
+      ac.fillStyle='rgba('+v+','+v+','+v+','+(.035+Math.random()*.12)+')';
+      ac.fillRect(x,y,1+Math.random()*2,1+Math.random()*2);
+    }
+    if(pattern==='fabric'){
+      ac.strokeStyle='rgba(95,95,95,.16)';ac.lineWidth=1;
+      for(let i=0;i<size;i+=5){ac.beginPath();ac.moveTo(i,0);ac.lineTo(i,size);ac.stroke();ac.beginPath();ac.moveTo(0,i);ac.lineTo(size,i);ac.stroke();}
+    }else if(pattern==='metal'){
+      for(let i=0;i<260;i++){const y=Math.random()*size;ac.strokeStyle='rgba(75,75,75,'+(.08+Math.random()*.18)+')';ac.lineWidth=.5+Math.random()*1.2;ac.beginPath();ac.moveTo(Math.random()*size,y);ac.lineTo(Math.random()*size,y+(Math.random()-.5)*2);ac.stroke();}
+    }else if(pattern==='polymer'){
+      for(let i=0;i<2400;i++){const x=Math.random()*size,y=Math.random()*size;ac.fillStyle='rgba(70,70,70,.16)';ac.fillRect(x,y,2,2);}
+    }else{
+      for(let y=4;y<size;y+=9)for(let x=4;x<size;x+=9){ac.fillStyle='rgba(80,80,80,.13)';ac.beginPath();ac.arc(x,y,1.7,0,Math.PI*2);ac.fill();}
+    }
+    albedo.update(false);albedo.wrapU=albedo.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    albedo.anisotropicFilteringLevel=Math.min(mobile?8:16,scene.getEngine().getCaps().maxAnisotropy||1);
+    const normalSize=mobile?256:512;
+    const normal=new B.DynamicTexture(name+' normal',{width:normalSize,height:normalSize},scene,true);
+    const nc=normal.getContext();nc.fillStyle='rgb(128,128,255)';nc.fillRect(0,0,normalSize,normalSize);
+    const step=pattern==='fabric'?5:pattern==='rubber'?9:pattern==='metal'?18:7;
+    nc.strokeStyle='rgb(116,128,249)';nc.lineWidth=1;
+    for(let i=0;i<normalSize;i+=step){nc.beginPath();nc.moveTo(i,0);nc.lineTo(i,normalSize);nc.stroke();}
+    if(pattern==='fabric'||pattern==='rubber'){
+      nc.strokeStyle='rgb(140,128,255)';
+      for(let i=0;i<normalSize;i+=step){nc.beginPath();nc.moveTo(0,i);nc.lineTo(normalSize,i);nc.stroke();}
+    }
+    normal.update(false);normal.wrapU=normal.wrapV=B.Texture.WRAP_ADDRESSMODE;normal.gammaSpace=false;
+    normal.anisotropicFilteringLevel=Math.min(mobile?8:16,scene.getEngine().getCaps().maxAnisotropy||1);
+    return {albedo,normal};
+  };
+  const applySurface=(materials,surface,normalLevel)=>{
+    for(const material of materials){material.albedoTexture=surface.albedo;material.bumpTexture=surface.normal;material.bumpTexture.level=normalLevel;}
+  };
+  applySurface([m.cloth,m.clothDark],makeSurface('woven combat fabric','fabric'),.18);
+  applySurface([m.glove,m.gloveRaised,m.rubber],makeSurface('tactical polymer rubber','rubber'),.14);
+  applySurface([m.polymer,m.polymerEdge],makeSurface('reinforced weapon polymer','polymer'),.12);
+  applySurface([m.metal,m.metalDark,m.brass],makeSurface('brushed parkerized steel','metal'),.1);
+
   const node = (name, parent = root) => {
     const n = new B.TransformNode(name, scene);
     n.parent = parent;
@@ -46,7 +93,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     return mesh;
   };
   const sphere = (name, parent, pos, scale, mat, segments = 12) => {
-    const mesh = B.MeshBuilder.CreateSphere(name, { diameter:1, segments }, scene);
+    const mesh = B.MeshBuilder.CreateSphere(name, { diameter:1, segments:Math.max(20,segments) }, scene);
     mesh.parent = parent;
     mesh.position.set(...pos);
     mesh.scaling.set(...scale);
@@ -77,7 +124,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   };
   const capsule = (name, parent, a, b, radius, mat) => {
     const av = new B.Vector3(...a), bv = new B.Vector3(...b), d = bv.subtract(av);
-    const mesh = B.MeshBuilder.CreateCapsule(name, { height:d.length()+radius*2, radius, tessellation:12, subdivisions:2 }, scene);
+    const mesh = B.MeshBuilder.CreateCapsule(name, { height:d.length()+radius*2, radius, tessellation:18, subdivisions:2 }, scene);
     mesh.parent = parent;
     mesh.position.copyFrom(av.add(bv).scale(.5));
     const dir = d.normalize(), axis = B.Vector3.Cross(B.Axis.Y, dir);
