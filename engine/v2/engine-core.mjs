@@ -7,6 +7,50 @@ export function adaptiveScale(p95, current, isMobile = false) {
   if (p95 < target * 0.78) return Math.min(max, current + 0.025);
   return Math.max(min, Math.min(max, current));
 }
+export function advancePatrolIndex(index, length) {
+  if (!Number.isInteger(length) || length <= 0) return 0;
+  return ((Math.trunc(index) + 1) % length + length) % length;
+}
+
+export function selectNextLivingBot(bots, currentId = null, direction = 1) {
+  const roster = (bots || []).slice().sort((a,b)=>a.id-b.id);
+  if (!roster.length) return null;
+  const step = direction < 0 ? -1 : 1;
+  const current = roster.findIndex(bot=>bot.id===currentId);
+  const start = current < 0 ? (step > 0 ? -1 : 0) : current;
+  for (let offset=1; offset<=roster.length; offset++) {
+    const candidate=roster[(start+step*offset+roster.length*2)%roster.length];
+    if (candidate?.alive) return candidate;
+  }
+  return null;
+}
+
+/** Spatial hash for static collision boxes; queries only cells touched by a movement/ray. */
+export function buildCollisionSpatialIndex(colliders = [], cellSize = 8) {
+  const cells = new Map();
+  const cell = value => Math.floor(value / cellSize);
+  for (const box of colliders) {
+    const minX=cell(box.minX),maxX=cell(box.maxX),minZ=cell(box.minZ),maxZ=cell(box.maxZ);
+    for(let z=minZ;z<=maxZ;z++)for(let x=minX;x<=maxX;x++){
+      const key=x+','+z;
+      if(!cells.has(key))cells.set(key,[]);
+      cells.get(key).push(box);
+    }
+  }
+  return {kind:'solo-collision-index-v1',cellSize,cells};
+}
+
+export function queryCollisionSpatialIndex(index, minX, maxX, minZ, maxZ) {
+  if(index?.kind!=='solo-collision-index-v1')return [];
+  const result=new Set(),size=index.cellSize;
+  for(let z=Math.floor(minZ/size);z<=Math.floor(maxZ/size);z++){
+    for(let x=Math.floor(minX/size);x<=Math.floor(maxX/size);x++){
+      for(const box of index.cells.get(x+','+z)||[])result.add(box);
+    }
+  }
+  return [...result].filter(b=>b.maxX>=minX&&b.minX<=maxX&&b.maxZ>=minZ&&b.minZ<=maxZ);
+}
+
 export function moveToward(position, target, speed, dt) {
   const dx = target.x - position.x, dz = target.z - position.z;
   const distance = Math.hypot(dx, dz);
