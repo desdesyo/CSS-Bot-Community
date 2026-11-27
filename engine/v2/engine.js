@@ -54,14 +54,24 @@ function buildBots() {
   makeBot(1,'enemy',-36,-30,routes[0]);makeBot(2,'enemy',36,-30,routes[1]);makeBot(3,'enemy',-44,8,routes[2]);
   makeBot(4,'enemy',44,8,routes[3]);makeBot(5,'ally',-18,-35,routes[4]);makeBot(6,'ally',18,35,routes[5]);
 }
-function updateBotAI(dt) {
+function updateBotAI() {
+  // Expensive tactical decisions run at 8 Hz; movement is deliberately not stepped here.
+  for(const bot of state.bots) {
+    if(!bot.alive) continue;
+    const target=bot.waypoints[bot.index];
+    if(Math.hypot(target[0]-bot.root.position.x,target[1]-bot.root.position.z)<.65) bot.index=(bot.index+1)%bot.waypoints.length;
+  }
+}
+function updateBotMotion(dt) {
+  // Continuous frame-rate movement prevents the 8 Hz AI cadence from looking like teleporting.
   for(const bot of state.bots) {
     if(!bot.alive) continue;
     const target=bot.waypoints[bot.index];
     const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},{x:target[0],z:target[1]},bot.speed,dt);
     bot.root.position.x=next.x;bot.root.position.z=next.z;
-    if(next.arrived) bot.index=(bot.index+1)%bot.waypoints.length;
-    bot.root.rotation.y=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
+    const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
+    let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
+    bot.root.rotation.y+=delta*Math.min(1,dt*7);
     bot.phase+=dt*7;bot.body.position.y=.92+Math.abs(Math.sin(bot.phase))*.035;
     bot.head.position.y=1.78+Math.abs(Math.sin(bot.phase))*.018;
   }
@@ -130,8 +140,8 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       if(state.started) {
-        updatePlayer(dt);state.aiAccumulator+=dt;state.simTime+=dt;
-        if(state.aiAccumulator>=.125){const step=Math.min(.25,state.aiAccumulator);state.aiAccumulator=0;updateBotAI(step)}
+        updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
+        if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
       }
       state.frameSamples.push(dt*1000);
       if(now-state.sampleAt>=2000){
