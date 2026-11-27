@@ -75,9 +75,19 @@ function buildMap() {
   box('bombsite site marker',0,.025,23,7,.035,.18,white,false,false);
   // CT cover positions defend the yard without sealing its entrances.
   for(const [x,z,w,d] of [[-8,34,4,1.1],[8,34,4,1.1],[-14,23,1.1,4],[14,23,1.1,4]])box('site concrete cover',x,.65,z,w,1.3,d,concrete);
+  // Distinct faction landing aprons. T is deliberately far from A; CT is staged beside it.
+  const tMark=mat('T landing paint','#8d493d',.78),ctMark=mat('CT landing paint','#496b86',.78);
+  groundPatch('T landing apron',0,-36,22,9,tMark);
+  groundPatch('CT landing apron',0,34,22,8,ctMark);
+  for(const x of [-10,10]){
+    box('T landing boundary',x,.03,-36,.16,.04,8,yellow,false,false);
+    box('CT landing boundary',x,.03,34,.16,.04,7,yellow,false,false);
+  }
+  box('T landing sign',0,2.5,-42,5,1.1,.18,tMark,false,false);
+  box('CT landing sign',0,2.5,42,5,1.1,.18,ctMark,false,false);
   // Road markings, drains, lamps and roof equipment give the district scale.
   for(const z of [-31,-19,-7,5,17,29,39])box('broken lane marking',0,.025,z,.14,.035,3.2,yellow,false,false);
-  for(const x of [-18,18,-34,34])for(const z of [-33,-11,11,36]){
+  for(const x of [-18,18])for(const z of [-26,0,28]){
     const pole=box('streetlight pole',x,3,z,.12,6,.12,metal,false,false);
     box('streetlight head',x,6,z,.8,.16,.35,yellow,false,false);
     const light=new BABYLON.PointLight('streetlight glow',new BABYLON.Vector3(x,5.7,z),scene);light.diffuse=new BABYLON.Color3(.82,.74,.56);light.intensity=mobile?.12:.22;light.range=11;
