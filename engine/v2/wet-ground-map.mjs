@@ -166,6 +166,36 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=cobbleTex.uScale;normalTex.vScale=cobbleTex.vScale;normalTex.gammaSpace=false;
   cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
   if(cobble.metallic!==undefined)cobble.metallic=.08;
+
+  // Photo-oriented wet-surface pass: stronger clear coat, fine rain pitting,
+  // mineral variation and low-amplitude canal ripples. All maps are generated
+  // once at load; no per-frame procedural shader work is introduced.
+  if(cobble.clearCoat){
+    cobble.clearCoat.isEnabled=true;
+    cobble.clearCoat.intensity=mobile?.34:.58;
+    cobble.clearCoat.roughness=.12;
+  }
+  const waterNormalSize=mobile?256:512;
+  const waterNormal=new B.DynamicTexture('canal water micro-ripple normal',{width:waterNormalSize,height:waterNormalSize},scene,false);
+  const waterNormalCtx=waterNormal.getContext();
+  waterNormalCtx.fillStyle='rgb(128,128,255)';
+  waterNormalCtx.fillRect(0,0,waterNormalSize,waterNormalSize);
+  let rippleSeed=66271;
+  const rippleRand=()=>((rippleSeed=(rippleSeed*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<(mobile?160:420);i++){
+    const x=rippleRand()*waterNormalSize,y=rippleRand()*waterNormalSize;
+    const rx=3+rippleRand()*24,ry=1+rippleRand()*5;
+    waterNormalCtx.strokeStyle='rgba(111,145,249,'+(.12+rippleRand()*.3)+')';
+    waterNormalCtx.lineWidth=.7+rippleRand()*1.8;
+    waterNormalCtx.beginPath();waterNormalCtx.ellipse(x,y,rx,ry,rippleRand()*.12,0,Math.PI*2);waterNormalCtx.stroke();
+  }
+  waterNormal.update(false);waterNormal.gammaSpace=false;
+  waterNormal.wrapU=waterNormal.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  waterNormal.uScale=mobile?3:5;waterNormal.vScale=mobile?2:3;
+  water.bumpTexture=waterNormal;water.bumpTexture.level=mobile?.12:.2;
+  if(water.clearCoat){water.clearCoat.isEnabled=true;water.clearCoat.intensity=.72;water.clearCoat.roughness=.055;}
+  water.roughness=mobile?.095:.065;
+  if(puddle.clearCoat){puddle.clearCoat.isEnabled=true;puddle.clearCoat.intensity=.82;puddle.clearCoat.roughness=.045;}
   const ground=B.MeshBuilder.CreateGround('Wet Ground district foundation',{width:106,height:84,subdivisions:1},scene);
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
@@ -877,6 +907,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       wet.scaling.set(distance===3.8?2.4:distance===6.2?1.8:1.2,.012,.72);
       wet.position.set(x,.071,at(distance));wet.rotation.x=Math.PI/2;wet.material=puddle;wet.isPickable=false;
     }
+    // CT parked rain-dark sedan: grounded reference vehicle at the CT storefront curb.
     if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',9.8,at(1.8),'#263b43');
     const wire=B.MeshBuilder.CreateTube(label+' overhead bundled power cable',{
       path:[new B.Vector3(westFace,7.15,at(5.5)),new B.Vector3((westFace+eastFace)/2,6.65,at(4.2)),new B.Vector3(eastFace,7.15,at(5.5))],
