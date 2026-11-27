@@ -11,7 +11,7 @@ const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-10'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-11'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-10'));
+  assert.ok(html.includes('./engine.js?v=20261127-11'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -151,7 +151,7 @@ test('weapon fire produces visible travelling tracers and uses wall-safe aim ass
   assert.ok(runtime.includes('function spawnBulletTracer('));
   assert.ok(runtime.includes("'bullet-tracer'"));
   assert.ok(runtime.includes('scene.pickWithRay(sight'));
-  assert.ok(runtime.includes('spawnBulletTracer(camera.position.clone(),direction,distance)'));
+  assert.ok(runtime.includes('spawnBulletTracer(camera.position.clone(),direction,hit?.hit?hit.distance:w.range)'));
 });
 test('radar is placed on the left side and remains compact on mobile', () => {
   assert.ok(html.includes('#radar{position:fixed;left:12px;right:auto;'));
@@ -163,9 +163,11 @@ test('doorways are recessed and upper window mullions follow their own floor hei
 
 test('legacy rifle firing cadence, hold-to-fire and timed reload are preserved', () => {
   assert.match(runtime, /rifle:\{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:105,range:95\}/);
-  assert.ok(runtime.includes("window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.firing=true;fire();}})"));
+  assert.ok(runtime.includes("window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.fireMouse=true;state.firing=true;fire();}})"));
   assert.ok(runtime.includes("fireButton.addEventListener('pointerdown'"));
   assert.ok(runtime.includes("if(state.firing)fire();"));
+  assert.ok(runtime.includes('function updateGamepad(dt)'));
+  assert.ok(runtime.includes('state.gamepad.fire=!!(trigger&&state.started&&!state.wheelOpen)'));
   assert.ok(runtime.includes("},1250);"));
   assert.ok(runtime.includes('old-style-muzzle-flash'));
 });
