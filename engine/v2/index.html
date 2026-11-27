@@ -50,12 +50,26 @@
 #overlay[data-engine-state="ready"] #loadState::before,#overlay[data-engine-state="ready"] #loadState::after,#overlay[data-engine-state="error"] #loadState::before,#overlay[data-engine-state="error"] #loadState::after{display:none!important}
 #overlay[data-engine-state="ready"] #menuLead,#overlay[data-engine-state="error"] #menuLead{display:block!important}
 #overlay[data-engine-state="ready"] #menuNav,#overlay[data-engine-state="error"] #menuNav,#overlay[data-engine-state="ready"] #teamSelect,#overlay[data-engine-state="error"] #teamSelect,#overlay[data-engine-state="ready"] #menuButtons,#overlay[data-engine-state="error"] #menuButtons{display:flex!important}
+#spectatorHud{position:fixed;left:50%;top:50px;transform:translateX(-50%);z-index:16;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #82949a;border-radius:8px;background:#0a141bdc;color:#e7eceb;font:800 11px system-ui;letter-spacing:.8px;pointer-events:auto;box-shadow:0 4px 20px #0008}
+#spectatorHud[hidden],#roundEnd[hidden]{display:none!important}
+#spectatorHud button{padding:7px 11px;background:#26363d;border-color:#83949a;font-size:12px}
+#spectatorLabel{white-space:nowrap}
+#roundEnd{position:fixed;inset:0;z-index:19;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(90deg,rgba(3,8,12,.88),rgba(4,10,15,.58),rgba(3,8,12,.88));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:none}
+#roundEndCard{width:min(560px,calc(100vw - 32px));padding:28px 32px;border-top:2px solid #caa36b;border-bottom:1px solid #65757a;background:linear-gradient(145deg,rgba(12,21,26,.94),rgba(5,11,15,.88));text-align:center;box-shadow:0 18px 70px #000a;animation:roundReveal .55s ease-out both}
+#roundWinner{margin:0 0 12px;color:#e8d1a6;font-size:clamp(24px,5vw,42px);letter-spacing:2.5px}
+#roundWinner[data-winner="T"]{color:#e0a08b}
+#roundReason{margin:0;color:#c4d0d0;font-size:13px;letter-spacing:1px}
+#roundCountdown{margin-top:25px;color:#d2b47e;font:800 12px ui-monospace,monospace;letter-spacing:2px}
+@keyframes roundReveal{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(pointer:coarse){#spectatorHud{top:48px;gap:5px;padding:6px 7px;font-size:9px}#spectatorHud button{padding:6px 9px}#roundEndCard{padding:24px 18px}}
 </style>
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
 <div id="hud"><div id="top"><div id="brand">SOLO: WET GROUND</div><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
 <div id="actions"><button id="logsQuick" type="button">● ЛОГИ</button><button id="issueQuick" type="button">⚑ ОТМЕТИТЬ БАГ</button><button id="fullScreen" type="button">FULLSCREEN</button><button id="pause" type="button">PAUSE</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
+<div id="spectatorHud" hidden><button id="spectatorPrev" type="button" aria-label="Предыдущий живой бот">◀</button><span id="spectatorLabel">НАБЛЮДЕНИЕ</span><span>Q / E</span><button id="spectatorNext" type="button" aria-label="Следующий живой бот">▶</button></div>
+<div id="roundEnd" hidden><div id="roundEndCard"><p style="margin:0 0 10px;color:#aab8b8;font:700 10px ui-monospace,monospace;letter-spacing:3px">SOLO · WET GROUND</p><h2 id="roundWinner">COUNTER-TERRORISTS WIN</h2><p id="roundReason">ROUND COMPLETE</p><div id="roundCountdown">СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5</div></div></div>
 <div id="overlay" class="is-loading"><div id="card">
 <h1>SOLO: WET GROUND</h1>
 <p id="menuLead">Ночной квартал после дождя. Подпольная биолаборатория и серверная — объект операции. CT удерживают комплекс, T пытаются уничтожить серверную.</p>
