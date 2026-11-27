@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const video = $('video'), status = $('status');
-let socket, pc, channel, connected = false; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false, weapon = '';
+let socket, pc, channel, connected = false, statsTimer = 0, lastVideoStats = null; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false, weapon = '';
 const say = text => { status.textContent = text; };
 function sendSignal(message) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message)); }
 function sendInput() {
@@ -16,7 +16,26 @@ async function connect() {
   pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   pc.addTransceiver('video', { direction: 'recvonly' });
   pc.onicecandidate = e => { if (e.candidate) sendSignal({ type: 'ice', candidate: e.candidate }); };
-  pc.ontrack = e => { video.srcObject = e.streams[0]; $('connect').style.display = 'none'; say('Видеопоток подключён'); video.play().catch(() => say('Нажми на экран для запуска видео')); };
+  pc.ontrack = e => {
+    video.srcObject = e.streams[0]; $('connect').style.display = 'none';
+    say('Поток получен · '+(e.track.getSettings?.().width||'?')+'×'+(e.track.getSettings?.().height||'?'));
+    video.play().catch(() => say('Нажми на экран для запуска видео'));
+    clearInterval(statsTimer);
+    statsTimer=setInterval(async()=>{
+      try{
+        const stats=await pc.getStats();let label='';
+        stats.forEach(s=>{
+          if(s.type==='inbound-rtp'&&s.kind==='video'){
+            const now=performance.now(),frames=s.framesDecoded||0;
+            const fps=lastVideoStats?Math.max(0,(frames-lastVideoStats.frames)*1000/(now-lastVideoStats.time)):0;
+            lastVideoStats={frames,time:now};
+            label=' · '+video.videoWidth+'×'+video.videoHeight+' · '+Math.round(fps)+' FPS · loss '+(s.packetsLost||0);
+          }
+        });
+        if(label)say('Поток принят'+label);
+      }catch{}
+    },1000);
+  };
   pc.onconnectionstatechange = () => say('Соединение: ' + pc.connectionState);
   channel = pc.createDataChannel('control', { ordered: false, maxRetransmits: 0 });
   channel.onopen = () => { connected = true; say('Управление подключено'); };
@@ -58,4 +77,4 @@ $('look').addEventListener('pointerup',()=>lookId=null);$('look').addEventListen
 const held=new Set();const syncKeys=()=>{move.x=(held.has('KeyD')?1:0)-(held.has('KeyA')?1:0);move.y=(held.has('KeyS')?1:0)-(held.has('KeyW')?1:0);};window.addEventListener('keydown',e=>{held.add(e.code);syncKeys();if(e.code==='Space')jump=true;if(e.code==='KeyR')reload=true;if(e.code==='Digit1')weapon='rifle';if(e.code==='Digit2')weapon='pistol';if(e.code==='Digit3')weapon='grenade';if(e.code==='Digit4')weapon='knife';});
 window.addEventListener('keyup',e=>{held.delete(e.code);syncKeys();if(e.code==='Space')jump=false;});video.addEventListener('click',()=>video.requestPointerLock?.());window.addEventListener('mousemove',e=>{if(document.pointerLockElement===video){look.x+=e.movementX*.0022;look.y+=e.movementY*.0022;}});window.addEventListener('mousedown',e=>{if(e.button===0)fire=true;});window.addEventListener('mouseup',e=>{if(e.button===0)fire=false;});
 setInterval(sendInput,33);
-window.addEventListener('beforeunload',()=>{sendSignal({type:'hangup'});pc?.close();socket?.close();});
+window.addEventListener('beforeunload',()=>{sendSignal({type:'hangup'});clearInterval(statsTimer);pc?.close();socket?.close();});
