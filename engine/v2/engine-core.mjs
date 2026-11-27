@@ -14,3 +14,14 @@ export function moveToward(position, target, speed, dt) {
   const step = Math.min(distance, Math.max(0, speed) * Math.max(0, dt));
   return { x: position.x + dx / distance * step, z: position.z + dz / distance * step, arrived: distance <= step };
 }
+export function createTeamRoster(playerTeam = 'CT') {
+  if (playerTeam !== 'CT' && playerTeam !== 'T') throw new Error('playerTeam must be CT or T');
+  const enemyTeam = playerTeam === 'CT' ? 'enemy' : 'ally';
+  const allyTeam = playerTeam === 'CT' ? 'ally' : 'enemy';
+  return [
+    [1,enemyTeam,-36,-30],[2,enemyTeam,36,-30],[3,enemyTeam,-44,8],
+    [4,enemyTeam,44,8],[5,enemyTeam,-18,-35],[6,enemyTeam,18,-35],
+    [7,allyTeam,-18,35],[8,allyTeam,18,35],[9,allyTeam,-42,0],
+    [10,allyTeam,42,0],[11,allyTeam,0,30]
+  ];
+}
