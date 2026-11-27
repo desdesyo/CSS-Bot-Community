@@ -65,7 +65,7 @@ function buildViewModel(){
   addBox(knife,'knife-arm',[.38,-.4,.56],[.17,.18,.42],skin,[.12,-.2,-.3]);
   addBox(knife,'knife-handle',[.30,-.29,.80],[.10,.10,.23],dark,[.18,0,0]);
   const blade=makeViewPart('knife-blade',()=>BABYLON.MeshBuilder.CreateBox('vm-knife-blade',{width:.09,height:.025,depth:.36},scene),[.30,-.22,1.08],[0,0,0],metal);knife.push(blade);
-  viewModel.byWeapon={rifle,pistol,grenade,knife};updateViewModel();
+  const sharedArms=rifle.filter(m=>/right-forearm|right-glove|left-forearm|left-glove/.test(m.name));pistol.push(...sharedArms);grenade.push(...sharedArms);knife.push(...sharedArms);viewModel.byWeapon={rifle,pistol,grenade,knife};updateViewModel();
 }
 function updateViewModel(){
   for(const [id,parts] of Object.entries(viewModel.byWeapon))for(const mesh of parts)mesh.setEnabled(state.started&&id===state.weapon);
