@@ -399,6 +399,7 @@ function initInput() {
   $('reload').addEventListener('click',reload);
   for(const button of document.querySelectorAll('[data-weapon]'))button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
   $('fullScreen').addEventListener('click',toggleFullscreen);
+  $('logsQuick').addEventListener('click',handleGameplayLogs);
   $('pause').addEventListener('click',()=>{if(state.started){state.started=false;state.firing=false;overlay.style.display='flex';status.textContent='ПАУЗА';startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;}});
 
 }
@@ -438,6 +439,52 @@ function start() {
   state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,0,0);
   if(!mobile)canvas.requestPointerLock?.();
 }
+
+const GAME_LOG_KEY='solo_engine_v2_gameplay_logs_v1';
+const GAME_LOG_BRANCH='feature/solo-engine-v2';
+const GAME_LOG_LIMIT=1200;
+let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
+let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0};
+try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-250):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
+function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-250),frameMs:gameLogFrameMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
+function gameLogEvent(type,detail={}){if(!gameLogRecording)return;gameLogEvents.push({t:Math.round(performance.now()),wall:new Date().toISOString(),type,detail});if(gameLogEvents.length>250)gameLogEvents.shift();if(gameLogEvents.length%5===0)persistGameLog()}
+function captureGameplayLog(dt,now){
+ if(!gameLogRecording)return;
+ const ms=dt*1000;gameLogPerf.frames++;
+ if(ms>50)gameLogPerf.hitches50++;if(ms>100)gameLogPerf.hitches100++;if(ms>250)gameLogPerf.hitches250++;
+ gameLogFrameMs.push(+ms.toFixed(2));if(gameLogFrameMs.length>240)gameLogFrameMs.shift();
+ if(now-gameLogLastSample<500)return;gameLogLastSample=now;
+ const bots=state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
+ gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,canvas:{width:canvas.width,height:canvas.height}},frameMs:+ms.toFixed(2)});
+ if(gameLogRecords.length>GAME_LOG_LIMIT)gameLogRecords.shift();
+ if(now-gameLogLastPersist>5000){gameLogLastPersist=now;persistGameLog()}
+}
+function startGameplayLog(){gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
+function encodeGameplayLog(value){const bytes=new TextEncoder().encode(value);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}
+function savedGameplayToken(){try{return localStorage.getItem('solo_github_log_token')||''}catch(e){return ''}}
+async function stopAndUploadGameplayLog(){
+ if(gameLogUploading)return;
+ gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistGameLog();
+ if(!gameLogRecords.length&&!gameLogEvents.length){$('logsQuick').textContent='● ЛОГИ';return}
+ let token=savedGameplayToken();
+ if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json';
+ const payload={app:'SOLO Engine V2',format:1,session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null},events:gameLogEvents,records:gameLogRecords};
+ gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='ОТПРАВКА…';
+ try{
+  const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO Engine V2 gameplay diagnostics',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
+  const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
+  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];persistGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';alert('Логи успешно отправлены в GitHub: '+path);
+ }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
+ finally{gameLogUploading=false;btn.disabled=false}
+}
+function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording){stopAndUploadGameplayLog();return}if(gameLogRecords.length||gameLogEvents.length){stopAndUploadGameplayLog();return}startGameplayLog()}
+window.addEventListener('error',e=>gameLogEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
+window.addEventListener('unhandledrejection',e=>gameLogEvent('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
+window.addEventListener('webglcontextlost',e=>gameLogEvent('webgl-context-lost',{status:'lost'}),true);
+window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
+document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
+
 async function boot() {
   try {
     if(!window.BABYLON)throw new Error('Babylon.js CDN недоступен');
