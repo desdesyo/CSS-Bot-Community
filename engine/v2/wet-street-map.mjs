@@ -2,7 +2,7 @@
  * MOKRY POL — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export function buildWetStreetMap(B, scene, mobile, shadowGen) {
+export function buildWetStreetMap(B, scene, mobile, shadowGen) {\n  const mapStart=scene.meshes.length;
   const C = B.Color3;
   const mat = (name, hex, roughness=.88, metallic=0) => {
     const m = mobile ? new B.StandardMaterial(name, scene) : new B.PBRMaterial(name, scene);
@@ -25,7 +25,7 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   if(water.emissiveColor) water.emissiveColor=new C(.008,.025,.05);
   const cobble=mat('Mokry Pol wet cobblestone PBR','#344251',.2,.12);
   const makeCobbleTexture = () => {
-    const size=mobile?512:1024, tex=new B.DynamicTexture('procedural wet cobblestone', {width:size,height:size}, scene, false);
+    const size=mobile?1024:2048, tex=new B.DynamicTexture('procedural wet cobblestone', {width:size,height:size}, scene, false);
     const ctx=tex.getContext(), rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
     ctx.fillStyle='#263544';ctx.fillRect(0,0,size,size);
     const rows=mobile?18:30, cols=mobile?12:20, cw=size/cols, ch=size/rows;
@@ -56,11 +56,11 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   const box=(name,x,y,z,w,h,d,material,collide=true,cast=true)=>{
     const m=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
     m.position.set(x,y,z);m.material=material;m.checkCollisions=collide;m.isPickable=collide;
-    m.receiveShadows=true;if(cast&&!mobile)shadowGen.addShadowCaster(m);return m;
+    m.receiveShadows=true;return m;
   };
   const cylinder=(name,x,y,z,diameter,height,material)=>{
     const m=B.MeshBuilder.CreateCylinder(name,{diameter,height,tessellation:8},scene);
-    m.position.set(x,y,z);m.material=material;if(!mobile)shadowGen.addShadowCaster(m);return m;
+    m.position.set(x,y,z);m.material=material;return m;
   };
   // Main cobbled street, short cross streets, and narrow side passages.
   floor('main wet cobblestone street',0,0,14,82,.025);
@@ -198,9 +198,27 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
     box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,roof,false);
     cylinder('door handle',x+(x<0?.2:-.2),1.15,z+.55,.09,.09,amber);
   }
-  // Freeze static level transforms/materials after all geometry has been authored.
-  const staticMeshes=scene.meshes.filter(m=>!['fps-camera','player-hitbox'].includes(m.name));
-  const materials=new Set();
-  for(const m of staticMeshes){m.computeWorldMatrix(true);m.freezeWorldMatrix();if(m.material&&!materials.has(m.material)){materials.add(m.material);m.material.freeze?.();}}
-  return {name:'Mokry Pol',theme:'rainy-blue-hour',riverCrossings:[-20,20],staticMeshCount:staticMeshes.length};
+  // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
+  const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
+  for(const m of authored){
+    if(m.checkCollisions){colliders.push(m);continue;}
+    if(!m.material||m.getTotalVertices?.()===0)continue;
+    const key=m.material.uniqueId;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(m);
+  }
+  const merged=[];
+  for(const [materialId,parts] of groups){
+    if(parts.length<2){merged.push(...parts);continue;}
+    const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
+    if(joined){joined.name='Mokry Pol merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
+    else merged.push(...parts);
+  }
+  const staticMeshes=[...colliders,...merged],materials=new Set();
+  for(const m of staticMeshes){
+    m.computeWorldMatrix(true);m.freezeWorldMatrix();
+    if(m.material&&!materials.has(m.material)){materials.add(m.material);m.material.freeze?.();}
+    if(!mobile)shadowGen.addShadowCaster(m);
+  }
+  return {name:'Mokry Pol',theme:'rainy-blue-hour',riverCrossings:[-20,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size};
 }
