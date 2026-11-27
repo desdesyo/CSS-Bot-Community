@@ -67,3 +67,20 @@ test('player does not collide with objects outside standing height', () => {
   assert.ok(Math.abs(result.z-3)<1e-9);
   assert.equal(result.blockedZ,false);
 });
+
+
+import { findSafePlayerSpawn } from './engine-core.mjs';
+
+test('safe spawn avoids the central partition that previously trapped the player', () => {
+  const partition = [{name:'partition',minX:-1,maxX:1,minY:0,maxY:4.4,minZ:21,maxZ:39}];
+  const spawn = findSafePlayerSpawn([{x:0,z:38},{x:0,z:-41}], partition);
+  assert.deepEqual(spawn, {x:0,z:-41});
+});
+test('safe spawn ignores overhead-only geometry', () => {
+  const beam = [{name:'beam',minX:-2,maxX:2,minY:3,minY:3,maxY:4,minZ:-42,maxZ:-40}];
+  assert.deepEqual(findSafePlayerSpawn([{x:0,z:-41}], beam), {x:0,z:-41});
+});
+test('safe spawn returns null when all candidates overlap solid geometry', () => {
+  const wall = [{name:'wall',minX:-5,maxX:5,minY:0,maxY:4,minZ:-42,maxZ:-40}];
+  assert.equal(findSafePlayerSpawn([{x:0,z:-41}], wall), null);
+});
