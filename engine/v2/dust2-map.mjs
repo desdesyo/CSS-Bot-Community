@@ -98,6 +98,18 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       slab(n+' roof parapet front',x,h+.22,fz,w,.44,.34,roof);
       slab(n+' roof parapet back',x,h+.22,z-(front==='south'?-d/2:d/2),w,.44,.34,roof);
     }
+    // More legible masonry construction: projecting plinth, floor string-course,
+    // inset facade panels and stone voussoirs around the street-facing openings.
+    slab(n+' projecting stone plinth',x,.20,fz+sgn*.16,w,.34,.58,trim);
+    slab(n+' facade string course',x,h-.22,fz+sgn*.10,w+.18,.16,.48,trim);
+    for(const px of [x-w*.43,x,x+w*.43]){
+      if(Math.abs(px-doorX)<1.05||Math.abs(px-windowX)<1.05)continue;
+      slab(n+' facade masonry pier',px,1.62,fz+sgn*.16,.18,2.75,.34,trim);
+    }
+    for(const wx of [windowX]){
+      slab(n+' window head stone',wx,2.12,fz+sgn*.27,1.58,.16,.22,trim);
+      slab(n+' window apron',wx,.78,fz+sgn*.30,1.52,.12,.28,trim);
+    }
     // Corner pilasters, stone belt course, roof coping.
     for(const sx of [-1,1])slab(n+' corner pilaster',x+sx*(w/2-.24),h/2,fz+sgn*.04,.24,h,.5,trim);
     slab(n+' cornice',x,h+.02,fz,w+.5,.22,.6,trim);
