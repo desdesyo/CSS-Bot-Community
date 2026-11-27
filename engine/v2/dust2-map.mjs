@@ -10,11 +10,12 @@ export const DUST2_SCALE = Object.freeze({
 });
 export function buildExpandedDust2(B,scene,shadowGen,mat,box){
   const stone=mat('Dust2 sunbaked sandstone','#b69a72',.94),pale=mat('Dust2 limestone','#d0bd96',.9),plaster=mat('Dust2 worn plaster','#a88e6c',.92),dark=mat('Dust2 shaded stone','#655b4c',.96),metal=mat('Dust2 dark metal','#343a39',.55,.45),crate=mat('Dust2 shipping crate','#766044',.88),siteA=mat('A site marking','#b58b4f',.9),siteB=mat('B site marking','#9d7650',.9);
-  const trim=mat('Carved limestone trim','#e0cba5',.9),wood=mat('Weathered cedar','#65452f',.9),glass=mat('Dusty blue window glass','#526a70',.22,.28),shadow=mat('Deep opening shadow','#282a27',1),roof=mat('Flat roof concrete','#8e8069',.95),cloth=mat('Faded market fabric','#a35f3e',.92),paint=mat('Faded blue paint','#637c80',.85);
+  const trim=mat('Carved limestone trim','#e0cba5',.9),wood=mat('Weathered cedar','#65452f',.9),glass=mat('Dusty blue window glass','#9bc9d8',.08,.08),shadow=mat('Deep opening shadow','#282a27',1),roof=mat('Flat roof concrete','#8e8069',.95),cloth=mat('Faded market fabric','#a35f3e',.92),paint=mat('Faded blue paint','#637c80',.85);
+  glass.alpha=.18;glass.transparencyMode=B.PBRMaterial.PBRMATERIAL_ALPHABLEND;glass.backFaceCulling=false;
   const ground=B.MeshBuilder.CreateGround('dust2-expanded-ground',{width:224,height:184,subdivisions:4},scene);ground.material=stone;ground.receiveShadows=true;
   const wall=(n,x,z,w,d,h=7,m=plaster)=>box(n,x,h/2,z,w,h,d,m);
   const floor=(n,x,z,w,d,m=pale)=>{const p=B.MeshBuilder.CreateGround(n,{width:w,height:d},scene);p.position.set(x,.018,z);p.material=m;p.receiveShadows=true;return p;};
-  const slab=(n,x,y,z,w,h,d,m)=>box(n,x,y,z,w,h,d,m);
+  const slab=(n,x,y,z,w,h,d,m)=>{const mesh=box(n,x,y,z,w,h,d,m);if(m===glass){mesh.metadata={...(mesh.metadata||{}),breakableWindow:true};mesh.isPickable=true;}return mesh;};
   // Facade assembled around a real aperture. The wall is not painted with a fake door:
   // jambs, lintel, sill, recessed panel and frame are separate scaled architectural pieces.
   function doorway(n,x,z,face='north',m=plaster){
@@ -25,7 +26,7 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       put('door left pier',x-W/2-T/2,1.6,z,T,3.2,.34,m);put('door right pier',x+W/2+T/2,1.6,z,T,3.2,.34,m);
       put('door lintel',x,2.62,z,W+2*T,1.16,.36,m);
       put('door recessed shadow',x,1.03,z+sgn*.19,W,.08,.035,shadow);
-      put('wood door leaf',x,1.03,z+sgn*.22,W-.1,2.02,.07,wood);
+      const leaf=put('wood door leaf',x+.48,1.03,z+sgn*.22,W-.1,2.02,.07,wood);leaf.isPickable=false;
       put('door stone threshold',x,.06,z,W+.18,.12,.55,trim);
       put('door upper transom',x,2.34,z,W,.24,.12,wood);
       put('door handle',x+W*.34,1.05,z+sgn*.28,.045,.12,.035,metal);
@@ -33,7 +34,7 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       put('door left pier',x,1.6,z-W/2-T/2,.34,3.2,T,m);put('door right pier',x,1.6,z+W/2+T/2,.34,3.2,T,m);
       put('door lintel',x,2.62,z,.36,1.16,W+2*T);
       put('door recessed shadow',x+sgn*.19,1.03,z,.035,.08,W,shadow);
-      put('wood door leaf',x+sgn*.22,1.03,z,.07,2.02,W-.1,wood);
+      const leaf=put('wood door leaf',x+sgn*.22,1.03,z+.48,.07,2.02,W-.1,wood);leaf.isPickable=false;
       put('door stone threshold',x,.06,z,.55,.12,W+.18,trim);
       put('door handle',x+sgn*.28,1.05,z+W*.34,.035,.12,.045,metal);
     }
