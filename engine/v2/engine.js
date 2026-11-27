@@ -53,7 +53,27 @@ function buildMap() {
       box(name+' window lintel',wx,2.85,cz-3, .12,.12,2.8,plaster,false,false);
       box(name+' window glass',wx,2.1,cz-3,.04,1.25,2.1,glass,false,false);
     }
-    box(name+' facade sign',cx,3.75,cz-d/2-.04,Math.min(4,w*.45),.42,.08,metal,false,false);
+    const faceX=cx<0?cx+w/2+.08:cx-w/2-.08,faceSign=cx<0?1:-1;
+    // Street-facing entrance, framed windows and service equipment make each block
+    // read as a lived-in building rather than a single primitive obstacle.
+    for(const offset of [-2.05,2.05])box(name+' entrance pillar',faceX,1.3,cz+offset,.2,2.6,.2,plaster,false,false);
+    box(name+' entrance lintel',faceX,2.62,cz,.2,.2,4.3,plaster,false,false);
+    for(const offset of [-4.7,4.7]){
+      box(name+' street window frame',faceX,2.55,cz+offset,.14,1.75,2.25,metal,false,false);
+      box(name+' street window glass',faceX+faceSign*.08,2.55,cz+offset,.035,1.42,1.92,glass,false,false);
+      box(name+' window sill',faceX+faceSign*.12,1.62,cz+offset,.28,.12,2.4,plaster,false,false);
+    }
+    for(const side of [-1,1]){
+      const facadeZ=cz+side*(d/2+.08);
+      for(const offset of [-w*.24,w*.24]){
+        box(name+' front window frame',cx+offset,2.55,facadeZ,2.5,1.65,.14,metal,false,false);
+        box(name+' front window glass',cx+offset,2.55,facadeZ+side*.08,2.12,1.3,.035,glass,false,false);
+      }
+    }
+    box(name+' facade sign',faceX+faceSign*.1,3.55,cz, .16,.48,4.8,metal,false,false);
+    box(name+' rooftop ventilation unit',cx-3,4.95,cz-2,2.2,.55,1.5,metal,false,false);
+    box(name+' rooftop exhaust stack',cx+4,5.05,cz+3,.55,.9,.55,concrete,false,false);
+    box(name+' exterior drainpipe',cx+w/2+.08,2.1,cz+d/2-.8,.12,4.2,.12,metal,false,false);
   };
   // A compact industrial-residential district. Buildings form real blocks and alleys,
   // while the broad central avenue and cross streets remain traversable.
