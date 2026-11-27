@@ -253,7 +253,7 @@ test('Mokry Pol is the active map, with rain-quarter geometry and persistent rou
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const map = await readFile(new URL('./wet-street-map.mjs', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(engine, /buildWetStreetMap\\(B,scene,mobile,shadowGen\\)/);
+  assert.match(engine, /buildWetStreetMap\(B,scene,mobile,shadowGen\)/);
   assert.match(engine, /mokry-pol-rainy-quarter-v1/);
   assert.match(map, /canal deep water/);
   assert.match(map, /arched stone bridge deck/);
