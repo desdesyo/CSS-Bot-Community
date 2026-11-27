@@ -91,36 +91,47 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     return mesh;
   };
 
-  // Arm rig: separate shoulder pivots let recoil, breathing and reload move the hands together.
+  // Slim segmented first-person arms. Forearms, wrists and hands have independent
+  // pivots; the previous single-piece capsules made the sleeves look oversized.
   const arms = node('viewmodel-arms-rig');
   const leftArm = node('left-arm-pivot', arms);
   const rightArm = node('right-arm-pivot', arms);
-  leftArm.position.set(-.48, -.34, .15);
-  rightArm.position.set(.34, -.34, .38);
-  const armPart = (name, parent, a, b, r, mat) => capsule(name, parent, a, b, r, mat);
-  armPart('left upper sleeve', leftArm, [0,-.22,.27], [.10,.03,-.02], .105, m.cloth);
-  armPart('left forearm sleeve', leftArm, [.10,.03,-.02], [.30,.18,-.36], .073, m.cloth);
-  sphere('left elbow pad', leftArm, [.10,.03,-.02], [.19,.16,.16], m.clothDark);
-  cylinder('left cuff seam', leftArm, [.30,.18,-.34], [.32,.20,-.40], .072,.068,m.clothDark);
-  sphere('left palm', leftArm, [.33,.205,-.45], [.16,.10,.18], m.glove);
-  sphere('left knuckle armor', leftArm, [.33,.255,-.45], [.13,.035,.12], m.gloveRaised);
-  for (let i=0;i<4;i++) {
-    const x=.275+i*.035;
-    capsule('left glove finger '+i,leftArm,[x,.18,-.49],[x+.015,.14,-.59],.018,m.glove);
-  }
-  capsule('left thumb',leftArm,[.25,.24,-.43],[.20,.20,-.51],.024,m.glove);
-  armPart('right upper sleeve', rightArm, [0,-.22,.28], [-.10,.02,.02], .108, m.cloth);
-  armPart('right forearm sleeve', rightArm, [-.10,.02,.02], [-.29,.17,-.20], .076, m.cloth);
-  sphere('right elbow pad', rightArm, [-.10,.02,.02], [.18,.16,.16], m.clothDark);
-  cylinder('right cuff seam',rightArm,[-.28,.16,-.18],[-.32,.18,-.25],.071,.067,m.clothDark);
-  sphere('right palm',rightArm,[-.34,.19,-.29],[.15,.105,.17],m.glove);
-  sphere('right knuckle armor',rightArm,[-.34,.245,-.29],[.13,.035,.12],m.gloveRaised);
+  leftArm.position.set(-.43,-.35,.12);
+  rightArm.position.set(.34,-.35,.32);
+  const leftElbow=node('left-elbow-joint',leftArm);
+  leftElbow.position.set(.075,.015,-.035);
+  const rightElbow=node('right-elbow-joint',rightArm);
+  rightElbow.position.set(-.075,.015,-.035);
+  const leftWrist=node('left-wrist-joint',leftElbow);
+  leftWrist.position.set(.22,.13,-.31);
+  const rightWrist=node('right-wrist-joint',rightElbow);
+  rightWrist.position.set(-.20,.13,-.19);
+  armPart('left upper sleeve',leftArm,[0,-.17,.20],[.075,.015,-.035],.078,m.cloth);
+  sphere('left shoulder seam',leftArm,[.005,-.13,.17],[.15,.13,.15],m.clothDark,20);
+  armPart('left forearm sleeve',leftElbow,[0,0,0],[.22,.13,-.31],.054,m.cloth);
+  sphere('left elbow pad',leftArm,[.075,.015,-.035],[.125,.105,.12],m.clothDark,20);
+  cylinder('left cuff seam',leftElbow,[.19,.11,-.27],[.235,.14,-.33],.054,.05,m.clothDark,20);
+  sphere('left palm',leftWrist,[.015,.012,-.015],[.105,.067,.13],m.glove,20);
+  sphere('left knuckle armor',leftWrist,[.012,.048,-.025],[.09,.018,.085],m.gloveRaised,18);
+  const leftFingers=[];
   for(let i=0;i<4;i++){
-    const x=-.39+i*.032;
-    capsule('right glove finger '+i,rightArm,[x,.18,-.32],[x-.01,.15,-.41],.018,m.glove);
+    const x=-.045+i*.029;
+    leftFingers.push(capsule('left glove finger '+i,leftWrist,[x,.005,-.045],[x+.008,-.018,-.105],.012,m.glove));
   }
-  capsule('right thumb',rightArm,[-.27,.23,-.27],[-.22,.19,-.34],.024,m.glove);
-
+  const leftThumb=capsule('left thumb',leftWrist,[-.075,.018,-.005],[-.105,-.005,-.065],.017,m.glove);
+  armPart('right upper sleeve',rightArm,[0,-.17,.20],[-.075,.015,-.035],.079,m.cloth);
+  sphere('right shoulder seam',rightArm,[-.005,-.13,.17],[.15,.13,.15],m.clothDark,20);
+  armPart('right forearm sleeve',rightElbow,[0,0,0],[-.20,.13,-.19],.055,m.cloth);
+  sphere('right elbow pad',rightArm,[-.075,.015,-.035],[.125,.105,.12],m.clothDark,20);
+  cylinder('right cuff seam',rightElbow,[-.17,.11,-.16],[-.215,.14,-.22],.052,.048,m.clothDark,20);
+  sphere('right palm',rightWrist,[-.012,.012,-.012],[.10,.066,.125],m.glove,20);
+  sphere('right knuckle armor',rightWrist,[-.012,.047,-.022],[.087,.018,.08],m.gloveRaised,18);
+  const rightFingers=[];
+  for(let i=0;i<4;i++){
+    const x=-.055+i*.029;
+    rightFingers.push(capsule('right glove finger '+i,rightWrist,[x,.004,-.04],[x-.006,-.018,-.095],.012,m.glove));
+  }
+  const rightThumb=capsule('right thumb',rightWrist,[.055,.018,-.005],[.085,-.005,-.06],.017,m.glove);
   // Carbine assembly. The weapon is split into receiver, bolt, magazine and handguard
   // so its moving parts can be animated independently during reload and firing.
   const rifle = node('M4A1-realistic-viewmodel');
@@ -247,9 +258,9 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const tip=B.MeshBuilder.CreateCylinder('knife-point',{height:.12,diameterTop:0,diameterBottom:.055,tessellation:4},scene);
   tip.parent=blade;tip.position.set(.015,-.075,-.43);tip.rotation.x=Math.PI/2;tip.material=m.metal;tip.isPickable=false;tip.renderingGroupId=1;
 
-  const initial = { x:.18, y:-.27, z:.72 };
+  const initial = { x:.19, y:-.29, z:.76 };
   let recoil = 0, fireT = 0, reloadT = 0, reloadDuration = 1.45, reloadWeapon = null, shotFlash = 0, time = 0, meleeT = 0, switchT = 0;
-  let walking = 0, selected = 'rifle', meleeHitPending = false, meleeHitReady = false;
+  let walking = 0, selected = 'rifle', meleeHitPending = false, meleeHitReady = false, sprintT=0, inspectT=0, lastStep=0;
   const clamp01 = v => Math.max(0,Math.min(1,v));
   const smooth = v => {v=clamp01(v);return v*v*(3-2*v)};
   function fire() {
