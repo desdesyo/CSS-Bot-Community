@@ -1338,6 +1338,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     else merged.push(...parts);
   }
 
+  // Mark the start of late-authored static scenery. The first material merge above
+  // intentionally handles the dense street/building core; skyline, spawn storefronts,
+  // facade hardware and rain details are authored afterwards and must be batched too.
+  const lateStaticStart=scene.meshes.length;
+
   // Spherical lat-long sky: a cube stretched a 2:1 gradient over six faces,
   // producing the hard seams and giant angular "ceiling" seen in the user's report.
   // A true inward-facing sphere gives one continuous horizon and no visible corners.
@@ -1579,11 +1584,41 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     rain.start();
   }
 
-  const staticMeshes=[...colliders,...merged],materials=new Set();
-  for(const m of staticMeshes){
-    m.computeWorldMatrix(true);m.freezeWorldMatrix();
-    if(m.material&&!materials.has(m.material)){materials.add(m.material);m.material.freeze?.();}
-    if(!mobile)shadowGen.addShadowCaster(m);
+  // Batch every late static mesh by material. The previous pass left the skyline,
+  // spawn streets, air conditioners, utility lines, drains and debris as hundreds of
+  // independent draw calls; on mobile this was the dominant 6-FPS bottleneck.
+  const lateGroups=new Map(),lateKept=[];
+  const dynamicNames=['expanding rain impact ring','subtle rain puddle ripple','continuous blue-hour sky atmosphere'];
+  for(const mesh of scene.meshes.slice(lateStaticStart)){
+    if(!mesh||mesh.isDisposed?.()||mesh.checkCollisions||!mesh.material||mesh.getTotalVertices?.()===0)continue;
+    if(dynamicNames.some(name=>mesh.name.includes(name))||mesh.infiniteDistance) {lateKept.push(mesh);continue;}
+    // Keep parented parked-car parts and alpha/reflection surfaces intact.
+    if(mesh.parent||mesh.material.alpha<.999||mesh.material.reflectionTexture||mesh.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND){lateKept.push(mesh);continue;}
+    const key=mesh.material.uniqueId;
+    if(!lateGroups.has(key))lateGroups.set(key,[]);
+    lateGroups.get(key).push(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size};
+  const lateMerged=[];
+  for(const [materialId,parts] of lateGroups){
+    if(parts.length<2){lateKept.push(...parts);continue;}
+    const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
+    if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);}
+    else lateKept.push(...parts);
+  }
+  // The reflection target was assembled before the late scenery pass. Refresh its
+  // render list after batching so it references live meshes rather than disposed parts.
+  if(wetMirror){
+    wetMirror.renderList=scene.meshes.filter(mesh=>{
+      if(!mesh||mesh===wetMirror||mesh.isDisposed?.()||mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('sky atmosphere'))return false;
+      try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
+    });
+  }
+  const staticMeshes=[...colliders,...merged,...lateMerged,...lateKept],materials=new Set();
+  for(const mesh of staticMeshes){
+    if(!mesh||mesh.isDisposed?.())continue;
+    mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();
+    if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
+    if(!mobile)shadowGen.addShadowCaster(mesh);
+  }
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length};
 }
