@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -83,4 +83,23 @@ test('safe spawn ignores overhead-only geometry', () => {
 test('safe spawn returns null when all candidates overlap solid geometry', () => {
   const wall = [{name:'wall',minX:-5,maxX:5,minY:0,maxY:4,minZ:-42,maxZ:-40}];
   assert.equal(findSafePlayerSpawn([{x:0,z:-41}], wall), null);
+});
+
+
+test('bot pathfinding routes around solid walls instead of crossing them', () => {
+  const wall = [{name:'partition',minX:-2,maxX:2,minY:0,maxY:4.4,minZ:4,maxZ:6}];
+  const path = findPathAStar({x:0,z:0},{x:0,z:10},wall,.38,1.5);
+  assert.ok(path.length > 1);
+  for (const point of path) {
+    const nearestX=Math.max(-2,Math.min(point.x,2));
+    const nearestZ=Math.max(4,Math.min(point.z,6));
+    const dx=point.x-nearestX,dz=point.z-nearestZ;
+    assert.ok(dx*dx+dz*dz >= .48*.48 || point.z===10, 'path node intersects wall');
+  }
+});
+
+test('bot pathfinding returns a direct target in open space', () => {
+  const path = findPathAStar({x:-10,z:-10},{x:-4,z:-4},[],.38,1.5);
+  assert.deepEqual(path.at(-1),{x:-4,z:-4});
+  assert.ok(path.length <= 3);
 });
