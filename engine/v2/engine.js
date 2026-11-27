@@ -3,7 +3,7 @@ const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot } from './human-bots.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90 };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90, projectiles:[] };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -136,20 +136,54 @@ function updateBotMotion(dt) {
     bot.phase+=dt*7;animateHumanBot(bot.rig,true,bot.speed>2.7);
   }
 }
+function updateBulletPhysics(dt) {
+  for(let i=state.projectiles.length-1;i>=0;i--) {
+    const p=state.projectiles[i];
+    p.life-=dt;
+    p.velocity.y-=9.81*dt;
+    const from=p.mesh.position.clone();
+    const to=from.add(p.velocity.scale(dt));
+    const segment=to.subtract(p.mesh.position);
+    const distance=segment.length();
+    let hit=null;
+    if(distance>0.0001) {
+      const ray=new BABYLON.Ray(p.mesh.position.clone(),segment.scale(1/distance),distance);
+      hit=scene.pickWithRay(ray,m=>{
+        if(!m||!m.isEnabled()||!m.isPickable)return false;
+        const n=m.name.toLowerCase();
+        return n.startsWith('body-')||n.startsWith('head-')||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground';
+      });
+    }
+    if(hit?.hit&&hit.pickedMesh) {
+      const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
+      if(bot&&bot.team==='enemy'&&bot.alive) {
+        bot.health-=hit.pickedMesh.name.startsWith('head-')?100:34;
+        if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);state.kills++;$('kills').textContent='KILLS '+state.kills}
+      }
+      p.life=0;
+    } else {
+      p.mesh.position.copyFrom(to);
+      if(p.mesh.position.y<.12)p.life=0;
+    }
+    if(p.life<=0) {
+      p.mesh.dispose();
+      state.projectiles.splice(i,1);
+    }
+  }
+}
 function fire() {
   const now=performance.now();if(!state.started||state.playerDead||state.reloading||now-state.lastShot<105)return;
   if(state.ammo<=0){if(state.reserve>0)reload();return;}
-  state.lastShot=now;state.ammo--;const ray=camera.getForwardRay(95);
+  state.lastShot=now;state.ammo--;
+  const ray=camera.getForwardRay(1);
+  const origin=camera.position.add(ray.direction.scale(.78));
+  const projectile=BABYLON.MeshBuilder.CreateSphere('player-bullet',{diameter:.055,segments:6},scene);
+  const material=new BABYLON.StandardMaterial('player-bullet-material',scene);
+  material.diffuseColor=new BABYLON.Color3(.95,.78,.38);material.emissiveColor=new BABYLON.Color3(.8,.48,.12);
+  projectile.material=material;projectile.position.copyFrom(origin);
+  state.projectiles.push({mesh:projectile,velocity:ray.direction.scale(125),life:1.25});
   if(muzzleFlash){muzzleFlash.isVisible=true;window.setTimeout(()=>{if(muzzleFlash)muzzleFlash.isVisible=false},45);}
   if(weaponRoot){weaponRoot.position.z=-.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=-.72},65);}
-  const hit=scene.pickWithRay(ray,m=>m.name.startsWith('body-')||m.name.startsWith('head-'));
-  if(hit?.hit&&hit.pickedMesh) {
-    const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-    if(bot&&bot.team==='enemy'&&bot.alive) {
-      bot.health-=hit.pickedMesh.name.startsWith('head-')?100:34;
-      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);state.kills++;$('kills').textContent='KILLS '+state.kills}
-    }
-  }
   $('ammo').textContent=state.ammo+' / '+state.reserve;
 }
 function reload(){
@@ -214,7 +248,7 @@ function endRound(won){
 }
 function start() {
   if(state.playerDead){
-    state.hp=100;state.ammo=30;state.reserve=90;state.kills=0;state.roundTime=90;state.playerDead=false;state.reloading=false;
+    state.hp=100;state.ammo=30;state.reserve=90;state.kills=0;state.roundTime=90;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
     for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;}
     $('health').textContent='HP 100';$('ammo').textContent='30 / 90';$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='01:30';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
@@ -245,7 +279,7 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       if(state.started) {
-        updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        updatePlayer(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         if(state.roundTime<=0)endRound(false);
