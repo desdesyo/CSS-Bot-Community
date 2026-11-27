@@ -109,7 +109,8 @@ jobs:
       - name: Syntax check cloud gaming host and viewer
         run: |
           node --check engine/cloud/host.js
-          node --check engine/cloud/viewer.js\n          bash -n engine/cloud/kaggle-gpu-host.sh
+          node --check engine/cloud/viewer.js
+          bash -n engine/cloud/kaggle-gpu-host.sh
           node --check engine/server/cloud-signaling.js
   server:
     runs-on: ubuntu-latest
