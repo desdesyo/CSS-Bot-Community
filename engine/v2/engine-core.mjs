@@ -31,3 +31,36 @@ export function cameraRelativeMovement(yaw, forward, strafe) {
     z: Math.cos(yaw) * forward - Math.sin(yaw) * strafe
   };
 }
+
+
+/** Swept circular player-vs-AABB collision with axis sliding. */
+export function moveWithAabbCollisions(position, movement, colliders = [], radius = 0.36, playerHeight = 1.72, maxStep = 0.10) {
+  const dx = Number.isFinite(movement.x) ? movement.x : 0;
+  const dz = Number.isFinite(movement.z) ? movement.z : 0;
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / Math.max(0.02, maxStep)));
+  const stepX = dx / steps, stepZ = dz / steps;
+  let x = position.x, z = position.z, blockedX = false, blockedZ = false;
+  const blockedBy = new Set();
+  const collides = (px, pz) => {
+    for (const box of colliders) {
+      if (box.maxY <= position.y - playerHeight + 0.04 || box.minY >= position.y - 0.04) continue;
+      const nearestX = Math.max(box.minX, Math.min(px, box.maxX));
+      const nearestZ = Math.max(box.minZ, Math.min(pz, box.maxZ));
+      const ox = px - nearestX, oz = pz - nearestZ;
+      if (ox * ox + oz * oz < radius * radius) {
+        blockedBy.add(box.name || 'unnamed-collider');
+        return true;
+      }
+    }
+    return false;
+  };
+  for (let i = 0; i < steps; i++) {
+    const nextX = x + stepX;
+    if (!collides(nextX, z)) x = nextX;
+    else blockedX = true;
+    const nextZ = z + stepZ;
+    if (!collides(x, nextZ)) z = nextZ;
+    else blockedZ = true;
+  }
+  return { x, z, blockedX, blockedZ, blockedBy: [...blockedBy] };
+}
