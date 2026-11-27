@@ -131,26 +131,34 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   waterPlane.position.y=.12;waterPlane.material=water;waterPlane.isPickable=false;
   if(!mobile){const reflection=new B.PointLight('canal reflected blue fill',new B.Vector3(0,1,-1),scene);reflection.diffuse=new C(.12,.28,.48);reflection.intensity=.32;reflection.range=38;}
   for(const [x,label] of [[-20,'west'],[20,'east']]){
-    floor(label+' arched stone bridge deck',x,0,8,15,.22,stone);
-    box(label+' bridge parapet north',x,.78,-6.6,8,.95,.34,trim);
-    box(label+' bridge parapet south',x,.78,6.6,8,.95,.34,trim);
-    for(let i=-3;i<=3;i++) box(label+' bridge parapet post',x+i*1.1,1.15,-6.6,.18,.8,.2,iron,false);
-    for(let i=-3;i<=3;i++) box(label+' bridge parapet post',x+i*1.1,1.15,6.6,.18,.8,.2,iron,false);
-    for(let i=0;i<7;i++){
-      const a=-Math.PI/2+(Math.PI*i/6);
-      const arch= B.MeshBuilder.CreateCylinder(label+' bridge arch rib',{diameter:.22,height:8,tessellation:8},scene);
-      arch.position.set(x, -1.05+Math.sin(a)*1.2, Math.cos(a)*6.2);
-      arch.rotation.x=Math.PI/2;arch.material=stone;arch.isPickable=false;
+    // The bridge is a true north/south crossing: open ends face both river banks.
+    // Side rails run parallel to the crossing and never form a wall across its mouth.
+    floor(label+' broad stone bridge deck',x,0,12,16,.22,stone);
+    for(const side of [-1,1]){
+      const railX=x+side*5.72;
+      box(label+' bridge side parapet',railX,.72,0,.32,.82,13.2,trim,false);
+      for(let i=-5;i<=5;i++)box(label+' bridge side parapet post',railX,1.12,i*1.18,.42,.62,.42,iron,false);
+      box(label+' bridge lower stone curb',railX,.22,0,.48,.32,15.2,stone,false);
     }
+    for(let i=0;i<7;i++){
+      const z=-5.6+i*1.86;
+      const arch=B.MeshBuilder.CreateCylinder(label+' bridge arch rib',{diameter:.2,height:12,tessellation:8},scene);
+      arch.position.set(x,-1.05,z);arch.rotation.z=Math.PI/2;arch.material=stone;arch.isPickable=false;
+    }
+    // End paving blends the bridge into the sidewalks without a collision lip.
+    floor(label+' north bridge landing',x,-8.2,13,3,.16,stone);
+    floor(label+' south bridge landing',x,8.2,13,3,.16,stone);
   }
   // River-edge walls stop AI/player shortcuts through the canal; gaps align with bridges.
   const invisible=mat('canal collision barrier','#071a2a',1);
   if(invisible.alpha!==undefined)invisible.alpha=0;
-  for(const z of [-4.9,4.9]) for(const [x,w] of [[-38.5,29],[0,32],[38.5,29]]){
+  // Wide, measured bridge openings: 12 world units, enough for a player and bots
+  // to pass without scraping the parapets. Wall segments stop exactly at each landing.
+  for(const z of [-4.9,4.9]) for(const [x,w] of [[-39.5,27],[0,28],[39.5,27]]){
     const barrier=box('canal bank collision barrier',x,.95,z,w,1.9,.32,invisible,true,false);
     barrier.visibility=.001;
   }
-  for(const z of [-5.7,5.7]) for(const [x,w] of [[-38.5,29],[0,32],[38.5,29]]) box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
+  for(const z of [-5.7,5.7]) for(const [x,w] of [[-39.5,27],[0,28],[39.5,27]]) box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
   // Low-rise buildings: 2–3 floors, irregular facades, open doorways and service alleys.
   const building=(name,x,z,w,d,h,material,front)=>{
     const side=front==='west'?-1:1, face=x+side*(w/2+.07);
@@ -251,10 +259,24 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(neonCyan.emissiveColor)neonCyan.emissiveColor=new C(.06,.62,.82);
   if(neonAmber.emissiveColor)neonAmber.emissiveColor=new C(.85,.42,.12);
   if(neonRed.emissiveColor)neonRed.emissiveColor=new C(.72,.045,.035);
-  for(const [x,z,w,signMat] of [[-11.2,-25,4.8,neonAmber],[11.2,-13,4.2,neonCyan],[-11.2,10,5.2,neonRed],[11.2,29,4.6,neonAmber]]){
+  const shopSigns=[
+    [-11.2,-25,4.8,neonAmber,'GROCERY'],
+    [11.2,-13,4.2,neonCyan,'CAFE'],
+    [-11.2,10,5.2,neonRed,'PHARMACY'],
+    [11.2,29,4.6,neonAmber,'REPAIRS']
+  ];
+  for(const [x,z,w,signMat,label] of shopSigns){
     box('illuminated shop sign backing',x,3.55,z,w,.72,.16,iron,false);
-    box('illuminated shop sign face',x,3.56,z-.105,w-.24,.48,.035,signMat,false);
-    box('shop awning',x,2.85,z+(.6),w+.45,.16,1.05,brick,false);
+    const signTex=new B.DynamicTexture('legible storefront sign '+label,{width:512,height:128},scene,false);
+    const signCtx=signTex.getContext();signCtx.fillStyle='#101b27';signCtx.fillRect(0,0,512,128);
+    signCtx.fillStyle=label==='PHARMACY'?'#ff716a':label==='CAFE'?'#75e8f2':'#ffd18a';
+    signCtx.font='bold 58px Arial';signCtx.textAlign='center';signCtx.textBaseline='middle';signCtx.fillText(label,256,66);
+    signTex.update(false);
+    const signFace=new B.StandardMaterial('emissive readable sign '+label,scene);
+    signFace.diffuseTexture=signTex;signFace.emissiveTexture=signTex;signFace.disableLighting=true;
+    const face=box('readable '+label+' storefront sign',x,3.56,z-.105,w-.24,.48,.035,signFace,false);
+    face.isPickable=false;
+    box('shop awning',x,2.85,z+.6,w+.45,.16,1.05,brick,false);
     for(let i=-2;i<=2;i++)box('awning rib',x+i*w/5,2.76,z+.6,.035,.08,1.05,trim,false);
   }
   // A rain-dark delivery van and loading details break up the repeated block rhythm.
@@ -344,6 +366,53 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     stream.material=water;stream.isPickable=false;
     const pool=B.MeshBuilder.CreateDisc('overflow runoff puddle',{radius:1,tessellation:32},scene);
     pool.scaling.set(1.5,.01,.62);pool.position.set(x+.8,.068,z+.5);pool.material=puddle;pool.isPickable=false;
+  }
+
+  // Recognizable street furniture: benches, litter bins, utility cabinets,
+  // manholes, bollards, zebra crossings and a traffic signal at the market junction.
+  const streetWood=mat('street bench dark timber','#594a3c',.82);
+  const utilityPaint=mat('street utility cabinet green','#334b49',.68,.18);
+  const marking=mat('worn road marking','#aeb8b9',.78);
+  const redSignal=mat('traffic signal red','#e44e43',.28);
+  const greenSignal=mat('traffic signal green','#52cf8c',.28);
+  if(redSignal.emissiveColor)redSignal.emissiveColor=new C(.55,.035,.02);
+  if(greenSignal.emissiveColor)greenSignal.emissiveColor=new C(.035,.42,.12);
+  for(const [x,z,rot] of [[-6,-23,0],[6,20,Math.PI/2],[-29,7,Math.PI/2],[29,-20,Math.PI/2]]){
+    const seat=box('public street bench timber seat',x,.58,z,2.1,.14,.62,streetWood,false);
+    seat.rotation.y=rot;
+    const back=box('public street bench backrest',x,.98,z,2.1,.68,.12,streetWood,false);back.rotation.y=rot;
+    for(const side of [-.72,.72]){
+      const leg=box('public street bench iron leg',x+side,.3,z,.12,.58,.5,iron,false);leg.rotation.y=rot;
+    }
+  }
+  for(const [x,z] of [[-6,-30],[6,-3],[-29,14],[29,29]]){
+    box('street electrical cabinet',x,.88,z,.85,1.76,.62,utilityPaint,false);
+    box('electrical cabinet access panel',x,.9,z-.32,.58,1.28,.035,iron,false);
+    for(let y=0;y<3;y++)box('cabinet ventilation slot',x,.55+y*.22,z-.345,.36,.035,.025,trim,false);
+    cylinder('cabinet warning beacon',x,1.86,z,.12,.12,neonAmber);
+  }
+  for(const [x,z] of [[-3,-39],[3,-21],[-3,2],[3,31]]){
+    const cover=B.MeshBuilder.CreateCylinder('cast iron manhole cover',{diameter:1.05,height:.035,tessellation:24},scene);
+    cover.position.set(x,.085,z);cover.material=iron;cover.isPickable=false;
+    for(let a=0;a<8;a++){
+      const slot=box('manhole radial slot',x+Math.cos(a*Math.PI/4)*.29,.108,z+Math.sin(a*Math.PI/4)*.29,.035,.012,.2,trim,false);
+      slot.rotation.y=-a*Math.PI/4;
+    }
+  }
+  for(const [x,z] of [[-5,-12],[5,12],[-28,-7],[28,7]]){
+    for(let i=0;i<5;i++)box('worn pedestrian crossing stripe',x+i*.42-0.84,.075,z, .26,.018,3.4,marking,false);
+  }
+  for(const [x,z] of [[-7,-14],[7,14],[-32,4],[32,-4]]){
+    cylinder('street bollard',x,.48,z,.24,.96,iron);
+    cylinder('bollard reflective band',x,.65,z,.245,.16,trim);
+  }
+  for(const [x,z] of [[-7,-10],[7,10]]){
+    cylinder('traffic signal pole',x,2.3,z,.13,4.6,iron);
+    box('traffic signal housing',x,4.15,z,.38,1.1,.28,iron,false);
+    for(const [y,m] of [[4.48,redSignal],[4.15,neonAmber],[3.82,greenSignal]]){
+      const lens=B.MeshBuilder.CreateSphere('traffic signal lens',{diameter:.2,segments:8},scene);
+      lens.position.set(x, y,z-.16);lens.material=m;lens.isPickable=false;
+    }
   }
 
   // Short footbridges and service crossings along the embankment.
