@@ -351,7 +351,7 @@ function updateBotAI() {
       }
     }else{
       bot.combatState='patrol';bot.target=null;
-      if(bot.developerRole==='field-developer')chooseFieldExploreGoal(bot,now);
+      if(bot.developerRole==='field-developer'){bot.combatState='exploration-review';chooseFieldExploreGoal(bot,now);}
       bot.activeWeapon=bot.ammo>0?'rifle':bot.pistolAmmo>0?'pistol':'knife';
       bot.weapons.rifle.setEnabled(bot.activeWeapon==='rifle');
       bot.weapons.pistol.setEnabled(bot.activeWeapon==='pistol');
@@ -729,7 +729,7 @@ function chooseFieldExploreGoal(bot,now){
  if(now-fieldExploreLastPlan<1600)return bot.fieldExploreGoal||null;
  fieldExploreLastPlan=now;const visited=fieldAtlas.visitedCells,unreachable=new Set(fieldAtlas.unreachableCells),here=bot.root.position;
  const candidates=buildFieldWalkableCells().filter(c=>!visited[c.key]&&!unreachable.has(c.key));candidates.sort((a,b)=>Math.hypot(a.x-here.x,a.z-here.z)-Math.hypot(b.x-here.x,b.z-here.z));
- for(const cell of candidates.slice(0,18).sort(()=>Math.random()-.5)){const distance=Math.hypot(cell.x-here.x,cell.z-here.z),path=findPathAStar(here,{x:cell.x,z:cell.z},collisionBoxes,.38,1.5);if(path.length===1&&distance>1.8){fieldAtlas.unreachableCells.push(cell.key);if(fieldAtlas.unreachableCells.length>1200)fieldAtlas.unreachableCells.shift();continue;}bot.combatState='explore';bot.fieldExploreGoal=cell;bot.fieldExploreUntil=now+18000;bot.navPath=path;bot.navIndex=0;bot.navGoal={x:cell.x,z:cell.z};bot.repathAt=now+18000;gameLogEvent('field-exploration-target',{botId:bot.id,cell:cell.key,x:cell.x,z:cell.z,pathNodes:path.length});return cell;}
+ for(const cell of candidates.slice(0,12).sort(()=>Math.random()-.5)){const distance=Math.hypot(cell.x-here.x,cell.z-here.z),path=findPathAStar(here,{x:cell.x,z:cell.z},collisionBoxes,.38,1.5);if(path.length===1&&distance>1.8){fieldAtlas.unreachableCells.push(cell.key);if(fieldAtlas.unreachableCells.length>1200)fieldAtlas.unreachableCells.shift();continue;}bot.combatState='explore';bot.fieldExploreGoal=cell;bot.fieldExploreUntil=now+18000;bot.navPath=path;bot.navIndex=0;bot.navGoal={x:cell.x,z:cell.z};bot.repathAt=now+18000;gameLogEvent('field-exploration-target',{botId:bot.id,cell:cell.key,x:cell.x,z:cell.z,pathNodes:path.length});return cell;}
  bot.combatState='exploration-review';bot.fieldExploreGoal=null;gameLogEvent('field-exploration-frontier-empty',{coverage:fieldCoverageStats()});persistFieldAtlas(true);return null;
 }
 function recordFieldDeveloperPosition(bot,now){
