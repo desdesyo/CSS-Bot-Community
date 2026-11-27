@@ -3,9 +3,10 @@
 export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const root = new B.TransformNode('solo-fps-viewmodel', scene);
   root.parent = camera;
-  root.position.set(.18, -.27, .72);
-  root.rotation.set(0, Math.PI, 0);
-  root.scaling.setAll(1.12);
+  root.position.set(.16, -.31, .68);
+  // Weapon geometry is authored muzzle-forward along local -Z, matching the Babylon FPS camera.
+  root.rotation.set(0, 0, 0);
+  root.scaling.setAll(1.0);
 
   const material = (name, hex, roughness = .7, metallic = 0) => {
     const m = new B.PBRMaterial(name, scene);
