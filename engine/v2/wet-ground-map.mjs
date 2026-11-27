@@ -96,6 +96,37 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   brick.albedoTexture=makeFacadeTexture('aged dark brickwork texture','brick');
   stone.albedoTexture=makeFacadeTexture('weathered cut stone texture','stone');
 
+  // CC0 photographic PBR materials from Poly Haven. The procedural maps above remain
+  // as an immediate fallback; failed network loads restore them instead of leaving blank walls.
+  const loadScannedPbr=(material,asset,repeat,normalLevel)=>{
+    const resolution=mobile?'1k':'2k';
+    const base='https://dl.polyhaven.org/file/ph-assets/Textures/jpg/'+resolution+'/'+asset+'/'+asset;
+    const fallbacks={albedoTexture:material.albedoTexture,bumpTexture:material.bumpTexture,roughnessTexture:material.roughnessTexture};
+    const bind=(slot,suffix,gammaSpace)=>{
+      const textureUrl=base+'_'+suffix+'_'+resolution+'.jpg';
+      const texture=new B.Texture(textureUrl,scene,false,false,B.Texture.TRILINEAR_SAMPLINGMODE,()=>{
+        texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
+        texture.uScale=repeat;texture.vScale=repeat;
+        texture.anisotropicFilteringLevel=mobile?4:8;
+      },()=>{
+        if(material[slot]===texture)material[slot]=fallbacks[slot];
+      });
+      texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
+      texture.uScale=repeat;texture.vScale=repeat;texture.anisotropicFilteringLevel=mobile?4:8;
+      material[slot]=texture;
+    };
+    bind('albedoTexture','diff',true);
+    bind('bumpTexture','nor_gl',false);
+    bind('roughnessTexture','rough',false);
+    material.bumpTexture.level=normalLevel;
+  };
+  plaster.albedoColor=new C(.72,.82,.92);
+  brick.albedoColor=new C(.78,.82,.88);
+  stone.albedoColor=new C(.78,.84,.9);
+  loadScannedPbr(plaster,'plastered_wall_05',2,mobile?.34:.48);
+  loadScannedPbr(brick,'worn_brick_wall',2,mobile?.42:.58);
+  loadScannedPbr(stone,'stone_wall',2,mobile?.42:.6);
+
   // A compact second PBR layer gives the spawn quarter real surface relief:
   // mortar recesses, chipped stone edges, plaster pores, mineral streaks and
   // material-specific roughness. Mobile maps are deliberately capped at 512px.
@@ -198,6 +229,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   const cobbleTex=makeCobbleTexture();
   cobble.albedoTexture=cobbleTex;
+  cobble.albedoColor=new C(.7,.8,.92);
   // Spatial roughness variation: polished traffic paths, porous stone crowns and dark mortar.
   const cobbleRough=new B.DynamicTexture('cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,false);
   const roughCtx=cobbleRough.getContext();roughCtx.fillStyle='rgb(235,235,235)';roughCtx.fillRect(0,0,mobile?512:1024,mobile?512:1024);
@@ -229,6 +261,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=cobbleTex.uScale;normalTex.vScale=cobbleTex.vScale;normalTex.gammaSpace=false;
   cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
+  loadScannedPbr(cobble,'cobblestone_pavement',mobile?4:7,mobile?.68:.9);
   if(cobble.metallic!==undefined)cobble.metallic=.08;
 
   // Photo-oriented wet-surface pass: stronger clear coat, fine rain pitting,
