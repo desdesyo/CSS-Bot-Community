@@ -548,6 +548,76 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ];
   for(const args of blocks) building(...args);
 
+  // STREET REBUILD — give the district a readable road/sidewalk hierarchy before adding props.
+  // Asphalt sits below the stone curb line; the existing wet cobble remains visible at thresholds.
+  const roadAsphalt=mat('rain-polished charcoal roadway','#202a32',.34,.08);
+  const roadTexture=new B.DynamicTexture('worn asphalt aggregate and repaired patches',{width:1024,height:1024},scene,false);
+  const roadCtx=roadTexture.getContext();roadCtx.fillStyle='#303940';roadCtx.fillRect(0,0,1024,1024);
+  let roadSeed=55731;const roadRand=()=>((roadSeed=(roadSeed*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<18000;i++){const v=Math.floor(35+roadRand()*52),a=.08+roadRand()*.2;roadCtx.fillStyle='rgba('+v+','+(v+4)+','+(v+7)+','+a+')';const x=roadRand()*1024,y=roadRand()*1024,r=.4+roadRand()*2.4;roadCtx.fillRect(x,y,r,r);}
+  for(let i=0;i<34;i++){const x=roadRand()*1024,y=roadRand()*1024,w=18+roadRand()*130,h=8+roadRand()*42;roadCtx.fillStyle='rgba(8,14,19,'+(.08+roadRand()*.13)+')';roadCtx.fillRect(x,y,w,h);roadCtx.strokeStyle='rgba(135,151,157,.12)';roadCtx.lineWidth=2;roadCtx.strokeRect(x+2,y+2,w*.72,h*.65);}
+  roadTexture.update(false);roadTexture.wrapU=roadTexture.wrapV=B.Texture.WRAP_ADDRESSMODE;roadTexture.uScale=3.5;roadTexture.vScale=9;
+  roadAsphalt.albedoTexture=roadTexture;roadAsphalt.albedoColor=new C(.78,.84,.9);
+  const roadLine=mat('worn ivory road paint','#b9b7a9',.82);
+  const curbStone=mat('cut granite curb faces','#69747a',.86);
+  const sidewalkJoint=mat('dark sidewalk joint mortar','#202a31',.98);
+  const asphalt=(name,x,z,w,d)=>floor(name,x,.052,z,w,d,.052,roadAsphalt);
+  const sidewalk=(name,x,z,w,d)=>{
+    floor(name,x,.105,z,w,d,.11,stone);
+    const across=Math.max(2,Math.floor(w/1.8)),along=Math.max(2,Math.floor(d/2.2));
+    for(let ix=0;ix<=across;ix++)box(name+' transverse granite joint',x-w/2+ix*w/across,.164,z,.018,.012,d,sidewalkJoint,false);
+    for(let iz=0;iz<=along;iz++)box(name+' longitudinal granite joint',x,.164,z-d/2+iz*d/along,w,.012,.018,sidewalkJoint,false);
+  };
+  // Main north-south avenue: asphalt carriageway, raised curbs and broad walkable pavements.
+  asphalt('main avenue wet asphalt carriageway',0,0,6.1,82);
+  for(const side of [-1,1]){
+    box('main avenue continuous raised granite curb',side*3.25,.19,0,.28,.28,82,curbStone,false);
+    sidewalk('main avenue broad stone pavement',side*4.65,0,2.45,82);
+    for(let z=-38;z<=38;z+=7.5){
+      const dash=box('main avenue worn dashed centre line',0,.083,z,.12,.018,3.1,roadLine,false);
+      dash.isPickable=false;
+    }
+  }
+  // Parallel neighborhood streets use the same physical curb/pavement language.
+  for(const x of [-23,23]){
+    asphalt('side avenue wet asphalt carriageway',x,0,7.4,82);
+    for(const side of [-1,1]){
+      box('side avenue granite curb',x+side*3.85,.18,0,.24,.24,82,curbStone,false);
+      sidewalk('side avenue stone pavement',x+side*5.15,0,2.25,82);
+    }
+    for(let z=-38;z<=38;z+=8)box('side avenue broken lane marking',x,.083,z,.09,.016,3.2,roadLine,false);
+  }
+  // East-west streets and junction aprons; bridges keep a continuous road surface across the canal.
+  for(const z of [-20,27]){
+    asphalt('cross street wet asphalt carriageway',0,z,72,5.7);
+    for(const side of [-1,1]){
+      box('cross street raised granite curb',0,.18,z+side*3.05,72,.24,.24,curbStone,false);
+      sidewalk('cross street wide stone pavement',0,z+side*4.35,72,2.25);
+    }
+    for(let x=-34;x<=34;x+=8)box('cross street broken centre line',x,.083,z,.12,.016,2.6,roadLine,false);
+  }
+  // Road deck finish and substantial masonry side profiles make each crossing read as a bridge.
+  for(const [x,label] of [[-20,'west'],[0,'central'],[20,'east']]){
+    floor(label+' bridge dark asphalt deck',x,.19,0,6.2,14,.205,roadAsphalt);
+    for(const side of [-1,1]){
+      box(label+' bridge granite wheel curb',x+side*3.35,.39,0,.22,.24,14,curbStone,false);
+      box(label+' bridge parapet capstone',x+side*6.48,.83,0,.48,.16,13.1,trim,false);
+    }
+    for(let z=-5;z<=5;z+=2.5)box(label+' bridge centre lane dash',x,.315,z,.11,.018,1.2,roadLine,false);
+    // Broad spandrel faces and springing piers give the arch a clear silhouette from below.
+    for(const side of [-1,1]){
+      const spandrel=box(label+' bridge outer masonry spandrel',x+side*5.72,-.52,0,.42,1.22,10.8,stone,false);
+      spandrel.isPickable=false;
+      for(const z of [-4.1,4.1])box(label+' bridge dressed springing block',x+side*5.72,-.08,z,.62,.72,1.15,trim,false);
+    }
+  }
+  // Sidewalk ramps and tactile corner aprons make intersections legible at player height.
+  for(const [x,z] of [[-3.5,-20],[3.5,-20],[-3.5,27],[3.5,27],[-3.5,-12],[3.5,13]]){
+    const apron=B.MeshBuilder.CreateGround('granite pedestrian corner apron',{width:2.3,height:2.3,subdivisions:1},scene);
+    apron.position.set(x,.174,z);apron.material=trim;apron.isPickable=false;
+    for(let n=0;n<5;n++)box('tactile crossing stone rib',x-0.72+n*.36,.188,z, .045,.018,1.55,curbStone,false);
+  }
+
   // FULL DISTRICT EXTENSION — the previous layout read as one long central alley.
   // Add a second, perpendicular street layer so the player sees connected blocks,
   // corner buildings and real cross-street choices from more than the spawn lane.
