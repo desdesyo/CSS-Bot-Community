@@ -529,3 +529,18 @@ test('bug reports include final map batching counters', async () => {
   assert.match(source, /window\.__SOLO_MAP_STATS__=mapBuildStats/);
   assert.match(source, /mapStats:window\.__SOLO_MAP_STATS__\|\|null/);
 });
+
+
+test('player collision uses spatial broadphase and preserves full-array collision results', () => {
+  const walls=[
+    {name:'near wall',minX:-2,maxX:2,minY:0,maxY:4,minZ:2,maxZ:2.5},
+    {name:'far wall',minX:30,maxX:35,minY:0,maxY:4,minZ:30,maxZ:35}
+  ];
+  const index=buildCollisionSpatialIndex(walls,8);
+  const start={x:0,y:1.72,z:0},move={x:0,z:5};
+  const baseline=moveWithAabbCollisions(start,move,walls,.36,1.72,.1);
+  const broadphase=moveWithAabbCollisions(start,move,walls,.36,1.72,.1,index);
+  assert.deepEqual(broadphase,baseline);
+  assert.ok(broadphase.z<1.65);
+  assert.deepEqual(broadphase.blockedBy,['near wall']);
+});
