@@ -42,7 +42,7 @@ test('mobile build disables shadows, skips external rigged models, and uses chea
   assert.ok(runtime.includes('m.metadata||{}),mapCollider:cast'));
   assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('scale:cloudHost?1:(mobile?0.68:1.25)'));
-  assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
+  assert.ok(runtime.includes('const targetDpr=cloudHost?1:(mobile?1:1.5)'));
   assert.ok(!html.includes('babylonjs.loaders.min.js'));
 });
 test('desktop profile has independent scale bounds', () => {
@@ -254,7 +254,7 @@ test('mobile touch controls suppress browser selection and preserve independent 
   assert.ok(runtime.includes("look.addEventListener('pointerdown',e=>{e.preventDefault()"));
 });
 test('grenade uses ballistic motion, wall collision, bounce and line-of-sight blast damage',()=>{
-  for(const token of ['velocity.y-=9.81*dt','scene.pickWithRay(ray,isMapSolid)','velocity.subtractInPlace(normal.scale(1.55*into))','fuse=2.15','const radius=6.5','if(blocked?.hit)continue']) assert.ok(runtime.includes(token),'missing grenade physics '+token);
+  for(const token of ['velocity.y-=9.81*dt','scene.pickWithRay(ray,isMapSolid)','velocity.subtractInPlace(normal.scale(1.55*into))','fuse=2.15','radius=6.5','if(blocked?.hit)continue']) assert.ok(runtime.includes(token),'missing grenade physics '+token);
 });
 test('player collision is indexed from actual static map geometry, not hand-authored blockers',()=>{
   assert.ok(runtime.includes('function buildMapCollisionIndex()'));
