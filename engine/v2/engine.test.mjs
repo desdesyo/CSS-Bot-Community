@@ -363,7 +363,7 @@ test('both player spawn zones have authored high-detail street fragments and fac
   assert.match(map, /material\.bumpTexture=maps\.normal/);
   assert.match(map, /material\.roughnessTexture=maps\.rough/);
   assert.match(map, /buildSpawnFragment\('CT',36,-8\.93,14\.43/);
-  assert.match(map, /buildSpawnFragment\('T',-40,-6\.93,8\.43/);
+  assert.match(map, /buildSpawnFragment\('T',-37\.5,-6\.93,8\.43/);
   assert.match(map, /illuminated fascia/);
   assert.match(map, /rain awning canopy/);
   assert.match(map, /deep storefront glass/);
