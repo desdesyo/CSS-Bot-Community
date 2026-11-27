@@ -926,7 +926,7 @@ async function boot() {
     humanBotAssets=await loadHumanBotAssets(B,scene);
     buildBots();buildPlayerWeapon();initInput();
     window.addEventListener('resize',()=>engine.resize());
-    $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
+    document.getElementById('overlay')?.classList.remove('is-loading','is-error');$('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
     let last=performance.now();
     engine.runRenderLoop(()=>{
