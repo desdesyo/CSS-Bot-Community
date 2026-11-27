@@ -243,6 +243,12 @@ function resolveHitscanShot(origin,direction,damage,range){
  return true;
 }
 
+function showMuzzleFlash(){
+  if(!state.muzzleFlash)return;
+  state.muzzleFlash.setEnabled(true);
+  state.muzzleFlashUntil=performance.now()+55;
+}
+
 function fire() {
   if(!state.started||state.wheelOpen||state.reloading)return;
   const w=currentWeapon(),now=performance.now();
@@ -409,6 +415,7 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       updateGamepad(dt);
+      if(state.muzzleFlash&&state.muzzleFlash.isEnabled()&&now>=state.muzzleFlashUntil)state.muzzleFlash.setEnabled(false);
       if(state.started) {
         if(state.firing)fire();
 
