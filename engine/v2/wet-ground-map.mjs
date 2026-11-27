@@ -21,6 +21,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glass=mat('midnight window glass','#101d2d',.16,.42);
   const roof=mat('slate roofs','#202b39',.92);
   const amber=mat('warm lamp glass','#ffd49a',.25);
+  const warmWindow=mat('occupied apartment window glow','#e9ae6d',.34);
+  if(warmWindow.emissiveColor)warmWindow.emissiveColor=new C(.62,.25,.07);
   const water=mat('canal deep water','#102b3d',.075,.32);
   water.diffuseColor && (water.diffuseColor=new C(.035,.11,.18));
   if(water.albedoColor) water.albedoColor=new C(.035,.11,.18);
@@ -117,6 +119,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     for(const zz of [z-d*.28,z+d*.28]){
       box(name+' facade window recess',face,2.55,zz,.12,1.65,2.05,iron,false);
       box(name+' dark window glass',face+side*.075,2.55,zz,.04,1.34,1.72,glass,false);
+      if(Math.round(z+zz)%2===0)box(name+' occupied warm window',face+side*.105,2.55,zz,.035,.72,.94,warmWindow,false);
       box(name+' stone window sill',face+side*.12,1.68,zz,.28,.14,2.3,trim,false);
       box(name+' lintel',face,3.43,zz,.2,.16,2.35,trim,false);
     }
