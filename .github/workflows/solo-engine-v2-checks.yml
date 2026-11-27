@@ -30,8 +30,10 @@ jobs:
           test -s engine/v2/engine.js
           test -s engine/v2/engine-core.mjs
           test -s engine/v2/human-bots.mjs
+          test -s engine/v2/weapon-viewmodel.mjs
           node --check engine/v2/engine.js
           node --check engine/v2/human-bots.mjs
+          node --check engine/v2/weapon-viewmodel.mjs
 
       - name: Run engine unit tests
         run: node --test engine/v2/engine.test.mjs
