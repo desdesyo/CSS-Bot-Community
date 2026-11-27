@@ -4,8 +4,8 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const root = new B.TransformNode('solo-fps-viewmodel', scene);
   root.parent = camera;
   root.position.set(.16, -.31, .68);
-  // Weapon geometry is authored muzzle-forward along local -Z, matching the Babylon FPS camera.
-  root.rotation.set(0, 0, 0);
+  // The scene uses Babylon's default left-handed camera (+Z forward). Flip the authored -Z weapon axis so the muzzle, pistol barrel and knife blade point into the scene rather than back through the camera.
+  root.rotation.set(0, Math.PI, 0);
   root.scaling.setAll(1.0);
 
   const material = (name, hex, roughness = .7, metallic = 0) => {
