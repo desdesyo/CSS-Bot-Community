@@ -50,10 +50,16 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPre
 const deviceDpr=Math.min(window.devicePixelRatio||1,isTouchDevice?1.5:2);
 let qualityScale=isTouchDevice?1.0:1.25,lastAppliedQuality=qualityScale,qualityWindowStart=performance.now(),qualityFrameTimes=[];const minQuality=isTouchDevice?.68:.78,maxQuality=isTouchDevice?1.0:1.5;const renderScale=()=>Math.min(deviceDpr,qualityScale);
 renderer.setPixelRatio(renderScale());renderer.setSize(innerWidth,innerHeight);
-// Startup-safe rendering: avoid the optional shadow-caster pipeline until it is explicitly validated on this device/browser.\nrenderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x697875,1);
+// Startup-safe rendering: disable optional shadow rendering until the renderer is validated on this device/browser.
+renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x697875,1);
 renderer.info.autoReset=true;
+// Hard-disable mesh shadow flags globally; no shadow-caster registration should be requested.
+function disableShadowCasters(root){root.traverse(object=>{if(object.isLight)object.castShadow=false;if(object.isMesh||object.isInstancedMesh){object.castShadow=false;object.receiveShadow=false}})}
+disableShadowCasters(scene);
 const shadowSize=isTouchDevice?1024:2048;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x697875);scene.fog=new THREE.Fog(0x697875,42,125);// PBR environment generation is deferred: the base scene must start without optional renderer-side environment passes.\nasync function initPbrEnvironment(){try{const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');if(!renderer||renderer.getContext()?.isContextLost())return false;const pmrem=new THREE.PMREMGenerator(renderer);try{const env=pmrem.fromScene(new RoomEnvironment(),.04);if(env?.texture)scene.environment=env.texture;return true}finally{pmrem.dispose()}}catch(error){console.warn('Optional PBR environment skipped; using stable standard lighting',error);return false}}
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x697875);scene.fog=new THREE.Fog(0x697875,42,125);
+// Optional PBR environment generation is deferred; base scene startup does not depend on it.
+async function initPbrEnvironment(){try{const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');if(!renderer||renderer.getContext()?.isContextLost())return false;const pmrem=new THREE.PMREMGenerator(renderer);try{const env=pmrem.fromScene(new RoomEnvironment(),.04);if(env?.texture)scene.environment=env.texture;return true}finally{pmrem.dispose()}}catch(error){console.warn('Optional PBR environment skipped; using stable standard lighting',error);return false}}
 const camera=new THREE.PerspectiveCamera(86,innerWidth/innerHeight,.08,150);camera.position.set(0,1.7,12);
 const hemi=new THREE.HemisphereLight(0xdce9f0,0x252b25,1.35);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffd49a,2.65);sun.position.set(-18,28,14);sun.castShadow=false;sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.camera.left=-34;sun.shadow.camera.right=34;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-0.00018;sun.shadow.normalBias=.025;sun.shadow.radius=isTouchDevice?3:5;sun.shadow.camera.near=.5;sun.shadow.camera.far=90;sun.shadow.camera.updateProjectionMatrix();scene.add(sun);
@@ -69,7 +75,7 @@ function surfaceTexture(base,grain,repeatX,repeatY){
 const concreteTexture=surfaceTexture('#737a78',.16,2.5,1.8),floorTexture=surfaceTexture('#42494a',.12,12,12),metalTexture=surfaceTexture('#343b3d',.09,2,2);
 const aimTargets=[];
 const concrete=new THREE.MeshStandardMaterial({color:0x9aa0a0,map:concreteTexture,roughness:.94,roughnessMap:concreteTexture,bumpMap:concreteTexture,bumpScale:.045}),dark=mat(0x30393b),floorMat=new THREE.MeshStandardMaterial({color:0x9da2a0,map:floorTexture,roughness:.98,roughnessMap:floorTexture,bumpMap:floorTexture,bumpScale:.028}),metal=new THREE.MeshStandardMaterial({color:0x777e7e,map:metalTexture,roughness:.62,roughnessMap:metalTexture,bumpMap:metalTexture,bumpScale:.018,metalness:.42}),enemyMat=mat(0x9d4935),skin=mat(0xb98c70),green=mat(0x506b58);
-function box(x,y,z,sx,sy,sz,m,cast=true){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m);o.position.set(x,y,z);o.castShadow=cast;o.receiveShadow=true;scene.add(o);aimTargets.push(o);return o}
+function box(x,y,z,sx,sy,sz,m,cast=true){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m);o.position.set(x,y,z);o.castShadow=cast;o.receiveShadow=true;o.castShadow=false;o.receiveShadow=false;scene.add(o);aimTargets.push(o);return o}
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(90,90),floorMat);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
 const lineMat=new THREE.MeshStandardMaterial({color:0xc4b58e,roughness:1,transparent:true,opacity:.62}),yellowMat=new THREE.MeshStandardMaterial({color:0xc18b3f,roughness:1});
 function stripe(x,z,w,d,material=lineMat,y=.018){const m=new THREE.Mesh(new THREE.BoxGeometry(w,.012,d),material);m.position.set(x,y,z);scene.add(m)}
@@ -128,7 +134,7 @@ for(const z of [-20,-8,4,16]){box(-31,3.45,z,.3,.3,7.5,metal);box(31,3.45,z,.3,.
 
 // Environmental storytelling: industrial warehouse dressing
 const rust=mat(0x76553b),crateMat=mat(0x6d6048),crateDark=mat(0x49483d),rubber=mat(0x202523);
-function cylinder(x,y,z,r,h,m,segments=12){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segments),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+function cylinder(x,y,z,r,h,m,segments=12){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segments),m);o.position.set(x,y,z);o.castShadow=false;o.receiveShadow=false;scene.add(o);return o}
 function detailBox(x,y,z,w,h,d,m){return box(x,y,z,w,h,d,m)}
 for(const [x,z] of [[-25,-7],[-25,-2],[-24,3],[25,-19],[25,-14],[25,-9],[8,22],[-12,-24]]){detailBox(x,.5,z,1.35,1,1.35,crateMat);detailBox(x,1.02,z,1.43,.08,1.43,crateDark);for(const sx of [-.59,.59])for(const sz of [-.59,.59])detailBox(x+sx,.5,z+sz,.07,.98,.07,rust);detailBox(x,.5,z,1.36,.05,.05,rust);detailBox(x,.5,z,.05,.05,1.36,rust)}
 for(const [x,z] of [[-8,-18],[-6,-18],[14,18],[16,18],[-28,18]]){cylinder(x,.62,z,.42,1.24,rust,16);cylinder(x,.16,z,.44,.12,metal,16);cylinder(x,1.08,z,.44,.09,metal,16);for(const y of [.38,.82])cylinder(x,y,z,.425,.045,yellowMat,16)}
@@ -254,7 +260,7 @@ function spawnBot(x,z,team='enemy',operatorId=null){
  const operator=getOperator(operatorId||roster[bots.length%roster.length].id);
  const palette={uniform:operator.cloth,vest:operator.vest,plate:operator.plate,helmet:operator.helmet,pad:operator.vest,web:operator.accent,skin:ally?0x947967:0x987d68,accent:operator.accent,glass:ally?0x182b32:0x1c2421,boot:0x171d20};
  const cloth=mat(palette.uniform),vest=mat(palette.vest),plate=mat(palette.plate),helmet=mat(palette.helmet),pad=mat(palette.pad),web=mat(palette.web),skinMat=mat(palette.skin),accent=mat(palette.accent),glass=mat(palette.glass,.28),boot=mat(palette.boot,.72),metalMat=mat(0x171c1b,.52),rubberMat=mat(0x242827,.9);
- const add=(parent,geo,m,xp,yp,zp,rx=0,ry=0,rz=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(xp,yp,zp);o.rotation.set(rx,ry,rz);o.castShadow=!isTouchDevice;o.receiveShadow=!isTouchDevice;parent.add(o);hitMeshes.push(o);return o};
+ const add=(parent,geo,m,xp,yp,zp,rx=0,ry=0,rz=0)=>{const o=new THREE.Mesh(geo,m);o.position.set(xp,yp,zp);o.rotation.set(rx,ry,rz);o.castShadow=false;o.receiveShadow=false;parent.add(o);hitMeshes.push(o);return o};
  const box=(parent,w,h,d,m,xp,yp,zp,rx=0,ry=0,rz=0)=>add(parent,new THREE.BoxGeometry(w,h,d),m,xp,yp,zp,rx,ry,rz);
  const capsule=(parent,r,len,m,xp,yp,zp,rz=0)=>add(parent,new THREE.CapsuleGeometry(r,len,5,10),m,xp,yp,zp,0,0,rz);
  const sphere=(parent,r,m,xp,yp,zp,sx=1,sy=1,sz=1)=>{const o=add(parent,new THREE.SphereGeometry(r,14,10),m,xp,yp,zp);o.scale.set(sx,sy,sz);return o};
