@@ -515,10 +515,12 @@ async function submitIssueReport(){
  if(issueReportBusy)return;
  const description=prompt('Что именно здесь не так? Например: невидимая стена, текстура, прозрачная стена, непроходимый проход. Можно оставить пустым.');
  if(description===null)return;
+ // Request credentials while the click still has user activation. Mobile browsers may
+ // suppress prompt() after an awaited screenshot operation.
+ let token=savedGameplayToken();
+ if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
  const report={app:'SOLO Engine V2',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40)}};
- let token=savedGameplayToken();
- if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
