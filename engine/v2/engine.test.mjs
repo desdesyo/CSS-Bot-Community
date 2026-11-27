@@ -264,3 +264,11 @@ test('Mokry Pol is the active map, with rain-quarter geometry and persistent rou
   assert.match(map, /alley low stone divider/);
   assert.match(html, /MOKRY POL/);
 });
+
+test('real rigged soldier models are mandatory; primitive placeholder soldiers are forbidden', async () => {
+  const bots = await readFile(new URL('./human-bots.mjs', import.meta.url), 'utf8');
+  assert.match(bots, /MODEL_FILES\.length/);
+  assert.match(bots, /Не удалось загрузить обязательные 3D-модели бойцов/);
+  assert.match(bots, /отсутствует настоящая 3D-модель/);
+  assert.doesNotMatch(bots, /fallback-torso|fallback-head|using procedural soldiers/);
+});
