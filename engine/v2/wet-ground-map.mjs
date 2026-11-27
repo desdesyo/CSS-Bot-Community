@@ -141,21 +141,24 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     // recessed wall alcove makes the doorway legible from the playable street
     return {face};
   };
+  // The old mirrored row grid is gone: each frontage has its own setback,
+  // footprint and height, leaving a broad market court on one side and a tight
+  // service alley on the other. The bombsite stays fixed for objective logic.
   const blocks=[
-    ['west tenement A',-18,-30,12,14,8.2,plaster,'west'],
-    ['west tenement B',-16,-8,9,13,7.4,stone,'west'],
-    ['west tenement C',-18,15,12,17,8.5,brick,'west'],
-    ['west tenement D',-16,34,9,11,7.2,plaster,'west'],
-    ['east tenement A',18,-30,9,14,7.6,stone,'east'],
-    ['east tenement B',17,-8,12,16,8.4,plaster,'east'],
-    ['east tenement C',18,16,9,13,7.3,brick,'east'],
-    ['east tenement D',16,35,12,11,8.1,stone,'east']
+    ['west tenement A',-19,-32,13,12,8.2,plaster,'west'],
+    ['west tenement B',-15,-6,10,17,7.4,stone,'west'],
+    ['west tenement C',-20,17,13,14,8.5,brick,'west'],
+    ['west tenement D',-13,35,8,10,7.2,plaster,'west'],
+    ['east tenement A',20,-32,10,12,7.6,stone,'east'],
+    ['east tenement B',20,-7,14,18,8.4,plaster,'east'],
+    ['east tenement C',16,17,10,14,7.3,brick,'east'],
+    ['east tenement D',21,36,13,10,8.1,stone,'east']
   ];
   for(const args of blocks) building(...args);
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
   for(const [x,z,w,d,h] of [
-    [-39,-29,11,13,6.6],[-37,-6,9,17,7.2],[-40,19,12,13,6.8],[-37,36,9,10,6.4],
-    [39,-28,9,14,7.1],[40,-5,12,16,6.7],[37,18,9,16,7.4],[39,36,12,10,6.5]
+    [-41,-30,9,15,6.6],[-36,-4,12,19,7.2],[-42,21,10,12,6.8],[-35,37,12,9,6.4],
+    [41,-30,12,12,7.1],[43,-4,9,18,6.7],[37,20,13,13,7.4],[43,37,9,9,6.5]
   ]) building('outer quarter row',x,z,w,d,h,brick,x<0?'west':'east');
   // Alleys are real openings between blocks; short walls, gates, bins and stoops create cover.
   for(const [x,z,w,d] of [[-11,-19,1,5],[-11,5,1,5],[-11,27,1,5],[11,-19,1,5],[11,5,1,5],[11,27,1,5],[-31,-16,1,6],[31,16,1,6]]){
@@ -254,6 +257,50 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       box('fire escape outer rail',x+(x<0?5.9:-5.9),level+.42,z, .08,.84,3.2,trim,false);
       for(const dz of [-1.4,0,1.4])box('fire escape baluster',x+(x<0?5.9:-5.9),level+.2,z+dz,.05,.4,.05,iron,false);
     }
+  }
+
+
+  // New west-side covered passage: a diagonal pedestrian cut-through under
+  // an old steel-and-glass canopy, distinct from the straight central avenue.
+  const diagonalCut=B.MeshBuilder.CreateGround('diagonal market cut-through',{width:7.2,height:23,subdivisions:1},scene);
+  diagonalCut.position.set(-29,.052,7);diagonalCut.rotation.y=-.43;diagonalCut.material=cobble;diagonalCut.receiveShadows=true;
+  for(const side of [-1,1]){
+    const x=-29+side*3.45;
+    for(let i=0;i<5;i++){
+      const z=-3+i*5;
+      box('market passage canopy post',x,2.05,z,.16,4.1,.16,iron,true);
+      box('market passage canopy rib',-29,4.18,z,7.1,.12,.12,iron,false);
+    }
+  }
+  const canopyGlass=mat('market passage rain glass','#6b8790',.18,.26);
+  canopyGlass.alpha=.32;canopyGlass.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
+  for(let i=0;i<4;i++){
+    const panel=B.MeshBuilder.CreateBox('market passage glass canopy panel',{width:1.65,height:.045,depth:4.8},scene);
+    panel.position.set(-29,4.25,-1+i*5);panel.rotation.z=-.025;panel.material=canopyGlass;panel.isPickable=false;
+  }
+  // East-side loading court with a recessed service entrance and stacked crates.
+  floor('east loading court wet stone',31,-6,10,13,.045,stone);
+  box('loading court retaining wall',35,1.2,-6, .35,2.4,12,brick,true);
+  box('loading court steel roller door',26.1,2.0,-6,.12,4,4.2,iron,false);
+  for(let i=0;i<5;i++)box('loading court roller ribs',26.02,.5+i*.62,-6,.04,.035,4.0,trim,false);
+  const crateMat=mat('loading court rain-dark timber','#594a3e',.86);
+  for(const [x,z,w,h] of [[29,-10,1.25,1.3],[32,-10,1.25,1.3],[32,-8.3,1.25,1.3],[29,-2.4,1.5,1.0]]){
+    box('stacked delivery crate',x,h/2,z,w,h,1.1,crateMat,true);
+    for(let i=-1;i<=1;i++)box('crate reinforcing slat',x+i*w*.28,h/2,z-.56,.045,h*.9,.035,trim,false);
+  }
+  // A small tram-stop shelter and rain-streaked advertising lightbox create
+  // a second recognizable urban landmark on the eastern approach.
+  const shelterGlass=mat('tram shelter smoked glass','#58727c',.2,.18);shelterGlass.alpha=.3;shelterGlass.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
+  for(const x of [8.7,12.8])box('tram shelter upright',x,1.55,-25,.1,3.1,.1,iron,false);
+  box('tram shelter roof',10.75,3.12,-25,4.5,.16,2.1,iron,false);
+  box('tram shelter glass rear',10.75,1.65,-24.0,4.3,2.75,.045,shelterGlass,false);
+  box('tram stop amber timetable',10.75,1.95,-23.94,1.15,1.15,.035,neonAmber,false);
+  // Rainwater overflow pours from a broken gutter into a visibly reflective drain pool.
+  for(const [x,z] of [[-13,-20],[14,8],[34,28]]){
+    const stream=B.MeshBuilder.CreateTube('rainwater downpipe overflow',{path:[new B.Vector3(x,3.2,z),new B.Vector3(x,.12,z)],radius:.018,tessellation:6},scene);
+    stream.material=water;stream.isPickable=false;
+    const pool=B.MeshBuilder.CreateDisc('overflow runoff puddle',{radius:1,tessellation:32},scene);
+    pool.scaling.set(1.5,.01,.62);pool.position.set(x+.8,.068,z+.5);pool.material=puddle;pool.isPickable=false;
   }
 
   // Short footbridges and service crossings along the embankment.
@@ -433,9 +480,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   let wetMirror=null;
   if(B.MirrorTexture){
     wetMirror=new B.MirrorTexture('rain-soaked street planar reflections',new B.Vector2(mobile?256:768,mobile?256:768),scene,true);
-    wetMirror.mirrorPlane=new B.Plane(0,-1,0,-.075);
-    wetMirror.level=mobile?.24:.38;
-    wetMirror.blurKernel=mobile?18:28;
+    wetMirror.mirrorPlane=new B.Plane(0,1,0,-.025);
+    wetMirror.level=mobile?.5:.64;
+    wetMirror.blurKernel=mobile?10:14;
     wetMirror.refreshRate=mobile?4:2;
     wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
       if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed'))return false;
