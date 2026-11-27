@@ -622,7 +622,6 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   for(const [x,z] of [[-25,-23.4],[25,-23.4],[-25,30.4],[25,30.4]]){
     const plate=box('old quarter enamel street sign',x,3.15,z,.06,.62,2.4,streetPlate,false);
     plate.isPickable=false;
-    lamp(x+(x<0?-1.4:1.4),z+(z<0?-1.2:1.2),true);
   }
 
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
@@ -697,6 +696,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
   for(const z of [-30,-8,18,35]){lamp(-7.35,z,true);lamp(7.35,z,true);}
+  // Junction lanterns are placed only after the lamp factory is initialized.
+  for(const [x,z] of [[-25,-23.4],[25,-23.4],[-25,30.4],[25,30.4]])
+    lamp(x+(x<0?-1.4:1.4),z+(z<0?-1.2:1.2),true);
 
   // Wet-night storefronts: readable pools of amber/cyan light, not a uniformly dark box.
   const neonCyan=mat('cyan shop sign emission','#56dff2',.24);
