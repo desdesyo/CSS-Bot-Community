@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { DUST2_EXPANDED, validateDust2Balance, isDust2Blocked } from './dust2-layout.mjs';
+import { DUST2_SCALE } from './dust2-map.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
@@ -61,4 +62,23 @@ test('expanded map exposes long A route, lower B tunnel and central mid geometry
   assert.ok(geometry.includes('mid plaza'));
   assert.ok(geometry.includes('A site courtyard'));
   assert.ok(geometry.includes('B site courtyard'));
+});
+
+test('architecture uses metre scale with real door, window and human proportions', () => {
+  assert.equal(DUST2_SCALE.metresPerUnit, 1);
+  assert.deepEqual(DUST2_SCALE.door, {width:.95,height:2.1});
+  assert.deepEqual(DUST2_SCALE.window, {width:1.2,height:1,sill:.9});
+  assert.equal(DUST2_SCALE.humanHeight, 1.8);
+  assert.ok(DUST2_EXPANDED.architecture.length >= 10);
+});
+
+test('building facade openings, roofs, stairs and street details are generated as 3D geometry', () => {
+  const geometry=readFileSync(new URL('./dust2-map.mjs',import.meta.url),'utf8');
+  for(const part of ['doorway(', 'window(', 'arch(', 'flat roof', 'balcony rail', 'tread ', 'awning', 'drain pipe', 'water tank']) assert.ok(geometry.includes(part), 'missing '+part);
+});
+
+test('building wall collision blocks solid facade but leaves the entrance gap open', () => {
+  const b=DUST2_EXPANDED.architecture[0], doorX=b.x-b.w*.22;
+  assert.equal(isDust2Blocked(b.x,b.z+b.d/2),true);
+  assert.equal(isDust2Blocked(doorX,b.z+b.d/2),false);
 });
