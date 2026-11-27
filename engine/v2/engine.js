@@ -392,7 +392,7 @@ function updateBulletPhysics(dt) {
       hit=scene.pickWithRay(ray,m=>{
         if(!m||!m.isEnabled()||!m.isPickable)return false;
         const n=m.name.toLowerCase();
-        return (p.ownerId==null||(!n.startsWith('body-'+p.ownerId)&&!n.startsWith('head-'+p.ownerId)))&&(n.startsWith('body-')||n.startsWith('head-')||n==='player-hitbox'||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground';
+        return (p.ownerId==null||(!n.startsWith('body-'+p.ownerId)&&!n.startsWith('head-'+p.ownerId)))&&(n.startsWith('body-')||n.startsWith('head-')||n==='player-hitbox'||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground');
       });
     }
     if(hit?.hit&&hit.pickedMesh){
