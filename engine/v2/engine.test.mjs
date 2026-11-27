@@ -187,6 +187,18 @@ test('knife attacks clear firearm recoil and use a dedicated melee swing', async
   assert.match(viewmodel, /if \(slot==='knife'\)[\s\S]*recoil=0;fireT=0;shotFlash=0/);
 });
 
+test('uploaded tactical artwork is used for the cinematic menu and loading screen', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const artwork = await readFile(new URL('./assets/solo-menu-cover.jpeg', import.meta.url));
+  assert.ok(artwork.byteLength > 100000);
+  assert.match(html, /solo-menu-cover\\.jpeg/);
+  assert.match(html, /id="overlay" class="is-loading"/);
+  assert.match(html, /#overlay\\.is-loading/);
+  assert.match(html, /#overlay::before/);
+  assert.match(engine, /classList\\.remove\\('is-loading','is-error'\\)/);
+});
+
 test('SOLO menu exposes working play, settings and diagnostics panels with local log export', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
