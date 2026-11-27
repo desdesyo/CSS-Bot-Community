@@ -21,7 +21,7 @@
 #scoreTable th{color:#8dd6c6}
 #panelHint{font-size:12px;color:#a9b8bd}#padInfo{font-size:12px;color:#d1dcdf;line-height:1.45}#padGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:10px 0}#padGrid div{background:#0d1a20;padding:6px 8px;border-radius:5px;overflow-wrap:anywhere}#padGrid b{color:#8dd6c6}#padControls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}#padControls div{padding:5px 7px;background:#20343b;border-radius:4px;font-size:11px}#padControls .active{background:#315c4c;color:#fff}
 @media(pointer:coarse){#quick{top:auto;right:10px;bottom:max(145px,calc(env(safe-area-inset-bottom) + 140px));gap:5px}#quick button{padding:8px;font-size:10px}#top{right:8px;left:8px}#stats{gap:5px;font-size:10px;flex-wrap:wrap;justify-content:flex-end;max-width:76%}#mapPanel{left:9px;top:72px;bottom:auto;width:142px}#miniMap{width:142px;height:142px;border-radius:11px}#vitals{margin-top:5px;padding:6px 7px}.meter{grid-template-columns:34px 1fr 24px;gap:5px;font-size:8px}.meterTrack{height:6px}#mapLegend{font-size:7px}#hint{top:auto;bottom:12px;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}}
-</style>
+\n/* High-fidelity display defaults: crisp canvas, modern HUD glass and responsive safe-area layout. */\n#game{image-rendering:auto;backface-visibility:hidden;transform:translateZ(0)}\n#hud{isolation:isolate}\n#brand,#round,#roundState,#ammo,#frags,#hint,#vitals,#quick button{backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2)}\n#cross:before,#cross:after{box-shadow:0 0 2px #000,0 0 7px #b8f5dc88}\n@media(min-width:900px){#mapPanel{width:204px}#miniMap{width:204px;height:204px}#top{top:18px;left:20px;right:20px}#hint{top:64px;left:20px}}\n@media(prefers-reduced-motion:reduce){.meterFill{transition:none}}\n</style>
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -44,11 +44,14 @@ let selectedOperatorId='ct_assault';try{const saved=localStorage.getItem('cssbc_
 const canvas=document.querySelector('#game');
 const isTouchDevice=matchMedia('(pointer:coarse)').matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 let mergeGeometries=null;if(isTouchDevice){try{({mergeGeometries}=await import('three/addons/utils/BufferGeometryUtils.js'))}catch(error){console.warn('Mobile mesh batching unavailable',error)}}
-const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPreference:'high-performance',stencil:false,depth:true});
-let qualityScale=isTouchDevice?.68:1.5,lastAppliedQuality=qualityScale,qualityWindowStart=performance.now(),qualityFrames=0;const renderScale=()=>Math.min(devicePixelRatio,qualityScale);
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance',stencil:false,depth:true,alpha:false,preserveDrawingBuffer:false});
+// Render at native device resolution by default. Adaptive scaling is a safety net, not the default image quality.
+const deviceDpr=Math.min(window.devicePixelRatio||1,isTouchDevice?1.5:2);
+let qualityScale=isTouchDevice?1.0:1.5,lastAppliedQuality=qualityScale,qualityWindowStart=performance.now(),qualityFrames=0;const renderScale=()=>Math.min(deviceDpr,qualityScale);
 renderer.setPixelRatio(renderScale());renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=!isTouchDevice;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x697875,1);
-const shadowSize=isTouchDevice?512:2048;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(0x697875,1);
+renderer.info.autoReset=true;
+const shadowSize=isTouchDevice?1024:2048;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x697875);scene.fog=new THREE.Fog(0x697875,42,125);async function initPbrEnvironment(){if(isTouchDevice)return;try{const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');const pmrem=new THREE.PMREMGenerator(renderer);const env=pmrem.fromScene(new RoomEnvironment(),.04);scene.environment=env.texture;pmrem.dispose()}catch(error){console.warn('PBR environment fallback',error)}}void initPbrEnvironment();
 const camera=new THREE.PerspectiveCamera(86,innerWidth/innerHeight,.08,150);camera.position.set(0,1.7,12);
 const hemi=new THREE.HemisphereLight(0xdce9f0,0x252b25,1.35);scene.add(hemi);
@@ -758,7 +761,7 @@ function readGamepad(){
 }
 canvas.tabIndex=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-function tick(){requestAnimationFrame(tick);const gameFrameStart=performance.now(),frameNow=gameFrameStart,rawFrameMs=lastRawFrameAt?frameNow-lastRawFrameAt:null;lastRawFrameAt=frameNow;qualityFrames++;if(frameNow-qualityWindowStart>=1500){const measuredFps=qualityFrames*1000/(frameNow-qualityWindowStart),minQuality=isTouchDevice?.5:1.0,maxQuality=isTouchDevice?.8:1.75;if(measuredFps<43)qualityScale=Math.max(minQuality,qualityScale-.08);else if(measuredFps>57)qualityScale=Math.min(maxQuality,qualityScale+.035);if(Math.abs(qualityScale-lastAppliedQuality)>.02){renderer.setPixelRatio(Math.min(devicePixelRatio,qualityScale));renderer.setSize(innerWidth,innerHeight,false);lastAppliedQuality=qualityScale}qualityFrames=0;qualityWindowStart=frameNow}const dt=Math.min(clock.getDelta(),.04);stepRagdolls(dt);if(gamepadPanelOpen&&performance.now()-lastPadPanelRefresh>150){lastPadPanelRefresh=performance.now();refreshGamepadPanel()}if(!started){renderer.render(scene,camera);return}
+function tick(){requestAnimationFrame(tick);const gameFrameStart=performance.now(),frameNow=gameFrameStart,rawFrameMs=lastRawFrameAt?frameNow-lastRawFrameAt:null;lastRawFrameAt=frameNow;qualityFrames++;if(frameNow-qualityWindowStart>=1500){const measuredFps=qualityFrames*1000/(frameNow-qualityWindowStart),minQuality=isTouchDevice?.82:1.0,maxQuality=isTouchDevice?1.25:2.0;if(measuredFps<38)qualityScale=Math.max(minQuality,qualityScale-.06);else if(measuredFps>57)qualityScale=Math.min(maxQuality,qualityScale+.025);if(Math.abs(qualityScale-lastAppliedQuality)>.02){renderer.setPixelRatio(Math.min(devicePixelRatio,qualityScale));renderer.setSize(innerWidth,innerHeight,false);lastAppliedQuality=qualityScale}qualityFrames=0;qualityWindowStart=frameNow}const dt=Math.min(clock.getDelta(),.04);stepRagdolls(dt);if(gamepadPanelOpen&&performance.now()-lastPadPanelRefresh>150){lastPadPanelRefresh=performance.now();refreshGamepadPanel()}if(!started){renderer.render(scene,camera);return}
 const pad=readGamepad();
 if(paused){renderer.render(scene,camera);return}
 if(!roundEnded){if(bombPlanted){bombTimer=Math.max(0,bombTimer-dt);if(bombTimer===0)finishRound(false,'бомба взорвалась')}else{roundRemaining=Math.max(0,roundRemaining-dt);if(roundRemaining===0)finishRound(true,'время вышло — точка удержана')}}
@@ -808,7 +811,7 @@ for(let i=0;i<bots.length;i++){const a=bots[i];if(!a.alive)continue;for(let j=i+
 for(let i=tracers.length-1;i>=0;i--){const effect=tracers[i];effect.life-=dt;effect.line.material.opacity=Math.max(0,effect.life/effect.maxLife);if(effect.life<=0){scene.remove(effect.line);effect.line.geometry.dispose();effect.line.material.dispose();tracers.splice(i,1)}}
 if(!bombPlanted){const planter=bots.find(b=>b.alive&&b.team==='enemy'&&Math.hypot(b.group.position.x-bombSite.x,b.group.position.z-bombSite.z)<3.2);bombPlantProgress=planter?bombPlantProgress+dt:0;if(bombPlantProgress>=3){bombPlanted=true;bombTimer=35;bombPlantProgress=0;toast('БОМБА УСТАНОВЛЕНА — ЗАЩИЩАЙТЕ ТОЧКУ A');updateHud()}}else{const nearSite=Math.hypot(camera.position.x-bombSite.x,camera.position.z-bombSite.z)<4;if(nearSite&&keys.has('KeyE')){bombDefuseProgress+=dt;if(bombDefuseProgress>=3){finishRound(true,'бомба обезврежена');updateHud()}}else bombDefuseProgress=0;if(Math.floor(bombTimer)!==Math.floor(bombTimer+dt))updateHud()}
 drawMinimap();renderer.render(scene,camera);const simulationMs=performance.now()-gameFrameStart;sampleGameDiagnostics(dt,blockedX,blockedZ,rawFrameMs,simulationMs)}
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(renderScale());drawMinimap(true)});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(renderScale());renderer.setSize(innerWidth,innerHeight);drawMinimap(true)});
 updateHud();drawMinimap(true);tick();
 </script>
 </body></html>
