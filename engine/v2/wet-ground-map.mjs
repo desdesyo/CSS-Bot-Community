@@ -24,6 +24,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glassGlintMat=mat('rain-slick reflected sky on glazing','#7894a3',.09,.24);
   glassGlintMat.alpha=.28;glassGlintMat.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
   const roof=mat('slate roofs','#202b39',.92);
+  const doorWood=mat('weathered dark timber doors','#292722',.9);
+  const tunnelCeiling=mat('rain-dark tunnel concrete ceiling','#26323b',.94);
   const amber=mat('warm lamp glass','#ffd49a',.25);
 
   // Procedural masonry surfaces: remove the flat, toy-like solid-color look
@@ -434,26 +436,26 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     const roofPlane=(sideSign)=>{
       const plane=B.MeshBuilder.CreateBox(name+' pitched slate roof plane',{width:w*.53,height:.22,depth:d+.7},scene);
       plane.position.set(x+sideSign*w*.255,h+.34,z);
-      plane.rotation.z=sideSign*.19;plane.material=roof;plane.isPickable=false;plane.receiveShadows=true;
+      plane.rotation.z=-sideSign*.19;plane.material=roof;plane.isPickable=false;plane.receiveShadows=true;
       // Individually overlapping slate courses break the old single-box roof silhouette.
       const tileColumns=Math.max(2,Math.floor(w/2.1)),tileRows=Math.max(3,Math.floor(d/1.55));
       for(let row=0;row<tileRows;row++)for(let col=0;col<tileColumns;col++){
         const tileX=x+sideSign*w*.255+(col-(tileColumns-1)/2)*(w*.49/tileColumns);
-        const tileY=h+.34+Math.abs(tileX-x)*.193+.13;
+        const tileY=h+.34+(w*.255-Math.abs(tileX-x))*.193+.13;
         const tileZ=z-d*.46+row*(d*.92/Math.max(1,tileRows-1));
         const tile=box(name+' overlapping slate roof tile',tileX,tileY,tileZ,w*.49/tileColumns*.94,.045,Math.min(1.48,d/tileRows*.88),roof,false);
-        tile.rotation.z=sideSign*.19;
+        tile.rotation.z=-sideSign*.19;
         tile.isPickable=false;
       }
       // Raised lead flashing and ridge-side snow/rain guards are visible at street level.
       for(let row=1;row<tileRows;row++){
         const seamZ=z-d*.46+row*(d*.92/tileRows);
-        const seam=box(name+' slate roof course seam',x+sideSign*w*.255,h+.34+w*.255*.193+.17,seamZ,w*.48,.025,.035,iron,false);
-        seam.rotation.z=sideSign*.19;
+        const seam=box(name+' slate roof course seam',x+sideSign*w*.255,h+.51,seamZ,w*.48,.025,.035,iron,false);
+        seam.rotation.z=-sideSign*.19;
       }
     };
     roofPlane(-1);roofPlane(1);
-    box(name+' slate roof ridge cap',x,h+.58,z,.22,.16,d+.82,iron,false);
+    box(name+' slate roof ridge cap',x,h+.34+w*.255*.193+.17,z,.22,.16,d+.82,iron,false);
     for(const edge of [-1,1]){
       box(name+' roof eaves gutter',x+edge*w*.51,h+.08,z,.12,.14,d+.72,iron,false);
       for(let gutter=0;gutter<Math.max(2,Math.floor(d/3));gutter++){
@@ -502,7 +504,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
           }
         }else{
           const doorX=face+side*.15;
-          box(name+' recessed timber entrance door',doorX,opening.centerY,opening.z,.075,opening.height-.08,opening.width-.12,roof,false);
+          box(name+' recessed timber entrance door',doorX,opening.centerY,opening.z,.075,opening.height-.08,opening.width-.12,doorWood,false);
           box(name+' entrance transom glass',doorX+side*.055,opening.centerY+opening.height*.34,opening.z,.035,.28,opening.width*.62,warmWindow,false);
           for(const dz of [-opening.width/2,opening.width/2])box(name+' carved stone door jamb',doorX+side*.12,opening.centerY,opening.z+dz,.24,opening.height+.12,.16,trim,false);
           box(name+' carved stone door lintel',doorX+side*.12,opening.centerY+opening.height/2+.06,opening.z,.26,.16,opening.width+.22,trim,false);
@@ -848,7 +850,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       box('service tunnel lamp steel hood',tunnelX+side*1.42,2.83,lampZ,.18,.08,.58,iron,false);
     }
   }
-  box('west service tunnel reinforced roof',tunnelX,3.68,tunnelZ,tunnelWidth+.35,.32,tunnelLength+.5,roof,false);
+  box('west service tunnel reinforced roof',tunnelX,3.68,tunnelZ,tunnelWidth+.35,.32,tunnelLength+.5,tunnelCeiling,false);
   for(let ribZ=-14;ribZ<=6;ribZ+=3.5){
     const ribPath=[];
     for(let step=0;step<=16;step++){
@@ -887,7 +889,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   // Old doors, lintels, wall stains and iron balcony details on street-facing elevations.
   for(const [x,z] of [[-12,-29],[12,-9],[-12,15],[12,34],[-33,-27],[33,18]]){
     box('weathered doorway stone frame',x,1.25,z,.18,2.5,2.3,trim,false);
-    box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,roof,false);
+    box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,doorWood,false);
     cylinder('door handle',x+(x<0?.2:-.2),1.15,z+.55,.09,.09,amber);
   }
 
