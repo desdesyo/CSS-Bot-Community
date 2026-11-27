@@ -28,9 +28,9 @@ function makeBot(id, team, x,z, waypoints) {
   const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.24,segments:12},scene);head.parent=root;head.position.y=1.64;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
   const armMat=mat('armour-'+id,team==='enemy'?'#4b5b54':'#465d74',.9),legMat=mat('trousers-'+id,team==='enemy'?'#39443e':'#35495c',.94);
   const leftArm=BABYLON.MeshBuilder.CreateCapsule('left-arm-'+id,{height:.66,radius:.105,tessellation:9,subdivisions:1},scene);leftArm.parent=root;leftArm.position.set(-.27,1.12,0);leftArm.material=armMat;
-  const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.78,radius:.13,tessellation:7,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.27,1.12,0);rightArm.material=armMat;
+  const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.66,radius:.105,tessellation:9,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.27,1.12,0);rightArm.material=armMat;
   const leftLeg=BABYLON.MeshBuilder.CreateCapsule('left-leg-'+id,{height:.72,radius:.12,tessellation:9,subdivisions:1},scene);leftLeg.parent=root;leftLeg.position.set(-.13,.39,0);leftLeg.material=legMat;
-  const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.78,radius:.15,tessellation:7,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.13,.39,0);rightLeg.material=legMat;
+  const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.72,radius:.12,tessellation:9,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.13,.39,0);rightLeg.material=legMat;
   const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
   const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
   root.position.set(x,0,z);
