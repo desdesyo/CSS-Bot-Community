@@ -52,12 +52,14 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
     const transform = bone.getTransformNode?.();
     if (transform) boneByName.set(bone.name,transform);
   }
-  let rightHand = null;
+  let rightHand = null, leftHand = null;
   for (const [name,node] of nodeByName) {
-    if (/right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) { rightHand=node; break; }
+    if (/right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) { rightHand=node; }
+    if (/left.?hand|hand.?l|mixamorig:LeftHand/i.test(name)) { leftHand=node; }
   }
-  if (!rightHand) for (const [name,node] of boneByName) {
-    if (/right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) { rightHand=node; break; }
+  for (const [name,node] of boneByName) {
+    if (!rightHand && /right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) rightHand=node;
+    if (!leftHand && /left.?hand|hand.?l|mixamorig:LeftHand/i.test(name)) leftHand=node;
   }
 
   const tintedMaterials = new Set();
@@ -103,7 +105,7 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
   const head = B.MeshBuilder.CreateSphere("head-" + id,{diameter:.36,segments:10},scene);
   head.parent=root;head.position.y=1.68;head.visibility=0;head.isVisible=true;head.isPickable=true;
 
-  const rig = { root, skeleton, animationGroups, current:"", rightHand };
+  const rig = { root, skeleton, animationGroups, current:"", rightHand, leftHand };
   setAnimation(rig,"idle");
   return { body, head, rig };
 }
