@@ -27,7 +27,7 @@ export function createTeamRoster(playerTeam = 'CT') {
 
 export function cameraRelativeMovement(yaw, forward, strafe) {
   return {
-    x: -Math.sin(yaw) * forward + Math.cos(yaw) * strafe,
-    z: -Math.cos(yaw) * forward - Math.sin(yaw) * strafe
+    x: Math.sin(yaw) * forward + Math.cos(yaw) * strafe,
+    z: Math.cos(yaw) * forward - Math.sin(yaw) * strafe
   };
 }
