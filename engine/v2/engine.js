@@ -1,7 +1,8 @@
 const $ = (id) => document.getElementById(id);
+const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster } from './engine-core.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -75,11 +76,27 @@ function setPlayerTeam(team) {
   $('selectT').classList.toggle('selected',team==='T');
 }
 function updateBotAI() {
-  // Expensive tactical decisions run at 8 Hz; movement is deliberately not stepped here.
+  // Tactical decisions and enemy fire run at 8 Hz; movement remains frame-rate based.
+  const now=performance.now();
   for(const bot of state.bots) {
     if(!bot.alive) continue;
     const target=bot.waypoints[bot.index];
     if(Math.hypot(target[0]-bot.root.position.x,target[1]-bot.root.position.z)<.65) bot.index=(bot.index+1)%bot.waypoints.length;
+    if(bot.team!=='enemy'||state.playerDead) continue;
+    const origin=bot.root.position.add(new BABYLON.Vector3(0,1.25,0));
+    const destination=camera.position.clone();
+    const delta=destination.subtract(origin), distance=delta.length();
+    if(distance<5||distance>38||now<bot.fireAt) continue;
+    const ray=new BABYLON.Ray(origin,delta.normalize(),distance);
+    const obstruction=scene.pickWithRay(ray,m=>m!==bot.body&&m!==bot.head&&!m.name.startsWith('rifle-')&&!m.name.startsWith('pack-')&&!m.name.startsWith('helmet-')&&!m.name.startsWith('body-')&&!m.name.startsWith('head-'));
+    bot.fireAt=now+650+Math.random()*650;
+    if(!obstruction?.hit||obstruction.distance>=distance-1.1) {
+      if(Math.random()<.24) {
+        state.hp=Math.max(0,state.hp-(5+Math.floor(Math.random()*7)));
+        $('health').textContent='HP '+state.hp;
+        if(state.hp===0)endRound(false);
+      }
+    }
   }
 }
 function updateBotMotion(dt) {
@@ -97,25 +114,35 @@ function updateBotMotion(dt) {
   }
 }
 function fire() {
-  const now=performance.now();if(now-state.lastShot<105||state.ammo<=0)return;
+  const now=performance.now();if(!state.started||state.playerDead||state.reloading||now-state.lastShot<105||state.ammo<=0)return;
   state.lastShot=now;state.ammo--;const ray=camera.getForwardRay(95);
   const hit=scene.pickWithRay(ray,m=>m.name.startsWith('body-')||m.name.startsWith('head-'));
   if(hit?.hit&&hit.pickedMesh) {
     const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
     if(bot&&bot.team==='enemy'&&bot.alive) {
       bot.health-=hit.pickedMesh.name.startsWith('head-')?100:34;
-      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false)}
+      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);state.kills++;$('round').textContent='KILLS '+state.kills}
     }
   }
   $('ammo').textContent=state.ammo+' / '+state.reserve;
 }
-function reload(){if(state.ammo===30||state.reserve===0)return;const n=Math.min(30-state.ammo,state.reserve);state.ammo+=n;state.reserve-=n;$('ammo').textContent=state.ammo+' / '+state.reserve}
+function reload(){
+  if(!state.started||state.reloading||state.ammo===30||state.reserve===0||state.playerDead)return;
+  state.reloading=true;$('reload').disabled=true;$('reload').textContent='RELOADING…';
+  window.setTimeout(()=>{
+    if(!state.started)return;
+    const n=Math.min(30-state.ammo,state.reserve);state.ammo+=n;state.reserve-=n;state.reloading=false;
+    $('ammo').textContent=state.ammo+' / '+state.reserve;$('reload').disabled=false;$('reload').textContent='RELOAD · R';
+  },1250);
+}
 function initInput() {
-  window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload()});
+  window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();});
   window.addEventListener('keyup',e=>state.keys.delete(e.code));
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
   window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
-  window.addEventListener('mousedown',e=>{if(e.button===0&&state.started)fire()});
+  window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.firing=true;fire()}});
+  window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
+  window.addEventListener('blur',()=>{state.keys.clear();state.firing=false});
   const stick=$('stick'),nub=$('nub');let stickId=null,origin=null;
   stick.addEventListener('pointerdown',e=>{stickId=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.setPointerCapture(e.pointerId)});
   stick.addEventListener('pointermove',e=>{if(e.pointerId!==stickId)return;const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);state.joy.x=dx/48*k;state.joy.y=dy/48*k;nub.style.transform='translate('+state.joy.x*38+'px,'+state.joy.y*38+'px)'});
@@ -125,18 +152,40 @@ function initInput() {
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
   look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
-  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire()});
+  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();state.firing=true;$('fire').classList.add('active');fire()});
+  const stopFire=()=>{state.firing=false;$('fire').classList.remove('active')};
+  $('fire').addEventListener('pointerup',stopFire);$('fire').addEventListener('pointercancel',stopFire);$('fire').addEventListener('pointerleave',stopFire);
+  $('reload').addEventListener('click',reload);
+  $('fullScreen').addEventListener('click',toggleFullscreen);
+  $('pause').addEventListener('click',()=>{if(state.started){state.started=false;state.firing=false;overlay.style.display='flex';status.textContent='ПАУЗА';startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;}});
+
 }
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
-  const len=Math.hypot(forward,strafe)||1, speed=4.6*dt;
+  const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
   const yaw=camera.rotation.y;
   camera.position.x+=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
   camera.position.z+=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
 }
+function toggleFullscreen(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
+  else document.exitFullscreen?.().catch(()=>{});
+}
+function endRound(won){
+  if(state.playerDead)return;
+  state.playerDead=true;state.started=false;state.firing=false;
+  overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';
+  startButton.textContent='НОВЫЙ РАУНД';startButton.disabled=false;
+}
 function start() {
+  if(state.playerDead){
+    state.hp=100;state.ammo=30;state.reserve=90;state.kills=0;state.roundTime=90;state.playerDead=false;state.reloading=false;
+    for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;}
+    $('health').textContent='HP 100';$('ammo').textContent='30 / 90';$('round').textContent='ROUND 01';
+    status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
+  }
   state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,Math.PI,0);
   if(!mobile)canvas.requestPointerLock?.();
 }
@@ -160,8 +209,11 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       if(state.started) {
-        updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
+        updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        if(state.firing&&now-state.lastShot>=105)fire();
+        if(state.roundTime<=0)endRound(state.kills>0);
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
+        if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
       }
       state.frameSamples.push(dt*1000);
       if(now-state.sampleAt>=2000){
