@@ -255,6 +255,8 @@ test('Wet Ground district has curved masonry bridges, a walkable service tunnel 
   assert.match(map, /roof ventilation curb/);
   assert.match(map, /continuous curved limestone arcade arch/);
   assert.match(map, /cobblestone variable roughness map/);
+  assert.match(map, /expanding rain impact ring/);
+  assert.match(map, /onBeforeRenderObservable/);
   assert.match(map, /loadScannedPbr/);
   assert.match(map, /cobblestone_pavement/);
   assert.match(map, /stone_wall/);
