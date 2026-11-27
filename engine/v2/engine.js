@@ -34,6 +34,43 @@ function box(name, x,y,z, sx,sy,sz, material, cast=true) {
   if(cast) shadowGen.addShadowCaster(m);
   return m;
 }
+
+let viewModel={parts:[],byWeapon:{}};
+function makeViewPart(name,geometry,position,rotation,material){
+  const mesh=geometry();mesh.name='view-'+name;mesh.parent=camera;mesh.position.set(...position);if(rotation)mesh.rotation.set(...rotation);mesh.material=material;mesh.isPickable=false;mesh.receiveShadows=false;mesh.renderingGroupId=1;mesh.alwaysSelectAsActiveMesh=true;viewModel.parts.push(mesh);return mesh;
+}
+function buildViewModel(){
+  const metal=new BABYLON.StandardMaterial('view-gun-metal',scene);metal.diffuseColor=new BABYLON.Color3(.12,.15,.15);metal.specularColor=new BABYLON.Color3(.45,.48,.46);
+  const dark=new BABYLON.StandardMaterial('view-dark-polymer',scene);dark.diffuseColor=new BABYLON.Color3(.055,.07,.065);
+  const skin=new BABYLON.StandardMaterial('view-gloves',scene);skin.diffuseColor=new BABYLON.Color3(.19,.22,.19);
+  const rifle=[],pistol=[],grenade=[],knife=[];
+  const addBox=(list,n,p,sz,m,rot=[0,0,0])=>{const o=makeViewPart(n,()=>BABYLON.MeshBuilder.CreateBox('vm-'+n,{width:sz[0],height:sz[1],depth:sz[2]},scene),p,rot,m);list.push(o);return o;};
+  // Руки и перчатки от первого лица.
+  addBox(rifle,'right-forearm',[.43,-.39,.46],[.17,.19,.48],skin,[.18,-.2,-.28]);
+  addBox(rifle,'right-glove',[.34,-.31,.67],[.19,.13,.18],skin,[.1,-.2,-.18]);
+  addBox(rifle,'left-forearm',[-.22,-.43,.58],[.16,.17,.43],skin,[-.12,.12,.22]);
+  addBox(rifle,'left-glove',[-.10,-.34,.76],[.18,.12,.16],skin,[0,.1,.1]);
+  addBox(rifle,'rifle-receiver',[.24,-.23,.78],[.22,.20,.48],metal);
+  addBox(rifle,'rifle-handguard',[.24,-.22,1.08],[.16,.15,.34],dark);
+  addBox(rifle,'rifle-stock',[.31,-.22,.48],[.14,.16,.28],dark,[0,0,-.08]);
+  addBox(rifle,'rifle-sight',[.24,-.105,.83],[.055,.07,.12],dark);
+  const barrel=makeViewPart('rifle-barrel',()=>BABYLON.MeshBuilder.CreateCylinder('vm-rifle-barrel',{height:.48,diameter:.055,tessellation:10},scene),[.24,-.22,1.42],[Math.PI/2,0,0],metal);rifle.push(barrel);
+  const pArm=addBox(pistol,'pistol-arm',[.40,-.40,.56],[.17,.18,.40],skin,[.12,-.2,-.3]);
+  addBox(pistol,'pistol-glove',[.31,-.31,.73],[.18,.12,.16],skin);
+  addBox(pistol,'pistol-slide',[.30,-.23,.91],[.16,.13,.34],metal);
+  addBox(pistol,'pistol-grip',[.30,-.36,.79],[.13,.22,.14],dark,[-.22,0,0]);
+  addBox(grenade,'grenade-arm',[.38,-.40,.56],[.18,.18,.42],skin,[.12,-.2,-.3]);
+  const bomb=makeViewPart('grenade-body',()=>BABYLON.MeshBuilder.CreateSphere('vm-grenade',{diameter:.25,segments:12},scene),[.27,-.25,.86],[0,0,0],dark);grenade.push(bomb);
+  addBox(grenade,'grenade-pin',[.27,-.11,.86],[.13,.035,.05],metal);
+  addBox(knife,'knife-arm',[.38,-.4,.56],[.17,.18,.42],skin,[.12,-.2,-.3]);
+  addBox(knife,'knife-handle',[.30,-.29,.80],[.10,.10,.23],dark,[.18,0,0]);
+  const blade=makeViewPart('knife-blade',()=>BABYLON.MeshBuilder.CreateBox('vm-knife-blade',{width:.09,height:.025,depth:.36},scene),[.30,-.22,1.08],[0,0,0],metal);knife.push(blade);
+  viewModel.byWeapon={rifle,pistol,grenade,knife};updateViewModel();
+}
+function updateViewModel(){
+  for(const [id,parts] of Object.entries(viewModel.byWeapon))for(const mesh of parts)mesh.setEnabled(state.started&&id===state.weapon);
+}
+
 function buildMap() { buildExpandedDust2(BABYLON,scene,shadowGen,mat,box); }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
@@ -113,7 +150,7 @@ function updateBotMotion(dt) {
 const weaponOrder=['rifle','pistol','grenade','knife'];
 function currentWeapon(){return state.weapons[state.weapon]}
 function updateAmmoHud(){const w=currentWeapon();$('ammo').textContent=(w.ammo??0)+' / '+(w.reserve??0);$('weaponName').textContent=w.name;}
-function selectWeapon(id){if(!state.weapons[id])return;state.weapon=id;updateAmmoHud();closeWeaponWheel();}
+function selectWeapon(id){if(!state.weapons[id])return;state.weapon=id;updateAmmoHud();updateViewModel();closeWeaponWheel();}
 function openWeaponWheel(){if(!state.started)return;state.wheelOpen=true;$('weaponWheel').classList.add('open');}
 function closeWeaponWheel(){state.wheelOpen=false;$('weaponWheel').classList.remove('open');}
 function chooseWheelAt(x,y){const r=$('weaponWheel').getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=x-cx,dy=y-cy;if(Math.hypot(dx,dy)<24)return;const a=(Math.atan2(dy,dx)+Math.PI*2)%(Math.PI*2);selectWeapon(weaponOrder[Math.round(a/(Math.PI/2))%4]);}
@@ -252,7 +289,7 @@ function updatePlayer(dt) {
   if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92+state.gamepad.jumpOffset,camera.position.z);
 }
 function start() {
-  state.started=true;state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0;camera.position.y=1.65;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
+  state.started=true;updateViewModel();state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0;camera.position.y=1.65;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -268,7 +305,7 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();buildSky(B);
+    buildMap();buildBots();buildSky(B);buildViewModel();
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.75,radius:.28,tessellation:8},scene);state.playerHitbox.position.set(0,.92,73);state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.visibility=0;
     initInput();
     window.addEventListener('resize',()=>engine.resize());
