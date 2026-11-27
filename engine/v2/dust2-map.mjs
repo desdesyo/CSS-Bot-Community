@@ -38,21 +38,21 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       put('door handle',x+sgn*.28,1.05,z+W*.34,.035,.12,.045,metal);
     }
   }
-  function window(n,x,z,face='north',m=plaster){
+  function window(n,x,z,face='north',m=plaster,centerY=1.4){
     const W=1.2,H=1.0,S=.9,T=.16;
     const front=face==='north'||face==='south',sgn=face==='north'?-1:1;
     if(front){
-      slab(n+' left reveal',x-W/2-T/2,1.55,z,T,1.8,.34,m);slab(n+' right reveal',x+W/2+T/2,1.55,z,T,1.8,.34,m);
-      slab(n+' upper reveal',x,2.43,z,W+2*T,.32,.34,m);slab(n+' lower sill',x, .82,z,W+2*T,.24,.52,trim);
-      slab(n+' dark recess',x,1.4,z+sgn*.18,W,1,.035,shadow);slab(n+' glass',x,1.4,z+sgn*.21,W-.12,.88,.025,glass);
-      slab(n+' vertical mullion',x,1.4,z+sgn*.25,.055,.9,.035,trim);slab(n+' horizontal mullion',x,1.4,z+sgn*.25,W-.08,.055,.035,trim);
-      slab(n+' shutter left',x-W/2-.17,1.45,z+sgn*.24,.22,1.18,.09,wood);slab(n+' shutter right',x+W/2+.17,1.45,z+sgn*.24,.22,1.18,.09,wood);
+      slab(n+' left reveal',x-W/2-T/2,centerY+.15,z,T,1.8,.34,m);slab(n+' right reveal',x+W/2+T/2,centerY+.15,z,T,1.8,.34,m);
+      slab(n+' upper reveal',x,centerY+1.03,z,W+2*T,.32,.34,m);slab(n+' lower sill',x,centerY-.58,z,W+2*T,.24,.52,trim);
+      slab(n+' dark recess',x,centerY,z+sgn*.18,W,1,.035,shadow);slab(n+' glass',x,centerY,z+sgn*.21,W-.12,.88,.025,glass);
+      slab(n+' vertical mullion',x,centerY,z+sgn*.25,.055,.9,.035,trim);slab(n+' horizontal mullion',x,1.4,z+sgn*.25,W-.08,.055,.035,trim);
+      slab(n+' shutter left',x-W/2-.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);slab(n+' shutter right',x+W/2+.17,1.45,z+sgn*.24,.22,1.18,.09,wood);
     }else{
-      slab(n+' left reveal',x,1.55,z-W/2-T/2,.34,1.8,T,m);slab(n+' right reveal',x,1.55,z+W/2+T/2,.34,1.8,T,m);
-      slab(n+' upper reveal',x,2.43,z,.34,.32,W+2*T,m);slab(n+' lower sill',x,.82,z,.52,.24,W+2*T,trim);
-      slab(n+' dark recess',x+sgn*.18,1.4,z,.035,1,W,shadow);slab(n+' glass',x+sgn*.21,1.4,z,.025,.88,W-.12,glass);
-      slab(n+' vertical mullion',x+sgn*.25,1.4,z,.035,.9,.055,trim);slab(n+' horizontal mullion',x+sgn*.25,1.4,z,.035,.055,W-.08,trim);
-      slab(n+' shutter left',x+sgn*.24,1.45,z-W/2-.17,.09,1.18,.22,wood);slab(n+' shutter right',x+sgn*.24,1.45,z+W/2+.17,.09,1.18,.22,wood);
+      slab(n+' left reveal',x,centerY+.15,z-W/2-T/2,.34,1.8,T,m);slab(n+' right reveal',x,centerY+.15,z+W/2+T/2,.34,1.8,T,m);
+      slab(n+' upper reveal',x,centerY+1.03,z,.34,.32,W+2*T,m);slab(n+' lower sill',x,centerY-.58,z,.52,.24,W+2*T,trim);
+      slab(n+' dark recess',x+sgn*.18,centerY,z,.035,1,W,shadow);slab(n+' glass',x+sgn*.21,centerY,z,.025,.88,W-.12,glass);
+      slab(n+' vertical mullion',x+sgn*.25,centerY,z,.035,.9,.055,trim);slab(n+' horizontal mullion',x+sgn*.25,1.4,z,.035,.055,W-.08,trim);
+      slab(n+' shutter left',x+sgn*.24,centerY+.05,z-W/2-.17,.09,1.18,.22,wood);slab(n+' shutter right',x+sgn*.24,centerY+.05,z+W/2+.17,.09,1.18,.22,wood);
     }
   }
   function arch(n,x,z,axis='x',width=2.6,height=2.8,depth=.55,m=stone){
@@ -87,7 +87,7 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       const upperY=4.8,upperBase=3.2,upperTop=6.1,winW=1.55;
       const upperWindows=[x-w*.23,x+w*.23],upperSpans=[[left,upperWindows[0]-winW/2],[upperWindows[0]+winW/2,upperWindows[1]-winW/2],[upperWindows[1]+winW/2,right]];
       for(let i=0;i<upperSpans.length;i++){const [a,b]=upperSpans[i];if(b>a+.05)slab(n+' upper facade panel '+i,(a+b)/2,upperY,fz,b-a,upperTop-upperBase,th,m);}
-      for(const wx of upperWindows){slab(n+' upper window recess',wx,4.8,fz+(front==='south'?.18:-.18),1.2,1,.04,shadow);window(n+' upper window',wx,fz,front,m);}
+      for(const wx of upperWindows){window(n+' upper window',wx,fz,front,m,4.8);}
       slab(n+' balcony deck',x,3.55,fz+sgn*.85,w*.56,.18,1.25,stone);
       slab(n+' balcony rail',x,4.05,fz+sgn*1.4,w*.56,.08,.08,metal);
       for(let i=0;i<5;i++)slab(n+' balcony baluster '+i,x-w*.25+i*w*.125,3.82,fz+sgn*1.4,.045,.48,.045,metal);
