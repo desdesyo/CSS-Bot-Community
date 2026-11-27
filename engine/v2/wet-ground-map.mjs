@@ -409,6 +409,22 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
     else merged.push(...parts);
   }
+
+  // Procedural blue-hour sky: luminous horizon gradient and sparse stars, not a flat black clear color.
+  const skyTexture=new B.DynamicTexture('wet quarter night sky',{width:512,height:256},scene,false);
+  const skyCtx=skyTexture.getContext(),skyGradient=skyCtx.createLinearGradient(0,0,0,256);
+  skyGradient.addColorStop(0,'#07111f');skyGradient.addColorStop(.48,'#172b40');skyGradient.addColorStop(.78,'#40586b');skyGradient.addColorStop(1,'#9aa1a0');
+  skyCtx.fillStyle=skyGradient;skyCtx.fillRect(0,0,512,256);
+  let starSeed=9137;const starRand=()=>((starSeed=(starSeed*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<58;i++){const x=starRand()*512,y=starRand()*145,r=.35+starRand()*.75;skyCtx.fillStyle='rgba(210,226,245,'+(.18+starRand()*.42)+')';skyCtx.beginPath();skyCtx.arc(x,y,r,0,Math.PI*2);skyCtx.fill();}
+  skyTexture.update(false);
+  const skyMaterial=new B.StandardMaterial('blue-hour skyline material',scene);
+  skyMaterial.backFaceCulling=false;skyMaterial.disableLighting=true;skyMaterial.emissiveTexture=skyTexture;
+  skyMaterial.diffuseColor=new C(0,0,0);skyMaterial.specularColor=new C(0,0,0);
+  const skybox=B.MeshBuilder.CreateBox('blue-hour skyline skybox',{size:180},scene);
+  skybox.material=skyMaterial;skybox.infiniteDistance=true;skybox.isPickable=false;skybox.checkCollisions=false;skybox.applyFog=false;skybox.renderingGroupId=0;
+  skybox.computeWorldMatrix(true);skybox.freezeWorldMatrix();
+
   // A single planar reflection pass gives the wet street and canal real building/light reflections.
   // It is deliberately low-resolution and refreshed less often on phones.
   let wetMirror=null;
