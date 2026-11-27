@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
-import { createHumanBot, animateHumanBot } from './human-bots.mjs';
+import { loadHumanBotAssets, createHumanBot, animateHumanBot } from './human-bots.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -10,7 +10,7 @@ function mat(name, color, roughness=0.8, metallic=0) {
   m.albedoColor = BABYLON.Color3.FromHexString(color); m.roughness = roughness; m.metallic = metallic;
   return m;
 }
-let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial;
+let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets;
 function box(name, x,y,z, sx,sy,sz, material, cast=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
   m.position.set(x,y,z); m.material=material; m.receiveShadows=true;
@@ -39,7 +39,7 @@ function buildMap() {
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
-  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id);
+  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets);
   root.position.set(x,0,z);
   state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0});
   return root;
@@ -133,7 +133,7 @@ function updateBotMotion(dt) {
     const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*7;animateHumanBot(bot.rig,bot.phase,true);
+    bot.phase+=dt*7;animateHumanBot(bot.rig,true,bot.speed>2.7);
   }
 }
 function fire() {
@@ -234,7 +234,10 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();buildPlayerWeapon();initInput();
+    buildMap();
+    $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
+    humanBotAssets=await loadHumanBotAssets(B,scene);
+    buildBots();buildPlayerWeapon();initInput();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);
