@@ -60,7 +60,7 @@ test('expanded map collision bounds keep players inside the map and block perime
 test('runtime uses the expanded Dust2 map and spawns the player at T spawn', () => {
   assert.ok(runtime.includes("buildExpandedDust2(BABYLON,scene,shadowGen,mat,box)"));
   assert.ok(runtime.includes("DUST2_EXPANDED.spawns.t"));
-  assert.ok(runtime.includes("isDust2Blocked(x,z)"));
+  assert.ok(runtime.includes('scene.pickWithRay(ray,isMapSolid)'));
 });
 
 test('both team spawns and both bombsite centers are walkable', () => {
