@@ -103,15 +103,36 @@ export function findSafePlayerSpawn(candidates, colliders = [], radius = 0.36, p
 }
 
 
-/** A* navigation over the arena's static AABB collision map. */
-export function findPathAStar(start, target, colliders = [], radius = 0.42, cellSize = 1.5) {
+/** Precompute static walkability once; AI path searches then avoid rescanning hundreds of colliders. */
+export function buildNavigationGrid(colliders = [], radius = 0.42, cellSize = 1.5) {
   const minX=-53,minZ=-42,maxX=53,maxZ=42;
   const width=Math.ceil((maxX-minX)/cellSize),height=Math.ceil((maxZ-minZ)/cellSize);
-  const toCell=p=>({x:Math.max(0,Math.min(width-1,Math.round((p.x-minX)/cellSize))),z:Math.max(0,Math.min(height-1,Math.round((p.z-minZ)/cellSize)))});
-  const toWorld=c=>({x:minX+c.x*cellSize,z:minZ+c.z*cellSize});
+  const walkable=new Uint8Array(width*height);
+  for(let z=0;z<height;z++)for(let x=0;x<width;x++){
+    const px=minX+x*cellSize,pz=minZ+z*cellSize;let clear=true;
+    for(const b of colliders){
+      if(b.maxY<=0.04||b.minY>=1.68)continue;
+      const nx=Math.max(b.minX,Math.min(px,b.maxX)),nz=Math.max(b.minZ,Math.min(pz,b.maxZ));
+      const dx=px-nx,dz=pz-nz;
+      if(dx*dx+dz*dz<(radius+0.10)*(radius+0.10)){clear=false;break;}
+    }
+    walkable[z*width+x]=clear?1:0;
+  }
+  return {kind:'solo-nav-grid-v1',minX,minZ,width,height,cellSize,walkable};
+}
+
+/** A* navigation over a cached static walkability grid. */
+export function findPathAStar(start, target, colliders = [], radius = 0.42, cellSize = 1.5) {
+  const grid=colliders?.kind==='solo-nav-grid-v1'?colliders:null;
+  const minX=grid?.minX??-53,minZ=grid?.minZ??-42;
+  const width=grid?.width??Math.ceil(106/cellSize),height=grid?.height??Math.ceil(84/cellSize);
+  const step=grid?.cellSize??cellSize,walkable=grid?.walkable;
+  const toCell=p=>({x:Math.max(0,Math.min(width-1,Math.round((p.x-minX)/step))),z:Math.max(0,Math.min(height-1,Math.round((p.z-minZ)/step)))});
+  const toWorld=c=>({x:minX+c.x*step,z:minZ+c.z*step});
   const key=(x,z)=>x+","+z,startCell=toCell(start),goal=toCell(target);
   const blocked=(x,z)=>{
     if(x<0||z<0||x>=width||z>=height)return true;
+    if(walkable)return walkable[z*width+x]===0;
     const p=toWorld({x,z});
     for(const b of colliders){
       if(b.maxY<=0.04||b.minY>=1.68)continue;
@@ -121,14 +142,19 @@ export function findPathAStar(start, target, colliders = [], radius = 0.42, cell
     }
     return false;
   };
+  if(blocked(startCell.x,startCell.z))return [];
+  if(blocked(goal.x,goal.z))return [];
   const startKey=key(startCell.x,startCell.z),goalKey=key(goal.x,goal.z);
   if(startKey===goalKey)return [target];
-  const open=[{...startCell,g:0,f:Math.hypot(goal.x-startCell.x,goal.z-startCell.z)}];
+  const open=[];
+  const push=node=>{let i=open.length;open.push(node);while(i>0){const p=(i-1)>>1;if(open[p].f<=node.f)break;open[i]=open[p];i=p;}open[i]=node;};
+  const pop=()=>{const first=open[0],last=open.pop();if(open.length){let i=0;while(true){let l=i*2+1,r=l+1;if(l>=open.length)break;let c=r<open.length&&open[r].f<open[l].f?r:l;if(open[c].f>=last.f)break;open[i]=open[c];i=c;}open[i]=last;}return first;};
+  push({...startCell,g:0,f:Math.hypot(goal.x-startCell.x,goal.z-startCell.z)});
   const came=new Map(),cost=new Map([[startKey,0]]),closed=new Set();
   const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
   let found=false,iterations=0;
-  while(open.length&&iterations++<5000){
-    open.sort((a,b)=>a.f-b.f);const cur=open.shift(),ck=key(cur.x,cur.z);
+  while(open.length&&iterations++<width*height){
+    const cur=pop(),ck=key(cur.x,cur.z);
     if(closed.has(ck))continue;
     if(ck===goalKey){found=true;break}
     closed.add(ck);
@@ -139,10 +165,10 @@ export function findPathAStar(start, target, colliders = [], radius = 0.42, cell
       const ng=cur.g+(dx&&dz?1.4142:1);
       if(ng>=(cost.get(k)??Infinity))continue;
       cost.set(k,ng);came.set(k,ck);
-      open.push({x,z,g:ng,f:ng+Math.hypot(goal.x-x,goal.z-z)});
+      push({x,z,g:ng,f:ng+Math.hypot(goal.x-x,goal.z-z)});
     }
   }
-  if(!found)return [target];
+  if(!found)return [];
   const result=[];let k=goalKey;
   while(k!==startKey&&came.has(k)){
     const [x,z]=k.split(",").map(Number);result.push(toWorld({x,z}));k=came.get(k);
