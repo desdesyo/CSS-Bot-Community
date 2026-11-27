@@ -24,7 +24,6 @@ function classify(path){const e=ext(path),p=path.toLowerCase();if(e==='vpk')retu
 async function inspect(file,path){
  const head=new Uint8Array(await file.slice(0,16).arrayBuffer()),e=ext(path);let valid=null,detail='';
  const ascii=(a)=>String.fromCharCode(...a);
- if(e==='vpk'){valid=ascii(head.slice(0,4))==='')} // placeholder
  if(e==='vpk'){valid=head[0]===0x34&&head[1]===0x12&&head[2]===0xaa&&head[3]===0x55;detail=valid?'VPK signature 0x55AA1234':'Неизвестная сигнатура VPK'}
  else if(e==='bsp'){valid=ascii(head.slice(0,4))==='VBSP';detail=valid?'Source BSP header':'Ожидалась сигнатура VBSP'}
  else if(e==='mdl'){valid=ascii(head.slice(0,4))==='IDST';detail=valid?'Studio MDL header':'Ожидалась сигнатура IDST'}

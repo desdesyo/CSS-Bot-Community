@@ -33,6 +33,14 @@ npm start
 ```
 The server listens on port 8080 by default. For remote cross-play, deploy it on a public host with TLS termination and use its `wss://` URL in both clients. Do not expose an unencrypted public WebSocket on an untrusted network.
 
+## Runtime stability increment (27 Nov 2026)
+
+- Non-explosive projectiles now reuse a bounded pool (48 returned entries) instead of allocating and disposing a mesh/material for every shot.
+- Tracer position buffers are updated in place rather than replaced on every simulation frame.
+- Gamepad polling now uses shared safety helpers for controller selection, axis dead zones and safe button reads; disconnect clears held-button edge state.
+- Run helper tests from the repository root with `node --test engine/tests/runtime-safety.test.mjs`.
+- This is a code-level stability increment only. A sustained browser session and physical Redmi 12/gamepad verification are still required; it is not yet marked as device-verified.
+
 ## Current limitations
 
 - Multiplayer is an early shared-session prototype. The server authoritatively processes player movement, basic wall collision, fire cooldown, bullets, hits and health snapshots. It does not yet include shared bots, round flow, purchases, matchmaking, accounts, anti-cheat or production deployment.
