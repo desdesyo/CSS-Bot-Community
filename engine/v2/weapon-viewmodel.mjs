@@ -199,39 +199,82 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
 
   const muzzleFlash = sphere('rifle-muzzle-flash', rifle, [0,.018,-.84], [.18,.15,.26], m.flash, 8);
   muzzleFlash.isVisible = false;
-  const pistol = node('backup-pistol');
+  // Detailed compact 9mm service pistol: frame, moving slide, controls and magazine.
+  const pistol = node('9mm-service-pistol');
   pistol.setEnabled(false);
-  box('pistol slide',pistol,[.02,-.015,-.12],[.105,.075,.30],m.metalDark);
-  box('pistol frame',pistol,[.02,-.075,-.015],[.095,.09,.22],m.polymer);
-  box('pistol grip',pistol,[.02,-.17,.075],[.085,.19,.10],m.rubber);
-  cylinder('pistol barrel',pistol,[.02,.005,-.12],[.02,.005,-.29],.013,.013,m.metal,12);
-  const knife = node('combat-knife');
+  const pistolFrame=node('pistol-frame',pistol);
+  box('pistol polymer frame',pistolFrame,[.015,-.075,-.015],[.105,.095,.235],m.polymer);
+  box('pistol dustcover rail',pistolFrame,[.015,-.025,-.105],[.075,.025,.12],m.metalDark);
+  box('pistol trigger guard',pistolFrame,[.015,-.12,.045],[.07,.018,.085],m.metalDark);
+  cylinder('pistol trigger',pistolFrame,[.015,-.115,.01],[.015,-.16,.01],.009,.009,m.metal,8);
+  const pistolGrip=node('pistol-textured-grip',pistolFrame);
+  box('pistol grip core',pistolGrip,[.015,-.18,.075],[.09,.19,.115],m.rubber);
+  box('pistol grip backstrap',pistolGrip,[.015,-.18,.132],[.075,.16,.012],m.polymerEdge);
+  for(let i=0;i<7;i++)box('pistol grip stippling '+i,pistolGrip,[.015,-.115-i*.019,.137],[.067,.007,.006],m.gloveRaised);
+  const pistolSlide=node('pistol-reciprocating-slide',pistol);
+  box('pistol steel slide',pistolSlide,[.015,-.005,-.12],[.105,.075,.31],m.metalDark);
+  box('pistol slide top flat',pistolSlide,[.015,.035,-.12],[.075,.012,.28],m.metal);
+  box('pistol front sight',pistolSlide,[.015,.042,-.255],[.025,.018,.018],m.metal);
+  box('pistol rear sight',pistolSlide,[.015,.042,.005],[.055,.025,.018],m.metal);
+  for(let i=0;i<6;i++){
+    box('pistol slide serration L '+i, pistolSlide,[-.04,.002,-.025+i*.016],[.006,.045,.006],m.metal);
+    box('pistol slide serration R '+i,pistolSlide,[.07,.002,-.025+i*.016],[.006,.045,.006],m.metal);
+  }
+  cylinder('pistol barrel',pistol,[.015,.002,-.13],[.015,.002,-.29],.014,.014,m.metal,14);
+  const pistolMag=node('pistol-drop-magazine',pistol);
+  pistolMag.position.set(.015,-.14,.085);
+  box('pistol magazine body',pistolMag,[0,-.055,0],[.065,.16,.075],m.metalDark);
+  box('pistol magazine floorplate',pistolMag,[0,-.14,0],[.078,.018,.085],m.polymerEdge);
+  box('pistol mag witness window',pistolMag,[.049,-.045,0],[.004,.055,.028],m.metal);
+  box('pistol takedown pin',pistolFrame,[.071,-.075,.005],[.012,.018,.018],m.metal);
+  const pistolFlash=sphere('pistol-muzzle-flash',pistol,[.015,.002,-.30],[.10,.09,.16],m.flash,8);
+  pistolFlash.isVisible=false;
+
+  // Full-tang tactical knife with guard, textured scales, pommel and faceted point.
+  const knife=node('combat-knife');
   knife.setEnabled(false);
-  box('knife grip',knife,[.02,-.12,.02],[.055,.055,.22],m.rubber);
-  box('knife blade',knife,[.02,-.09,-.25],[.045,.018,.34],m.metal);
+  const knifeHandle=node('knife-handle',knife);
+  box('knife tang',knifeHandle,[.015,-.12,.075],[.035,.045,.20],m.metalDark);
+  box('knife grip scale left',knifeHandle,[-.012,-.12,.075],[.025,.065,.19],m.rubber);
+  box('knife grip scale right',knifeHandle,[.042,-.12,.075],[.025,.065,.19],m.rubber);
+  for(let i=0;i<6;i++)box('knife grip grooves '+i,knifeHandle,[-.027,-.12,.0+i*.029],[.006,.052,.008],m.gloveRaised);
+  box('knife pommel',knifeHandle,[.015,-.12,.185],[.06,.075,.025],m.metal);
+  box('knife crossguard',knifeHandle,[.015,-.085,-.025],[.13,.025,.035],m.metalDark);
+  const blade=node('knife-blade',knife);
+  box('knife blade spine',blade,[.015,-.075,-.205],[.055,.025,.34],m.metal);
+  box('knife cutting bevel',blade,[.015,-.092,-.205],[.045,.012,.31],m.metalDark);
+  box('knife edge highlight',blade,[.015,-.101,-.205],[.012,.006,.28],m.metal);
+  const tip=B.MeshBuilder.CreateCylinder('knife-point',{height:.12,diameterTop:0,diameterBottom:.055,tessellation:4},scene);
+  tip.parent=blade;tip.position.set(.015,-.075,-.43);tip.rotation.x=Math.PI/2;tip.material=m.metal;tip.isPickable=false;tip.renderingGroupId=1;
 
   const initial = { x:.18, y:-.27, z:.72 };
-  let recoil = 0, reloadT = 0, reloadDuration = 1.45, shotFlash = 0, time = 0;
+  let recoil = 0, reloadT = 0, reloadDuration = 1.45, shotFlash = 0, time = 0, meleeT = 0, switchT = 0;
   let walking = 0, selected = 'rifle';
   const clamp01 = v => Math.max(0,Math.min(1,v));
   const smooth = v => {v=clamp01(v);return v*v*(3-2*v)};
   function fire() {
-    if (selected === 'knife') return;
-    recoil = Math.min(1.8,recoil + (selected === 'rifle' ? .72 : .45));
-    shotFlash = .055;
+    if (selected === 'knife') { meleeT = 1; return; }
+    recoil = Math.min(1.8,recoil + (selected === 'rifle' ? .72 : .58));
+    shotFlash = .07;
     bolt.position.z = -.055;
     bolt.position.y = .045;
     muzzleFlash.isVisible = selected === 'rifle';
+    pistolFlash.isVisible = selected === 'pistol';
+    pistolSlide.position.z = -.035;
   }
   function beginReload(duration = 1.45) {
     reloadT = duration;
     reloadDuration = duration;
     magPivot.setEnabled(true);
+    if(selected==='pistol')pistolMag.setEnabled(true);
   }
   function completeReload() {
     reloadT = 0;
     magPivot.position.set(0,-.12,.005);
     magPivot.rotation.set(0,0,0);
+    pistolMag.position.set(.015,-.14,.085);
+    pistolMag.rotation.set(0,0,0);
+    pistolSlide.position.set(0,0,0);
     rightArm.rotation.set(0,0,0);
     leftArm.rotation.set(0,0,0);
   }
@@ -240,7 +283,9 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     time += d;
     recoil = Math.max(0,recoil - d*5.8);
     shotFlash = Math.max(0,shotFlash-d);
-    if (shotFlash === 0) muzzleFlash.isVisible = false;
+    if (shotFlash === 0) { muzzleFlash.isVisible = false; pistolFlash.isVisible=false; }
+    meleeT=Math.max(0,meleeT-d*3.2);
+    switchT=Math.max(0,switchT-d*4.5);
     const moving = clamp01(Math.abs(movement));
     walking += d*(moving > .05 ? 9 : 2.2);
     const bob = Math.sin(walking)*.008*moving;
@@ -251,22 +296,32 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     root.position.y = initial.y + bob - r*.07 + recoil*.012;
     root.position.z = initial.z - recoil*.12;
     root.rotation.x = recoil*.035 + Math.sin(time*1.7)*.003;
-    rifle.rotation.x = recoil*.045;
+    rifle.rotation.x = selected==='rifle'?recoil*.045:0;
+    pistol.rotation.x = selected==='pistol'?recoil*.055:0;
+    pistolSlide.position.z = Math.max(-.035,pistolSlide.position.z+d*.24);
+    pistolMag.position.y = -.14 - (reloadT>0&&selected==='pistol'?Math.sin(r*Math.PI)*.15:0);
+    knife.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.95 : 0;
+    knife.rotation.y = selected==='knife' ? Math.sin(meleeT*Math.PI)*.12 : 0;
+    const switchDip=Math.sin(switchT*Math.PI);
     bolt.position.z = -.02 - recoil*.055;
     const reloadDip = Math.sin(r*Math.PI);
     magPivot.position.y = -.12 - reloadDip*.15;
     magPivot.rotation.x = reloadDip*.18;
-    rightArm.rotation.x = reloadDip*.52;
-    rightArm.rotation.z = -reloadDip*.22;
-    leftArm.rotation.x = reloadDip*.12;
+    rightArm.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.62 : reloadDip*(selected==='pistol'?.72:.52);
+    rightArm.rotation.z = selected==='knife' ? -.18 : -reloadDip*.22;
+    leftArm.rotation.x = selected==='knife' ? .12 : reloadDip*.12;
+    root.position.y -= switchDip*.035;
     stock.rotation.x = recoil*.018;
   }
   function select(slot) {
     selected = slot;
+    switchT=1;
     rifle.setEnabled(slot === 'rifle');
     pistol.setEnabled(slot === 'pistol');
     knife.setEnabled(slot === 'knife');
     if (slot !== 'rifle') muzzleFlash.isVisible = false;
+    if (slot !== 'pistol') pistolFlash.isVisible = false;
+    if (slot==='knife') { rightArm.rotation.z=-.12; leftArm.rotation.z=.08; }
   }
-  return { root, rifle, pistol, knife, muzzleFlash, fire, beginReload, completeReload, update, select, arms };
+  return { root, rifle, pistol, knife, muzzleFlash, pistolFlash, fire, beginReload, completeReload, update, select, arms };
 }
