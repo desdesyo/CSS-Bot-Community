@@ -240,3 +240,9 @@ test('short test sessions retain incomplete rounds and upload accumulated diagno
   assert.match(engine, /uploadDue:developerForceUpload/);
   assert.match(engine, /if\(now-fieldExploreLastPlan<1600\)return bot\.fieldExploreGoal\|\|null/);
 });
+
+test('engine entrypoint remains valid JavaScript after stripping browser-only imports and boot invocation', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const parseable = engine.replace(/^import\\s+.*?;\\s*$/gm, '').replace(/\\nboot\\(\\);\\s*$/, '\\n');
+  assert.doesNotThrow(() => new Function(parseable));
+});
