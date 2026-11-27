@@ -21,6 +21,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glass=mat('midnight window glass','#101d2d',.16,.42);
   const windowIron=mat('aged window muntin iron','#222a31',.34,.62);
   const curtain=mat('interior linen curtains','#626b6d',.92);
+  const glassGlintMat=mat('rain-slick reflected sky on glazing','#7894a3',.09,.24);
+  glassGlintMat.alpha=.28;glassGlintMat.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
   const roof=mat('slate roofs','#202b39',.92);
   const amber=mat('warm lamp glass','#ffd49a',.25);
 
@@ -398,7 +400,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
             box(name+' hanging linen curtain left',frameX+side*.11,opening.centerY,opening.z-opening.width*.31,.035,opening.height*.78,.28,curtain,false);
             box(name+' hanging linen curtain right',frameX+side*.11,opening.centerY,opening.z+opening.width*.31,.035,opening.height*.78,.28,curtain,false);
           }
-          const glassGlint=box(name+' narrow reflected sky strip on glass',frameX+side*.13,opening.centerY+.08,opening.z-opening.width*.28,.018,opening.height*.58,.055,trim,false);
+          const glassGlint=box(name+' narrow reflected sky strip on glass',frameX+side*.13,opening.centerY+.08,opening.z-opening.width*.28,.018,opening.height*.58,.055,glassGlintMat,false);
           glassGlint.isPickable=false;
           for(const dz of [-opening.width/2,opening.width/2])box(name+' stone window jamb',frameX+side*.10,opening.centerY,opening.z+dz,.22,opening.height+.22,.12,trim,false);
           box(name+' stone window head',frameX+side*.10,opening.centerY+opening.height/2+.08,opening.z,.24,.14,opening.width+.18,trim,false);
