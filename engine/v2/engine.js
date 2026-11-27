@@ -432,6 +432,31 @@ function damageBot(bot,damage,credit=false) {
   bot.health=Math.max(0,bot.health-Math.max(0,damage));
   if(bot.health===0)killBot(bot,credit);
 }
+function resolvePlayerHitscan(slot) {
+  // Resolve the shot against the same center-screen direction the player is aiming.
+  // The visible projectile remains a tracer; hit registration no longer depends on
+  // a fast projectile crossing a thin collider between mobile frames.
+  const ray=camera.getForwardRay(120);
+  const hit=scene.pickWithRay(ray,m=>{
+    if(!m||!m.isEnabled()||!m.isPickable)return false;
+    const n=m.name.toLowerCase();
+    return n.startsWith('body-')||n.startsWith('head-')||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground';
+  });
+  if(!hit?.hit||!hit.pickedMesh){
+    gameLogEvent('shot-miss',{slot,range:120});
+    return;
+  }
+  const mesh=hit.pickedMesh;
+  const bot=state.bots.find(b=>mesh===b.body||mesh===b.head||mesh.parent===b.root);
+  if(bot?.alive&&bot.team==='enemy'){
+    const headshot=mesh.name.startsWith('head-');
+    const damage=headshot?85:34;
+    damageBot(bot,damage,true);
+    gameLogEvent('shot-hit',{slot,target:bot.id,damage,headshot,distance:+hit.distance.toFixed(2),remainingHp:bot.health});
+    return;
+  }
+  gameLogEvent('shot-blocked',{slot,mesh:mesh.name,distance:+hit.distance.toFixed(2)});
+}
 function updateBulletPhysics(dt) {
   for(let i=state.projectiles.length-1;i>=0;i--) {
     const p=state.projectiles[i];p.life-=dt;p.velocity.y-=(p.gravity??9.81)*dt;
@@ -447,7 +472,7 @@ function updateBulletPhysics(dt) {
     }
     if(hit?.hit&&hit.pickedMesh){
       const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-      if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(85,p.damage*2):p.damage,p.ownerId==='player');
+      if(bot&&bot.alive&&bot.team!==p.ownerTeam&&p.damage>0)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(85,p.damage*2):p.damage,p.ownerId==='player');
       if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'&&performance.now()>=state.spawnProtectedUntil){
         state.hp=Math.max(0,state.hp-(p.damage?Math.max(2,Math.round(p.damage*.22)):6));$('health').textContent='HP '+state.hp;
         if(state.hp===0)endRound(false);
@@ -476,7 +501,9 @@ function fire() {
   const ray=camera.getForwardRay(1);
   const muzzleNode=slot==='rifle'?weaponViewmodel?.muzzleFlash:weaponViewmodel?.pistolFlash;
   const origin=muzzleNode?.getAbsolutePosition().clone()||camera.position.add(ray.direction.scale(.7));
-  spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105,'player');
+  resolvePlayerHitscan(slot);
+  // Tracer only: damage is applied once by the center-screen hitscan above.
+  spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105,'player',0);
   weaponViewmodel?.fire();
   $('ammo').textContent=state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
 }
