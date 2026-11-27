@@ -5,7 +5,7 @@ import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, mo
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildWetGroundMap } from './wet-ground-map.mjs';
-const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
+const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const tint=BABYLON.Color3.FromHexString(color);
@@ -542,7 +542,7 @@ function initInput() {
   window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();if(e.code==='Digit1')selectWeapon('rifle');if(e.code==='Digit2')selectWeapon('pistol');if(e.code==='Digit3')selectWeapon('knife');});
   window.addEventListener('keyup',e=>state.keys.delete(e.code));
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
-  window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
+  window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022*state.lookSensitivity;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022*state.lookSensitivity))}});
   // Desktop firing is canvas-only. Mobile taps must never synthesize a shot; the FIRE pointer control owns touch shooting.
   canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.fireInputSource='desktop-mousedown';state.firing=true;fire()}});
   window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
@@ -554,7 +554,7 @@ function initInput() {
   stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
   const look=$('look');let lookId=null,last=null;
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
-  look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
+  look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
@@ -569,7 +569,7 @@ function initInput() {
     const len=Math.hypot(ox,oy),k=Math.min(1,38/Math.max(1,len));
     state.fireStick.x=ox/38*k;state.fireStick.y=oy/38*k;
     fireNub.style.transform='translate('+state.fireStick.x*30+'px,'+state.fireStick.y*30+'px)';
-    camera.rotation.y+=dx*.0042;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042));
+    camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));
   });
   const stopFire=e=>{
     if(e&&fireId!==null&&e.pointerId!==fireId)return;
@@ -604,7 +604,7 @@ function initInput() {
     if(!state.started)return;
     state.started=false;state.paused=true;state.firing=false;
     gameLogEvent('game-paused',{weapon:state.weaponSlot,position:{x:camera.position.x,z:camera.position.z}});
-    overlay.style.display='flex';status.textContent='ПАУЗА';
+    overlay.style.display='flex';status.textContent='ПАУЗА';showMenuTab('play');
     startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;
   });
 
@@ -681,7 +681,7 @@ function endRound(won){
   if(state.playerDead)return;
   // Round completion belongs to the player; no autonomous developer agent records it.
   state.playerDead=true;state.started=false;state.paused=false;state.firing=false;
-  overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';
+  overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';showMenuTab('play');
   startButton.textContent='НОВЫЙ РАУНД';startButton.disabled=false;
 }
 function start() {
@@ -759,8 +759,23 @@ function installInputDiagnostics(){
   gameLogEvent('input-event',{type,target:target.id||target.dataset.weapon||target.tagName,pointerType:e.pointerType||null,pointerId:Number.isFinite(e.pointerId)?e.pointerId:null,button:Number.isFinite(e.button)?e.button:null,detail:e.detail??null,x:Number.isFinite(e.clientX)?Math.round(e.clientX):null,y:Number.isFinite(e.clientY)?Math.round(e.clientY):null,isTrusted:e.isTrusted,defaultPrevented:e.defaultPrevented,buttons:e.buttons??null});
  },true);
 }
-function startGameplayLog(){installInputDiagnostics();gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
+function startGameplayLog(){installInputDiagnostics();gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ЗАПИСЬ';$('logsQuick').title='Запись идёт';updateLogStatus();}
 function encodeGameplayLog(value){const bytes=new TextEncoder().encode(value);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}
+
+function updateLogStatus(){
+ const el=$('logsStatus');if(!el)return;
+ const bytes=new Blob([JSON.stringify({records:gameLogRecords,events:gameLogEvents,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs})]).size;
+ el.textContent=(gameLogRecording?'● ЗАПИСЬ ИДЁТ':'○ ЗАПИСЬ ОСТАНОВЛЕНА')+' · '+gameLogRecords.length+' срезов · '+gameLogEvents.length+' событий · '+Math.round(bytes/1024)+' КБ · '+gameLogPerf.frames+' кадров';
+ const start=$('logsStart');if(start)start.textContent=gameLogRecording?'ОСТАНОВИТЬ ЗАПИСЬ':'НАЧАТЬ ЗАПИСЬ';
+}
+function buildGameplayLogPayload(){
+ return {app:'SOLO: Wet Ground',format:3,session:'v2-'+Date.now().toString(36),branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
+}
+function downloadGameplayLog(){
+ const payload=buildGameplayLogPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='solo-wet-ground-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ updateLogStatus();
+}
 function savedGameplayToken(){try{return localStorage.getItem('solo_github_log_token')||''}catch(e){return ''}}
 async function stopAndUploadGameplayLog(){
  if(gameLogUploading)return;
@@ -769,13 +784,13 @@ async function stopAndUploadGameplayLog(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json';
- const payload={app:'SOLO: Wet Ground',format:2,session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},events:gameLogEvents,records:gameLogRecords};
+ const payload=buildGameplayLogPayload();
  gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='ОТПРАВКА…';
  try{
   const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO: Wet Ground gameplay diagnostics',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
   const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
-  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];persistGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';alert('Логи успешно отправлены в GitHub: '+path);
- }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
+  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];persistGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';updateLogStatus();alert('Логи успешно отправлены в GitHub: '+path);
+ }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';updateLogStatus();console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
  finally{gameLogUploading=false;btn.disabled=false}
 }
 
@@ -833,11 +848,11 @@ async function submitIssueReport(){
  finally{issueReportBusy=false;btn.disabled=false}
 }
 
-function handleGameplayLogs(){
- if(gameLogUploading)return;
- if(gameLogRecording)void stopAndUploadGameplayLog();
- else startGameplayLog();
-}
+function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording){gameLogRecording=false;gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});persistGameLog();$('logsQuick').textContent='● ЛОГИ';$('logsQuick').title='Запись остановлена';updateLogStatus();}else startGameplayLog();}
+function showMenuTab(tab){for(const button of document.querySelectorAll('[data-menu-tab]'))button.classList.toggle('active',button.dataset.menuTab===tab);for(const pane of document.querySelectorAll('.menuPane'))pane.classList.toggle('active',pane.id==='pane-'+tab);if(tab==='logs')updateLogStatus();}
+function loadMenuSettings(){try{const s=JSON.parse(localStorage.getItem('solo_menu_settings_v1')||'{}');state.lookSensitivity=Math.max(.5,Math.min(2.5,Number(s.sensitivity)||1));const fov=Math.max(65,Math.min(100,Number(s.fov)||80));$('lookSensitivity').value=state.lookSensitivity;$('fieldOfView').value=fov;$('showMinimap').checked=s.minimap!==false;$('lookSensitivityValue').textContent=state.lookSensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=fov+'°';if(camera)camera.fov=fov*Math.PI/180;$('minimap').style.display=s.minimap===false?'none':'';}catch(e){}}
+function saveMenuSettings(){const settings={sensitivity:Number($('lookSensitivity').value),fov:Number($('fieldOfView').value),minimap:$('showMinimap').checked};state.lookSensitivity=settings.sensitivity;$('lookSensitivityValue').textContent=settings.sensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=settings.fov+'°';if(camera)camera.fov=settings.fov*Math.PI/180;$('minimap').style.display=settings.minimap?'':'none';try{localStorage.setItem('solo_menu_settings_v1',JSON.stringify(settings))}catch(e){}}
+function installMenuControls(){document.querySelectorAll('[data-menu-tab]').forEach(b=>b.addEventListener('click',()=>showMenuTab(b.dataset.menuTab)));$('lookSensitivity').addEventListener('input',saveMenuSettings);$('fieldOfView').addEventListener('input',saveMenuSettings);$('showMinimap').addEventListener('change',saveMenuSettings);$('logsStart').addEventListener('click',handleGameplayLogs);$('logsDownload').addEventListener('click',downloadGameplayLog);$('logsUpload').addEventListener('click',()=>{if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistGameLog();}void stopAndUploadGameplayLog();});loadMenuSettings();updateLogStatus();}
 window.addEventListener('error',e=>gameLogEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
 window.addEventListener('unhandledrejection',e=>gameLogEvent('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
 window.addEventListener('webglcontextlost',e=>gameLogEvent('webgl-context-lost',{status:'lost'}),true);
@@ -875,7 +890,7 @@ async function boot() {
     humanBotAssets=await loadHumanBotAssets(B,scene);
     buildBots();buildPlayerWeapon();initInput();
     window.addEventListener('resize',()=>engine.resize());
-    $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';
+    $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
     let last=performance.now();
     engine.runRenderLoop(()=>{
