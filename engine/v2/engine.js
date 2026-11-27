@@ -291,6 +291,7 @@ function updateBotAI() {
     }
     bot.target=chosen;
     if(chosen){
+      if(bot.developerRole==='field-developer')bot.fieldExploreGoal=null;
       bot.combatState='engage';
       const target=chosen.position;
       // Bots now choose a real loadout: knife at contact range, pistol when rifle ammo is exhausted.
@@ -710,7 +711,7 @@ const FIELD_CELL_SIZE=3;
 let developerSessionRounds=0;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
 let fieldWalkableCells=null,fieldExploreLastPlan=0;
-try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');if(atlas?.mapId===FIELD_MAP_ID){fieldAtlas={...fieldAtlas,...atlas};fieldAtlas.visitedCells=fieldAtlas.visitedCells||{};fieldAtlas.unreachableCells=Array.isArray(fieldAtlas.unreachableCells)?fieldAtlas.unreachableCells:[];fieldAtlas.activeRoute=Array.isArray(fieldAtlas.activeRoute)?fieldAtlas.activeRoute.slice(-700):[];fieldAtlas.routes=Array.isArray(fieldAtlas.routes)?fieldAtlas.routes.slice(-30):[];fieldAtlas.coverSamples=Array.isArray(fieldAtlas.coverSamples)?fieldAtlas.coverSamples.slice(-350):[];}}catch(e){}
+try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');if(atlas?.mapId===FIELD_MAP_ID){fieldAtlas={...fieldAtlas,...atlas};fieldAtlas.visitedCells=fieldAtlas.visitedCells||{};fieldAtlas.unreachableCells=Array.isArray(fieldAtlas.unreachableCells)?fieldAtlas.unreachableCells:[];fieldAtlas.activeRoute=Array.isArray(fieldAtlas.activeRoute)?fieldAtlas.activeRoute.slice(-700):[];fieldAtlas.routes=Array.isArray(fieldAtlas.routes)?fieldAtlas.routes.slice(-30):[];fieldAtlas.coverSamples=Array.isArray(fieldAtlas.coverSamples)?fieldAtlas.coverSamples.slice(-350):[];fieldAtlas.lastPersistAt=0;}}catch(e){}
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
 let developerRoundsCompleted=0,developerRoundBatch=[],developerUploadBusy=false,developerLastUploadError=null;
 try{const dev=JSON.parse(localStorage.getItem(GAME_DEV_STATE_KEY)||'null');if(dev){developerRoundsCompleted=Number(dev.roundsCompleted)||0;developerRoundBatch=Array.isArray(dev.rounds)?dev.rounds.slice(-25):[];}}catch(e){}
@@ -843,7 +844,7 @@ function startDeveloperRecorder(){
  gameLogRecording=true;gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;
  gameLogEvent('field-developer-online',{botId:state.fieldDeveloperId??null,role:'autonomous-field-qa',mission:'collect-gameplay-diagnostics',uploadPolicy:{standardSessionRounds:5,shortSessionsAccumulationRounds:8},roundsCompleted:developerRoundsCompleted});
  gameLogEvent('recording-start',{automatic:true,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();
- const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/5';btn.title='Автосбор логов активен. Отправка каждые 5 раундов.';}
+ const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/8';btn.title='Автосбор: 5 раундов за одну сессию или 8 накопленных раундов коротких тестов';}
  if(developerUploadDue())void uploadDeveloperDiagnosticsBatch();
 }
 function recordDeveloperRound(won){
