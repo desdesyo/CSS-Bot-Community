@@ -246,9 +246,11 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   }
   // Airlock vestibules, observation/control bay and decontamination alcove.
   for(const x of [-9.2,9.2]){
-    box('side laboratory partition north',x,2.3,19.4,3.9,4.6,.22,labWhite,true);
-    box('side laboratory partition south',x,2.3,28.7,3.9,4.6,.22,labWhite,true);
-    box('side laboratory inner divider',x,2.3,24, .22,4.6,5.0,labWhite,true);
+    for(const dx of [-1.65,1.65]){
+      box('side laboratory partition north',x+dx,2.3,19.4,1.35,4.6,.22,labWhite,true);
+      box('side laboratory partition south',x+dx,2.3,28.7,1.35,4.6,.22,labWhite,true);
+    }
+    for(const dz of [-1.65,1.65])box('side laboratory inner divider',x,2.3,24+dz,.22,4.6,1.35,labWhite,true);
     box('side laboratory ceiling light',x,4.72,24,2.7,.08,.55,labCyan,false);
   }
   // Observation windows and sealed control consoles on the west side.
