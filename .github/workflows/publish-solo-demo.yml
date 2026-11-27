@@ -1,11 +1,12 @@
 name: Publish SOLO Engine playable demo
 on:
   push:
-    branches: [feature/solo-crossplay-foundation, feature/browser-27-character-operator-pack]
+    branches: [feature/solo-crossplay-foundation, feature/browser-27-character-operator-pack, feature/solo-engine-v2]
     paths:
       - "engine/client/**"
       - "engine/play.html"
       - "engine/import.html"
+      - "engine/v2/**"
       - ".github/workflows/publish-solo-demo.yml"
   workflow_dispatch:
 permissions:
@@ -27,6 +28,8 @@ jobs:
           cp engine/import.html dist/import.html
           mkdir -p dist/client
           cp -R engine/client/. dist/client/
+          mkdir -p dist/engine/v2
+          cp -R engine/v2/. dist/engine/v2/
           touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
