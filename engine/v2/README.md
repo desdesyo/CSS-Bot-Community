@@ -9,6 +9,7 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 
 ## Current vertical slice
 - WebGL rendering with device-aware antialiasing and shadow-map budgets.
+- Image-based PBR lighting from a prefiltered environment map; irregular wet-cobblestone albedo/normal/roughness layers, chipped brick and cut-stone facade maps, reflected-sky glazing, and a bounded continuous rain particle field.
 - PBR material pipeline and the Wet Ground rain-soaked old-quarter map with low-rise blue-gray buildings, narrow alleys, a canal, three stone bridges, wet cobblestone, puddles and warm lanterns. Both CT and T player deployment points now have bespoke 26m spawn-quarter street fragments with illuminated shopfronts, awnings, deep glazing, street furniture, parked vehicle/bicycle dressing, crosswalks, overhead cables and additional facade normal/roughness maps.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
@@ -33,7 +34,7 @@ This is a new engine foundation and greybox vertical slice, not yet a CSS:S cont
 
 ## Active level: Wet Ground
 - Main reference: user-saved visual reference named “Wet Ground”.
-- Nighttime blue-hour rain atmosphere, a narrow old-quarter street framed by inward-facing low-rise blue-gray masonry, deep-set windows, carved stone doorways, wrought-iron balconies, projecting cornices, rain pipes, reflective wet cobblestone, warm amber lamps, shallow puddles, drainage, overhead wires and layered city depth. Both faction spawn locations receive authored storefront-scale street dressing and facade PBR relief maps. The visual target is a grounded street-level panorama, not a modular abstract arena.
+- Nighttime blue-hour rain atmosphere, a deliberately asymmetric old-quarter district with a central avenue, cross streets, market court, tram stop, loading yard, inner alleys, a walkable west service tunnel, four curved stone arcades, three masonry arch bridges, low-rise blue-gray buildings with pitched slate roofs, deep-set mullioned windows, curtains, carved doorways, iron balconies, rooftop ventilation, rain tanks, pipes, reflective wet cobblestone, puddles, drainage, overhead cables and layered skyline. Both faction spawn areas receive authored storefronts and street furniture. The target is a coherent lived-in street-level city panorama, not a modular abstract arena.
 - A cross-quarter canal divides the map; three stone bridges connect both banks, including a direct continuation of the main avenue. Collision barriers prevent shortcutting across the water, and bridge approaches remain open to players and bots.
 - The central objective is now a detailed biosecure facility: a fully enclosed server chamber with eight equipment racks, access portals, airlocks, a control bay, decontamination storage, emergency power, cable trays, HVAC and two opposing approaches. The bomb/interaction pad is centered in the server room; the tactical minimap marks the complex.
 - Multiple side streets, short cross alleys, recessed entrances and low cover create alternate routes and sightlines. The walkable atlas uses a new map identity so old industrial-district route data is not mixed into this level.
