@@ -198,6 +198,8 @@ test('an allied field developer bot starts automatic QA recording and reports ev
   assert.match(engine, /player-damaged/);
   assert.match(engine, /bot-damaged/);
   assert.match(engine, /bot-shot/);
+  assert.match(engine, /installInputDiagnostics\(\);[\s\S]*gameLogRecording=true/);
+  assert.match(engine, /bot-path-blocked/);
 });
 
 test('field developer preserves pending reports locally if GitHub upload cannot proceed', async () => {
