@@ -368,7 +368,7 @@ function updateBotAI() {
         if(bot.activeWeapon==='knife'){
           if(chosenDistance<2.15&&now>bot.meleeUntil){
             bot.meleeUntil=now+850;
-            if(chosen.kind==='player'){const previousHp=state.hp;state.hp=Math.max(0,state.hp-28);gameLogEvent('player-damaged',{sourceBot:bot.id,weapon:'knife',damage:28,previousHp,remainingHp:state.hp});$('health').textContent='HP '+state.hp;if(state.hp===0)endRound(false);}
+            if(chosen.kind==='player'){const previousHp=state.hp;state.hp=Math.max(0,state.hp-28);gameLogEvent('player-damaged',{sourceBot:bot.id,weapon:'knife',damage:28,previousHp,remainingHp:state.hp});$('health').textContent='HP '+state.hp;if(state.hp===0)handlePlayerDeath('knife');}
             else if(chosen.bot?.alive)damageBot(chosen.bot,45,false);
           }
           bot.fireAt=now+180;
@@ -491,6 +491,9 @@ function killBot(bot,credit=false) {
   bot.health=0;bot.alive=false;bot.deadAt=performance.now();bot.deathStartX=bot.root.rotation.x;
   bot.body.isPickable=false;bot.head.isPickable=false;bot.combatState='dead';bot.target=null;bot.navPath=[];
   stopHumanBot(bot.rig);if(credit){state.kills++;$('kills').textContent='KILLS '+state.kills}
+  if(state.playerDead&&bot.team==='ally'&&bot.id===state.spectatorBotId)cycleSpectator(1);
+  if(state.playerDead&&bot.team==='ally'&&!aliveAllies().length)endRound(false,'TEAM ELIMINATED');
+  if(bot.team==='enemy'&&state.bots.filter(other=>other.team==='enemy'&&other.alive).length===0)endRound(true,'ALL ENEMIES ELIMINATED');
 }
 function damageBot(bot,damage,credit=false) {
   if(!bot?.alive)return;
@@ -542,7 +545,7 @@ function updateBulletPhysics(dt) {
       if(bot&&bot.alive&&bot.team!==p.ownerTeam&&p.damage>0)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(85,p.damage*2):p.damage,p.ownerId==='player');
       if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'&&performance.now()>=state.spawnProtectedUntil){
         const damage=p.damage?Math.max(2,Math.round(p.damage*.22)):6,previousHp=state.hp;state.hp=Math.max(0,state.hp-damage);gameLogEvent('player-damaged',{sourceBot:p.ownerId,weapon:'projectile',damage,previousHp,remainingHp:state.hp});$('health').textContent='HP '+state.hp;
-        if(state.hp===0)endRound(false);
+        if(state.hp===0)handlePlayerDeath('projectile');
       }
       p.life=0;
     }else{
@@ -596,10 +599,10 @@ function reload(){
   },1250);
 }
 function initInput() {
-  window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();if(e.code==='Digit1')selectWeapon('rifle');if(e.code==='Digit2')selectWeapon('pistol');if(e.code==='Digit3')selectWeapon('knife');});
+  window.addEventListener('keydown',e=>{if(state.playerDead&&(e.code==='KeyQ'||e.code==='KeyE')){cycleSpectator(e.code==='KeyE'?1:-1);return;}state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();if(e.code==='Digit1')selectWeapon('rifle');if(e.code==='Digit2')selectWeapon('pistol');if(e.code==='Digit3')selectWeapon('knife');});
   window.addEventListener('keyup',e=>state.keys.delete(e.code));
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
-  window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022*state.lookSensitivity;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022*state.lookSensitivity))}});
+  window.addEventListener('mousemove',e=>{if(!state.playerDead&&document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022*state.lookSensitivity;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022*state.lookSensitivity))}});
   // Desktop firing is canvas-only. Mobile taps must never synthesize a shot; the FIRE pointer control owns touch shooting.
   canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.fireInputSource='desktop-mousedown';state.firing=true;fire()}});
   window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
@@ -611,7 +614,7 @@ function initInput() {
   stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
   const look=$('look');let lookId=null,last=null;
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
-  look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
+  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
@@ -626,7 +629,7 @@ function initInput() {
     const len=Math.hypot(ox,oy),k=Math.min(1,38/Math.max(1,len));
     state.fireStick.x=ox/38*k;state.fireStick.y=oy/38*k;
     fireNub.style.transform='translate('+state.fireStick.x*30+'px,'+state.fireStick.y*30+'px)';
-    camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));
+    if(!state.playerDead){camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));}
   });
   const stopFire=e=>{
     if(e&&fireId!==null&&e.pointerId!==fireId)return;
@@ -635,6 +638,7 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
+  $('spectatorPrev').addEventListener('click',()=>cycleSpectator(-1));$('spectatorNext').addEventListener('click',()=>cycleSpectator(1));
   // Bind each weapon button directly. Document-level capture listeners were unreliable
   // on some Android browsers when the look/fire touch surfaces overlapped the HUD.
   const weaponBar=$('weaponBar');
@@ -715,6 +719,7 @@ function drawMinimap(){
   ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
 function updatePlayer(dt) {
+  if(state.playerDead||!state.started)return;
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
   const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
@@ -734,19 +739,26 @@ function toggleFullscreen(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
   else document.exitFullscreen?.().catch(()=>{});
 }
-function endRound(won){
-  if(state.playerDead)return;
-  // Round completion belongs to the player; no autonomous developer agent records it.
-  state.playerDead=true;state.started=false;state.paused=false;state.firing=false;
-  overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';showMenuTab('play');
-  startButton.textContent='НОВЫЙ РАУНД';startButton.disabled=false;
+function endRound(won,reason='ROUND COMPLETE'){
+  if(state.roundEnding)return;
+  state.roundEnding=true;state.roundEndAt=performance.now()+5200;state.playerDead=true;state.started=false;state.paused=false;state.firing=false;state.reloading=false;
+  $('spectatorHud').hidden=true;$('weaponBar').style.display='none';
+  const winnerTeam=won?state.playerTeam:(state.playerTeam==='CT'?'T':'CT');
+  $('roundWinner').textContent=winnerTeam==='CT'?'COUNTER-TERRORISTS WIN':'TERRORISTS WIN';
+  $('roundWinner').dataset.winner=winnerTeam;
+  $('roundReason').textContent=reason==='TIME EXPIRED'?'ВРЕМЯ РАУНДА ИСТЕКЛО':reason==='TEAM ELIMINATED'?'КОМАНДА УНИЧТОЖЕНА':reason==='ALL ENEMIES ELIMINATED'?'ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':reason;
+  $('roundCountdown').textContent='СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5';
+  $('roundEnd').hidden=false;
+  gameLogEvent('round-ended',{winner:winnerTeam,playerTeam:state.playerTeam,won,reason,round:state.roundNumber,kills:state.kills});
+  startButton.disabled=true;
 }
 function start() {
   const resuming=state.paused&&!state.playerDead;
+  state.roundEnding=false;$('roundEnd').hidden=true;
   if(state.playerDead){
-    state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
-    for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
-    $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
+    state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.simTime=0;state.aiAccumulator=0;state.playerDead=false;state.reloading=false;state.spectatorBotId=null;$('spectatorHud').hidden=true;$('weaponBar').style.display='';for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
+    for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.waypoints=bot.baseWaypoints.map(p=>p.slice());bot.routeCompleted=false;bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navIndex=0;bot.navGoal=null;bot.repathAt=0;bot.combatState='patrol';bot.stuckSince=0;bot.lastProgressX=bot.spawn.x;bot.lastProgressZ=bot.spawn.z;bot.lastProgressAt=performance.now();bot.pathFailures=0;}
+    $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND '+String(state.roundNumber).padStart(2,'0');$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
   if(!resuming){state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;}applyLearnedRoutesToBots();}
@@ -998,6 +1010,7 @@ async function boot() {
     window.__SOLO_GLOW_LAYER__=glowLayer;
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
+    collisionIndex=buildCollisionSpatialIndex(collisionBoxes,8);navigationGrid=buildNavigationGrid(collisionBoxes,.38,1.5);
     playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
@@ -1014,11 +1027,14 @@ async function boot() {
         if(state.firing&&now-state.lastShot>=105)fire();
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         const shieldSeconds=Math.max(0,Math.ceil((state.spawnProtectedUntil-now)/1000));$('safeStatus').textContent=shieldSeconds>0?'SAFE '+shieldSeconds:'';$('safeStatus').style.display=shieldSeconds>0?'inline-flex':'none';
-        if(state.roundTime<=0)endRound(false);
-        const aiTick=mobile?.25:.125;
+        if(state.roundTime<=0)endRound(state.playerTeam==='CT','TIME EXPIRED');
+        const aiTick=mobile?.32:.16;
         if(state.aiAccumulator>=aiTick){state.aiAccumulator%=aiTick;updateBotAI()}
-        if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
+        if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true,'ALL ENEMIES ELIMINATED');
+        if(state.playerDead&&!aliveAllies().length&&!state.roundEnding)endRound(false,'TEAM ELIMINATED');
+        if(state.playerDead)updateSpectatorCamera();
       }
+      if(state.roundEnding){const seconds=Math.max(0,Math.ceil((state.roundEndAt-now)/1000));$('roundCountdown').textContent=seconds>0?'СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ '+seconds:'ЗАГРУЗКА СЛЕДУЮЩЕГО РАУНДА';if(now>=state.roundEndAt){state.roundEnding=false;state.roundNumber++;$('roundEnd').hidden=true;start();}}
       if(state.started&&now-state.minimapAt>=120){drawMinimap();state.minimapAt=now;}
       captureGameplayLog(rawDt,now);
       state.frameSamples.push(Math.min(250,rawDt*1000));
