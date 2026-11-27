@@ -43,3 +43,27 @@ test('camera-relative forward movement matches Babylon camera direction', () => 
   assert.ok(Math.abs(cameraRelativeMovement(0,0,1).x - 1) < 1e-9);
   assert.ok(Math.abs(cameraRelativeMovement(Math.PI,0,1).x + 1) < 1e-9);
 });
+
+
+import { moveWithAabbCollisions } from './engine-core.mjs';
+
+test('player collision stops movement at a wall without tunnelling', () => {
+  const wall = [{ name:'wall', minX:-5, maxX:5, minY:0, maxY:4, minZ:2, maxZ:2.5 }];
+  const result = moveWithAabbCollisions({x:0,y:1.72,z:0},{x:0,z:5},wall,.36,1.72,.1);
+  assert.ok(result.z < 1.65);
+  assert.equal(result.blockedZ,true);
+  assert.deepEqual(result.blockedBy,['wall']);
+});
+test('player collision slides along a wall', () => {
+  const wall = [{ name:'wall', minX:-5, maxX:5, minY:0, maxY:4, minZ:2, maxZ:2.5 }];
+  const result = moveWithAabbCollisions({x:0,y:1.72,z:0},{x:2,z:3},wall,.36,1.72,.1);
+  assert.ok(result.z < 1.65);
+  assert.ok(result.x > 1.9);
+  assert.equal(result.blockedZ,true);
+});
+test('player does not collide with objects outside standing height', () => {
+  const overhead = [{ name:'beam', minX:-5, maxX:5, minY:3, maxY:4, minZ:1, maxZ:2 }];
+  const result = moveWithAabbCollisions({x:0,y:1.72,z:0},{x:0,z:3},overhead,.36,1.72,.1);
+  assert.equal(result.z,3);
+  assert.equal(result.blockedZ,false);
+});
