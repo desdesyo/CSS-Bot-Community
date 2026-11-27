@@ -38,7 +38,7 @@ This is a new engine foundation and greybox vertical slice, not yet a CSS:S cont
 - A cross-quarter canal divides the map; three stone bridges connect both banks, including a direct continuation of the main avenue. Collision barriers prevent shortcutting across the water, and bridge approaches remain open to players and bots.
 - The central objective is now a detailed biosecure facility: a fully enclosed server chamber with eight equipment racks, access portals, airlocks, a control bay, decontamination storage, emergency power, cable trays, HVAC and two opposing approaches. The bomb/interaction pad is centered in the server room; the tactical minimap marks the complex.
 - Multiple side streets, short cross alleys, recessed entrances and low cover create alternate routes and sightlines. The walkable atlas uses a new map identity so old industrial-district route data is not mixed into this level.
-- Procedural cobblestone texture is generated at runtime at 512 px on coarse/mobile devices and 1024 px on desktop; static level transforms/materials are frozen after build. Dynamic point-light count is capped and disabled on mobile.
+- CC0 photogrammetry PBR maps load at 1K on mobile and 2K on desktop; generated procedural maps remain as a fallback if a remote texture fails. Static level transforms/materials are frozen after build. Dynamic point-light count is capped and disabled on mobile.
 
 
 ## Photographic PBR texture credits
