@@ -94,6 +94,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   // Slim segmented first-person arms. Forearms, wrists and hands have independent
   // pivots; the previous single-piece capsules made the sleeves look oversized.
   const arms = node('viewmodel-arms-rig');
+  const armPart=(name,parent,a,b,r,mat)=>capsule(name,parent,a,b,r,mat);
   const leftArm = node('left-arm-pivot', arms);
   const rightArm = node('right-arm-pivot', arms);
   leftArm.position.set(-.43,-.35,.12);
@@ -137,6 +138,21 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const rifle = node('M4A1-realistic-viewmodel');
   const receiver = node('upper-lower-receiver', rifle);
   box('upper receiver',receiver,[0,.02,0],[.15,.115,.39],m.polymer);
+  // Receiver machining, engraved controls and fasteners catch highlights at close range.
+  box('receiver top chamfer',receiver,[0,.083,-.015],[.135,.012,.31],m.polymerEdge);
+  box('receiver left bevel',receiver,[-.076,.012,.005],[.008,.072,.29],m.polymerEdge);
+  box('receiver right bevel',receiver,[.076,.012,.005],[.008,.072,.29],m.polymerEdge);
+  for(const x of [-.079,.079])for(const z of [-.115,-.065,.075,.13]){
+    const screw=B.MeshBuilder.CreateCylinder('receiver recessed fastener',{height:.006,diameter:.014,tessellation:20},scene);
+    screw.parent=receiver;screw.position.set(x,.018,z);screw.rotation.z=Math.PI/2;screw.material=m.metalDark;screw.isPickable=false;screw.renderingGroupId=1;
+    const slot=box('fastener slot',receiver,[x*1.02,.018,z],[.003,.002,.009],m.rubber);
+  }
+  box('ejection port recess',receiver,[-.079,.025,-.02],[.006,.033,.085],m.rubber);
+  box('bolt catch',receiver,[.079,-.035,.045],[.012,.04,.055],m.metal);
+  box('magazine release',receiver,[.082,-.075,.075],[.014,.028,.035],m.metal);
+  box('trigger guard front',receiver,[.035,-.16,.015],[.018,.012,.12],m.metalDark);
+  box('trigger guard rear',receiver,[-.035,-.16,.12],[.018,.012,.12],m.metalDark);
+  
   box('lower receiver',receiver,[0,-.065,.055],[.145,.095,.30],m.polymerEdge);
   box('ejection port',receiver,[-.078,.026,-.02],[.009,.045,.11],m.metalDark);
   box('dust cover',receiver,[-.084,.022,-.02],[.008,.03,.085],m.metal);
@@ -158,6 +174,17 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const handguard = node('free-float-handguard', rifle);
   handguard.position.z=-.29;
   box('MLOK handguard core',handguard,[0,.015,0],[.145,.115,.43],m.polymer);
+  box('handguard top bevel',handguard,[0,.073,-.01],[.125,.018,.40],m.polymerEdge);
+  for(let i=0;i<11;i++){
+    const z=-.19+i*.037;
+    for(const x of [-.076,.076]){
+      const vent=box('handguard recessed vent',handguard,[x,.015,z],[.006,.028,.018],m.rubber);
+      vent.rotation.x=.16;
+    }
+  }
+  for(const x of [-.07,.07])for(let i=0;i<4;i++){
+    cylinder('handguard QD socket',handguard,[x,.015,-.14+i*.09],[x,.015,-.14+i*.09+.004],.012,.012,m.metalDark,20);
+  }
   box('top picatinny rail',handguard,[0,.083,-.015],[.075,.025,.48],m.metalDark);
   box('left accessory rail',handguard,[-.078,.015,0],[.025,.065,.34],m.metalDark);
   box('right accessory rail',handguard,[.078,.015,0],[.025,.065,.34],m.metalDark);
@@ -224,6 +251,14 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   for(let i=0;i<7;i++)box('pistol grip stippling '+i,pistolGrip,[.015,-.115-i*.019,.137],[.067,.007,.006],m.gloveRaised);
   const pistolSlide=node('pistol-reciprocating-slide',pistol);
   box('pistol steel slide',pistolSlide,[.015,-.005,-.12],[.105,.075,.31],m.metalDark);
+  box('pistol slide side flat',pistolSlide,[-.039,-.005,-.12],[.008,.043,.26],m.metal);
+  box('pistol extractor',pistolSlide,[-.041,.005,-.015],[.006,.018,.038],m.metal);
+  box('pistol chamber indicator',pistolSlide,[.071,-.012,-.01],[.005,.012,.025],m.brass);
+  box('pistol rear plate',pistolSlide,[.015,-.005,.041],[.084,.064,.012],m.polymerEdge);
+  for(const x of [-.041,.071])for(const z of [-.23,.015]){
+    const pin=B.MeshBuilder.CreateCylinder('pistol slide pin',{height:.006,diameter:.012,tessellation:18},scene);
+    pin.parent=pistolSlide;pin.position.set(x,-.005,z);pin.rotation.z=Math.PI/2;pin.material=m.metal;pin.isPickable=false;pin.renderingGroupId=1;
+  }
   box('pistol slide top flat',pistolSlide,[.015,.035,-.12],[.075,.012,.28],m.metal);
   box('pistol front sight',pistolSlide,[.015,.042,-.255],[.025,.018,.018],m.metal);
   box('pistol rear sight',pistolSlide,[.015,.042,.005],[.055,.025,.018],m.metal);
@@ -253,6 +288,12 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   box('knife crossguard',knifeHandle,[.015,-.085,-.025],[.13,.025,.035],m.metalDark);
   const blade=node('knife-blade',knife);
   box('knife blade spine',blade,[.015,-.075,-.205],[.055,.025,.34],m.metal);
+  box('knife blade fuller',blade,[.015,-.059,-.205],[.012,.004,.245],m.metalDark);
+  box('knife ricasso',blade,[.015,-.075,-.045],[.062,.03,.055],m.metalDark);
+  for(let i=0;i<5;i++){
+    const jimp=box('knife spine jimping',blade,[.015,-.057,-.015+i*.012],[.06,.006,.004],m.metalDark);
+    jimp.rotation.z=.04;
+  }
   box('knife cutting bevel',blade,[.015,-.092,-.205],[.045,.012,.31],m.metalDark);
   box('knife edge highlight',blade,[.015,-.101,-.205],[.012,.006,.28],m.metal);
   const tip=B.MeshBuilder.CreateCylinder('knife-point',{height:.12,diameterTop:0,diameterBottom:.055,tessellation:4},scene);
