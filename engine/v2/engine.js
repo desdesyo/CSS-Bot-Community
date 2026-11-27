@@ -857,7 +857,7 @@ function recordDeveloperRound(won){
  const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/8';btn.title='Отправка: после 5 раундов в одной сессии или после 8 раундов из коротких тестов';}
  if(developerUploadDue())void uploadDeveloperDiagnosticsBatch();
 }
-function developerUploadDue(){return developerSessionRounds>=5||(developerSessionRounds<5&&developerRoundBatch.length>=8);}
+function developerUploadDue(){return developerForceUpload||developerSessionRounds>=5||(developerSessionRounds<5&&developerRoundBatch.length>=8);}
 async function uploadDeveloperDiagnosticsBatch(){
  if(developerUploadBusy||!developerUploadDue())return false;
  const token=savedGameplayToken();
