@@ -494,8 +494,16 @@ function collectIssueSceneContext(){
  visibleMeshes.sort((a,b)=>a.distance-b.distance);
  return {camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
 }
-function captureIssueScreenshot(){
- try{const url=canvas.toDataURL('image/png');if(url&&url.startsWith('data:image/png;base64,')&&url.length>5000)return url.split(',')[1]}catch(error){return {error:String(error)}}
+async function captureIssueScreenshot(){
+ try{
+  const size={width:Math.min(1280,Math.max(640,canvas.clientWidth)),height:Math.min(960,Math.max(360,canvas.clientHeight))};
+  const tools=BABYLON.Tools;
+  if(typeof tools.CreateScreenshotUsingRenderTargetAsync==='function'){
+   const url=await tools.CreateScreenshotUsingRenderTargetAsync(engine,camera,size,'image/png');
+   if(url&&url.startsWith('data:image/png;base64,')&&url.length>5000)return url.split(',')[1];
+  }
+  const fallback=canvas.toDataURL('image/png');if(fallback&&fallback.startsWith('data:image/png;base64,')&&fallback.length>5000)return fallback.split(',')[1];
+ }catch(error){console.warn('Issue screenshot capture failed',error)}
  return null;
 }
 async function uploadIssueFile(path,content,message,token){
@@ -507,7 +515,7 @@ async function submitIssueReport(){
  if(issueReportBusy)return;
  const description=prompt('Что именно здесь не так? Например: невидимая стена, текстура, прозрачная стена, непроходимый проход. Можно оставить пустым.');
  if(description===null)return;
- const context=collectIssueSceneContext(),screenshot=captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
+ const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
  const report={app:'SOLO Engine V2',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40)}};
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
