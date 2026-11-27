@@ -306,8 +306,11 @@ function updateSpectatorCamera(){
   if(!state.playerDead||state.roundEnding)return;
   let bot=state.bots.find(candidate=>candidate.id===state.spectatorBotId&&candidate.alive);
   if(!bot){const next=selectNextLivingBot(aliveAllies(),state.spectatorBotId,1);if(!next){endRound(false,'TEAM ELIMINATED');return;}setSpectatorTarget(next);bot=next;}
-  camera.position.set(bot.root.position.x,bot.root.position.y+1.58,bot.root.position.z);
-  camera.rotation.x=0;camera.rotation.y=bot.root.rotation.y;camera.rotation.z=0;
+  const yaw=bot.root.rotation.y;
+  // Keep the first-person spectator eye just ahead of the soldier's face mesh;
+  // placing it at the head's origin caused the camera to render inside the face.
+  camera.position.set(bot.root.position.x+Math.sin(yaw)*.26,bot.root.position.y+1.58,bot.root.position.z+Math.cos(yaw)*.26);
+  camera.rotation.x=0;camera.rotation.y=yaw;camera.rotation.z=0;
 }
 function updateBotAI() {
   const now=performance.now();
@@ -921,11 +924,11 @@ async function stopAndUploadGameplayLog(){
 
 let issueReportBusy=false;
 function collectIssueSceneContext(){
- const hit=scene.pick(canvas.width/2,canvas.height/2,m=>m.isEnabled()&&m.isVisible);
+ const hit=scene.pick(canvas.width/2,canvas.height/2,m=>m.isEnabled()&&m.isVisible&&m.name!=='player-hitbox'&&!m.isDescendantOf?.(camera));
  const picked=hit?.hit?hit.pickedMesh:null;
  const visibleMeshes=[];
  for(const mesh of scene.meshes){
-  if(!mesh||mesh===scene.activeCamera||!mesh.isEnabled()||!mesh.isVisible||mesh.visibility===0)continue;
+  if(!mesh||mesh===scene.activeCamera||!mesh.isEnabled()||!mesh.isVisible||mesh.visibility===0||mesh.name==='player-hitbox'||mesh.isDescendantOf?.(camera))continue;
   let p;try{p=mesh.getBoundingInfo().boundingSphere.centerWorld}catch(e){continue}
   const d=BABYLON.Vector3.Distance(camera.position,p);
   if(d<18)visibleMeshes.push({name:mesh.name,type:mesh.getClassName?.()||'Mesh',distance:+d.toFixed(2),position:{x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2)},visible:mesh.isVisible,visibility:mesh.visibility,material:mesh.material?.name||null,materialAlpha:mesh.material?.alpha??null,checkCollisions:!!mesh.checkCollisions,enabled:mesh.isEnabled()});
