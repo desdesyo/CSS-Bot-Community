@@ -3,20 +3,11 @@ const canvas = $('renderCanvas');
 if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Не найден canvas#renderCanvas в index.html');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward } from './engine-core.mjs';
+import { buildExpandedDust2 } from './dust2-map.mjs';
+import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
 const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
-const PLAYER_BLOCKERS = [
-  [-22,-18,9,1],[22,-18,9,1],[-22,17,9,1],[22,17,9,1],[0,-30,1,9],[0,30,1,9],[-39,0,1,11],[39,0,1,11],
-  [-12,-9,1.55,1.55],[12,-9,1.55,1.55],[-12,10,1.55,1.55],[12,10,1.55,1.55],[-31,-22,1.55,1.55],[31,-22,1.55,1.55],[-31,22,1.55,1.55],[31,22,1.55,1.55],[-3,0,1.55,1.55],[3,0,1.55,1.55],
-  [-8,-27,2.8,1],[8,-27,2.8,1],[-8,27,2.8,1],[8,27,2.8,1]
-];
-function isPlayerBlocked(x,z) {
-  for(let i=0;i<PLAYER_BLOCKERS.length;i++){
-    const r=PLAYER_BLOCKERS[i];
-    if(Math.abs(x-r[0])<r[2]+.38&&Math.abs(z-r[1])<r[3]+.38)return true;
-  }
-  return false;
-}
+function isPlayerBlocked(x,z) { return isDust2Blocked(x,z); }
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
   m.albedoColor = BABYLON.Color3.FromHexString(color); m.roughness = roughness; m.metallic = metallic;
@@ -29,26 +20,7 @@ function box(name, x,y,z, sx,sy,sz, material, cast=true) {
   if(cast) shadowGen.addShadowCaster(m);
   return m;
 }
-function buildMap() {
-  const groundMat=mat('asphalt','#454c4b',.94), concrete=mat('aged concrete','#777b75',.9), dark=mat('painted steel','#303a3b',.48,.62), crateMat=mat('crate composite','#685d4b',.86), yellow=mat('safety paint','#b38a3e',.62,.2);
-  const ground=BABYLON.MeshBuilder.CreateGround('ground',{width:112,height:92,subdivisions:2},scene);ground.material=groundMat;ground.receiveShadows=true;
-  box('back wall',0,3,-44,112,6,1.2,concrete);box('left wall',-56,3,0,1.2,6,90,concrete);box('right wall',56,3,0,1.2,6,90,concrete);box('front wall',0,3,44,112,6,1.2,concrete);
-  // Industrial lanes, cover and sightline breaks.
-  for(const [x,z,w,d] of [[-22,-18,18,2],[22,-18,18,2],[-22,17,18,2],[22,17,18,2],[0,-30,2,18],[0,30,2,18],[-39,0,2,22],[39,0,2,22]]) box('partition',x,2.2,z,w,4.4,d,concrete);
-  const prototype=box('crate prototype',0,1,0,2.4,2,2.4,crateMat);
-  for(const [x,z,s] of [[-12,-9,1],[12,-9,1],[-12,10,1],[12,10,1],[-31,-22,1],[31,-22,1],[-31,22,1],[31,22,1],[-3,0,1],[3,0,1]]) {
-    const c=prototype.createInstance('crate');c.position.set(x,1,z);c.scaling.set(s,1,s);c.receiveShadows=true;
-  }
-  prototype.isVisible=false;
-  for(const x of [-48,-32,-16,0,16,32,48]) box('overhead beam',x,5.7,-5,0.22,.22,72,dark,false);
-  for(const z of [-36,-24,24,36]) box('warning stripe',0,.025,z,90,.035,.16,yellow,false);
-  for(const x of [-42,42]) {
-    const lamp=box('industrial lamp',x,5.25,0,4,.12,1.2,yellow,false);
-    const light=new BABYLON.PointLight('work light',new BABYLON.Vector3(x,5,0),scene);light.diffuse=new BABYLON.Color3(.82,.72,.52);light.intensity=mobile?.35:.65;light.range=18;
-  }
-  // Distinct tactical zones and low cover to force readable movement.
-  for(const [x,z] of [[-8,-27],[8,-27],[-8,27],[8,27]]) box('low cover',x,.7,z,5,1.4,1.2,dark);
-}
+function buildMap() { buildExpandedDust2(BABYLON,scene,shadowGen,mat,box); }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
   const uniform=team==='enemy'?enemyMaterial:allyMaterial;
@@ -62,17 +34,14 @@ function makeBot(id, team, x,z, waypoints) {
   const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
   const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
   root.position.set(x,0,z);
-  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:team==='enemy'?2.7:2.45,phase:id*.73,health:100,alive:true,fireAt:0});
+  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0});
   return root;
 }
 function buildBots() {
-  const routes=[
-    [[-36,-30],[-36,-14],[-32,14],[-32,21],[-20,31]], [[36,-30],[36,-14],[32,14],[32,21],[20,31]],
-    [[-44,8],[-43,13],[-42,15],[-32,15],[-32,24],[-24,24]], [[44,8],[43,13],[42,15],[32,15],[32,24],[24,24]],
-    [[-18,-35],[-8,-18],[8,-12],[18,-32]], [[18,35],[8,18],[-8,12],[-18,32]]
-  ];
-  makeBot(1,'enemy',-36,-30,routes[0]);makeBot(2,'enemy',36,-30,routes[1]);makeBot(3,'enemy',-44,8,routes[2]);
-  makeBot(4,'enemy',44,8,routes[3]);makeBot(5,'ally',-18,-35,routes[4]);makeBot(6,'ally',18,35,routes[5]);
+  const r=DUST2_EXPANDED.botRoutes,ct=DUST2_EXPANDED.spawns.ct,t=DUST2_EXPANDED.spawns.t;
+  makeBot(1,'enemy',ct.x-8,ct.z,r[0]);makeBot(2,'enemy',ct.x+8,ct.z,r[1]);
+  makeBot(3,'ally',t.x-12,t.z,r[2]);makeBot(4,'ally',t.x+12,t.z,r[3]);
+  makeBot(5,'enemy',-92,-12,r[4]);makeBot(6,'ally',92,12,r[5]);
 }
 function updateBotAI() {
   // Expensive tactical decisions run at 8 Hz; movement is deliberately not stepped here.
@@ -139,7 +108,7 @@ function updatePlayer(dt) {
   if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
 }
 function start() {
-  state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,Math.PI,0);
+  state.started=true;overlay.style.display='none';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.72,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -150,7 +119,7 @@ async function boot() {
     engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:!mobile,powerPreference:'high-performance',audioEngine:false},false);
     engine.setHardwareScalingLevel(1/Math.min(deviceDpr,targetDpr*state.scale));
     scene=new B.Scene(engine);scene.clearColor=new B.Color4(.12,.16,.17,1);scene.ambientColor=new B.Color3(.18,.18,.17);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new B.Color3(.22,.25,.24);
-    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,38),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
+    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,38),scene);camera.minZ=.08;camera.maxZ=260;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.68;hemi.diffuse=new B.Color3(.77,.81,.83);hemi.groundColor=new B.Color3(.24,.25,.22);
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
