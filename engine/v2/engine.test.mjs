@@ -10,7 +10,7 @@ const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.ur
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-5'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-6'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -24,7 +24,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-5'));
+  assert.ok(html.includes('./engine.js?v=20261127-6'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -111,4 +111,22 @@ test('player fire ray excludes the players own hitbox to avoid self-hit', () => 
   const fireBody=runtime.slice(runtime.indexOf('function fire()'),runtime.indexOf('function reload()'));
   assert.ok(fireBody.includes('scene.pickWithRay(ray,m=>isMapSolid(m)'));
   assert.ok(!fireBody.includes('m===state.playerHitbox'));
+});
+
+test('weapon wheel and all four weapon categories are wired to desktop, gamepad and touch', () => {
+  for (const id of ['rifle','pistol','grenade','knife']) assert.ok(runtime.includes("'"+id+"'"));
+  assert.ok(runtime.includes("if(e.code==='Tab')"));
+  assert.ok(runtime.includes("if(e.code>='Digit1'&&e.code<='Digit4')"));
+  assert.ok(runtime.includes("pad.buttons?.[4]?.pressed"));
+  assert.ok(runtime.includes("$('weaponButton').addEventListener"));
+  assert.ok(html.includes('id="weaponWheel"'));
+  assert.ok(html.includes('data-weapon="rifle"'));
+  assert.ok(html.includes('data-weapon="grenade"'));
+});
+test('weapon fire uses per-weapon ammo, cadence and reload state', () => {
+  assert.ok(runtime.includes('function currentWeapon()'));
+  assert.ok(runtime.includes("if(state.weapon==='grenade')"));
+  assert.ok(runtime.includes("if(state.weapon==='knife')"));
+  assert.ok(runtime.includes('function reload(){const w=currentWeapon()'));
+  assert.ok(runtime.includes('updateAmmoHud();'));
 });
