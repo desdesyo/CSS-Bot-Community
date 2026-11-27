@@ -679,6 +679,106 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     puddle.reflectionTexture=wetMirror;
   }
 
+
+  // SECOND-PASS ENVIRONMENT DETAIL: readable street infrastructure and evidence
+  // of long-term use. These are static, non-colliding props; gameplay bounds stay intact.
+  const acHousing=mat('weathered rooftop AC enamel','#59656a',.62,.28);
+  const acGrille=mat('AC fan grille dark steel','#202a30',.48,.62);
+  const runoff=mat('old rain runoff streaks','#17242e',.96);
+  const cableMat=mat('overhead utility cable rubber','#101820',.74,.18);
+  const litterMat=mat('wet paper and street debris','#77736a',.94);
+  const brokenStone=mat('broken limestone chips','#69717a',.96);
+  const rippleMat=mat('puddle ripple highlights','#8da9b7',.2,.12);
+
+  // Individual wall-mounted air conditioners: casing, fan guard, drain hose and
+  // dirty runoff beneath each unit give the facades believable scale.
+  const acSites=[
+    [-25,-32,'west'],[-20,-5,'west'],[-26,17,'west'],[-17,35,'west'],
+    [25,-32,'east'],[27,-7,'east'],[21,17,'east'],[27,36,'east']
+  ];
+  for(const [x,z,side] of acSites){
+    const faceX=x+(side==='west'?-1:1)*.42,dir=side==='west'?-1:1;
+    box('wall mounted AC compressor',faceX,5.05,z,1.18,.68,.72,acHousing,false);
+    box('AC front grille bezel',faceX+dir*.38,5.05,z,.055,.48,.52,iron,false);
+    const fan=B.MeshBuilder.CreateCylinder('AC fan rotor housing',{diameter:.34,height:.045,tessellation:20},scene);
+    fan.position.set(faceX+dir*.42,5.05,z);fan.rotation.z=Math.PI/2;fan.material=acGrille;fan.isPickable=false;
+    for(let k=0;k<5;k++){
+      const fin=box('AC ventilation fin',faceX+dir*.455,4.86+k*.095,z,.025,.025,.44,trim,false);
+      fin.isPickable=false;
+    }
+    const hose=B.MeshBuilder.CreateTube('AC condensate drain hose',{path:[
+      new B.Vector3(faceX+dir*.28,4.7,z+.28),
+      new B.Vector3(faceX+dir*.34,4.25,z+.3),
+      new B.Vector3(faceX+dir*.38,4.12,z+.3)
+    ],radius:.035,tessellation:6},scene);
+    hose.material=iron;hose.isPickable=false;
+    box('AC dirty runoff stain',faceX+dir*.03,3.62,z+.36,.52,1.1,.025,runoff,false);
+  }
+
+  // Sagging bundled telecom/power lines connect opposite street elevations.
+  // The low-poly tube count is deliberately capped for mobile GPU budgets.
+  const wireSpans=[-25,-2,21];
+  for(let i=0;i<wireSpans.length;i++){
+    const z=wireSpans[i];
+    for(let strand=0;strand<(mobile?1:2);strand++){
+      const offset=strand*.22;
+      const wire=B.MeshBuilder.CreateTube('sagging overhead utility cable',{
+        path:[
+          new B.Vector3(-12,7.35-offset,z),
+          new B.Vector3(-7,6.85-offset,z+.35),
+          new B.Vector3(0,6.58-offset,z+.62),
+          new B.Vector3(7,6.85-offset,z+.35),
+          new B.Vector3(12,7.35-offset,z)
+        ],radius:.018,tessellation:5},scene);
+      wire.material=cableMat;wire.isPickable=false;
+    }
+  }
+  // Junction boxes and ceramic insulators make the cable runs look attached,
+  // rather than floating decorative lines.
+  for(const [x,z] of [[-11.8,-25],[-11.8,-2],[-11.8,21],[11.8,-25],[11.8,-2],[11.8,21]]){
+    box('utility cable junction box',x,7.08,z,.34,.48,.28,iron,false);
+    for(let n=0;n<2;n++){
+      const insulator=B.MeshBuilder.CreateCylinder('porcelain cable insulator',{diameter:.11,height:.18,tessellation:8},scene);
+      insulator.position.set(x+(x<0?.23:-.23),7.32,z+n*.16-.08);
+      insulator.rotation.z=Math.PI/2;insulator.material=trim;insulator.isPickable=false;
+    }
+  }
+
+  // Fine wet debris sits against kerbs and walls, not in the centre of combat lanes.
+  let debrisSeed=48271;
+  const debrisRand=()=>((debrisSeed=(debrisSeed*1664525+1013904223)>>>0)/4294967296);
+  const debrisCount=mobile?22:46;
+  for(let i=0;i<debrisCount;i++){
+    const side=i%2===0?-1:1;
+    const x=side*(5.8+debrisRand()*2.0),z=-38+debrisRand()*76;
+    const width=.12+debrisRand()*.34,height=.018+debrisRand()*.025,depth=.1+debrisRand()*.28;
+    const shard=box('kerbside wet paper rubble',x,.085,z,width,height,depth,i%3===0?brokenStone:litterMat,false);
+    shard.rotation.y=debrisRand()*Math.PI;
+    shard.rotation.x=(debrisRand()-.5)*.08;
+  }
+  // A few concentric water rings catch lantern highlights and make puddles read
+  // as shallow liquid rather than dark flat decals.
+  for(const [x,z,d] of [[-4,-35,.86],[4,-29,.62],[-3,-18,.74],[4,-11,.56],[-4,-4,.82],[3,7,.64],[-4,16,.72],[4,25,.58]]){
+    const ring=B.MeshBuilder.CreateTorus('subtle rain puddle ripple',{diameter:d,thickness:.012,tessellation:24},scene);
+    ring.position.set(x,.078,z);ring.rotation.x=Math.PI/2;ring.material=rippleMat;ring.isPickable=false;
+  }
+
+  // The facility entrance is visibly identifiable from the street approach.
+  const bioSign=mat('biosecure entrance sign face','#162a32',.38,.24);
+  const bioSignTexture=new B.DynamicTexture('BIOSECURE facility entrance lettering',{width:512,height:128},scene,false);
+  const bioCtx=bioSignTexture.getContext();
+  bioCtx.fillStyle='#14232b';bioCtx.fillRect(0,0,512,128);
+  bioCtx.strokeStyle='#c89b59';bioCtx.lineWidth=5;bioCtx.strokeRect(7,7,498,114);
+  bioCtx.fillStyle='#e4c58e';bioCtx.font='bold 42px Arial';bioCtx.textAlign='center';bioCtx.textBaseline='middle';
+  bioCtx.fillText('BIOSECURE  /  RESEARCH',256,49);
+  bioCtx.fillStyle='#9fb5ba';bioCtx.font='bold 19px Arial';bioCtx.fillText('AUTHORIZED PERSONNEL ONLY',256,91);
+  bioSignTexture.update(false);bioSign.diffuseTexture=bioSignTexture;bioSign.emissiveTexture=bioSignTexture;bioSign.disableLighting=true;
+  const facilitySign=box('readable biosecure facility entrance sign',0,5.45,35.28,6.2,1.45,.08,bioSign,false);
+  facilitySign.isPickable=false;
+  const warning=box('biohazard warning plaque',-4.15,3.65,35.28,.82,.82,.08,labAmber,false);
+  warning.isPickable=false;
+  box('facility sign rain hood',0,6.24,35.18,6.55,.12,.42,iron,false);
+
   const staticMeshes=[...colliders,...merged],materials=new Set();
   for(const m of staticMeshes){
     m.computeWorldMatrix(true);m.freezeWorldMatrix();
