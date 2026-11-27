@@ -1,0 +1,92 @@
+name: Deploy SOLO Engine V2 preview
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-solo-engine-v2-preview.yml"
+  workflow_run:
+    workflows:
+      - "SOLO Engine V2 source checks"
+    types:
+      - completed
+    branches:
+      - feature/solo-engine-v2
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: solo-engine-v2-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the exact V2 source revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'feature/solo-engine-v2' }}
+
+      - name: Verify V2 entry points and tests
+        run: |
+          test -s engine/v2/index.html
+          test -s engine/v2/engine.js
+          test -s engine/v2/engine-core.mjs
+          test -s engine/v2/human-bots.mjs
+          node --check engine/v2/engine.js
+          node --check engine/v2/human-bots.mjs
+          node --test engine/v2/engine.test.mjs
+
+      - name: Build Pages artifact and fetch licensed 3D assets
+        run: |
+          mkdir -p _site/engine/v2/assets
+          cp -R engine/v2/. _site/engine/v2/
+
+          models=(
+            military-male-01.glb
+            military-male-02.glb
+            military-male-03.glb
+            military-male-04.glb
+            military-female-01.glb
+            military-female-02.glb
+          )
+          for file in "${models[@]}"; do
+            curl --fail --location --retry 3 --retry-delay 2 \
+              "https://models.codelove.in/models/$file" \
+              --output "_site/engine/v2/assets/$file"
+            test "$(wc -c < "_site/engine/v2/assets/$file")" -gt 100000
+          done
+
+          animations=(
+            m_idle_neutral_01.glb
+            m_walk_neutral_01.glb
+            m_run_neutral_01.glb
+          )
+          for file in "${animations[@]}"; do
+            curl --fail --location --retry 3 --retry-delay 2 \
+              "https://models.codelove.in/animations/$file" \
+              --output "_site/engine/v2/assets/$file"
+            test "$(wc -c < "_site/engine/v2/assets/$file")" -gt 10000
+          done
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
