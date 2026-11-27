@@ -109,12 +109,12 @@ const SOLDIER_MODEL_URLS=['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/exam
 function setBotAnimation(bot,kind){
  if(!bot.realAnimations?.length)return;const key=kind.toLowerCase();
  const next=bot.realAnimations.find(a=>a.name.toLowerCase()===key)||bot.realAnimations.find(a=>a.name.toLowerCase().includes(key))||bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
- if(!next||bot.realAnimation===next)return;bot.realAnimations.forEach(a=>{if(a!==next)a.stop()});next.start(true);next.speedRatio=kind==='run'?1.12:1;bot.realAnimation=next;
+ if(!next||bot.realAnimation===next)return;bot.realAnimations.forEach(a=>{if(a!==next)a.stop()});next.start(true);next.speedRatio=kind==='run'?.92:1;bot.realAnimation=next;
 }
 function attachSoldierModel(bot){
  if(!soldierAssetContainer||bot.realModel)return;
  const instance=soldierAssetContainer.instantiateModelsToScene(name=>'soldier-'+bot.id+'-'+name,true);
- const rig=new BABYLON.TransformNode('soldier-rig-'+bot.id,scene);rig.parent=bot.root;rig.rotation.y=0;
+ const rig=new BABYLON.TransformNode('soldier-rig-'+bot.id,scene);rig.parent=bot.root;rig.rotation.y=Math.PI;
  for(const node of instance.rootNodes)node.parent=rig;rig.computeWorldMatrix(true);
  const bounds=rig.getHierarchyBoundingVectors(true),height=bounds.max.y-bounds.min.y;
  if(!Number.isFinite(height)||height<.5||height>5){rig.dispose(false,true);instance.animationGroups.forEach(a=>a.dispose());throw new Error('Invalid soldier model height: '+height)}
@@ -124,7 +124,7 @@ function attachSoldierModel(bot){
  for(const part of [bot.body,bot.head,bot.leftArm,bot.rightArm,bot.leftLeg,bot.rightLeg,bot.pack,bot.gun])if(part)part.visibility=0;
  for(const part of bot.fallbackParts||[])if(part)part.visibility=0;bot.realModel=rig;bot.realAnimations=instance.animationGroups||[];
  const run=bot.realAnimations.find(a=>/run|walk/i.test(a.name)),idle=bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
- if(run){run.start(true);run.speedRatio=1.12;bot.realAnimation=run}else if(idle){idle.start(true);bot.realAnimation=idle}
+ if(run){run.start(true);run.speedRatio=.92;bot.realAnimation=run}else if(idle){idle.start(true);bot.realAnimation=idle}
 }
 async function loadRealSoldiers(){
  if(soldierLoadPromise)return soldierLoadPromise;
@@ -179,12 +179,13 @@ function updateBotMotion(dt) {
   for(const bot of state.bots) {
     if(!bot.alive) continue;
     const target=bot.waypoints[bot.index];
+    const moveX=target[0]-bot.root.position.x,moveZ=target[1]-bot.root.position.z;
     const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},{x:target[0],z:target[1]},bot.speed,dt);
     bot.root.position.x=next.x;bot.root.position.z=next.z;
-    const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
+    const yaw=Math.atan2(moveX,moveZ);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*8;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.88+Math.abs(Math.sin(bot.phase*2))*.018;
+    bot.phase+=dt*6.6;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.88+Math.abs(Math.sin(bot.phase*2))*.018;
     bot.head.position.y=1.64+Math.abs(Math.sin(bot.phase*2))*.012;if(bot.realAnimations?.length)setBotAnimation(bot,'run');
   }
 }
@@ -227,22 +228,25 @@ function findAssistedAimDirection(){
   // Gentle, short-range aim assist. It never acquires targets outside the centre cone or through walls.
   return BABYLON.Vector3.Lerp(forward,best.dir,.42).normalize();
 }
-function spawnBallisticProjectile(origin,direction,damage){
- const material=new BABYLON.StandardMaterial('player-projectile-'+performance.now(),scene);material.disableLighting=true;material.emissiveColor=new BABYLON.Color3(1,.78,.34);
- const mesh=BABYLON.MeshBuilder.CreateSphere('player-projectile',{diameter:.045,segments:6},scene);mesh.material=material;mesh.position.copyFrom(origin);mesh.isPickable=false;
- const trail=BABYLON.MeshBuilder.CreateLines('player-projectile-trail',{points:[origin.clone(),origin.subtract(direction.scale(.38))],updatable:true},scene);trail.color=new BABYLON.Color3(1,.72,.35);trail.isPickable=false;
- state.projectiles.push({mesh,material,trail,velocity:direction.clone().normalize().scale(235),life:1.15,damage});
-}
-function disposeProjectile(p){p.mesh.dispose();p.material.dispose();p.trail.dispose()}
-function updateProjectiles(dt){
- for(let i=state.projectiles.length-1;i>=0;i--){const p=state.projectiles[i],from=p.mesh.position.clone();p.velocity.y-=9.81*dt;
-  const next=from.add(p.velocity.scale(dt)),segment=next.subtract(p.mesh.position),distance=segment.length();
-  if(distance>.0001){const ray=new BABYLON.Ray(p.mesh.position.clone(),segment.scale(1/distance),distance);const hit=scene.pickWithRay(ray,m=>m!==state.playerHitbox&&(m.name.startsWith('body-')||m.name.startsWith('head-')||isMapSolid(m)));
-   if(hit?.hit&&hit.pickedMesh){const target=hit.pickedMesh;if(target.metadata?.breakableWindow){target.isPickable=false;target.isVisible=false}else{const bot=state.bots.find(b=>target.parent===b.root);if(bot&&bot.team==='enemy'&&bot.alive){bot.health-=target.name.startsWith('head-')?100:p.damage;if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false)}}}p.mesh.position.copyFrom(hit.pickedPoint||next);disposeProjectile(p);state.projectiles.splice(i,1);continue}}
-  p.mesh.position.copyFrom(next);p.life-=dt;BABYLON.MeshBuilder.CreateLines('player-projectile-trail',{points:[next,next.subtract(p.velocity.clone().normalize().scale(.38))],instance:p.trail});
-  if(p.life<=0||next.y<.05){disposeProjectile(p);state.projectiles.splice(i,1)}
+function resolveHitscanShot(origin,direction,damage,range){
+ const ray=new BABYLON.Ray(origin,direction,range);
+ const hit=scene.pickWithRay(ray,mesh=>{
+  if(!mesh||mesh===state.playerHitbox)return false;
+  if(mesh.name.startsWith('body-')||mesh.name.startsWith('head-'))return mesh.isEnabled()&&mesh.isVisible;
+  return isMapSolid(mesh);
+ });
+ if(!hit?.hit||!hit.pickedMesh)return false;
+ const target=hit.pickedMesh;
+ if(target.metadata?.breakableWindow){target.isPickable=false;target.isVisible=false;return true;}
+ const bot=state.bots.find(b=>target.parent===b.root);
+ if(bot&&bot.team==='enemy'&&bot.alive){
+  const head=target.name.startsWith('head-');
+  bot.health-=head?100:damage;
+  if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);}
  }
+ return true;
 }
+
 function fire() {
   if(!state.started||state.wheelOpen||state.reloading)return;
   const w=currentWeapon(),now=performance.now();
@@ -269,7 +273,7 @@ function fire() {
   const spread=state.weapon==='pistol'?.0025:.0011+Math.random()*.0018;
   const direction=forward.add(right.scale((Math.random()-.5)*spread)).add(new BABYLON.Vector3(0,(Math.random()-.5)*spread,0)).normalize();
   state.weaponKick=.04;showMuzzleFlash();state.recoilPitch=Math.min(.09,state.recoilPitch+.012+Math.random()*.004);
-  spawnBallisticProjectile(origin,direction,w.damage);updateAmmoHud();
+  resolveHitscanShot(origin,direction,w.damage,w.range);updateAmmoHud();
 }
 
 const PAD_DEADZONE=.16;
@@ -406,7 +410,7 @@ async function boot() {
       updateGamepad(dt);
       if(state.started) {
         if(state.firing)fire();
-        updateProjectiles(dt);
+
         if(state.recoilPitch){camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+state.recoilPitch));state.recoilPitch*=Math.exp(-dt*20);if(state.recoilPitch<.00008)state.recoilPitch=0;}
         if(state.weaponKick){for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ+state.weaponKick;}state.weaponKick*=Math.exp(-dt*45);if(state.weaponKick<.0005){state.weaponKick=0;for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ;}}}
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
