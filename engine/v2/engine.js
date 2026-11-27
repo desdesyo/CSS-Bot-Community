@@ -70,9 +70,11 @@ function buildPlayerWeapon(){
   // Arms, gloves and rifle are all camera-space meshes, not floating UI sprites.
   weaponRoot=new BABYLON.TransformNode('player-rifle-viewmodel',scene);
   weaponRoot.parent=camera;
-  weaponRoot.position.set(.18,-.27,-.92);
+  weaponRoot.position.set(.18,-.27,.72);
   weaponRoot.scaling.setAll(1.22);
-  weaponRoot.rotation.set(0,0,0);
+  // Babylon's default FPS camera looks along local +Z; rotate the viewmodel
+  // so the rifle muzzle points forward instead of placing it behind the camera.
+  weaponRoot.rotation.set(0,Math.PI,0);
   weaponRoot.setEnabled(true);
 
   const sleeve=mat('player combat uniform','#4b5547',.94,0);
