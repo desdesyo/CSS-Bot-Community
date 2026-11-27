@@ -255,6 +255,12 @@ test('Wet Ground district has curved masonry bridges, a walkable service tunnel 
   assert.match(map, /roof ventilation curb/);
   assert.match(map, /continuous curved limestone arcade arch/);
   assert.match(map, /cobblestone variable roughness map/);
+  assert.match(map, /loadScannedPbr/);
+  assert.match(map, /cobblestone_pavement/);
+  assert.match(map, /stone_wall/);
+  assert.match(map, /worn_brick_wall/);
+  assert.match(map, /plastered_wall_05/);
+  assert.match(map, /mobile\?'1k':'2k'/);
 });
 test('Wet Ground renderer enables image-based reflections for physically based materials', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
