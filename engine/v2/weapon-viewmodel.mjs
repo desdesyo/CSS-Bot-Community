@@ -91,6 +91,17 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     return mesh;
   };
 
+  const roundedBox = (name,parent,pos,size,mat,radius=.018) => {
+    const [w,h,d]=size, r=Math.min(radius,w*.22,h*.22);
+    const core=B.MeshBuilder.CreateBox(name+' core',{width:Math.max(.001,w-2*r),height:Math.max(.001,h-2*r),depth:d},scene);
+    core.parent=parent;core.position.set(...pos);core.material=mat;core.isPickable=false;core.alwaysSelectAsActiveMesh=true;core.renderingGroupId=1;
+    for(const sx of [-1,1])for(const sy of [-1,1]){
+      const x=pos[0]+sx*(w/2-r),y=pos[1]+sy*(h/2-r);
+      cylinder(name+' radiused edge',parent,[x,y,pos[2]-d/2],[x,y,pos[2]+d/2],r,r,mat,20);
+    }
+    return core;
+  };
+
   // Slim segmented first-person arms. Forearms, wrists and hands have independent
   // pivots; the previous single-piece capsules made the sleeves look oversized.
   const arms = node('viewmodel-arms-rig');
@@ -137,7 +148,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   // so its moving parts can be animated independently during reload and firing.
   const rifle = node('M4A1-realistic-viewmodel');
   const receiver = node('upper-lower-receiver', rifle);
-  box('upper receiver',receiver,[0,.02,0],[.15,.115,.39],m.polymer);
+  roundedBox('upper receiver',receiver,[0,.02,0],[.15,.115,.39],m.polymer,.024);
   // Receiver machining, engraved controls and fasteners catch highlights at close range.
   box('receiver top chamfer',receiver,[0,.083,-.015],[.135,.012,.31],m.polymerEdge);
   box('receiver left bevel',receiver,[-.076,.012,.005],[.008,.072,.29],m.polymerEdge);
@@ -153,7 +164,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   box('trigger guard front',receiver,[.035,-.16,.015],[.018,.012,.12],m.metalDark);
   box('trigger guard rear',receiver,[-.035,-.16,.12],[.018,.012,.12],m.metalDark);
   
-  box('lower receiver',receiver,[0,-.065,.055],[.145,.095,.30],m.polymerEdge);
+  roundedBox('lower receiver',receiver,[0,-.065,.055],[.145,.095,.30],m.polymerEdge,.02);
   box('ejection port',receiver,[-.078,.026,-.02],[.009,.045,.11],m.metalDark);
   box('dust cover',receiver,[-.084,.022,-.02],[.008,.03,.085],m.metal);
   box('charging handle',receiver,[0,.105,.145],[.12,.02,.075],m.metalDark);
@@ -166,14 +177,14 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const stock = node('adjustable-stock', rifle);
   stock.position.z=.30;
   box('buffer tube',stock,[0,.02,.02],[.09,.09,.27],m.metalDark);
-  box('six-position stock',stock,[0,.005,.19],[.16,.14,.25],m.polymer);
+  roundedBox('six-position stock',stock,[0,.005,.19],[.16,.14,.25],m.polymer,.025);
   box('stock cheek weld',stock,[0,.078,.19],[.145,.035,.20],m.polymerEdge);
   box('rubber buttpad',stock,[0,.005,.325],[.17,.15,.035],m.rubber);
   box('stock sling loop',stock,[0,.09,.06],[.08,.018,.035],m.metalDark);
 
   const handguard = node('free-float-handguard', rifle);
   handguard.position.z=-.29;
-  box('MLOK handguard core',handguard,[0,.015,0],[.145,.115,.43],m.polymer);
+  roundedBox('MLOK handguard core',handguard,[0,.015,0],[.145,.115,.43],m.polymer,.026);
   box('handguard top bevel',handguard,[0,.073,-.01],[.125,.018,.40],m.polymerEdge);
   for(let i=0;i<11;i++){
     const z=-.19+i*.037;
@@ -222,7 +233,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   box('bolt carrier handle',bolt,[-.045,.005,0],[.025,.018,.07],m.metalDark);
   const magPivot = node('drop-free-magazine', rifle);
   magPivot.position.set(0,-.12,.005);
-  box('magazine steel body',magPivot,[0,-.10,0],[.105,.25,.13],m.metalDark);
+  roundedBox('magazine steel body',magPivot,[0,-.10,0],[.105,.25,.13],m.metalDark,.014);
   box('magazine front rib',magPivot,[0,-.10,-.069],[.087,.20,.008],m.metal);
   box('magazine floorplate',magPivot,[0,-.232,0],[.115,.022,.14],m.polymer);
   for(let i=0;i<5;i++)box('magazine rib '+i,magPivot,[0,-.035-i*.033,.067],[.088,.009,.006],m.metal);
@@ -241,16 +252,16 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const pistol = node('9mm-service-pistol');
   pistol.setEnabled(false);
   const pistolFrame=node('pistol-frame',pistol);
-  box('pistol polymer frame',pistolFrame,[.015,-.075,-.015],[.105,.095,.235],m.polymer);
+  roundedBox('pistol polymer frame',pistolFrame,[.015,-.075,-.015],[.105,.095,.235],m.polymer,.018);
   box('pistol dustcover rail',pistolFrame,[.015,-.025,-.105],[.075,.025,.12],m.metalDark);
   box('pistol trigger guard',pistolFrame,[.015,-.12,.045],[.07,.018,.085],m.metalDark);
   cylinder('pistol trigger',pistolFrame,[.015,-.115,.01],[.015,-.16,.01],.009,.009,m.metal,8);
   const pistolGrip=node('pistol-textured-grip',pistolFrame);
-  box('pistol grip core',pistolGrip,[.015,-.18,.075],[.09,.19,.115],m.rubber);
+  roundedBox('pistol grip core',pistolGrip,[.015,-.18,.075],[.09,.19,.115],m.rubber,.018);
   box('pistol grip backstrap',pistolGrip,[.015,-.18,.132],[.075,.16,.012],m.polymerEdge);
   for(let i=0;i<7;i++)box('pistol grip stippling '+i,pistolGrip,[.015,-.115-i*.019,.137],[.067,.007,.006],m.gloveRaised);
   const pistolSlide=node('pistol-reciprocating-slide',pistol);
-  box('pistol steel slide',pistolSlide,[.015,-.005,-.12],[.105,.075,.31],m.metalDark);
+  roundedBox('pistol steel slide',pistolSlide,[.015,-.005,-.12],[.105,.075,.31],m.metalDark,.017);
   box('pistol slide side flat',pistolSlide,[-.039,-.005,-.12],[.008,.043,.26],m.metal);
   box('pistol extractor',pistolSlide,[-.041,.005,-.015],[.006,.018,.038],m.metal);
   box('pistol chamber indicator',pistolSlide,[.071,-.012,-.01],[.005,.012,.025],m.brass);
@@ -281,8 +292,8 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   knife.setEnabled(false);
   const knifeHandle=node('knife-handle',knife);
   box('knife tang',knifeHandle,[.015,-.12,.075],[.035,.045,.20],m.metalDark);
-  box('knife grip scale left',knifeHandle,[-.012,-.12,.075],[.025,.065,.19],m.rubber);
-  box('knife grip scale right',knifeHandle,[.042,-.12,.075],[.025,.065,.19],m.rubber);
+  roundedBox('knife grip scale left',knifeHandle,[-.012,-.12,.075],[.025,.065,.19],m.rubber,.008);
+  roundedBox('knife grip scale right',knifeHandle,[.042,-.12,.075],[.025,.065,.19],m.rubber,.008);
   for(let i=0;i<6;i++)box('knife grip grooves '+i,knifeHandle,[-.027,-.12,.0+i*.029],[.006,.052,.008],m.gloveRaised);
   box('knife pommel',knifeHandle,[.015,-.12,.185],[.06,.075,.025],m.metal);
   box('knife crossguard',knifeHandle,[.015,-.085,-.025],[.13,.025,.035],m.metalDark);
