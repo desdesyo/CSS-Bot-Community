@@ -64,3 +64,21 @@ export function moveWithAabbCollisions(position, movement, colliders = [], radiu
   }
   return { x, z, blockedX, blockedZ, blockedBy: [...blockedBy] };
 }
+
+
+/** Select the first spawn point that does not overlap a standing player's collision circle. */
+export function findSafePlayerSpawn(candidates, colliders = [], radius = 0.36, playerHeight = 1.72, footY = 0) {
+  const clear = (point) => {
+    if (!Number.isFinite(point?.x) || !Number.isFinite(point?.z)) return false;
+    for (const box of colliders) {
+      if (box.maxY <= footY + 0.04 || box.minY >= footY + playerHeight - 0.04) continue;
+      const nx = Math.max(box.minX, Math.min(point.x, box.maxX));
+      const nz = Math.max(box.minZ, Math.min(point.z, box.maxZ));
+      const dx = point.x - nx, dz = point.z - nz;
+      if (dx * dx + dz * dz < radius * radius) return false;
+    }
+    return true;
+  };
+  for (const point of candidates || []) if (clear(point)) return { x: point.x, z: point.z };
+  return null;
+}
