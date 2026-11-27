@@ -30,7 +30,8 @@ function buildMapCollisionIndex(){
       }
   }
 }
-function isPlayerBlocked(x,z,radius=.34){,candidates=new Set();
+function isPlayerBlocked(x,z,radius=.34){
+  const candidates=new Set();
   for(let gx=Math.floor((x-radius)/MAP_COLLISION_CELL);gx<=Math.floor((x+radius)/MAP_COLLISION_CELL);gx++)
     for(let gz=Math.floor((z-radius)/MAP_COLLISION_CELL);gz<=Math.floor((z+radius)/MAP_COLLISION_CELL);gz++)
       for(const item of mapCollisionGrid.get(gx+','+gz)||[])candidates.add(item);
