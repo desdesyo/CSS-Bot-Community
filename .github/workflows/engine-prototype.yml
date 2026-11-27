@@ -91,7 +91,7 @@ jobs:
           if (!html.includes("new THREE.AnimationMixer(model)") || !html.includes("playRealBotAnimation(bot,'Idle')") || !html.includes("movingNow?(dist>13?'Run':'Walk')")) throw new Error('Imported soldier locomotion animations must be wired into the bot update');
           if (!html.includes('b.realRecoil=.18') || !html.includes('b.realRightArmBone.rotation.x') || !html.includes('b.realSpineBone.rotation.x')) throw new Error('Skinned soldier firing recoil must animate upper body bones');
           if (!html.includes('В браузер встроены 27 отдельных 3D-вариантов бойцов') || !html.includes('spawnWave();updateHud()') || !html.includes('id="operatorSelect"')) throw new Error('Training mode must expose the browser-native 27-character roster and selection');
-          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.0:1.5') || !html.includes('minQuality=isTouchDevice?.82:1.0,maxQuality=isTouchDevice?1.25:2.0')) throw new Error('High-resolution adaptive render quality profile is required');
+          if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.0:1.25') || !html.includes('minQuality=isTouchDevice?.68:.78,maxQuality=isTouchDevice?1.0:1.5')) throw new Error('Adaptive render profile must allow mobile downscaling while preserving a quality floor');
           if (!html.includes('qualityScale=isTouchDevice?1.0:1.5') || !html.includes('measuredFps<38')) throw new Error('Adaptive render resolution safety fallback is required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
           if (!html.includes('livingAllies=[],livingEnemies=[]') || !html.includes('b.losTimer=.14')) throw new Error('Bot AI work must reuse team lists and throttle line-of-sight checks');
@@ -102,6 +102,10 @@ jobs:
           if (!html.includes("localStorage.removeItem(CONTROL_TOKEN_KEY)")) throw new Error('Saved control token clear path is missing');
           console.log('Inline module syntax, log initialization, camera-relative movement, gamepad calibration, and persistent token storage: OK');
           NODE
+      - name: Test V2 simulation and adaptive quality
+        run: node --test engine/v2/engine.test.mjs
+      - name: Syntax check V2 browser module
+        run: node --input-type=module --check < engine/v2/engine.js
   server:
     runs-on: ubuntu-latest
     defaults:
