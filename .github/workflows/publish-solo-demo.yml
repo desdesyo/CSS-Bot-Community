@@ -1,0 +1,58 @@
+name: Publish SOLO Engine playable demo
+on:
+  push:
+    branches: [feature/solo-crossplay-foundation, feature/browser-27-character-operator-pack, feature/solo-engine-v2]
+    paths:
+      - "engine/client/**"
+      - "engine/play.html"
+      - "engine/import.html"
+      - "engine/v2/**"
+      - "engine/cloud/**"
+      - ".github/workflows/publish-solo-demo.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: solo-engine-pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SOLO Engine V2
+        run: |
+          mkdir -p dist
+          # Public entry point is the new Babylon.js V2 runtime, not legacy engine/play.html.
+          cp -R engine/v2/. dist/
+          mkdir -p dist/engine/cloud
+          cp -R engine/cloud/. dist/engine/cloud/
+          # Immutable build-specific copy prevents mobile browsers reusing an older page.
+          mkdir -p "dist/solo-v2-${GITHUB_SHA}"
+          cp -R engine/v2/. "dist/solo-v2-${GITHUB_SHA}/"
+          # Preserve the previous prototype only under an explicit legacy route.
+          mkdir -p dist/legacy
+          cp engine/play.html dist/legacy/index.html
+          cp engine/import.html dist/legacy/import.html
+          mkdir -p dist/legacy/client
+          cp -R engine/client/. dist/legacy/client/
+          touch dist/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Enable and configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -18,6 +18,10 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 - Evidence-weighted weak-plate selection (no omniscient knowledge).
 - Retreat probability, cover reward and MVP event scoring.
 
+## Главный аудит и техническое задание
+
+Единый источник требований, текущий аудит реализации и обязательные критерии приёмки: [docs/MASTER_TZ.md](docs/MASTER_TZ.md). Отдельное ТЗ по HD-переработке, реальным моделям, анимациям, оружию и критериям качества: [docs/HD_VISUAL_REBUILD_TZ.md](docs/HD_VISUAL_REBUILD_TZ.md). Все дальнейшие работы SOLO Engine должны соответствовать этому документу; статусы функций должны подтверждаться игровыми тестами.
+
 ## Project scope
 
 CSSBC is intended as a broad gameplay and presentation overhaul:
@@ -52,3 +56,17 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for engine integration requirem
 ## SOLO Engine migration contract
 
 The mobile-first SOLO Engine compatibility and migration requirements are documented in [docs/SOLO_ENGINE_COMPATIBILITY.md](docs/SOLO_ENGINE_COMPATIBILITY.md). This defines the Source asset import pipeline, Android browser and gamepad targets, engine boundaries, CSSBC module portability requirements and acceptance criteria. It is a target contract; the engine and importer are not yet implemented.
+
+
+## PC + Android cross-play
+
+The shared PC/Android client and authoritative multiplayer architecture are specified in [docs/SOLO_CROSSPLAY_PC_ANDROID.md](docs/SOLO_CROSSPLAY_PC_ANDROID.md). The goal is one game build and one ruleset: Android touch/gamepad and PC keyboard/mouse/gamepad players join the same server. This is an implementation contract; multiplayer is not yet implemented.
+
+
+## Development cadence (mandatory)
+
+Every change must produce a concrete, verifiable increment. No feature may go more than 3 days without a runnable increment; larger work is split into vertical slices. Completion requires implementation, automated tests and playable verification—not just documentation or a commit. See [docs/DEVELOPMENT_CADENCE.md](docs/DEVELOPMENT_CADENCE.md).
+
+## First playable prototype
+
+A small Android/PC browser training prototype and a WebSocket shared-session server are in [engine/](engine/). See [engine/README.md](engine/README.md) for launch and test instructions. This is an early prototype, not yet a CS:S-compatible release or public multiplayer service.
