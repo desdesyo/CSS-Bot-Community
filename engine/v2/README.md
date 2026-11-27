@@ -10,6 +10,8 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 - PBR material pipeline and an industrial training blockout with lanes, cover and lighting.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
+- Procedural high-detail M4A1-style first-person rifle with separate upper/lower receiver, free-float M-LOK handguard, 5.56 barrel, flash hider, backup sights, red-dot optic, adjustable stock, magazine, bolt, selector and fasteners.
+- First-person forearms and tactical gloves built as a rigged viewmodel, with recoil, muzzle flash, breathing/locomotion sway and timed magazine/arm reload animation. Weapon mechanics remain connected to the existing projectile, ammo and reload systems.
 - Eleven humanoid NPCs using six rigged, textured soldier GLB variants (male and female), with shared idle / walk / run Biped animation clips: five teammates and six opponents around the human player (6v6 total).
 - CT/T team selection; both choices preserve the same five-ally/six-opponent roster.
 - AI decisions are stepped at 8 Hz; rendering remains independent.
@@ -24,4 +26,4 @@ The default-branch workflow publishes the exact V2 revision only after `SOLO Eng
 Open `/engine/v2/` on the published Pages site or serve the repository root over HTTP. The engine loads Babylon.js from its official CDN; an internet connection is required.
 
 ## Explicit limitations
-This is a new engine foundation and greybox vertical slice, not yet a CSS:S content port. It does not yet have final custom-made studio character assets, networking, full collision/physics, complete weapon simulation or verified Redmi 12 performance. See `ASSET_CREDITS.md` for model and animation licenses. The mobile hardware must be measured before setting acceptance targets.
+This is a new engine foundation and greybox vertical slice, not yet a CSS:S content port. It does not yet have final custom-made studio character assets, networking, full collision/physics or verified Redmi 12 performance. The rifle viewmodel is a procedural Babylon.js asset, not a scanned or externally authored photorealistic mesh. See `ASSET_CREDITS.md` for model and animation licenses. The mobile hardware must be measured before setting acceptance targets.
