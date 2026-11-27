@@ -273,3 +273,19 @@ test('bot navigation respects the same physical map collision as the player',()=
   assert.ok(runtime.includes('else if(!isPlayerBlocked(next.x,current.z,.25))'));
   assert.ok(runtime.includes('else if(!isPlayerBlocked(current.x,next.z,.25))'));
 });
+
+test('cloud host requests fullscreen capture and reports GPU/encoded stream diagnostics',()=>{
+  const host=readFileSync(new URL('../cloud/host.js',import.meta.url),'utf8');
+  const page=readFileSync(new URL('../cloud/host.html',import.meta.url),'utf8');
+  assert.ok(host.includes('captureStream(60)'));
+  assert.ok(host.includes('WEBGL_debug_renderer_info'));
+  assert.ok(host.includes('framesPerSecond'));
+  assert.ok(host.includes('requestFullscreen'));
+  assert.ok(page.includes('html:fullscreen iframe{height:100vh}'));
+});
+test('cloud viewer reports received video dimensions and decoded frame rate',()=>{
+  const viewer=readFileSync(new URL('../cloud/viewer.js',import.meta.url),'utf8');
+  assert.ok(viewer.includes('framesDecoded'));
+  assert.ok(viewer.includes('video.videoWidth'));
+  assert.ok(viewer.includes('getStats()'));
+});
