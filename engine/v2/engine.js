@@ -181,7 +181,7 @@ function buildBots() {
   for(const [id,team,x,z] of roster){
     const faction=team==='ally'?state.playerTeam:(state.playerTeam==='CT'?'T':'CT');
     const routeSet=faction==='T'?tRoutes:ctRoutes;
-    makeBot(id,team,x,z,routeSet[Math.floor(Math.random()*routeSet.length)]);
+    makeBot(id,team,x,z,routeSet[(id-1)%routeSet.length]);
   }
   // All allied bots remain ordinary combatants; no developer/observer bot role exists.
 }
@@ -431,10 +431,26 @@ function updateBotMotion(dt) {
     if(goal){
       const dx=goal.x-bot.root.position.x,dz=goal.z-bot.root.position.z,dist=Math.hypot(dx,dz);
       const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},goal,bot.combatState==='patrol'?bot.speed:bot.speed*1.12,dt);
-      const localColliders=queryCollisionSpatialIndex(collisionIndex,bot.root.position.x-2.2,bot.root.position.x+2.2,bot.root.position.z-2.2,bot.root.position.z+2.2);// Collision helper expects eye-height Y (same convention as the player camera).
-      // Passing y=0 made every ground-level wall look like an overhead obstruction and
-      // silently skipped collision tests, which is why bots walked through buildings.
-      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},localColliders,.38,1.72,.07);
+      // Spread soldiers across distinct authored lanes and apply gentle local separation
+      // so teammates do not occupy the same waypoint or oscillate against one another.
+      let avoidX=0,avoidZ=0;
+      for(const other of state.bots){
+        if(other===bot||!other.alive)continue;
+        let sx=bot.root.position.x-other.root.position.x,sz=bot.root.position.z-other.root.position.z;
+        let separation=Math.hypot(sx,sz);
+        if(separation<1.05){
+          if(separation<.001){const angle=(bot.id-other.id)*2.399;sx=Math.cos(angle);sz=Math.sin(angle);separation=1;}
+          const strength=(1.05-separation)/1.05;
+          avoidX+=sx/separation*strength;avoidZ+=sz/separation*strength;
+        }
+      }
+      const avoidLength=Math.hypot(avoidX,avoidZ);
+      const steer=avoidLength>.001?Math.min(1.25,avoidLength*1.55)*dt:0;
+      const moveX=next.x-bot.root.position.x+(avoidX/Math.max(.001,avoidLength))*steer;
+      const moveZ=next.z-bot.root.position.z+(avoidZ/Math.max(.001,avoidLength))*steer;
+      const localColliders=queryCollisionSpatialIndex(collisionIndex,bot.root.position.x-2.2,bot.root.position.x+2.2,bot.root.position.z-2.2,bot.root.position.z+2.2);
+      // Collision helper expects eye-height Y, matching the player camera's convention.
+      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:moveX,z:moveZ},localColliders,.38,1.72,.07);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
         if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
@@ -464,7 +480,8 @@ function updateBotMotion(dt) {
       bot.root.rotation.y=Math.atan2(Math.sin(bot.root.rotation.y),Math.cos(bot.root.rotation.y));
     }
     const held=bot.weapons?.[bot.activeWeapon||'rifle'];
-    if(bot.rightHand&&held){
+    if(bot.rightHand&&held&&(!mobile||now>=(bot.handSyncAt||0))){
+      bot.handSyncAt=now+(mobile?55:30);
       bot.root.computeWorldMatrix(true);bot.rightHand.computeWorldMatrix(true);
       const inverse=bot.root.getWorldMatrix().clone().invert();
       const local=BABYLON.Vector3.TransformCoordinates(bot.rightHand.getAbsolutePosition(),inverse);
@@ -856,7 +873,7 @@ function captureGameplayLog(dt,now){
  appendBoundedLog(gameLogRenderMs,+renderMs.toFixed(2),240);
  if(now-gameLogLastSample<1500)return;gameLogLastSample=now;
  const bots=state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
- appendBoundedLog(gameLogRecords,{t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height},activeMeshes:scene.getActiveMeshes().length,totalMeshes:scene.meshes.length},ai:{bots:state.bots.map(b=>({id:b.id,team:b.team,state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:b.navPath.length-b.navIndex})),aimTargetId:state.aimTargetId},movement:state.lastMove,frameMs:+ms.toFixed(2)},GAME_LOG_LIMIT);
+ appendBoundedLog(gameLogRecords,{t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height},activeMeshes:scene.getActiveMeshes().length,totalMeshes:scene.meshes.length,mapStats:window.__SOLO_MAP_STATS__||null},ai:{bots:state.bots.map(b=>({id:b.id,team:b.team,state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:b.navPath.length-b.navIndex})),aimTargetId:state.aimTargetId},movement:state.lastMove,frameMs:+ms.toFixed(2)},GAME_LOG_LIMIT);
  if(now-gameLogLastPersist>10000){gameLogLastPersist=now;void persistGameLog();updateLogStatus()}
 }
 function installInputDiagnostics(){
@@ -914,7 +931,7 @@ function collectIssueSceneContext(){
   if(d<18)visibleMeshes.push({name:mesh.name,type:mesh.getClassName?.()||'Mesh',distance:+d.toFixed(2),position:{x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2)},visible:mesh.isVisible,visibility:mesh.visibility,material:mesh.material?.name||null,materialAlpha:mesh.material?.alpha??null,checkCollisions:!!mesh.checkCollisions,enabled:mesh.isEnabled()});
  }
  visibleMeshes.sort((a,b)=>a.distance-b.distance);
- return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,lastMove:state.lastMove,colliders:collisionBoxes.slice(0,80).map(c=>({name:c.name,min:{x:c.minX,y:c.minY,z:c.minZ},max:{x:c.maxX,y:c.maxY,z:c.maxZ}}))},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
+ return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,lastMove:state.lastMove,colliders:collisionBoxes.slice(0,80).map(c=>({name:c.name,min:{x:c.minX,y:c.minY,z:c.minZ},max:{x:c.maxX,y:c.maxY,z:c.maxZ}}))},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
 }
 async function captureIssueScreenshot(){
  try{
@@ -1008,7 +1025,7 @@ async function boot() {
     const cityFill=new B.DirectionalLight('distant city sky bounce',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.27,.39,.48);cityFill.intensity=.24;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.usePercentageCloserFiltering=true;shadowGen.blurKernel=mobile?12:22;shadowGen.bias=.0003;shadowGen.normalBias=.014;shadowGen.darkness=.22;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildWetGroundMap(B,scene,mobile,shadowGen);
+    const mapBuildStats=buildWetGroundMap(B,scene,mobile,shadowGen);window.__SOLO_MAP_STATS__=mapBuildStats;
     const glowLayer=new B.GlowLayer('wet quarter emissive glow',scene,{blurKernelSize:mobile?16:32});glowLayer.intensity=mobile?.32:.48;
     window.__SOLO_GLOW_LAYER__=glowLayer;
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
