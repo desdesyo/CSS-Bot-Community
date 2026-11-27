@@ -77,9 +77,11 @@ function buildPlayerWeapon(){
   knifeRoot=weaponViewmodel.knife;
   selectWeapon('rifle');
 }
-function selectWeapon(slot){
-  if(!['rifle','pistol','knife'].includes(slot)||!weaponRoot)return;
+function selectWeapon(slot,source='unknown'){
+  const previous=state.weaponSlot;
+  if(!['rifle','pistol','knife'].includes(slot)||!weaponRoot){gameLogEvent('weapon-select-rejected',{requested:slot,source,hasWeaponRoot:!!weaponRoot});return false;}
   state.weaponSlot=slot;
+  gameLogEvent('weapon-select',{from:previous,to:slot,source,changed:previous!==slot});
   weaponViewmodel?.select(slot);
   rifleRoot?.setEnabled(slot==='rifle');
   pistolRoot?.setEnabled(slot==='pistol');
@@ -88,6 +90,7 @@ function selectWeapon(slot){
   const ammo=slot==='knife'?'MELEE':state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
   $('ammo').textContent=ammo;
   $('weaponName').textContent=slot==='rifle'?'M4 CARBINE':slot==='pistol'?'9MM PISTOL':'COMBAT KNIFE';
+  return true;
 }
 function createBotWeapon(root,id,team){
   if(!botWeaponMaterials){
@@ -268,7 +271,7 @@ function updateBulletPhysics(dt) {
   }
 }
 function fire() {
-  const now=performance.now();if(!state.started||state.playerDead||state.reloading)return;
+  const now=performance.now();if(!state.started||state.playerDead||state.reloading){gameLogEvent('fire-blocked',{source:state.fireInputSource||'loop',started:state.started,playerDead:state.playerDead,reloading:state.reloading,slot:state.weaponSlot});return;}
   const slot=state.weaponSlot,rate=slot==='rifle'?105:slot==='pistol'?240:520;
   if(now-state.lastShot<rate)return;
   if(slot==='knife'){
@@ -283,6 +286,7 @@ function fire() {
   }
   if(state.weaponAmmo[slot]<=0){if(state.weaponReserve[slot]>0)reload();return;}
   state.lastShot=now;state.weaponAmmo[slot]--;
+  gameLogEvent('shot-fired',{source:state.fireInputSource||'loop',slot,ammo:state.weaponAmmo[slot],yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3)});
   const ray=camera.getForwardRay(1);
   const origin=slot==='rifle'&&muzzleFlash?muzzleFlash.getAbsolutePosition().clone():camera.position.add(ray.direction.scale(.7));
   spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105,'player');
@@ -306,7 +310,7 @@ function initInput() {
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
   window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
   // Desktop firing is canvas-only. Mobile taps must never synthesize a shot; the FIRE pointer control owns touch shooting.
-  canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.firing=true;fire()}});
+  canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.fireInputSource='desktop-mousedown';state.firing=true;fire()}});
   window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
   window.addEventListener('blur',()=>{state.keys.clear();state.firing=false});
   const stick=$('stick'),nub=$('nub');let stickId=null,origin=null;
@@ -322,7 +326,7 @@ function initInput() {
   fireButton.addEventListener('pointerdown',e=>{
     e.preventDefault();fireId=e.pointerId;fireButton.setPointerCapture(e.pointerId);
     const r=fireButton.getBoundingClientRect();fireLast={x:r.left+r.width/2,y:r.top+r.height/2};
-    state.firing=true;fireButton.classList.add('active');fire();
+    state.fireInputSource='touch-fire-pointerdown';gameLogEvent('fire-control-down',{pointerType:e.pointerType,pointerId:e.pointerId,x:e.clientX,y:e.clientY});state.firing=true;fireButton.classList.add('active');fire();
   });
   fireButton.addEventListener('pointermove',e=>{
     if(e.pointerId!==fireId||!fireLast)return;
@@ -335,14 +339,26 @@ function initInput() {
   });
   const stopFire=e=>{
     if(e&&fireId!==null&&e.pointerId!==fireId)return;
-    fireId=null;fireLast=null;state.firing=false;state.fireStick.x=state.fireStick.y=0;
+    gameLogEvent('fire-control-up',{pointerId:fireId});fireId=null;fireLast=null;state.firing=false;state.fireInputSource='';state.fireStick.x=state.fireStick.y=0;
     fireNub.style.transform='';fireButton.classList.remove('active');
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
+  let lastWeaponPointerAt=0;
   for(const button of document.querySelectorAll('[data-weapon]')){
-    button.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){e.preventDefault();e.stopPropagation();selectWeapon(button.dataset.weapon)}});
-    button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
+    button.style.touchAction='manipulation';
+    button.addEventListener('pointerdown',e=>{
+      lastWeaponPointerAt=performance.now();
+      if(e.pointerType==='touch')e.preventDefault();
+      e.stopPropagation();e.stopImmediatePropagation();
+      gameLogEvent('weapon-control-pointerdown',{weapon:button.dataset.weapon,pointerType:e.pointerType,pointerId:e.pointerId,x:e.clientX,y:e.clientY});
+      selectWeapon(button.dataset.weapon,'pointerdown-'+e.pointerType);
+    },{passive:false});
+    button.addEventListener('click',e=>{
+      gameLogEvent('weapon-control-click',{weapon:button.dataset.weapon,pointerType:e.pointerType||'unknown',detail:e.detail});
+      if(performance.now()-lastWeaponPointerAt<800)return;
+      selectWeapon(button.dataset.weapon,'click-fallback');
+    });
   }
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
@@ -424,6 +440,7 @@ const GAME_LOG_KEY='solo_engine_v2_gameplay_logs_v1';
 const GAME_LOG_BRANCH='feature/solo-engine-v2';
 const GAME_LOG_LIMIT=1200;
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
+let inputTraceInstalled=false;
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
 try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-250):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
 function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-250),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
@@ -441,7 +458,15 @@ function captureGameplayLog(dt,now){
  if(gameLogRecords.length>GAME_LOG_LIMIT)gameLogRecords.shift();
  if(now-gameLogLastPersist>5000){gameLogLastPersist=now;persistGameLog()}
 }
-function startGameplayLog(){gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
+function installInputDiagnostics(){
+ if(inputTraceInstalled)return;inputTraceInstalled=true;
+ const watched='#fire,#weaponBar [data-weapon],#renderCanvas,#reload';
+ for(const type of ['pointerdown','pointerup','pointercancel','click','mousedown','mouseup','touchstart','touchend'])document.addEventListener(type,e=>{
+  const target=e.target?.closest?.(watched);if(!target)return;
+  gameLogEvent('input-event',{type,target:target.id||target.dataset.weapon||target.tagName,pointerType:e.pointerType||null,pointerId:Number.isFinite(e.pointerId)?e.pointerId:null,button:Number.isFinite(e.button)?e.button:null,detail:e.detail??null,x:Number.isFinite(e.clientX)?Math.round(e.clientX):null,y:Number.isFinite(e.clientY)?Math.round(e.clientY):null,isTrusted:e.isTrusted,defaultPrevented:e.defaultPrevented,buttons:e.buttons??null});
+ },true);
+}
+function startGameplayLog(){installInputDiagnostics();gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
 function encodeGameplayLog(value){const bytes=new TextEncoder().encode(value);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}
 function savedGameplayToken(){try{return localStorage.getItem('solo_github_log_token')||''}catch(e){return ''}}
 async function stopAndUploadGameplayLog(){
