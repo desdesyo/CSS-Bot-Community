@@ -195,7 +195,6 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   water.bumpTexture=waterNormal;water.bumpTexture.level=mobile?.12:.2;
   if(water.clearCoat){water.clearCoat.isEnabled=true;water.clearCoat.intensity=.72;water.clearCoat.roughness=.055;}
   water.roughness=mobile?.095:.065;
-  if(puddle.clearCoat){puddle.clearCoat.isEnabled=true;puddle.clearCoat.intensity=.82;puddle.clearCoat.roughness=.045;}
   const ground=B.MeshBuilder.CreateGround('Wet Ground district foundation',{width:106,height:84,subdivisions:1},scene);
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
@@ -366,6 +365,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     box('storm drain grate',x+(x<0?.35:-.35),.085,z, .72,.035,1.35,iron,false);
   }
   const puddle=mat('shallow rain puddle','#172c40',.08,.3);
+  if(puddle.clearCoat){puddle.clearCoat.isEnabled=true;puddle.clearCoat.intensity=.82;puddle.clearCoat.roughness=.045;}
   if(puddle.emissiveColor)puddle.emissiveColor=new C(.012,.025,.045);
   for(const [x,z,w,d] of [[-4,-35,3.8,1.55],[4,-29,2.7,1.1],[-3,-18,3.1,1.2],[4,-11,2.5,1.0],[-4,-4,3.6,1.35],[3,7,2.8,1.15],[-4,16,3.2,1.25],[4,25,2.6,1.0],[-3,34,3.8,1.5],[7,39,2.4,.9]]){
     const p=B.MeshBuilder.CreateDisc('irregular rain puddle',{radius:1,tessellation:24},scene);
