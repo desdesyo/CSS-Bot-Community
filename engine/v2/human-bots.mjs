@@ -16,15 +16,21 @@ const CLIPS = {
 
 export async function loadHumanBotAssets(B, scene) {
   if (!B.SceneLoader || !B.SceneLoader.LoadAssetContainerAsync) {
-    console.warn("Babylon glTF loader is missing; using procedural soldiers");
-    return { models: [], animations: {} };
+    throw new Error("Критическая ошибка: Babylon glTF loader недоступен. Реальные 3D-модели бойцов не могут быть загружены.");
   }
   const load = (file) => Promise.race([
     B.SceneLoader.LoadAssetContainerAsync("./assets/", file, scene),
     new Promise((_, reject) => setTimeout(() => reject(new Error("Asset timeout: " + file)), 12000))
   ]);
   const modelResults = await Promise.allSettled(MODEL_FILES.map(load));
-  const models = modelResults.filter(x => x.status === "fulfilled").map(x => x.value);
+  const failedModels = modelResults
+    .map((result, index) => result.status === "rejected" ? MODEL_FILES[index] + ": " + result.reason?.message : null)
+    .filter(Boolean);
+  if (failedModels.length) {
+    throw new Error("Не удалось загрузить обязательные 3D-модели бойцов:\n" + failedModels.join("\n"));
+  }
+  const models = modelResults.map(result => result.value);
+
   const animations = {};
   const clipResults = await Promise.allSettled(Object.entries(CLIPS).map(async ([name,file]) => {
     const container = await load(file);
@@ -36,36 +42,16 @@ export async function loadHumanBotAssets(B, scene) {
     if (result.status === "fulfilled") animations[result.value[0]] = result.value[1];
     else console.warn("Optional soldier animation unavailable:", result.reason);
   }
-  if (!models.length) console.warn("Soldier models unavailable; using procedural soldiers");
+  if (models.length !== MODEL_FILES.length) {
+    throw new Error("Загружен неполный комплект 3D-моделей бойцов.");
+  }
   return { models, animations };
 }
 
 export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMobile = false) {
   const source = assets.models?.length ? assets.models[(id - 1) % assets.models.length] : null;
   if (!source) {
-    const uniform = new B.StandardMaterial("fallback-uniform-" + id, scene);
-    uniform.diffuseColor = team === "enemy" ? new B.Color3(.34,.39,.35) : new B.Color3(.30,.40,.53);
-    const skin = new B.StandardMaterial("fallback-skin-" + id, scene);
-    skin.diffuseColor = new B.Color3(.58,.43,.33);
-    const make = (name, shape, options, y, material) => {
-      const mesh = shape === "sphere"
-        ? B.MeshBuilder.CreateSphere(name + "-" + id, options, scene)
-        : B.MeshBuilder.CreateCapsule(name + "-" + id, options, scene);
-      mesh.parent = root; mesh.position.y = y; mesh.material = material;
-      mesh.isPickable = false; mesh.receiveShadows = !isMobile;
-      return mesh;
-    };
-    make("fallback-torso", "capsule", {height: .92, radius: .27, tessellation: 8}, 1.05, uniform);
-    make("fallback-head", "sphere", {diameter: .34, segments: 8}, 1.72, skin);
-    make("fallback-left-arm", "capsule", {height: .72, radius: .105, tessellation: 6}, 1.05, uniform).position.x = -.34;
-    make("fallback-right-arm", "capsule", {height: .72, radius: .105, tessellation: 6}, 1.05, uniform).position.x = .34;
-    make("fallback-left-leg", "capsule", {height: .78, radius: .13, tessellation: 6}, .39, uniform).position.x = -.15;
-    make("fallback-right-leg", "capsule", {height: .78, radius: .13, tessellation: 6}, .39, uniform).position.x = .15;
-    const body = B.MeshBuilder.CreateCapsule("body-" + id,{height:1.45,radius:.31,tessellation:8},scene);
-    body.parent=root;body.position.y=.91;body.visibility=0;body.isPickable=true;
-    const head = B.MeshBuilder.CreateSphere("head-" + id,{diameter:.36,segments:8},scene);
-    head.parent=root;head.position.y=1.68;head.visibility=0;head.isPickable=true;
-    return {body,head,rig:{root,skeleton:null,animationGroups:{},current:"",rightHand:null,leftHand:null}};
+    throw new Error("Для бойца " + id + " отсутствует настоящая 3D-модель. Примитивная подмена запрещена.");
   }
   const instance = source.instantiateModelsToScene(
     name => "soldier-" + id + "-" + name,
