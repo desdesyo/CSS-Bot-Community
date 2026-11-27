@@ -15,6 +15,8 @@ function mat(name, color, roughness=0.8, metallic=0) {
   if(m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.12;m.clearCoat.roughness=.32;}
   return m;
 }
+const renderPixelRatio=Math.min(Math.max(1,window.devicePixelRatio||1),mobile?2.5:1.5);
+function applyRenderScale(){if(engine)engine.setHardwareScalingLevel(1/(state.scale*renderPixelRatio));}
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
 let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn=getPlayerSpawn('CT'), projectileMaterial;
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
@@ -897,8 +899,8 @@ async function boot() {
   try {
     if(!window.BABYLON)throw new Error('Babylon.js CDN недоступен');
     const B=window.BABYLON;
-    engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:!mobile,powerPreference:'high-performance',audioEngine:false},true);
-    engine.setHardwareScalingLevel(1/state.scale);
+    engine=new B.Engine(canvas,true,{preserveDrawingBuffer:false,stencil:false,antialias:true,powerPreference:'high-performance',audioEngine:false},true);
+    applyRenderScale();
     scene=new B.Scene(engine);scene.clearColor=new B.Color4(.035,.065,.095,1);scene.ambientColor=new B.Color3(.12,.16,.2);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.0038:.003;scene.fogColor=new B.Color3(.075,.115,.16);
     scene.imageProcessingConfiguration.toneMappingEnabled=true;
     scene.imageProcessingConfiguration.toneMappingType=B.ImageProcessingConfiguration.TONEMAPPING_ACES;
@@ -943,7 +945,7 @@ async function boot() {
       if(now-state.sampleAt>=2000){
         state.frameSamples.sort((a,b)=>a-b);const p95=state.frameSamples[Math.min(state.frameSamples.length-1,Math.floor(state.frameSamples.length*.95))]||16.7;
         const next=adaptiveScale(p95,state.scale,mobile);
-        if(Math.abs(next-state.scale)>=.02){state.scale=next;engine.setHardwareScalingLevel(1/state.scale)}
+        if(Math.abs(next-state.scale)>=.02){state.scale=next;applyRenderScale()}
         state.fps=Math.round(1000/(state.frameSamples.reduce((a,b)=>a+b,0)/Math.max(1,state.frameSamples.length)));
         $('fps').textContent=state.fps+' FPS';$('quality').textContent=(mobile?'MOBILE':'DESKTOP')+' · SCALE '+Math.round(state.scale*100)+'% · P95 '+Math.round(p95)+'ms';
         state.frameSamples.length=0;state.sampleAt=now;
