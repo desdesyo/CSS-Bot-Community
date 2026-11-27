@@ -31,6 +31,14 @@ export function createTeamRoster(playerTeam = 'CT') {
   return [...enemy,...ally];
 }
 
+
+/** Aim assist prefers the closest enemy near the crosshair, not a farther target
+ * that happens to be a fraction of a degree more centered. */
+export function aimCandidateScore(angleRadians, distance) {
+  if (!Number.isFinite(angleRadians) || !Number.isFinite(distance) || angleRadians < 0 || distance < 0) return Infinity;
+  return angleRadians + distance * 0.0045;
+}
+
 export function cameraRelativeMovement(yaw, forward, strafe) {
   return {
     x: Math.sin(yaw) * forward + Math.cos(yaw) * strafe,
