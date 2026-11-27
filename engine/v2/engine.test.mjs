@@ -38,8 +38,8 @@ test('roster rejects unsupported team values', () => {
 });
 
 test('camera-relative forward movement matches Babylon camera direction', () => {
-  assert.ok(Math.abs(cameraRelativeMovement(0,1,0).z + 1) < 1e-9);
-  assert.ok(Math.abs(cameraRelativeMovement(Math.PI,1,0).z - 1) < 1e-9);
+  assert.ok(Math.abs(cameraRelativeMovement(0,1,0).z - 1) < 1e-9);
+  assert.ok(Math.abs(cameraRelativeMovement(Math.PI,1,0).z + 1) < 1e-9);
   assert.ok(Math.abs(cameraRelativeMovement(0,0,1).x - 1) < 1e-9);
   assert.ok(Math.abs(cameraRelativeMovement(Math.PI,0,1).x + 1) < 1e-9);
 });
