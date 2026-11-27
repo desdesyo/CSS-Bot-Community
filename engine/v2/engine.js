@@ -369,7 +369,7 @@ function spawnProjectile(origin,direction,ownerTeam,speed,ownerId=null) {
   }
   const mesh=BABYLON.MeshBuilder.CreateSphere('combat-projectile',{diameter:.055,segments:6},scene);
   mesh.material=projectileMaterial;mesh.position.copyFrom(origin);mesh.isPickable=false;
-  state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam,ownerId});
+  state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam,ownerId,gravity:speed<60?1.35:9.81});
 }
 function killBot(bot,credit=false) {
   if(!bot||!bot.alive)return;
@@ -384,7 +384,7 @@ function damageBot(bot,damage,credit=false) {
 }
 function updateBulletPhysics(dt) {
   for(let i=state.projectiles.length-1;i>=0;i--) {
-    const p=state.projectiles[i];p.life-=dt;p.velocity.y-=9.81*dt;
+    const p=state.projectiles[i];p.life-=dt;p.velocity.y-=(p.gravity??9.81)*dt;
     const from=p.mesh.position.clone(),to=from.add(p.velocity.scale(dt)),segment=to.subtract(p.mesh.position),distance=segment.length();
     let hit=null;
     if(distance>.0001){
