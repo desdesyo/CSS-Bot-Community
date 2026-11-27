@@ -70,8 +70,10 @@ function buildPlayerWeapon(){
   // Arms, gloves and rifle are all camera-space meshes, not floating UI sprites.
   weaponRoot=new BABYLON.TransformNode('player-rifle-viewmodel',scene);
   weaponRoot.parent=camera;
-  weaponRoot.position.set(.28,-.31,-.72);
+  weaponRoot.position.set(.18,-.27,-.92);
+  weaponRoot.scaling.setAll(1.22);
   weaponRoot.rotation.set(0,0,0);
+  weaponRoot.setEnabled(true);
 
   const sleeve=mat('player combat uniform','#4b5547',.94,0);
   const sleeveDark=mat('player sleeve seams','#343e36',.9,0);
@@ -88,7 +90,7 @@ function buildPlayerWeapon(){
   const part=(name,pos,size,material)=>{
     const m=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);
     m.parent=weaponRoot;m.position.set(pos[0],pos[1],pos[2]);m.material=material;
-    m.isPickable=false;return m;
+    m.isPickable=false;m.isVisible=true;m.visibility=1;m.alwaysSelectAsActiveMesh=true;m.renderingGroupId=1;return m;
   };
   const cylinder=(name,a,b,rTop,rBottom,material,tess=12)=>{
     const av=new BABYLON.Vector3(...a),bv=new BABYLON.Vector3(...b),delta=bv.subtract(av);
@@ -100,11 +102,11 @@ function buildPlayerWeapon(){
       axis.normalize();
       m.rotationQuaternion=BABYLON.Quaternion.RotationAxis(axis,Math.acos(Math.max(-1,Math.min(1,BABYLON.Vector3.Dot(up,direction)))));
     }else if(direction.y<0)m.rotation.x=Math.PI;
-    m.material=material;m.isPickable=false;return m;
+    m.material=material;m.isPickable=false;m.isVisible=true;m.visibility=1;m.alwaysSelectAsActiveMesh=true;m.renderingGroupId=1;return m;
   };
   const sphere=(name,pos,scale,material)=>{
     const m=BABYLON.MeshBuilder.CreateSphere(name,{diameter:1,segments:12},scene);
-    m.parent=weaponRoot;m.position.set(...pos);m.scaling.set(...scale);m.material=material;m.isPickable=false;return m;
+    m.parent=weaponRoot;m.position.set(...pos);m.scaling.set(...scale);m.material=material;m.isPickable=false;m.isVisible=true;m.visibility=1;m.alwaysSelectAsActiveMesh=true;m.renderingGroupId=1;return m;
   };
   const limb=(name,a,b,r1,r2,material)=>{
     cylinder(name,a,b,r1,r2,material,16);
@@ -188,7 +190,7 @@ function buildPlayerWeapon(){
   part('M4 sling mount',[0,.045,.49],[.09,.025,.025],steelDark);
   muzzleFlash=BABYLON.MeshBuilder.CreateSphere('muzzle-flash',{diameter:.13,segments:8},scene);
   muzzleFlash.parent=weaponRoot;muzzleFlash.position.set(0,.018,-.80);
-  muzzleFlash.material=mat('muzzle flash','#ffb34d',.25,0);muzzleFlash.isVisible=false;
+  muzzleFlash.material=mat('muzzle flash','#ffb34d',.25,0);muzzleFlash.isVisible=false;muzzleFlash.alwaysSelectAsActiveMesh=true;muzzleFlash.renderingGroupId=1;
 }
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
@@ -332,8 +334,8 @@ function updatePlayer(dt) {
   camera.position.z+=movement.z*speed;
   if(weaponRoot){
     const moving=Math.min(1,Math.hypot(forward,strafe));
-    weaponRoot.position.y=-.29+Math.sin(state.simTime*10)*.012*moving;
-    weaponRoot.position.x=.34+Math.cos(state.simTime*5)*.009*moving;
+    weaponRoot.position.y=-.27+Math.sin(state.simTime*10)*.012*moving;
+    weaponRoot.position.x=.18+Math.cos(state.simTime*5)*.009*moving;
   }
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
 }
