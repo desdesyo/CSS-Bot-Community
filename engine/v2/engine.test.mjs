@@ -511,3 +511,21 @@ test('map batches rendered wall colliders but preserves individual gameplay AABB
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /scene\.metadata\?\.soloCollisionBoxes/);
 });
+
+
+test('bot route assignment distributes a team across authored lanes deterministically', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /routeSet\[\(id-1\)%routeSet\.length\]/);
+  assert.match(source, /Spread soldiers across distinct authored lanes/);
+  assert.match(source, /const steer=avoidLength/);
+});
+test('mobile bot hand-to-weapon synchronization is throttled, not disabled', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /now>\s*=\s*\(bot\.handSyncAt\|\|0\)/);
+  assert.match(source, /bot\.handSyncAt=now\+\(mobile\?55:30\)/);
+});
+test('bug reports include final map batching counters', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /window\.__SOLO_MAP_STATS__=mapBuildStats/);
+  assert.match(source, /mapStats:window\.__SOLO_MAP_STATS__\|\|null/);
+});
