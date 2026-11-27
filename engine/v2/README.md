@@ -33,5 +33,6 @@ This is a new engine foundation and greybox vertical slice, not yet a CSS:S cont
 - Main reference: user-saved visual reference named “Мокрый Пол”.
 - Nighttime blue-hour rain atmosphere, dark blue-gray low-rise masonry, reflective wet cobblestone, warm amber lamps, shallow puddles, drainage, overhead wires and light fog.
 - A cross-quarter canal divides the map; two stone bridges connect both banks. Collision barriers prevent shortcutting across the water, and bridge approaches remain open to players and bots.
+- The central objective is now a detailed biosecure facility: a fully enclosed server chamber with eight equipment racks, access portals, airlocks, a control bay, decontamination storage, emergency power, cable trays, HVAC and two opposing approaches. The bomb/interaction pad is centered in the server room; the tactical minimap marks the complex.
 - Multiple side streets, short cross alleys, recessed entrances and low cover create alternate routes and sightlines. The walkable atlas uses a new map identity so old industrial-district route data is not mixed into this level.
 - Procedural cobblestone texture is generated at runtime at 512 px on coarse/mobile devices and 1024 px on desktop; static level transforms/materials are frozen after build. Dynamic point-light count is capped and disabled on mobile.
