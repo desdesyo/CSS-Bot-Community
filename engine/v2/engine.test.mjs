@@ -232,3 +232,12 @@ test('firing has a defined muzzle flash handler and expires the flash without al
   assert.ok(runtime.includes('now>=state.muzzleFlashUntil'));
   assert.ok(runtime.includes('state.muzzleFlash.setEnabled(false)'));
 });
+
+
+test('V2 exposes a same-origin validated input bridge for cloud-hosted rendering',()=>{
+  assert.ok(runtime.includes("event.source!==window.parent"));
+  assert.ok(runtime.includes("event.origin!==location.origin"));
+  assert.ok(runtime.includes("event.data?.type!=='SOLO_CLOUD_INPUT'"));
+  assert.ok(runtime.includes('state.touchStickActive=true'));
+  assert.ok(runtime.includes('state.fireTouch=input.fire===true'));
+});
