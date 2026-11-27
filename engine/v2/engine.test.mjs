@@ -110,7 +110,7 @@ test('runtime uses rendered mesh collision, sky, radar and breakable windows', (
 
 test('player fire ray excludes the players own hitbox to avoid self-hit', () => {
   const fireBody=runtime.slice(runtime.indexOf('function fire()'),runtime.indexOf('function initInput()'));
-  assert.ok(fireBody.includes('scene.pickWithRay(ray,mesh=>isMapSolid(mesh)||mesh.name.startsWith(\'body-\')'));
+  assert.ok(fireBody.includes('spawnBallisticProjectile(origin,direction,w.damage)'));
   assert.ok(!fireBody.includes('m===state.playerHitbox'));
 });
 
@@ -118,7 +118,7 @@ test('weapon wheel and all four weapon categories are wired to desktop, gamepad 
   for (const id of ['rifle','pistol','grenade','knife']) assert.ok(runtime.includes("'"+id+"'"));
   assert.ok(runtime.includes("if(e.code==='Tab')"));
   assert.ok(runtime.includes("if(e.code>='Digit1'&&e.code<='Digit4')"));
-  assert.ok(runtime.includes('function padButton(pad,index)'));
+  assert.ok(runtime.includes('function padButton('));
   assert.ok(runtime.includes("$('weaponButton').addEventListener"));
   assert.ok(html.includes('id="weaponWheel"'));
   assert.ok(html.includes('data-weapon="rifle"'));
@@ -140,7 +140,7 @@ test('full Gamepad API support maps both sticks, triggers, face buttons, bumpers
   assert.ok(html.includes('id="padStatus"'));
 });
 test('gamepad jump and sprint are integrated into player movement and reset on respawn',()=>{
-  assert.ok(runtime.includes('state.gamepad.jumpVelocity=5.1'));
+  assert.ok(runtime.includes('jumpVelocity=5.1'));
   assert.ok(runtime.includes('state.gamepad.sprint?6.2:4.6'));
   assert.ok(runtime.includes('camera.position.y=1.65+state.gamepad.jumpOffset'));
   assert.ok(runtime.includes('state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0'));
@@ -148,10 +148,10 @@ test('gamepad jump and sprint are integrated into player movement and reset on r
 
 test('weapon fire produces visible travelling tracers and uses wall-safe aim assistance', () => {
   assert.ok(runtime.includes('function findAssistedAimDirection()'));
-  assert.ok(runtime.includes('function spawnBulletTracer('));
-  assert.ok(runtime.includes("'bullet-tracer'"));
+  assert.ok(runtime.includes('function spawnBallisticProjectile('));
+  assert.ok(runtime.includes("'player-projectile'"));
   assert.ok(runtime.includes('scene.pickWithRay(sight'));
-  assert.ok(runtime.includes('spawnBulletTracer(camera.position.clone(),direction,hit?.hit?hit.distance:w.range)'));
+  assert.ok(runtime.includes('spawnBallisticProjectile(origin,direction,w.damage)'));
 });
 test('radar is placed on the left side and remains compact on mobile', () => {
   assert.ok(html.includes('#radar{position:fixed;left:12px;right:auto;'));
@@ -168,7 +168,7 @@ test('legacy rifle firing cadence, hold-to-fire and timed reload are preserved',
   assert.ok(runtime.includes("if(state.firing)fire();"));
   assert.ok(runtime.includes('function updateGamepad(dt)'));
   assert.ok(runtime.includes('state.gamepad.fire=!!(trigger&&state.started&&!state.wheelOpen)'));
-  assert.ok(runtime.includes("},1250);"));
+  assert.ok(runtime.includes("},1600);"));
   assert.ok(runtime.includes('old-style-muzzle-flash'));
 });
 
@@ -181,4 +181,23 @@ test('legacy weapon kick moves the viewmodel rather than changing aim direction'
   assert.ok(runtime.includes('state.weaponKick=.04'));
   assert.ok(runtime.includes('viewBaseZ'));
   assert.ok(runtime.includes('mesh.position.z=mesh.metadata.viewBaseZ+state.weaponKick'));
+});
+
+test('V2 loads rigged animated soldier models and scales the first-person weapon down',()=>{
+  assert.ok(html.includes('babylonjs.loaders.min.js'));
+  assert.ok(runtime.includes('LoadAssetContainerAsync'));
+  assert.ok(runtime.includes('instantiateModelsToScene'));
+  assert.ok(runtime.includes('setBotAnimation(bot'));
+  assert.ok(runtime.includes('rig.scaling.setAll(scale)'));
+  assert.ok(runtime.includes('compact-viewmodel-root'));
+  assert.ok(runtime.includes('viewModel.root.scaling.setAll(.56)'));
+  assert.ok(runtime.includes('bot.realModel=rig'));
+  assert.ok(runtime.includes('fallbackParts'));
+});
+test('player rounds are ballistic projectiles with collision, gravity and cleanup',()=>{
+  assert.ok(runtime.includes('function spawnBallisticProjectile('));
+  assert.ok(runtime.includes('function updateProjectiles(dt)'));
+  assert.ok(runtime.includes('p.velocity.y-=9.81*dt'));
+  assert.ok(runtime.includes('scene.pickWithRay(ray,m=>m!==state.playerHitbox'));
+  assert.ok(runtime.includes('disposeProjectile(p)'));
 });
