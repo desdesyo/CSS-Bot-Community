@@ -65,6 +65,32 @@ function buildBots() {
   const roster=createTeamRoster(state.playerTeam);
   for(const [id,team,x,z] of roster) makeBot(id,team,x,z,routes[id-1]);
 }
+
+let weaponRoot, muzzleFlash;
+function buildPlayerWeapon(){
+  weaponRoot=new BABYLON.TransformNode('player-rifle-viewmodel',scene);
+  weaponRoot.parent=camera;
+  weaponRoot.position.set(.34,-.29,-.72);
+  weaponRoot.rotation.set(0,0,0);
+  const dark=mat('player rifle polymer','#20282a',.42,.55);
+  const metal=mat('player rifle steel','#58615f',.3,.78);
+  const grip=mat('player rifle grip','#303638',.88);
+  const part=(name,pos,size,material)=>{
+    const m=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);
+    m.parent=weaponRoot;m.position.set(pos[0],pos[1],pos[2]);m.material=material;return m;
+  };
+  part('rifle receiver',[0,0,0],[.17,.16,.48],dark);
+  part('rifle barrel',[0,.025,-.39],[.055,.055,.42],metal);
+  part('rifle handguard',[0,.005,-.22],[.13,.105,.28],grip);
+  part('rifle magazine',[0,-.14,-.02],[.09,.2,.14],dark);
+  part('rifle stock',[0,.015,.31],[.13,.12,.28],grip);
+  part('rifle optic',[0,.115,-.04],[.07,.07,.12],metal);
+  part('rifle front sight',[0,.09,-.38],[.035,.08,.035],metal);
+  part('rifle pistol grip',[0,-.13,.12],[.09,.19,.1],grip);
+  muzzleFlash=BABYLON.MeshBuilder.CreateSphere('muzzle-flash',{diameter:.13,segments:6},scene);
+  muzzleFlash.parent=weaponRoot;muzzleFlash.position.set(0,.025,-.63);
+  muzzleFlash.material=mat('muzzle flash','#ffb34d',.25,0);muzzleFlash.isVisible=false;
+}
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
   state.playerTeam=team;
@@ -114,8 +140,11 @@ function updateBotMotion(dt) {
   }
 }
 function fire() {
-  const now=performance.now();if(!state.started||state.playerDead||state.reloading||now-state.lastShot<105||state.ammo<=0)return;
+  const now=performance.now();if(!state.started||state.playerDead||state.reloading||now-state.lastShot<105)return;
+  if(state.ammo<=0){if(state.reserve>0)reload();return;}
   state.lastShot=now;state.ammo--;const ray=camera.getForwardRay(95);
+  if(muzzleFlash){muzzleFlash.isVisible=true;window.setTimeout(()=>{if(muzzleFlash)muzzleFlash.isVisible=false},45);}
+  if(weaponRoot){weaponRoot.position.z=-.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=-.72},65);}
   const hit=scene.pickWithRay(ray,m=>m.name.startsWith('body-')||m.name.startsWith('head-'));
   if(hit?.hit&&hit.pickedMesh) {
     const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
@@ -152,7 +181,7 @@ function initInput() {
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
   look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
-  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();state.firing=true;$('fire').classList.add('active');fire()});
+  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();$('fire').setPointerCapture?.(e.pointerId);state.firing=true;$('fire').classList.add('active');fire()});
   const stopFire=()=>{state.firing=false;$('fire').classList.remove('active')};
   $('fire').addEventListener('pointerup',stopFire);$('fire').addEventListener('pointercancel',stopFire);$('fire').addEventListener('pointerleave',stopFire);
   $('reload').addEventListener('click',reload);
@@ -165,8 +194,14 @@ function updatePlayer(dt) {
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
   const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
   const yaw=camera.rotation.y;
-  camera.position.x+=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
-  camera.position.z+=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
+  // Babylon cameras look down local -Z; movement must use the same forward vector.
+  camera.position.x+=(-Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
+  camera.position.z+=(-Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
+  if(weaponRoot){
+    const moving=Math.min(1,Math.hypot(forward,strafe));
+    weaponRoot.position.y=-.29+Math.sin(state.simTime*10)*.012*moving;
+    weaponRoot.position.x=.34+Math.cos(state.simTime*5)*.009*moving;
+  }
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
 }
 function toggleFullscreen(){
@@ -186,7 +221,7 @@ function start() {
     $('health').textContent='HP 100';$('ammo').textContent='30 / 90';$('round').textContent='ROUND 01';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,Math.PI,0);
+  state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,0,0);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -201,7 +236,7 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();initInput();
+    buildMap();buildBots();buildPlayerWeapon();initInput();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);
