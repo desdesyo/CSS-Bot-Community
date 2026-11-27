@@ -1,4 +1,6 @@
-# SOLO Engine V2
+# SOLO: Wet Ground
+
+Game title: **SOLO: Wet Ground**. Engine: SOLO Engine V2.
 
 A parallel browser-FPS engine track. The legacy client remains untouched except for a separately committed adaptive-rendering correction.
 
