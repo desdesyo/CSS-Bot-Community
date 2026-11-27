@@ -231,7 +231,7 @@ test('field developer builds a persistent walkable map atlas, records routes and
 test('short test sessions retain incomplete rounds and upload accumulated diagnostics at eight rounds', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /developerSessionRounds\+\+/);
-  assert.match(engine, /function developerUploadDue\(\)\{return developerSessionRounds>=5\|\|\(developerSessionRounds<5&&developerRoundBatch\.length>=8\);\}/);
+  assert.match(engine, /function developerUploadDue\(\)\{return developerForceUpload\|\|developerSessionRounds>=5\|\|\(developerSessionRounds<5&&developerRoundBatch\.length>=8\);\}/);
   assert.match(engine, /developerRoundBatch=Array\.isArray\(dev\.rounds\)\?dev\.rounds\.slice\(-25\):\[\]/);
   assert.match(engine, /shortSessionsAccumulationRounds:8/);
   assert.match(engine, /developerSessionRounds=0;developerLastUploadError=null/);
