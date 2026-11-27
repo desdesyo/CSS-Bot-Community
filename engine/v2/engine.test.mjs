@@ -565,3 +565,9 @@ test('issue reports split viewmodel, soldier and world mesh counts for performan
   assert.match(engine, /activeMeshes:scene\.getActiveMeshes\?\.\(\)\.length/);
   assert.match(engine, /renderFps:Math\.round\(engine\.getFps\?\.\(\)\|\|0\)/);
 });
+
+test('renderer explicitly owns the active camera and initializes the map HUD before gameplay', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /scene\.activeCamera=camera;scene\.activeCameras=null/);
+  assert.match(engine, /buildBots\(\);buildPlayerWeapon\(\);initInput\(\);drawMinimap\(\)/);
+});
