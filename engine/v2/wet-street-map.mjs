@@ -304,12 +304,12 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   }
   // Environmental storytelling: warning stripes, specimen transfer case,
   // sealed sample cooler, emergency cutoff and a conspicuous manual override.
-  box('server room emergency power cabinet',0,1.15,30.05,2.0,2.3,.48,labRed,true);
+  box('server room emergency power cabinet',5.7,1.15,30.0,2.0,2.3,.48,labRed,true);
   box('emergency power cabinet label',0,2.15,29.79,1.25,.28,.035,labWhite,false);
-  box('specimen transfer case',-5.5,.72,29.0,1.15,1.35,1.0,labWhite,true);
-  box('specimen case amber seal',-5.5,1.45,28.47,.72,.12,.035,labAmber,false);
-  box('sealed sample cooler',5.5,.62,18.9,1.25,1.1,1.0,labSteel,true);
-  box('manual containment switch',0,1.45,17.35,.78,1.15,.28,labRed,true);
+  box('specimen transfer case',-9.2,.72,29.5,1.15,1.35,1.0,labWhite,true);
+  box('specimen case amber seal',-9.2,1.45,28.97,.72,.12,.035,labAmber,false);
+  box('sealed sample cooler',9.2,.62,29.5,1.25,1.1,1.0,labSteel,true);
+  box('manual containment switch',-5.9,1.45,17.35,.78,1.15,.28,labRed,true);
   box('containment switch guard',0,2.05,17.17,.92,.16,.08,labSteel,false);
   // Directional signage makes the two entrances readable in combat.
   for(const z of [13.35,34.65]){
