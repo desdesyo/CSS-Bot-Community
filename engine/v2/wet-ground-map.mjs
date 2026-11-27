@@ -45,10 +45,19 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     return tex;
   };
   const cobbleTex=makeCobbleTexture();
-  if(cobble.albedoTexture!==undefined)cobble.albedoTexture=cobbleTex;
-  else cobble.diffuseTexture=cobbleTex;
-  if(!mobile && cobble.bumpTexture!==undefined)cobble.bumpTexture=cobbleTex;
+  cobble.albedoTexture=cobbleTex;
   cobbleTex.uScale=mobile?7:10;cobbleTex.vScale=mobile?8:12;
+  // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
+  const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,false);
+  const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
+  const normalRows=mobile?12:20,normalCols=mobile?9:15,nw=normalSize/normalCols,nh=normalSize/normalRows;
+  for(let y=0;y<normalRows;y++)for(let x=0;x<normalCols;x++){
+    const px=x*nw+(y%2)*nw*.46,py=y*nh;
+    normalCtx.strokeStyle='rgb(91,112,239)';normalCtx.lineWidth=2;normalCtx.strokeRect(px+2,py+2,nw-4,nh-4);
+    normalCtx.strokeStyle='rgb(164,144,250)';normalCtx.lineWidth=1;normalCtx.beginPath();normalCtx.moveTo(px+4,py+4);normalCtx.lineTo(px+nw*.7,py+4);normalCtx.stroke();
+  }
+  normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=cobbleTex.uScale;normalTex.vScale=cobbleTex.vScale;normalTex.gammaSpace=false;
+  cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
   if(cobble.metallic!==undefined)cobble.metallic=.08;
   const ground=B.MeshBuilder.CreateGround('Wet Ground district foundation',{width:106,height:84,subdivisions:1},scene);
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
