@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -35,4 +35,11 @@ test('T player receives five allies and faces six opponents (6v6)', () => {
 });
 test('roster rejects unsupported team values', () => {
   assert.throws(() => createTeamRoster('spectator'), /CT or T/);
+});
+
+test('camera-relative forward movement matches Babylon camera direction', () => {
+  assert.ok(Math.abs(cameraRelativeMovement(0,1,0).z + 1) < 1e-9);
+  assert.ok(Math.abs(cameraRelativeMovement(Math.PI,1,0).z - 1) < 1e-9);
+  assert.ok(Math.abs(cameraRelativeMovement(0,0,1).x - 1) < 1e-9);
+  assert.ok(Math.abs(cameraRelativeMovement(Math.PI,0,1).x + 1) < 1e-9);
 });
