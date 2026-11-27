@@ -217,6 +217,24 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     root.computeWorldMatrix(true);
   };
   van(-31,-20,-.08);van(31,8,Math.PI+.04);
+
+  // A recognizable old-quarter landmark and a compact covered night market.
+  const towerStone=mat('clock tower rain-dark masonry','#52606b',.78);
+  const towerRoof=mat('clock tower oxidized copper','#344d50',.34,.58);
+  box('old quarter clock tower shaft',-44,5.4,-13,3.6,10.8,3.8,towerStone,true);
+  const towerCap=B.MeshBuilder.CreateCylinder('clock tower copper roof',{diameter:4.5,height:1.5,tessellation:8},scene);
+  towerCap.position.set(-44,11.55,-13);towerCap.material=towerRoof;towerCap.isPickable=false;
+  box('clock tower illuminated dial',-42.13,8.0,-13, .045,1.75,1.75,neonAmber,false);
+  box('clock tower minute hand',-42.09,8.2,-13,.035,.72,.06,iron,false);
+  box('clock tower hour hand',-42.08,7.98,-13,.035,.06,.48,iron,false);
+  for(const [x,z] of [[-25,-15],[26,12]]){
+    const stallRoof=mat('market awning canvas '+x,x<0?'#765044':'#425d69',.82);
+    box('night market stall counter',x,.72,z,3.4,1.35,1.6,vanBody,true);
+    box('night market striped canopy',x,2.15,z,4.1,.18,2.6,stallRoof,false);
+    for(const dx of [-1.85,1.85])for(const dz of [-1.1,1.1])box('market canopy support',x+dx,1.55,z+dz,.09,1.25,.09,iron,false);
+    box('market warm counter light',x,1.55,z-.86,.16,.22,.08,neonAmber,false);
+  }
+
   // Rain chains, balcony details and fire escapes create layered facades and silhouettes.
   for(const [x,z] of [[-18,-30],[18,-8],[-18,15],[18,35]]){
     for(const level of [4.0,6.3]){
