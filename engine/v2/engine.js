@@ -5,7 +5,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
-const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
+const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, playerHitbox:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function isPlayerBlocked(x,z) { return isDust2Blocked(x,z); }
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -34,7 +34,7 @@ function makeBot(id, team, x,z, waypoints) {
   const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
   const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
   root.position.set(x,0,z);
-  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0});
+  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0,lastFire:0});
   return root;
 }
 function buildBots() {
@@ -44,11 +44,41 @@ function buildBots() {
   makeBot(5,'enemy',-92,-12,r[4]);makeBot(6,'ally',92,12,r[5]);
 }
 function updateBotAI() {
-  // Expensive tactical decisions run at 8 Hz; movement is deliberately not stepped here.
+  // Tactical decisions and combat run at 8 Hz.
   for(const bot of state.bots) {
     if(!bot.alive) continue;
-    const target=bot.waypoints[bot.index];
-    if(Math.hypot(target[0]-bot.root.position.x,target[1]-bot.root.position.z)<.65) bot.index=(bot.index+1)%bot.waypoints.length;
+    const waypoint=bot.waypoints[bot.index];
+    if(Math.hypot(waypoint[0]-bot.root.position.x,waypoint[1]-bot.root.position.z)<.8) bot.index=(bot.index+1)%bot.waypoints.length;
+    let target=null,best=Infinity;
+    if(bot.team==='enemy') {
+      const dx=camera.position.x-bot.root.position.x,dz=camera.position.z-bot.root.position.z,d=Math.hypot(dx,dz);
+      if(d<34){target={kind:'player',x:camera.position.x,z:camera.position.z,distance:d};best=d;}
+    } else {
+      for(const candidate of state.bots) {
+        if(!candidate.alive||candidate.team===bot.team)continue;
+        const dx=candidate.root.position.x-bot.root.position.x,dz=candidate.root.position.z-bot.root.position.z,d=Math.hypot(dx,dz);
+        if(d<best&&d<34){best=d;target={kind:'bot',bot:candidate,x:candidate.root.position.x,z:candidate.root.position.z,distance:d};}
+      }
+    }
+    if(!target)continue;
+    const now=performance.now();if(now-bot.lastFire<850+((bot.id*137)%450))continue;
+    const origin=new BABYLON.Vector3(bot.root.position.x,1.22,bot.root.position.z);
+    const aim=new BABYLON.Vector3(target.x,target.kind==='player'?1.45:1.15,target.z).subtract(origin);
+    const distance=aim.length();if(distance<.1)continue;aim.normalize();
+    const ray=new BABYLON.Ray(origin,aim,Math.min(36,distance+1));
+    const hit=scene.pickWithRay(ray,mesh=>{
+      if(mesh===state.playerHitbox)return true;
+      if(mesh.name.startsWith('body-')||mesh.name.startsWith('head-'))return mesh.parent!==bot.root;
+      return mesh.isPickable&&mesh.name!=='player-hitbox';
+    });
+    if(!hit?.hit||!hit.pickedMesh)continue;
+    bot.lastFire=now;
+    if(target.kind==='player'&&hit.pickedMesh===state.playerHitbox){
+      state.hp=Math.max(0,state.hp-8);$('health').textContent='HP '+state.hp;
+      if(state.hp===0){state.started=false;$('loadState').textContent='Ты погиб. Нажми «ПЕРЕЗАПУСК».';overlay.style.display='flex';startButton.textContent='ПЕРЕЗАПУСК';}
+    } else if(target.kind==='bot'&&hit.pickedMesh.parent===target.bot.root){
+      target.bot.health-=18;if(target.bot.health<=0){target.bot.alive=false;target.bot.root.setEnabled(false);}
+    }
   }
 }
 function updateBotMotion(dt) {
@@ -80,7 +110,7 @@ function fire() {
 }
 function reload(){if(state.ammo===30||state.reserve===0)return;const n=Math.min(30-state.ammo,state.reserve);state.ammo+=n;state.reserve-=n;$('ammo').textContent=state.ammo+' / '+state.reserve}
 function initInput() {
-  window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload()});
+  window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen()});
   window.addEventListener('keyup',e=>state.keys.delete(e.code));
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
   window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
@@ -95,6 +125,12 @@ function initInput() {
   look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   $('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire()});
+  $('reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});
+  $('fullscreen').addEventListener('click',toggleFullscreen);
+}
+function toggleFullscreen(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+  else document.exitFullscreen?.().catch(()=>{});
 }
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
@@ -106,9 +142,10 @@ function updatePlayer(dt) {
   const nextX=Math.max(-108,Math.min(108,camera.position.x+dx)),nextZ=Math.max(-88,Math.min(88,camera.position.z+dz));
   if(!isPlayerBlocked(nextX,camera.position.z))camera.position.x=nextX;
   if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
+  if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
 }
 function start() {
-  state.started=true;overlay.style.display='none';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);
+  state.started=true;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';$('ammo').textContent='30 / 90';startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -124,7 +161,9 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();initInput();
+    buildMap();buildBots();
+    state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.75,radius:.28,tessellation:8},scene);state.playerHitbox.position.set(0,.92,73);state.playerHitbox.isVisible=false;state.playerHitbox.isPickable=true;state.playerHitbox.visibility=0;
+    initInput();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
     $('start').addEventListener('click',start);
