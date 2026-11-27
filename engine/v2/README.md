@@ -7,7 +7,7 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 
 ## Current vertical slice
 - WebGL rendering with device-aware antialiasing and shadow-map budgets.
-- PBR material pipeline and the Mokry Pol rain-soaked old-quarter map with low-rise blue-gray buildings, narrow alleys, a canal, two stone bridges, wet cobblestone, puddles and warm lanterns.
+- PBR material pipeline and the Wet Ground rain-soaked old-quarter map with low-rise blue-gray buildings, narrow alleys, a canal, two stone bridges, wet cobblestone, puddles and warm lanterns.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
 - Procedural high-detail first-person M4-style rifle, detailed 9mm service pistol and full-tang combat knife, with separate moving parts, controls, magazines, sights and materials.
@@ -29,8 +29,8 @@ Open `/engine/v2/` on the published Pages site or serve the repository root over
 This is a new engine foundation and greybox vertical slice, not yet a CSS:S content port. It does not yet have final custom-made studio character assets, networking, full collision/physics or verified Redmi 12 performance. The rifle viewmodel is a procedural Babylon.js asset, not a scanned or externally authored photorealistic mesh. See `ASSET_CREDITS.md` for model and animation licenses. The mobile hardware must be measured before setting acceptance targets.
 
 
-## Active level: Мокрый Пол
-- Main reference: user-saved visual reference named “Мокрый Пол”.
+## Active level: Wet Ground
+- Main reference: user-saved visual reference named “Wet Ground”.
 - Nighttime blue-hour rain atmosphere, dark blue-gray low-rise masonry, reflective wet cobblestone, warm amber lamps, shallow puddles, drainage, overhead wires and light fog.
 - A cross-quarter canal divides the map; two stone bridges connect both banks. Collision barriers prevent shortcutting across the water, and bridge approaches remain open to players and bots.
 - The central objective is now a detailed biosecure facility: a fully enclosed server chamber with eight equipment racks, access portals, airlocks, a control bay, decontamination storage, emergency power, cable trays, HVAC and two opposing approaches. The bomb/interaction pad is centered in the server room; the tactical minimap marks the complex.
