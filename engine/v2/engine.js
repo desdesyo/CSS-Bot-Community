@@ -361,6 +361,27 @@ function updateBotMotion(dt) {
     bot.phase+=dt*7;
   }
 }
+function spawnProjectile(origin,direction,ownerTeam,speed) {
+  if(!projectileMaterial){
+    projectileMaterial=new BABYLON.StandardMaterial('shared-projectile-material',scene);
+    projectileMaterial.diffuseColor=new BABYLON.Color3(.95,.78,.38);
+    projectileMaterial.emissiveColor=new BABYLON.Color3(.8,.48,.12);
+  }
+  const mesh=BABYLON.MeshBuilder.CreateSphere('combat-projectile',{diameter:.055,segments:6},scene);
+  mesh.material=projectileMaterial;mesh.position.copyFrom(origin);mesh.isPickable=false;
+  state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam});
+}
+function killBot(bot) {
+  if(!bot||!bot.alive)return;
+  bot.health=0;bot.alive=false;bot.deadAt=performance.now();bot.deathStartX=bot.root.rotation.x;
+  bot.body.isPickable=false;bot.head.isPickable=false;bot.combatState='dead';bot.target=null;bot.navPath=[];
+  stopHumanBot(bot.rig);state.kills++;$('kills').textContent='KILLS '+state.kills;
+}
+function damageBot(bot,damage) {
+  if(!bot?.alive)return;
+  bot.health=Math.max(0,bot.health-Math.max(0,damage));
+  if(bot.health===0)killBot(bot);
+}
 function updateBulletPhysics(dt) {
   for(let i=state.projectiles.length-1;i>=0;i--) {
     const p=state.projectiles[i];
