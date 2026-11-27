@@ -713,7 +713,7 @@ try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');i
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
 let inputTraceInstalled=false;
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
-let gameLogDbPromise=null,gameLogPersistPending=false,gameLogRestoring=false;
+let gameLogDbPromise=null,gameLogPersistPending=false,gameLogPersistAgain=false,gameLogRestoring=false;
 function persistFieldAtlas(force=false){const now=performance.now();if(gameLogRecording){fieldAtlas.persistPending=true;return;}if(!force&&now-fieldAtlas.lastPersistAt<7000)return;fieldAtlas.lastPersistAt=now;fieldAtlas.persistPending=false;try{localStorage.setItem(GAME_FIELD_ATLAS_KEY,JSON.stringify({...fieldAtlas,activeRoute:fieldAtlas.activeRoute.slice(-700),routes:fieldAtlas.routes.slice(-30),coverSamples:fieldAtlas.coverSamples.slice(-350)}))}catch(e){console.warn('Field atlas save failed',e);}}
 function fieldCellAt(x,z){const ix=Math.max(0,Math.min(35,Math.floor((x+53)/FIELD_CELL_SIZE))),iz=Math.max(0,Math.min(27,Math.floor((z+42)/FIELD_CELL_SIZE)));return {ix,iz,key:ix+','+iz,x:-53+(ix+.5)*FIELD_CELL_SIZE,z:-42+(iz+.5)*FIELD_CELL_SIZE};}
 function fieldPointWalkable(x,z,radius=.52){for(const c of collisionBoxes){if(c.maxY<=.04||c.minY>=1.68)continue;const nx=Math.max(c.minX,Math.min(x,c.maxX)),nz=Math.max(c.minZ,Math.min(z,c.maxZ));const dx=x-nx,dz=z-nz;if(dx*dx+dz*dz<radius*radius)return false;}return true;}
@@ -750,14 +750,14 @@ function openGameLogDb(){
  return gameLogDbPromise;
 }
 async function persistGameLog(){
- if(gameLogPersistPending)return;
+ if(gameLogPersistPending){gameLogPersistAgain=true;return;}
  gameLogPersistPending=true;
  try{
   const db=await openGameLogDb();if(!db)return;
   const snapshot={id:'active',records:gameLogRecords.slice(),events:gameLogEvents.slice(),frameMs:gameLogFrameMs.slice(),renderMs:gameLogRenderMs.slice(),performance:{...gameLogPerf},startedAt:gameLogStartedAt,savedAt:Date.now()};
   await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(snapshot);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('IndexedDB transaction aborted'));});
  }catch(e){console.warn('Async gameplay log persistence failed',e)}
- finally{gameLogPersistPending=false}
+ finally{gameLogPersistPending=false;if(gameLogPersistAgain){gameLogPersistAgain=false;void persistGameLog()}}
 }
 async function restoreGameplayLog(){
  if(gameLogRestoring||gameLogRecording)return;gameLogRestoring=true;
