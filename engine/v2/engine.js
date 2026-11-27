@@ -330,6 +330,20 @@ function updateGamepad(dt){
 
 
 function initInput() {
+  // Trusted same-origin parent bridge used only by the dedicated cloud-host wrapper.
+  window.addEventListener('message',event=>{
+    if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='SOLO_CLOUD_INPUT')return;
+    const input=event.data.input;
+    if(!input||typeof input!=='object')return;
+    const clamp=v=>Math.max(-1,Math.min(1,Number.isFinite(Number(v))?Number(v):0));
+    state.touchStickActive=true;
+    state.joy.x=clamp(input.x);state.joy.y=clamp(input.y);
+    camera.rotation.y+=Math.max(-.25,Math.min(.25,Number(input.lookX)||0));
+    camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+Math.max(-.25,Math.min(.25,Number(input.lookY)||0))));
+    state.fireTouch=input.fire===true;state.firing=state.fireMouse||state.fireTouch||state.gamepad.fire;
+    if(input.reload===true)reload();
+    if(input.jump===true&&state.started&&state.gamepad.jumpOffset<=.01&&state.gamepad.jumpVelocity<=0)state.gamepad.jumpVelocity=5.1;
+  });
   window.addEventListener('gamepadconnected',e=>{state.gamepad.index=e.gamepad.index;const n=$('padStatus');if(n)n.textContent='PAD: CONNECTED';});
   window.addEventListener('gamepaddisconnected',e=>{if(state.gamepad.index===e.gamepad.index){state.gamepad.index=-1;if(!state.touchStickActive)state.joy.x=state.joy.y=0;state.gamepad.fire=false;state.firing=state.fireMouse||state.fireTouch;const n=$('padStatus');if(n)n.textContent='PAD: DISCONNECTED';}});
   window.addEventListener('keydown',e=>{state.keys.add(e.code);if(e.code==='KeyR')reload();if(e.code==='KeyF')toggleFullscreen();if(e.code==='Tab'){e.preventDefault();openWeaponWheel();}if(e.code>='Digit1'&&e.code<='Digit4')selectWeapon(weaponOrder[Number(e.code.slice(-1))-1]);});
