@@ -137,17 +137,17 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     m.position.set(x,y,z);m.material=material;return m;
   };
   // Main cobbled street, short cross streets, and narrow side passages.
-  floor('main wet cobblestone street',0,0,14,82,.025);
+  floor('main wet cobblestone street',0,0,10.4,82,.025);
   floor('west lane cobblestones',-23,0,9,82,.03);
   floor('east lane cobblestones',23,0,9,82,.03);
   for(const z of [-27,-12,13,28]) floor('cross alley cobbles',0,z,52,5,.035);
-  for(const x of [-8.2,8.2,-28.5,28.5]) floor('raised wet sidewalk',x,0,2.1,82,.07,stone);
+  for(const x of [-5.8,5.8]) floor('narrow old-quarter stone sidewalk',x,0,1.35,82,.07,stone);\n  for(const x of [-28.5,28.5]) floor('outer wet stone sidewalk',x,0,2.1,82,.07,stone);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
   const waterPlane=B.MeshBuilder.CreateGround('dark canal water',{width:106,height:9.4,subdivisions:1},scene);
   waterPlane.position.y=.12;waterPlane.material=water;waterPlane.isPickable=false;
   if(!mobile){const reflection=new B.PointLight('canal reflected blue fill',new B.Vector3(0,1,-1),scene);reflection.diffuse=new C(.12,.28,.48);reflection.intensity=.32;reflection.range=38;}
-  for(const [x,label] of [[-20,'west'],[20,'east']]){
+  for(const [x,label] of [[-20,'west'],[0,'main'],[20,'east']]){
     // Open north/south crossing with broad, visibly continuous approaches.
     // No parapet, rail or invisible blocker spans either bridge mouth.
     floor(label+' arched stone bridge deck',x,0,14,16,.22,stone);
@@ -179,12 +179,12 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(invisible.alpha!==undefined)invisible.alpha=0;
   // Broad 16-unit bridge mouths; both the visual retaining wall and collision
   // barrier terminate outside the road deck. Invisible collision meshes never render black.
-  for(const z of [-4.9,4.9]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
+  for(const z of [-4.9,4.9]) for(const [x,w] of [[-40.5,25],[-10,4],[10,4],[40.5,25]]){
     const barrier=box('canal bank collision barrier',x,.95,z,w,1.9,.32,invisible,true,false);
     barrier.visibility=0;
     barrier.isVisible=true;
   }
-  for(const z of [-5.7,5.7]) for(const [x,w] of [[-40.5,25],[0,24],[40.5,25]]){
+  for(const z of [-5.7,5.7]) for(const [x,w] of [[-40.5,25],[-10,4],[10,4],[40.5,25]]){
     box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
   }
   // Low-rise buildings: 2–3 floors, irregular facades, open doorways and service alleys.
@@ -259,12 +259,12 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   // footprint and height, leaving a broad market court on one side and a tight
   // service alley on the other. The bombsite stays fixed for objective logic.
   const blocks=[
-    ['west tenement A',-16,-32,13,12,8.2,plaster,'west'],
-    ['west tenement B',-15,-6,10,17,7.4,stone,'west'],
+    ['west tenement A',-13.5,-32,13,12,8.2,plaster,'west'],
+    ['west tenement B',-13,-6,10,17,7.4,stone,'west'],
     ['west tenement C',-20,17,13,14,8.5,brick,'west'],
     ['west tenement D',-13,35,8,10,7.2,plaster,'west'],
-    ['east tenement A',16,-32,10,12,7.6,stone,'east'],
-    ['east tenement B',16.5,-7,14,18,8.4,plaster,'east'],
+    ['east tenement A',13.5,-32,10,12,7.6,stone,'east'],
+    ['east tenement B',13.5,-7,14,18,8.4,plaster,'east'],
     ['east tenement C',16,17,10,14,7.3,brick,'east'],
     ['east tenement D',21,36,13,10,8.1,stone,'east']
   ];
@@ -283,7 +283,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     box('bin rain lid',x,1.2,z,.94,.12,.84,trim,false);
   }
   // Cobble gutters, drainage grates, uneven kerbs and shallow puddle inlays.
-  for(const x of [-7.1,7.1]) for(let z=-39;z<=39;z+=8){
+  for(const x of [-5.15,5.15]) for(let z=-39;z<=39;z+=8){
     box('granite curb',x,.12,z,.22,.22,7.6,trim,false);
     box('storm drain grate',x+(x<0?.35:-.35),.085,z, .72,.035,1.35,iron,false);
   }
@@ -312,8 +312,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
     }
   };
-  for(const z of [-34,-20,16,31]){lamp(-8.9,z);lamp(8.9,z);}
-  for(const z of [-30,-8,18,35]){lamp(-11.6,z,true);lamp(11.6,z,true);}
+  for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
+  for(const z of [-30,-8,18,35]){lamp(-7.35,z,true);lamp(7.35,z,true);}
 
   // Wet-night storefronts: readable pools of amber/cyan light, not a uniformly dark box.
   const neonCyan=mat('cyan shop sign emission','#56dff2',.24);
@@ -905,5 +905,5 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(m.material&&!materials.has(m.material)){materials.add(m.material);m.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(m);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size};
 }
