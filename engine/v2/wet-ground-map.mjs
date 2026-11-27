@@ -780,18 +780,19 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     for(const side of [-1,1]){
       part(name+' side windows',side*.875,1.53,-.12,.035,.55,1.9,spawnGlass);
       part(name+' chrome door strip',side*.974,.73,-.05,.025,.055,2.25,chrome);
+      part(name+' side mirror',side*.98,1.62,-1.12,.16,.12,.28,chrome);
+      part(name+' door handle',side*.98,1.05,.12,.035,.07,.28,chrome);
       for(const zz of [-1.38,1.38]){
         const wheel=B.MeshBuilder.CreateCylinder(name+' wet tire',{diameter:.68,height:.2,tessellation:16},scene);
         wheel.parent=root;wheel.rotation.z=Math.PI/2;wheel.position.set(side*.91,.38,zz);wheel.material=rubber;wheel.isPickable=false;
         const hub=B.MeshBuilder.CreateCylinder(name+' dull wheel hub',{diameter:.31,height:.215,tessellation:12},scene);
         hub.parent=root;hub.rotation.z=Math.PI/2;hub.position.set(side*1.02,.38,zz);hub.material=chrome;hub.isPickable=false;
       }
-    }
-    for(const side of [-1,1]){
       part(name+' warm headlamp',side*.62,.83,-2.14,.34,.2,.035,spawnLamp);
       part(name+' red tail lamp',side*.64,.83,2.14,.3,.22,.035,neonAmber);
-      part(name+' bumper',side*0,.42,-2.17,1.8,.13,.16,chrome);
     }
+    part(name+' front chrome bumper',0,.42,-2.17,1.8,.13,.16,chrome);
+    part(name+' rear chrome bumper',0,.42,2.17,1.8,.13,.16,chrome);
     part(name+' number plate',0,.65,-2.205,.62,.18,.025,trim);
     root.computeWorldMatrix(true);
   };
