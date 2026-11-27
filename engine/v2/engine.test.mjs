@@ -117,7 +117,7 @@ test('weapon wheel and all four weapon categories are wired to desktop, gamepad 
   for (const id of ['rifle','pistol','grenade','knife']) assert.ok(runtime.includes("'"+id+"'"));
   assert.ok(runtime.includes("if(e.code==='Tab')"));
   assert.ok(runtime.includes("if(e.code>='Digit1'&&e.code<='Digit4')"));
-  assert.ok(runtime.includes("pad.buttons?.[4]?.pressed"));
+  assert.ok(runtime.includes('function padButton(pad,index)'));
   assert.ok(runtime.includes("$('weaponButton').addEventListener"));
   assert.ok(html.includes('id="weaponWheel"'));
   assert.ok(html.includes('data-weapon="rifle"'));
