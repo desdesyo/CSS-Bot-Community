@@ -103,7 +103,7 @@ function updatePlayer(dt) {
   const yaw=camera.rotation.y;
   const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
   const dz=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
-  const nextX=Math.max(-53,Math.min(53,camera.position.x+dx)),nextZ=Math.max(-42,Math.min(42,camera.position.z+dz));
+  const nextX=Math.max(-108,Math.min(108,camera.position.x+dx)),nextZ=Math.max(-88,Math.min(88,camera.position.z+dz));
   if(!isPlayerBlocked(nextX,camera.position.z))camera.position.x=nextX;
   if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
 }
