@@ -294,7 +294,7 @@ function updateBotAI() {
     }
     bot.target=chosen;
     if(chosen){
-      if(bot.developerRole==='field-developer')bot.fieldExploreGoal=null;
+      bot.fieldExploreGoal=null;
       bot.combatState='engage';
       const target=chosen.position;
       // Bots now choose a real loadout: knife at contact range, pistol when rifle ammo is exhausted.
@@ -354,15 +354,12 @@ function updateBotAI() {
       }
     }else{
       bot.combatState='patrol';bot.target=null;
-      if(bot.developerRole==='field-developer'){bot.combatState='exploration-review';chooseFieldExploreGoal(bot,now);}
       bot.activeWeapon=bot.ammo>0?'rifle':bot.pistolAmmo>0?'pistol':'knife';
       bot.weapons.rifle.setEnabled(bot.activeWeapon==='rifle');
       bot.weapons.pistol.setEnabled(bot.activeWeapon==='pistol');
       bot.weapons.knife.setEnabled(bot.activeWeapon==='knife');
-      if(bot.developerRole!=='field-developer'){
-        const wp=bot.waypoints[bot.index];if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){if(bot.index<bot.waypoints.length-1)bot.index++;else if(bot.faction==='CT')bot.index=0;bot.navPath=[];bot.navGoal=null;}
-        const goal={x:wp[0],z:wp[1]};if(!bot.navGoal||Math.hypot(bot.navGoal.x-goal.x,bot.navGoal.z-goal.z)>.1||now>bot.repathAt){bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+2500;}
-      }
+      const wp=bot.waypoints[bot.index];if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){if(bot.index<bot.waypoints.length-1)bot.index++;else if(bot.faction==='CT')bot.index=0;bot.navPath=[];bot.navGoal=null;}
+      const goal={x:wp[0],z:wp[1]};if(!bot.navGoal||Math.hypot(bot.navGoal.x-goal.x,bot.navGoal.z-goal.z)>.1||now>bot.repathAt){bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+2500;}
     }
   }
 }
@@ -391,7 +388,7 @@ function updateBotMotion(dt) {
       const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:0,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},collisionBoxes,.38,1.72,.07);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
-        if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,role:bot.developerRole||null,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
+        if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
         bot.blockedLogged=true;bot.navPath=[];bot.navGoal=null;bot.repathAt=0;
       }else bot.blockedLogged=false;
       animateHumanBot(bot.rig,dist>.25,bot.speed>2.7);
@@ -417,8 +414,7 @@ function updateBotMotion(dt) {
       if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.activeWeapon==='knife'?-0.22:-0.12;bot.rig.rightHand.rotation.z=bot.activeWeapon==='knife'?.08:0;}
       if(bot.rig.leftHand){bot.rig.leftHand.rotation.x=bot.activeWeapon==='knife'?.08:-.28;bot.rig.leftHand.rotation.z=bot.activeWeapon==='knife'?-.12:.16;}
     }
-    if(bot.developerRole==='field-developer')recordFieldDeveloperPosition(bot,performance.now());
-    if(bot.developerRole==='field-developer'&&goal&&Math.hypot(bot.root.position.x-(bot.fieldLastProgressX??bot.root.position.x),bot.root.position.z-(bot.fieldLastProgressZ??bot.root.position.z))<.025){bot.fieldStuckSince=bot.fieldStuckSince||performance.now();if(performance.now()-bot.fieldStuckSince>2600&&!bot.fieldStuckLogged){bot.fieldStuckLogged=true;gameLogEvent('field-developer-stuck',{position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,obstacle:bot.blockedLogged,coverage:fieldCoverageStats()});bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;bot.repathAt=0;}}else{bot.fieldStuckSince=0;bot.fieldStuckLogged=false;bot.fieldLastProgressX=bot.root.position.x;bot.fieldLastProgressZ=bot.root.position.z;}
+    
     bot.phase+=dt*7;
   }
 }
@@ -708,21 +704,16 @@ const GAME_LOG_KEY='solo_engine_v2_gameplay_logs_v1';
 const GAME_LOG_BRANCH='feature/solo-engine-v2';
 const GAME_LOG_LIMIT=1200;
 const GAME_LOG_EVENT_LIMIT=1200;
-const GAME_DEV_STATE_KEY='solo_engine_v2_field_developer_v1';
 const GAME_FIELD_ATLAS_KEY='solo_engine_v2_field_atlas_v1';
 const FIELD_MAP_ID='wet-ground-rainy-quarter-v1';
 const FIELD_CELL_SIZE=3;
-let developerSessionRounds=0,developerForceUpload=false;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
 let fieldWalkableCells=null,fieldExploreLastPlan=0;
 try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');if(atlas?.mapId===FIELD_MAP_ID){fieldAtlas={...fieldAtlas,...atlas};fieldAtlas.visitedCells=fieldAtlas.visitedCells||{};fieldAtlas.unreachableCells=Array.isArray(fieldAtlas.unreachableCells)?fieldAtlas.unreachableCells:[];fieldAtlas.activeRoute=Array.isArray(fieldAtlas.activeRoute)?fieldAtlas.activeRoute.slice(-700):[];fieldAtlas.routes=Array.isArray(fieldAtlas.routes)?fieldAtlas.routes.slice(-30):[];fieldAtlas.coverSamples=Array.isArray(fieldAtlas.coverSamples)?fieldAtlas.coverSamples.slice(-350):[];fieldAtlas.lastPersistAt=0;}}catch(e){}
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
-let developerRoundsCompleted=0,developerRoundBatch=[],developerUploadBusy=false,developerLastUploadError=null;
-try{const dev=JSON.parse(localStorage.getItem(GAME_DEV_STATE_KEY)||'null');if(dev){developerRoundsCompleted=Number(dev.roundsCompleted)||0;developerRoundBatch=Array.isArray(dev.rounds)?dev.rounds.slice(-25):[];developerForceUpload=!!dev.uploadDue;}}catch(e){}
 let inputTraceInstalled=false;
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
 try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-GAME_LOG_EVENT_LIMIT):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
-function persistDeveloperState(){try{localStorage.setItem(GAME_DEV_STATE_KEY,JSON.stringify({roundsCompleted:developerRoundsCompleted,rounds:developerRoundBatch.slice(-25),uploadDue:developerForceUpload,lastUploadError:developerLastUploadError}))}catch(e){console.warn('Field developer state save failed',e)}}
 function persistFieldAtlas(force=false){const now=performance.now();if(!force&&now-fieldAtlas.lastPersistAt<7000)return;fieldAtlas.lastPersistAt=now;try{localStorage.setItem(GAME_FIELD_ATLAS_KEY,JSON.stringify({...fieldAtlas,activeRoute:fieldAtlas.activeRoute.slice(-700),routes:fieldAtlas.routes.slice(-30),coverSamples:fieldAtlas.coverSamples.slice(-350)}))}catch(e){gameLogEvent('field-atlas-storage-error',{message:String(e?.message||e)});}}
 function fieldCellAt(x,z){const ix=Math.max(0,Math.min(35,Math.floor((x+53)/FIELD_CELL_SIZE))),iz=Math.max(0,Math.min(27,Math.floor((z+42)/FIELD_CELL_SIZE)));return {ix,iz,key:ix+','+iz,x:-53+(ix+.5)*FIELD_CELL_SIZE,z:-42+(iz+.5)*FIELD_CELL_SIZE};}
 function fieldPointWalkable(x,z,radius=.52){for(const c of collisionBoxes){if(c.maxY<=.04||c.minY>=1.68)continue;const nx=Math.max(c.minX,Math.min(x,c.maxX)),nz=Math.max(c.minZ,Math.min(z,c.maxZ));const dx=x-nx,dz=z-nz;if(dx*dx+dz*dz<radius*radius)return false;}return true;}
@@ -738,14 +729,14 @@ function chooseFieldExploreGoal(bot,now){
 }
 function recordFieldDeveloperPosition(bot,now){
  if(!gameLogRecording||!state.started||!bot?.alive)return;const p=bot.root.position,cell=fieldCellAt(p.x,p.z),firstVisit=!fieldAtlas.visitedCells[cell.key];
- if(firstVisit){fieldAtlas.visitedCells[cell.key]={x:+p.x.toFixed(2),z:+p.z.toFixed(2),round:developerRoundsCompleted+1,at:new Date().toISOString()};gameLogEvent('field-map-cell-visited',{cell:cell.key,x:cell.x,z:cell.z,coverage:fieldCoverageStats()});}
- const last=fieldAtlas.activeRoute[fieldAtlas.activeRoute.length-1];if(!last||Math.hypot(p.x-last.x,p.z-last.z)>=.78||now-last.ms>2600){fieldAtlas.activeRoute.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),yaw:+bot.root.rotation.y.toFixed(3),ms:Math.round(now),state:bot.combatState,round:developerRoundsCompleted+1});if(fieldAtlas.activeRoute.length>700)fieldAtlas.activeRoute.shift();}
- if(now-(bot.fieldLastCoverScan||0)>1100){bot.fieldLastCoverScan=now;let nearest=null,nearestDistance=Infinity;for(const c of collisionBoxes){if(c.maxY<=.04||c.minY>=1.68)continue;const dx=Math.max(c.minX-p.x,0,p.x-c.maxX),dz=Math.max(c.minZ-p.z,0,p.z-c.maxZ),d=Math.hypot(dx,dz);if(d<nearestDistance){nearestDistance=d;nearest=c;}}if(nearest&&nearestDistance<2.25&&(bot.target||bot.combatState==='fire'||bot.blockedLogged)){let occluded=false,occlusionMesh=null;if(bot.target){const targetBot=bot.target.kind==='bot'?bot.target.bot:null,target=bot.target.kind==='player'?camera.position:targetBot?.root.position;if(target){const targetOrigin=new BABYLON.Vector3(target.x,1.35,target.z),aim=new BABYLON.Vector3(p.x,1.1,p.z),delta=aim.subtract(targetOrigin),length=delta.length(),direction=delta.normalizeToNew(),origin=targetOrigin.add(direction.scale(.72)),ray=new BABYLON.Ray(origin,direction,Math.max(.01,length-.72)),hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&m.name!=='player-hitbox'&&!m.name.startsWith('body-'+bot.id)&&!m.name.startsWith('head-'+bot.id)&&(!targetBot||(!m.name.startsWith('body-'+targetBot.id)&&!m.name.startsWith('head-'+targetBot.id))));occluded=!!hit?.hit;occlusionMesh=hit?.pickedMesh?.name||null;}}const duplicate=fieldAtlas.coverSamples.some(c=>c.obstacle===nearest.name&&Math.hypot(c.x-p.x,c.z-p.z)<1.35);if(!duplicate){fieldAtlas.coverSamples.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),obstacle:nearest.name,distance:+nearestDistance.toFixed(2),occluded,occlusionMesh,combatState:bot.combatState,round:developerRoundsCompleted+1});if(fieldAtlas.coverSamples.length>350)fieldAtlas.coverSamples.shift();gameLogEvent('field-cover-observed',{obstacle:nearest.name,distance:+nearestDistance.toFixed(2),occluded});}}}
+ if(firstVisit){fieldAtlas.visitedCells[cell.key]={x:+p.x.toFixed(2),z:+p.z.toFixed(2),round:Math.floor(state.simTime/180)+1,at:new Date().toISOString()};gameLogEvent('field-map-cell-visited',{cell:cell.key,x:cell.x,z:cell.z,coverage:fieldCoverageStats()});}
+ const last=fieldAtlas.activeRoute[fieldAtlas.activeRoute.length-1];if(!last||Math.hypot(p.x-last.x,p.z-last.z)>=.78||now-last.ms>2600){fieldAtlas.activeRoute.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),yaw:+bot.root.rotation.y.toFixed(3),ms:Math.round(now),state:bot.combatState,round:Math.floor(state.simTime/180)+1});if(fieldAtlas.activeRoute.length>700)fieldAtlas.activeRoute.shift();}
+ if(now-(bot.fieldLastCoverScan||0)>1100){bot.fieldLastCoverScan=now;let nearest=null,nearestDistance=Infinity;for(const c of collisionBoxes){if(c.maxY<=.04||c.minY>=1.68)continue;const dx=Math.max(c.minX-p.x,0,p.x-c.maxX),dz=Math.max(c.minZ-p.z,0,p.z-c.maxZ),d=Math.hypot(dx,dz);if(d<nearestDistance){nearestDistance=d;nearest=c;}}if(nearest&&nearestDistance<2.25&&(bot.target||bot.combatState==='fire'||bot.blockedLogged)){let occluded=false,occlusionMesh=null;if(bot.target){const targetBot=bot.target.kind==='bot'?bot.target.bot:null,target=bot.target.kind==='player'?camera.position:targetBot?.root.position;if(target){const targetOrigin=new BABYLON.Vector3(target.x,1.35,target.z),aim=new BABYLON.Vector3(p.x,1.1,p.z),delta=aim.subtract(targetOrigin),length=delta.length(),direction=delta.normalizeToNew(),origin=targetOrigin.add(direction.scale(.72)),ray=new BABYLON.Ray(origin,direction,Math.max(.01,length-.72)),hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&m.name!=='player-hitbox'&&!m.name.startsWith('body-'+bot.id)&&!m.name.startsWith('head-'+bot.id)&&(!targetBot||(!m.name.startsWith('body-'+targetBot.id)&&!m.name.startsWith('head-'+targetBot.id))));occluded=!!hit?.hit;occlusionMesh=hit?.pickedMesh?.name||null;}}const duplicate=fieldAtlas.coverSamples.some(c=>c.obstacle===nearest.name&&Math.hypot(c.x-p.x,c.z-p.z)<1.35);if(!duplicate){fieldAtlas.coverSamples.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),obstacle:nearest.name,distance:+nearestDistance.toFixed(2),occluded,occlusionMesh,combatState:bot.combatState,round:Math.floor(state.simTime/180)+1});if(fieldAtlas.coverSamples.length>350)fieldAtlas.coverSamples.shift();gameLogEvent('field-cover-observed',{obstacle:nearest.name,distance:+nearestDistance.toFixed(2),occluded});}}}
  if(firstVisit||!last||Math.hypot(p.x-last.x,p.z-last.z)>=.78)persistFieldAtlas();
 }
-function finalizeFieldRoute(){const points=fieldAtlas.activeRoute.slice();if(points.length>=4){fieldAtlas.routes.push({id:'route-'+Date.now().toString(36),mapId:FIELD_MAP_ID,team:state.playerTeam,round:developerRoundsCompleted+1,points:points.slice(-350)});if(fieldAtlas.routes.length>30)fieldAtlas.routes.shift();gameLogEvent('field-route-saved',{points:points.length,routes:fieldAtlas.routes.length});}fieldAtlas.activeRoute=[];persistFieldAtlas(true);}
-function applyLearnedRoutesToBots(){const routes=fieldAtlas.routes.filter(r=>r.mapId===FIELD_MAP_ID&&r.points?.length>=8);if(!routes.length)return;for(const bot of state.bots){if(bot.developerRole==='field-developer')continue;const route=routes[Math.floor(Math.random()*routes.length)],points=route.points;let nearest=0,best=Infinity;for(let i=0;i<points.length;i++){const d=Math.hypot(points[i].x-bot.root.position.x,points[i].z-bot.root.position.z);if(d<best){best=d;nearest=i;}}const reverse=bot.faction!==route.team?nearest>0:Math.random()<.35,seq=reverse?points.slice(0,nearest+1).reverse():points.slice(nearest),selected=seq.filter((p,i)=>i===0||Math.hypot(p.x-seq[i-1].x,p.z-seq[i-1].z)>.45);if(selected.length>=4){bot.waypoints=selected.slice(0,100).map(p=>[p.x,p.z]);bot.index=0;bot.navPath=[];bot.navGoal=null;bot.learnedRouteId=route.id;gameLogEvent('ai-learned-route-assigned',{botId:bot.id,routeId:route.id,points:bot.waypoints.length,reverse});}}}
-function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-GAME_LOG_EVENT_LIMIT),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}persistDeveloperState()}
+function finalizeFieldRoute(){const points=fieldAtlas.activeRoute.slice();if(points.length>=4){fieldAtlas.routes.push({id:'route-'+Date.now().toString(36),mapId:FIELD_MAP_ID,team:state.playerTeam,round:Math.floor(state.simTime/180)+1,points:points.slice(-350)});if(fieldAtlas.routes.length>30)fieldAtlas.routes.shift();gameLogEvent('field-route-saved',{points:points.length,routes:fieldAtlas.routes.length});}fieldAtlas.activeRoute=[];persistFieldAtlas(true);}
+function applyLearnedRoutesToBots(){const routes=fieldAtlas.routes.filter(r=>r.mapId===FIELD_MAP_ID&&r.points?.length>=8);if(!routes.length)return;for(const bot of state.bots){const route=routes[Math.floor(Math.random()*routes.length)],points=route.points;let nearest=0,best=Infinity;for(let i=0;i<points.length;i++){const d=Math.hypot(points[i].x-bot.root.position.x,points[i].z-bot.root.position.z);if(d<best){best=d;nearest=i;}}const reverse=bot.faction!==route.team?nearest>0:Math.random()<.35,seq=reverse?points.slice(0,nearest+1).reverse():points.slice(nearest),selected=seq.filter((p,i)=>i===0||Math.hypot(p.x-seq[i-1].x,p.z-seq[i-1].z)>.45);if(selected.length>=4){bot.waypoints=selected.slice(0,100).map(p=>[p.x,p.z]);bot.index=0;bot.navPath=[];bot.navGoal=null;bot.learnedRouteId=route.id;gameLogEvent('ai-learned-route-assigned',{botId:bot.id,routeId:route.id,points:bot.waypoints.length,reverse});}}}
+function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-GAME_LOG_EVENT_LIMIT),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
 function gameLogEvent(type,detail={}){if(!gameLogRecording)return;gameLogEvents.push({t:Math.round(performance.now()),wall:new Date().toISOString(),type,detail});if(gameLogEvents.length>GAME_LOG_EVENT_LIMIT)gameLogEvents.shift();if(gameLogEvents.length%5===0)persistGameLog()}
 function captureGameplayLog(dt,now){
  if(!gameLogRecording)return;
@@ -842,41 +833,6 @@ async function submitIssueReport(){
  finally{issueReportBusy=false;btn.disabled=false}
 }
 
-function startDeveloperRecorder(){
- if(gameLogRecording)return;
- installInputDiagnostics();
- gameLogRecording=true;gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;
- gameLogEvent('field-developer-online',{botId:state.fieldDeveloperId??null,role:'autonomous-field-qa',mission:'collect-gameplay-diagnostics',uploadPolicy:{standardSessionRounds:5,shortSessionsAccumulationRounds:8},roundsCompleted:developerRoundsCompleted});
- gameLogEvent('recording-start',{automatic:true,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();
- const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/8';btn.title='Автосбор: 5 раундов за одну сессию или 8 накопленных раундов коротких тестов';}
- if(developerUploadDue())void uploadDeveloperDiagnosticsBatch();
-}
-function recordDeveloperRound(won){
- if(!gameLogRecording)startDeveloperRecorder();
- developerSessionRounds++;
- finalizeFieldRoute();
- const summary={number:developerRoundsCompleted+1,completedAt:new Date().toISOString(),result:won?'win':'loss',durationSeconds:+(180-Math.max(0,state.roundTime)).toFixed(1),player:{hp:state.hp,dead:state.hp<=0,kills:state.kills,weapon:state.weaponSlot,position:{x:+camera.position.x.toFixed(2),z:+camera.position.z.toFixed(2)}},bots:state.bots.map(b=>({id:b.id,team:b.team,role:b.developerRole||null,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null})),performance:{fps:state.fps,scale:state.scale,...gameLogPerf},mapCoverage:fieldCoverageStats(),routePoints:fieldAtlas.routes.at(-1)?.points?.length||0};
- developerRoundBatch.push(summary);if(developerRoundBatch.length>25)developerRoundBatch.shift();developerRoundsCompleted++;if(developerSessionRounds>=5||(developerSessionRounds<5&&developerRoundBatch.length>=8))developerForceUpload=true;
- gameLogEvent('round-completed',{...summary,completedRounds:developerRoundsCompleted,batchProgress:developerRoundBatch.length});persistGameLog();
- const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/8';btn.title='Отправка: после 5 раундов в одной сессии или после 8 раундов из коротких тестов';}
- if(developerUploadDue())void uploadDeveloperDiagnosticsBatch();
-}
-function developerUploadDue(){return developerForceUpload||developerSessionRounds>=5||(developerSessionRounds<5&&developerRoundBatch.length>=8);}
-async function uploadDeveloperDiagnosticsBatch(){
- if(developerUploadBusy||!developerUploadDue())return false;
- const token=savedGameplayToken();
- if(!token){developerLastUploadError='missing-github-token';persistDeveloperState();const btn=$('logsQuick');if(btn){btn.textContent='DEV: TOKEN';btn.title='Для автоматической отправки один раз добавь GitHub token через кнопку логов.';}return false;}
- developerUploadBusy=true;const btn=$('logsQuick');if(btn){btn.disabled=true;btn.textContent='DEV: UPLOAD';}
- const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='field-dev-'+Date.now().toString(36),path='logs/gameplay/field-developer/'+stamp+'-'+session+'-'+developerRoundBatch.length+'-rounds.json';
- const payload={app:'SOLO: Wet Ground',format:3,type:'autonomous-field-developer-report',agent:{role:'autonomous-field-qa',botId:state.fieldDeveloperId??null,team:'ally',mission:'collect diagnostics without requiring player actions'},session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),roundsCompleted:developerRoundsCompleted,rounds:developerRoundBatch.slice(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},events:gameLogEvents.slice(-GAME_LOG_EVENT_LIMIT),records:gameLogRecords.slice(-GAME_LOG_LIMIT),mapAtlas:{mapId:FIELD_MAP_ID,coverage:fieldCoverageStats(),visitedCells:fieldAtlas.visitedCells,unreachableCells:fieldAtlas.unreachableCells.slice(-1200),routes:fieldAtlas.routes.slice(-30),activeRoute:fieldAtlas.activeRoute.slice(-700),coverSamples:fieldAtlas.coverSamples.slice(-350)}};
- try{
-  const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add autonomous field developer diagnostics (5 rounds)',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
-  const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub token rejected ('+response.status+')')}throw new Error(result.message||('GitHub API HTTP '+response.status));}
-  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();developerRoundBatch=[];developerSessionRounds=0;developerForceUpload=false;developerLastUploadError=null;persistGameLog();persistFieldAtlas(true);
-  if(btn){btn.textContent='DEV 0/8';btn.title='Отчёт успешно отправлен. Автосбор продолжается.';}gameLogEvent('developer-report-uploaded',{path,commit:result.commit?.sha||null,rounds:payload.rounds.length});return true;
- }catch(error){developerLastUploadError=String(error?.message||error);persistDeveloperState();console.error('Field developer upload failed',error);if(btn){btn.textContent='DEV: RETRY';btn.title='Отчёт сохранён локально. Повторная отправка будет при следующей попытке.';}return false;}
- finally{developerUploadBusy=false;if(btn)btn.disabled=false;}
-}
 function handleGameplayLogs(){
  if(gameLogUploading)return;
  if(gameLogRecording)void stopAndUploadGameplayLog();
