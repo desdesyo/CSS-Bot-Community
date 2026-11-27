@@ -15,3 +15,4 @@ jobs:
         with:
           node-version: 20
       - run: node --test engine/tests/runtime-safety.test.mjs
+      - run: node engine/tests/check-play-script.mjs
