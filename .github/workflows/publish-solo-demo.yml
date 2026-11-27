@@ -25,6 +25,7 @@ jobs:
         run: |
           mkdir -p dist
           cp engine/play.html dist/index.html
+          cp engine/play.html "dist/solo-${GITHUB_SHA}.html"
           cp engine/import.html dist/import.html
           mkdir -p dist/client
           cp -R engine/client/. dist/client/
