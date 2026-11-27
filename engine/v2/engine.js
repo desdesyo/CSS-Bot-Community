@@ -4,7 +4,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
+const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const tint=BABYLON.Color3.FromHexString(color);
@@ -563,7 +563,13 @@ function initInput() {
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
   $('issueQuick').addEventListener('click',submitIssueReport);
-  $('pause').addEventListener('click',()=>{if(state.started){state.started=false;state.firing=false;overlay.style.display='flex';status.textContent='ПАУЗА';startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;}});
+  $('pause').addEventListener('click',()=>{
+    if(!state.started)return;
+    state.started=false;state.paused=true;state.firing=false;
+    gameLogEvent('game-paused',{weapon:state.weaponSlot,position:{x:camera.position.x,z:camera.position.z}});
+    overlay.style.display='flex';status.textContent='ПАУЗА';
+    startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;
+  });
 
 }
 function updateAimAssist(dt) {
@@ -635,18 +641,22 @@ function toggleFullscreen(){
 }
 function endRound(won){
   if(state.playerDead)return;
-  state.playerDead=true;state.started=false;state.firing=false;
+  state.playerDead=true;state.started=false;state.paused=false;state.firing=false;
   overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';
   startButton.textContent='НОВЫЙ РАУНД';startButton.disabled=false;
 }
 function start() {
+  const resuming=state.paused&&!state.playerDead;
   if(state.playerDead){
     state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
     for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;}state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000,alliesGuarding:true});
+  if(!resuming){state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;}}
+  state.paused=false;state.started=true;overlay.style.display='none';
+  if(!resuming){camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000,alliesGuarding:true});}
+  else gameLogEvent('game-resumed',{weapon:state.weaponSlot,position:{x:camera.position.x,z:camera.position.z}});
   if(!mobile)canvas.requestPointerLock?.();
 }
 
