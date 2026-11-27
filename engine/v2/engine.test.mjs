@@ -106,3 +106,9 @@ test('runtime uses rendered mesh collision, sky, radar and breakable windows', (
   assert.ok(geometry.includes('glass.alpha=.18'));
   assert.ok(geometry.includes('breakableWindow:true'));
 });
+
+test('player fire ray excludes the players own hitbox to avoid self-hit', () => {
+  const fireBody=runtime.slice(runtime.indexOf('function fire()'),runtime.indexOf('function reload()'));
+  assert.ok(fireBody.includes('scene.pickWithRay(ray,m=>isMapSolid(m)'));
+  assert.ok(!fireBody.includes('m===state.playerHitbox'));
+});
