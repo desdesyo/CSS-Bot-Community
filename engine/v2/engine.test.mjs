@@ -11,7 +11,7 @@ const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-15'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-16'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -28,10 +28,18 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(html.includes('./engine.js?v=20261127-15'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
-  assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
-  assert.ok(Math.abs(adaptiveScale(12, .9, true) - .925) < 1e-9);
-  assert.ok(Math.abs(adaptiveScale(55, .83, true) - .82) < 1e-9);
-  assert.ok(Math.abs(adaptiveScale(12, .99, true) - 1) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(55, .68, true) - .60) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(12, .68, true) - .695) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(55, .54, true) - .5) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(12, .79, true) - .8) < 1e-9);
+});
+test('mobile build disables shadows, skips external rigged models, and uses cheap map collision',()=>{
+  assert.ok(runtime.includes('shadowGen=mobile?null:new B.ShadowGenerator(1024,sun)'));
+  assert.ok(runtime.includes("if(mobile){$('loadState').textContent='Мобильный профиль: облегчённые бойцы без тяжёлых GLB-моделей.';return false;}"));
+  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
+  assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
+  assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
+  assert.ok(!html.includes('babylonjs.loaders.min.js'));
 });
 test('desktop profile has independent scale bounds', () => {
   assert.ok(Math.abs(adaptiveScale(40, 1, false) - .94) < 1e-9);
@@ -132,6 +140,10 @@ test('weapon fire uses per-weapon ammo, cadence and reload state', () => {
   assert.ok(runtime.includes('updateAmmoHud();'));
 });
 
+test('non-standard Android gamepads can move with the D-pad when only one stick is exposed',()=>{
+  assert.ok(runtime.includes("if(pad.mapping!=='standard'&&axes.length<4)"));
+  assert.ok(runtime.includes("if(pad.mapping==='standard'||axes.length>=4)"));
+});
 test('full Gamepad API support maps both sticks, triggers, face buttons, bumpers and D-pad',()=>{
   for(const token of ['function padAxis(v)','function padButton(pad,index)','function updateGamepad(dt)','pad.axes?.[0]','pad.axes?.[2]','pad.buttons?.[6]?.value','pad.buttons?.[7]?.value','padEdge(pad,0)','padEdge(pad,2)','padEdge(pad,3)','padEdge(pad,5)','padEdge(pad,8)','padEdge(pad,9)','padEdge(pad,12)','padEdge(pad,15)','gamepadconnected','gamepaddisconnected']) assert.ok(runtime.includes(token),'missing gamepad mapping '+token);
   assert.ok(runtime.includes('state.gamepad.sprint=padButton(pad,10)'));
