@@ -544,3 +544,16 @@ test('player collision uses spatial broadphase and preserves full-array collisio
   assert.ok(broadphase.z<1.65);
   assert.deepEqual(broadphase.blockedBy,['near wall']);
 });
+
+
+test('rain impact rings are oriented parallel to the ground and CT sedan clears the barricade', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /ring\.position\.set\(x,\.105,z\);ring\.rotation\.x=Math\.PI\/2/);
+  assert.match(map, /makeSpawnCar\(label\+' parked rain-dark sedan',8\.15,at\(1\.8\)/);
+});
+test('spectator eye is offset ahead of the bot face and issue diagnostics exclude camera-owned meshes', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /camera\.position\.set\(bot\.root\.position\.x\+Math\.sin\(yaw\)\*\.26/);
+  assert.match(engine, /m\.name!=='player-hitbox'&&!m\.isDescendantOf\?\.\(camera\)/);
+  assert.match(engine, /mesh\.name==='player-hitbox'\|\|mesh\.isDescendantOf\?\.\(camera\)/);
+});
