@@ -295,3 +295,40 @@ test('night scene has required glTF support and never silently skips real soldie
   assert.match(html, /LOADING REQUIRED GLTF SUPPORT/);
   assert.doesNotMatch(html, /procedural soldiers will be used|OPTIONAL MODEL SUPPORT/);
 });
+
+
+test('mobile rendering uses physical device pixels and antialiasing instead of CSS-pixel upscaling', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /renderPixelRatio=Math\.min\(Math\.max\(1,window\.devicePixelRatio\|\|1\),mobile\?2\.5:1\.5\)/);
+  assert.match(engine, /function applyRenderScale\(\)\{if\(engine\)engine\.setHardwareScalingLevel\(1\/\(state\.scale\*renderPixelRatio\)\);\}/);
+  assert.match(engine, /new B\.Engine\(canvas,true,\{preserveDrawingBuffer:false,stencil:false,antialias:true/);
+  assert.match(engine, /state\.scale=next;applyRenderScale\(\)/);
+});
+
+test('soldier GLB textures use trilinear filtering and anisotropic sampling with resolution diagnostics', async () => {
+  const bots = await readFile(new URL('./human-bots.mjs', import.meta.url), 'utf8');
+  assert.match(bots, /TRILINEAR_SAMPLINGMODE/);
+  assert.match(bots, /anisotropicFilteringLevel=Math\.min\(isMobile\?8:16/);
+  assert.match(bots, /Soldier GLB texture quality/);
+  assert.match(bots, /width:size\.width\|\|0,height:size\.height\|\|0/);
+});
+
+test('first-person weapons have detailed PBR microtextures rather than flat untextured materials', async () => {
+  const weapon = await readFile(new URL('./weapon-viewmodel.mjs', import.meta.url), 'utf8');
+  assert.match(weapon, /makeSurface\('woven combat fabric','fabric'\)/);
+  assert.match(weapon, /makeSurface\('reinforced weapon polymer','polymer'\)/);
+  assert.match(weapon, /makeSurface\('brushed parkerized steel','metal'\)/);
+  assert.match(weapon, /material\.albedoTexture=surface\.albedo/);
+  assert.match(weapon, /material\.bumpTexture=surface\.normal/);
+  assert.match(weapon, /anisotropicFilteringLevel=Math\.min\(mobile\?8:16/);
+});
+
+test('Wet Ground has visibly distinct asymmetric routes and reflection settings tuned for wet surfaces', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /diagonal market cut-through/);
+  assert.match(map, /east loading court wet stone/);
+  assert.match(map, /tram shelter roof/);
+  assert.match(map, /wetMirror\.mirrorPlane=new B\.Plane\(0,1,0,-\.025\)/);
+  assert.match(map, /wetMirror\.level=mobile\?\.5:\.64/);
+  assert.match(map, /m\.roughness=roughness/);
+});
