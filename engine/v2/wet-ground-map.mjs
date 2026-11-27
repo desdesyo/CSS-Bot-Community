@@ -1393,6 +1393,29 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   warning.isPickable=false;
   box('facility sign rain hood',0,6.24,35.18,6.55,.12,.42,iron,false);
 
+  // Small expanding rings sell individual rain impacts on the shallow puddles.
+  // Each ring has its own phase/material so opacity fades independently without per-frame allocations.
+  const rainRippleSites=[[-4.1,-28.2],[-2.2,-13.5],[3.6,-2.8],[-3.4,16.7],[2.8,31.2],[27.5,-3.4]];
+  const rainRipples=rainRippleSites.map(([x,z],index)=>{
+    const rippleMaterial=new B.StandardMaterial('rain impact ripple '+index,scene);
+    rippleMaterial.diffuseColor=new C(.28,.42,.52);
+    rippleMaterial.emissiveColor=new C(.045,.075,.095);
+    rippleMaterial.specularColor=new C(.42,.56,.66);
+    rippleMaterial.alpha=.12;rippleMaterial.disableLighting=true;
+    const ring=B.MeshBuilder.CreateTorus('expanding rain impact ring '+index,{diameter:1,thickness:.018,tessellation:32},scene);
+    ring.position.set(x,.105,z);ring.material=rippleMaterial;ring.isPickable=false;
+    return {mesh:ring,material:rippleMaterial,phase:index/ rainRippleSites.length};
+  });
+  scene.onBeforeRenderObservable.add(()=>{
+    const dt=Math.min(.06,scene.getEngine().getDeltaTime()/1000);
+    for(const ripple of rainRipples){
+      ripple.phase=(ripple.phase+dt*.42)%1;
+      const scale=.2+ripple.phase*1.45;
+      ripple.mesh.scaling.set(scale,1,scale);
+      ripple.material.alpha=.16*(1-ripple.phase);
+    }
+  });
+
   // CONTINUOUS RAIN — camera-independent particle field over the full district.
   // A tiny procedural streak sprite avoids external dependencies and keeps mobile particle count bounded.
   const rainTexture=new B.DynamicTexture('fine diagonal rain streak sprite',{width:32,height:96},scene,false);
