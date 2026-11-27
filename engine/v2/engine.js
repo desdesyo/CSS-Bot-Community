@@ -192,9 +192,9 @@ function buildPlayerWeapon(){
 }
 function selectWeapon(slot,source='unknown'){
   const previous=state.weaponSlot;
-  if(!['rifle','pistol','knife'].includes(slot)||!weaponRoot){gameLogEvent('weapon-select-rejected',{requested:slot,source,hasWeaponRoot:!!weaponRoot});return false;}
-  // Update gameplay state and HUD first; a viewmodel animation error must never make
-  // the on-screen weapon buttons appear to do nothing.
+  if(!['rifle','pistol','knife'].includes(slot)){gameLogEvent('weapon-select-rejected',{requested:slot,source,hasWeaponRoot:!!weaponRoot});return false;}
+  // Weapon selection is gameplay/HUD state, not dependent on successful viewmodel creation.
+  // This keeps the touch selector functional even if a 3D weapon asset fails to initialize.
   state.weaponSlot=slot;
   for(const button of document.querySelectorAll('#weaponBar [data-weapon]')){
     const active=button.dataset.weapon===slot;
@@ -541,43 +541,24 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
-  // Native click fallback complements pointerdown capture on Android touch browsers.
-  $('weaponBar').addEventListener('click',e=>{
-    const button=e.target?.closest?.('[data-weapon]');
-    if(!button)return;
-    const slot=button.dataset.weapon;
-    if(slot!==state.weaponSlot)selectWeapon(slot,'weaponbar-click');
-  });
-  // Capture weapon taps at document level, before the canvas/look handlers.
-  // Android touch browsers may suppress the synthesized click; pointerdown is authoritative.
+  // Bind each weapon button directly. Document-level capture listeners were unreliable
+  // on some Android browsers when the look/fire touch surfaces overlapped the HUD.
   const weaponBar=$('weaponBar');
   weaponBar.style.pointerEvents='auto';
-  weaponBar.style.zIndex='20';
+  weaponBar.style.zIndex='30';
   for(const button of weaponBar.querySelectorAll('[data-weapon]')){
     button.style.pointerEvents='auto';
-    button.style.touchAction='none';
+    button.style.touchAction='manipulation';
     button.setAttribute('aria-pressed',String(button.dataset.weapon===state.weaponSlot));
-  }
-  if(!window.__soloWeaponCapture){
-    window.__soloWeaponCapture=true;
-    document.addEventListener('pointerdown',e=>{
-      const button=e.target?.closest?.('#weaponBar [data-weapon]');
-      if(!button)return;
+    const chooseWeapon=e=>{
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation();
       const slot=button.dataset.weapon;
-      gameLogEvent('weapon-tap-captured',{slot,pointerType:e.pointerType||'unknown',x:e.clientX,y:e.clientY,target:e.target?.tagName});
-      selectWeapon(slot,'document-pointerdown-'+(e.pointerType||'unknown'));
-    },{capture:true,passive:false});
-    document.addEventListener('touchstart',e=>{
-      const button=e.target?.closest?.('#weaponBar [data-weapon]');
-      if(!button)return;
-      e.preventDefault();
-      const slot=button.dataset.weapon;
-      gameLogEvent('weapon-touchstart-captured',{slot,touches:e.touches?.length||0});
-      selectWeapon(slot,'document-touchstart');
-    },{capture:true,passive:false});
+      gameLogEvent('weapon-button-activated',{slot,pointerType:e.pointerType||'click',eventType:e.type});
+      selectWeapon(slot,'direct-'+e.type);
+    };
+    button.addEventListener('pointerdown',chooseWeapon,{passive:false});
+    button.addEventListener('click',chooseWeapon);
   }
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
