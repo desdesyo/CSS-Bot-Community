@@ -192,7 +192,7 @@ test('an allied field developer bot starts automatic QA recording and reports ev
   assert.match(engine, /startDeveloperRecorder\(\)/);
   assert.match(engine, /standardSessionRounds:5/);
   assert.match(engine, /function recordDeveloperRound\(won\)/);
-  assert.match(engine, /if\(developerRoundBatch\.length>=5\)void uploadDeveloperDiagnosticsBatch\(\)/);
+  assert.match(engine, /if\(developerUploadDue\(\)\)void uploadDeveloperDiagnosticsBatch\(\)/);
   assert.match(engine, /type:'autonomous-field-developer-report'/);
   assert.match(engine, /logs\/gameplay\/field-developer\//);
   assert.match(engine, /player-damaged/);
