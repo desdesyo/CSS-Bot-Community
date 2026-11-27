@@ -11,7 +11,7 @@ const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-12'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-13'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-12'));
+  assert.ok(html.includes('./engine.js?v=20261127-13'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
@@ -192,7 +192,9 @@ test('V2 loads rigged animated soldier models and scales the first-person weapon
   assert.ok(runtime.includes('compact-viewmodel-root'));
   assert.ok(runtime.includes('viewModel.root.scaling.setAll(.56)'));
   assert.ok(runtime.includes('bot.realModel=rig'));
+  assert.ok(runtime.includes('rig.rotation.y=0'), 'GLB forward axis must match the V2 bot forward axis');
   assert.ok(runtime.includes('fallbackParts'));
+  assert.ok(runtime.includes('right-finger|left-finger'));
 });
 test('player rounds are ballistic projectiles with collision, gravity and cleanup',()=>{
   assert.ok(runtime.includes('function spawnBallisticProjectile('));
