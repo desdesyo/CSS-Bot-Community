@@ -66,27 +66,128 @@ function buildBots() {
 
 let weaponRoot, muzzleFlash;
 function buildPlayerWeapon(){
+  // First-person viewmodel is built to human scale (camera eye height 1.72 m).
+  // Arms, gloves and rifle are all camera-space meshes, not floating UI sprites.
   weaponRoot=new BABYLON.TransformNode('player-rifle-viewmodel',scene);
   weaponRoot.parent=camera;
-  weaponRoot.position.set(.34,-.29,-.72);
+  weaponRoot.position.set(.28,-.31,-.72);
   weaponRoot.rotation.set(0,0,0);
-  const dark=mat('player rifle polymer','#20282a',.42,.55);
-  const metal=mat('player rifle steel','#58615f',.3,.78);
-  const grip=mat('player rifle grip','#303638',.88);
+
+  const sleeve=mat('player combat uniform','#4b5547',.94,0);
+  const sleeveDark=mat('player sleeve seams','#343e36',.9,0);
+  const glove=mat('player tactical gloves','#202522',.92,0);
+  const gloveDetail=mat('glove reinforcement','#414944',.78,.05);
+  const skin=mat('wrist skin','#b58a6d',.9,0);
+  const polymer=mat('M4 reinforced polymer','#202725',.46,.12);
+  const polymerEdge=mat('M4 polymer edge','#343d39',.55,.12);
+  const steel=mat('M4 parkerized steel','#59615d',.32,.76);
+  const steelDark=mat('M4 dark steel','#303735',.38,.72);
+  const glass=mat('optic coated glass','#263e3d',.16,.55);
+  const rubber=mat('optic rubber','#171d1b',.88,0);
+
   const part=(name,pos,size,material)=>{
     const m=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);
-    m.parent=weaponRoot;m.position.set(pos[0],pos[1],pos[2]);m.material=material;return m;
+    m.parent=weaponRoot;m.position.set(pos[0],pos[1],pos[2]);m.material=material;
+    m.isPickable=false;return m;
   };
-  part('rifle receiver',[0,0,0],[.17,.16,.48],dark);
-  part('rifle barrel',[0,.025,-.39],[.055,.055,.42],metal);
-  part('rifle handguard',[0,.005,-.22],[.13,.105,.28],grip);
-  part('rifle magazine',[0,-.14,-.02],[.09,.2,.14],dark);
-  part('rifle stock',[0,.015,.31],[.13,.12,.28],grip);
-  part('rifle optic',[0,.115,-.04],[.07,.07,.12],metal);
-  part('rifle front sight',[0,.09,-.38],[.035,.08,.035],metal);
-  part('rifle pistol grip',[0,-.13,.12],[.09,.19,.1],grip);
-  muzzleFlash=BABYLON.MeshBuilder.CreateSphere('muzzle-flash',{diameter:.13,segments:6},scene);
-  muzzleFlash.parent=weaponRoot;muzzleFlash.position.set(0,.025,-.63);
+  const cylinder=(name,a,b,rTop,rBottom,material,tess=12)=>{
+    const av=new BABYLON.Vector3(...a),bv=new BABYLON.Vector3(...b),delta=bv.subtract(av);
+    const m=BABYLON.MeshBuilder.CreateCylinder(name,{height:delta.length(),diameterTop:rTop*2,diameterBottom:rBottom*2,tessellation:tess},scene);
+    m.parent=weaponRoot;m.position.copyFrom(av.add(bv).scale(.5));
+    const direction=delta.normalize(),up=BABYLON.Axis.Y;
+    const axis=BABYLON.Vector3.Cross(up,direction);
+    if(axis.lengthSquared()>.000001){
+      axis.normalize();
+      m.rotationQuaternion=BABYLON.Quaternion.RotationAxis(axis,Math.acos(Math.max(-1,Math.min(1,BABYLON.Vector3.Dot(up,direction)))));
+    }else if(direction.y<0)m.rotation.x=Math.PI;
+    m.material=material;m.isPickable=false;return m;
+  };
+  const sphere=(name,pos,scale,material)=>{
+    const m=BABYLON.MeshBuilder.CreateSphere(name,{diameter:1,segments:12},scene);
+    m.parent=weaponRoot;m.position.set(...pos);m.scaling.set(...scale);m.material=material;m.isPickable=false;return m;
+  };
+  const limb=(name,a,b,r1,r2,material)=>{
+    cylinder(name,a,b,r1,r2,material,16);
+    sphere(name+' joint',b,[r2*2,r2*2,r2*2],material);
+  };
+  const finger=(name,a,b,r,material)=>{
+    cylinder(name,a,b,r*.78,r,material,10);
+    sphere(name+' tip',b,[r*1.55,r*1.55,r*1.55],material);
+  };
+
+  // Anatomically proportioned forearms and elbows. Sleeves taper into gloves.
+  // Left hand supports the handguard; right hand wraps the pistol grip/trigger.
+  limb('left sleeve upper',[-.53,-.61,.56],[-.39,-.38,.18],.105,.082,sleeve);
+  limb('left sleeve forearm',[-.39,-.38,.18],[-.16,-.19,-.20],.082,.061,sleeve);
+  sphere('left elbow pad',[-.39,-.38,.18],[.17,.15,.16],sleeveDark);
+  cylinder('left cuff',[-.16,-.19,-.20],[-.12,-.16,-.27],.067,.064,sleeveDark);
+  sphere('left palm',[-.105,-.145,-.285],[.145,.095,.17],glove);
+  sphere('left glove knuckle guard',[-.105,-.102,-.285],[.125,.035,.12],gloveDetail);
+  finger('left index',[-.055,-.17,-.31],[-.035,-.18,-.39],.022,glove);
+  finger('left middle',[-.09,-.18,-.32],[-.09,-.19,-.40],.022,glove);
+  finger('left ring',[-.125,-.18,-.32],[-.14,-.19,-.395],.021,glove);
+  finger('left little',[-.155,-.17,-.30],[-.17,-.18,-.36],.019,glove);
+  finger('left thumb',[-.035,-.12,-.27],[.025,-.105,-.34],.026,glove);
+
+  limb('right sleeve upper',[.57,-.62,.58],[.42,-.39,.34],.108,.084,sleeve);
+  limb('right sleeve forearm',[.42,-.39,.34],[.18,-.20,.13],.084,.062,sleeve);
+  sphere('right elbow pad',[.42,-.39,.34],[.17,.15,.16],sleeveDark);
+  cylinder('right cuff',[.18,-.20,.13],[.13,-.17,.07],.068,.064,sleeveDark);
+  sphere('right palm',[.115,-.155,.025],[.145,.105,.17],glove);
+  sphere('right glove knuckle guard',[.12,-.105,.025],[.13,.04,.12],gloveDetail);
+  finger('right index', [.18,-.17,-.005],[.205,-.18,-.095],.022,glove);
+  finger('right middle',[.145,-.19,.005],[.15,-.20,-.075],.022,glove);
+  finger('right ring',[.105,-.19,.015],[.095,-.20,-.06],.021,glove);
+  finger('right little',[.065,-.18,.025],[.045,-.19,-.035],.019,glove);
+  finger('right thumb',[.045,-.13,.045],[-.005,-.12,-.015],.027,glove);
+  // Reinforced glove wrist panels and cuff stitching.
+  part('left glove wrist tab',[-.14,-.17,-.22],[.115,.045,.07],gloveDetail);
+  part('right glove wrist tab',[.17,-.18,.12],[.115,.045,.07],gloveDetail);
+
+  // Detailed 5.56 mm carbine: receiver, handguard, barrel, stock, controls and sights.
+  part('M4 upper receiver',[0,.015,0],[.145,.105,.39],polymer);
+  part('M4 lower receiver',[0,-.065,.045],[.14,.09,.30],polymerEdge);
+  part('M4 ejection port',[-.074,.025,-.005],[.008,.035,.105],steelDark);
+  part('M4 bolt cover',[-.08,.018,-.012],[.009,.025,.07],steel);
+  part('M4 charging handle',[0,.095,.14],[.12,.018,.07],steelDark);
+  part('M4 handguard',[0,.005,-.285],[.135,.105,.36],polymer);
+  part('M4 top rail',[0,.075,-.255],[.075,.025,.43],steelDark);
+  part('M4 left rail',[-.076,.005,-.285],[.025,.055,.31],steelDark);
+  part('M4 right rail',[.076,.005,-.285],[.025,.055,.31],steelDark);
+  for(let i=0;i<8;i++){
+    const z=-.42+i*.045;
+    part('handguard vent L '+i,[-.091,.006,z],[.008,.022,.022],rubber);
+    part('handguard vent R '+i,[.091,.006,z],[.008,.022,.022],rubber);
+  }
+  cylinder('M4 barrel',[0,.018,-.46],[0,.018,-.72],.018,.018,steel,16);
+  cylinder('M4 flash hider',[0,.018,-.72],[0,.018,-.79],.027,.021,steelDark,16);
+  for(let i=0;i<4;i++)part('flash hider port '+i,[0,.018+((i%2)*.018-.009),-.755],[.045,.008,.012],rubber);
+  part('M4 front sight',[0,.115,-.55],[.045,.10,.045],steelDark);
+  part('M4 front sight ears',[-.035,.145,-.55],[.018,.055,.035],steel);
+  part('M4 rear sight',[0,.12,.015],[.06,.075,.05],steelDark);
+  part('M4 optic mount',[0,.105,-.12],[.105,.035,.17],steelDark);
+  part('M4 red dot optic',[0,.17,-.12],[.085,.095,.12],rubber);
+  part('M4 optic lens',[0,.17,-.185],[.065,.065,.008],glass);
+  part('M4 stock buffer tube',[0,.005,.23],[.095,.09,.25],steelDark);
+  part('M4 adjustable stock',[0,-.005,.39],[.15,.13,.24],polymer);
+  part('M4 stock buttpad',[0,-.005,.515],[.155,.14,.035],rubber);
+  part('M4 pistol grip',[0,-.17,.13],[.095,.22,.12],polymer);
+  part('M4 grip texture',[0,-.18,.195],[.075,.12,.012],rubber);
+  // Angled magazine and its base plate.
+  part('M4 magazine body',[0,-.19,-.005],[.095,.24,.12],steelDark).rotation.x=-.12;
+  part('M4 magazine front',[0,-.19,-.067],[.085,.20,.012],steel);
+  part('M4 magazine base',[0,-.315,-.005],[.105,.025,.13],polymer);
+  part('M4 trigger guard',[0,-.14,.055],[.075,.025,.12],steelDark);
+  part('M4 trigger',[0,-.145,.045],[.018,.055,.018],steel);
+  for(const x of [-.045,.045])for(const z of [-.105,.105]){
+    const pin=BABYLON.MeshBuilder.CreateCylinder('M4 receiver pin',{height:.009,diameter:.024,tessellation:12},scene);
+    pin.parent=weaponRoot;pin.position.set(x,-.005,z);pin.rotation.x=Math.PI/2;pin.material=steel;pin.isPickable=false;
+  }
+  // Small selector and sling loop details.
+  part('M4 fire selector',[.078,-.035,.075],[.018,.025,.055],steel);
+  part('M4 sling mount',[0,.045,.49],[.09,.025,.025],steelDark);
+  muzzleFlash=BABYLON.MeshBuilder.CreateSphere('muzzle-flash',{diameter:.13,segments:8},scene);
+  muzzleFlash.parent=weaponRoot;muzzleFlash.position.set(0,.018,-.80);
   muzzleFlash.material=mat('muzzle flash','#ffb34d',.25,0);muzzleFlash.isVisible=false;
 }
 function setPlayerTeam(team) {
