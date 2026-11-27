@@ -234,7 +234,7 @@ test('short test sessions retain incomplete rounds and upload accumulated diagno
   assert.match(engine, /function developerUploadDue\(\)\{return developerForceUpload\|\|developerSessionRounds>=5\|\|\(developerSessionRounds<5&&developerRoundBatch\.length>=8\);\}/);
   assert.match(engine, /developerRoundBatch=Array\.isArray\(dev\.rounds\)\?dev\.rounds\.slice\(-25\):\[\]/);
   assert.match(engine, /shortSessionsAccumulationRounds:8/);
-  assert.match(engine, /developerSessionRounds=0;developerLastUploadError=null/);
+  assert.match(engine, /developerSessionRounds=0;developerForceUpload=false;developerLastUploadError=null/);
   assert.match(engine, /rounds:developerRoundBatch\.slice\(\)/);
   assert.match(engine, /developerForceUpload\|\|developerSessionRounds>=5/);
   assert.match(engine, /uploadDue:developerForceUpload/);
