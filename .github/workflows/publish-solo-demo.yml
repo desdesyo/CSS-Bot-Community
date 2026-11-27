@@ -26,6 +26,8 @@ jobs:
           mkdir -p dist
           # Public entry point is the new Babylon.js V2 runtime, not legacy engine/play.html.
           cp -R engine/v2/. dist/
+          mkdir -p dist/engine/cloud
+          cp -R engine/cloud/. dist/engine/cloud/
           # Immutable build-specific copy prevents mobile browsers reusing an older page.
           mkdir -p "dist/solo-v2-${GITHUB_SHA}"
           cp -R engine/v2/. "dist/solo-v2-${GITHUB_SHA}/"
