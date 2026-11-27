@@ -215,7 +215,7 @@ test('Wet Ground is the active rain-quarter map with persistent route atlas iden
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(engine, /buildWetGroundMap\(B,scene,mobile,shadowGen\)/);
-  assert.match(engine, /wet-ground-rainy-quarter-v1/);
+  assert.match(engine, /wet-ground-street-panorama-v2/);
   assert.match(map, /canal deep water/);
   assert.match(map, /arched stone bridge deck/);
   assert.match(map, /procedural wet cobblestone/);
