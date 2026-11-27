@@ -371,16 +371,16 @@ function spawnProjectile(origin,direction,ownerTeam,speed,ownerId=null) {
   mesh.material=projectileMaterial;mesh.position.copyFrom(origin);mesh.isPickable=false;
   state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam,ownerId});
 }
-function killBot(bot) {
+function killBot(bot,credit=false) {
   if(!bot||!bot.alive)return;
   bot.health=0;bot.alive=false;bot.deadAt=performance.now();bot.deathStartX=bot.root.rotation.x;
   bot.body.isPickable=false;bot.head.isPickable=false;bot.combatState='dead';bot.target=null;bot.navPath=[];
-  stopHumanBot(bot.rig);state.kills++;$('kills').textContent='KILLS '+state.kills;
+  stopHumanBot(bot.rig);if(credit){state.kills++;$('kills').textContent='KILLS '+state.kills}
 }
-function damageBot(bot,damage) {
+function damageBot(bot,damage,credit=false) {
   if(!bot?.alive)return;
   bot.health=Math.max(0,bot.health-Math.max(0,damage));
-  if(bot.health===0)killBot(bot);
+  if(bot.health===0)killBot(bot,credit);
 }
 function updateBulletPhysics(dt) {
   for(let i=state.projectiles.length-1;i>=0;i--) {
@@ -397,7 +397,7 @@ function updateBulletPhysics(dt) {
     }
     if(hit?.hit&&hit.pickedMesh){
       const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-      if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?100:34);
+      if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?100:34,p.ownerId==='player');
       if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'){
         state.hp=Math.max(0,state.hp-(6+Math.floor(Math.random()*5)));$('health').textContent='HP '+state.hp;
         if(state.hp===0)endRound(false);
@@ -420,7 +420,7 @@ function fire() {
     const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&(m.name.startsWith('body-')||m.name.startsWith('head-')));
     if(hit?.hit&&hit.pickedMesh){
       const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-      if(bot&&bot.team==='enemy'&&bot.alive)damageBot(bot,100)
+      if(bot&&bot.team==='enemy'&&bot.alive)damageBot(bot,100,true)
     }
     return;
   }
@@ -428,7 +428,7 @@ function fire() {
   state.lastShot=now;state.weaponAmmo[slot]--;
   const ray=camera.getForwardRay(1);
   const origin=slot==='rifle'&&muzzleFlash?muzzleFlash.getAbsolutePosition().clone():camera.position.add(ray.direction.scale(.7));
-  spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105);
+  spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105,'player');
   if(muzzleFlash&&slot==='rifle'){muzzleFlash.isVisible=true;window.setTimeout(()=>{if(muzzleFlash)muzzleFlash.isVisible=false},45);}
   if(weaponRoot){weaponRoot.position.z=.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=.72},65);}
   $('ammo').textContent=state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
