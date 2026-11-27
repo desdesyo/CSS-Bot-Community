@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
@@ -119,4 +119,12 @@ test('roster places six opponents at the opposite faction landing zone and five 
   for (const [id, role, x, z] of ct.filter(([,role])=>role==='ally')) assert.ok(TEAM_SPAWNS.CT.some(([sx,sz])=>sx===x&&sz===z));
   for (const [id, role, x, z] of t.filter(([,role])=>role==='enemy')) assert.ok(TEAM_SPAWNS.CT.some(([sx,sz])=>sx===x&&sz===z));
   for (const [id, role, x, z] of t.filter(([,role])=>role==='ally')) assert.ok(TEAM_SPAWNS.T.some(([sx,sz])=>sx===x&&sz===z));
+});
+
+test('aim assist prioritizes a nearby enemy almost on the crosshair over a distant one', () => {
+  const near = aimCandidateScore(0.045, 5);
+  const far = aimCandidateScore(0.005, 28);
+  assert.ok(near < far);
+  assert.ok(aimCandidateScore(0.02, 8) < aimCandidateScore(0.02, 25));
+  assert.equal(aimCandidateScore(-1, 5), Infinity);
 });
