@@ -10,8 +10,8 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 - PBR material pipeline and an industrial training blockout with lanes, cover and lighting.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
-- Procedural high-detail M4A1-style first-person rifle with separate upper/lower receiver, free-float M-LOK handguard, 5.56 barrel, flash hider, backup sights, red-dot optic, adjustable stock, magazine, bolt, selector and fasteners.
-- First-person forearms and tactical gloves built as a rigged viewmodel, with recoil, muzzle flash, breathing/locomotion sway and timed magazine/arm reload animation. Weapon mechanics remain connected to the existing projectile, ammo and reload systems.
+- Procedural high-detail first-person M4-style rifle, detailed 9mm service pistol and full-tang combat knife, with separate moving parts, controls, magazines, sights and materials.
+- First-person forearms and tactical gloves built as a rigged viewmodel, with rifle/pistol recoil, muzzle flashes, knife swing, weapon-switch sway, breathing/locomotion sway and magazine/arm reload animations. Weapon mechanics remain connected to the existing projectile, ammo and reload systems. Bots use rifle/pistol/knife loadouts, manage ammunition and reloads, switch to pistol when rifle ammunition is exhausted, and use melee at contact distance.
 - Eleven humanoid NPCs using six rigged, textured soldier GLB variants (male and female), with shared idle / walk / run Biped animation clips: five teammates and six opponents around the human player (6v6 total).
 - CT/T team selection; both choices preserve the same five-ally/six-opponent roster.
 - AI decisions are stepped at 8 Hz; rendering remains independent.
