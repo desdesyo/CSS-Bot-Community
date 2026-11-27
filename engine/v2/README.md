@@ -7,13 +7,13 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 
 ## Current vertical slice
 - WebGL rendering with device-aware antialiasing and shadow-map budgets.
-- PBR material pipeline and an industrial training blockout with lanes, cover and lighting.
+- PBR material pipeline and the North Docks combat map with freight rails, a gantry crane, industrial cover and fortified CT/T deployment compounds.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
 - Procedural high-detail first-person M4-style rifle, detailed 9mm service pistol and full-tang combat knife, with separate moving parts, controls, magazines, sights and materials.
 - First-person forearms and tactical gloves built as a rigged viewmodel, with rifle/pistol recoil, muzzle flashes, knife swing, weapon-switch sway, breathing/locomotion sway and magazine/arm reload animations. Weapon mechanics remain connected to the existing projectile, ammo and reload systems. Bots use rifle/pistol/knife loadouts, manage ammunition and reloads, switch to pistol when rifle ammunition is exhausted, and use melee at contact distance.
 - Eleven humanoid NPCs using six rigged, textured soldier GLB variants (male and female), with shared idle / walk / run Biped animation clips: five teammates and six opponents around the human player (6v6 total).
-- CT/T team selection; both choices preserve the same five-ally/six-opponent roster.
+- CT/T team selection; both choices preserve the same five-ally/six-opponent roster. Player deployment is faction-correct, five allies hold the spawn compound during a 10-second protection window, and enemy spawn is kept across the full map approach.
 - AI decisions are stepped at 8 Hz; rendering remains independent.
 - Adaptive resolution uses 2-second frame-time windows and a 95th-percentile frame-time target. Mobile scale is bounded to 72–100%; desktop 78–135%.
 - Minimal HUD telemetry: FPS, render scale and p95 frame time.
