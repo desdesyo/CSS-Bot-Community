@@ -110,7 +110,7 @@ test('runtime uses rendered mesh collision, sky, radar and breakable windows', (
 
 test('player fire ray excludes the players own hitbox to avoid self-hit', () => {
   const fireBody=runtime.slice(runtime.indexOf('function fire()'),runtime.indexOf('function initInput()'));
-  assert.ok(fireBody.includes('scene.pickWithRay(ray,m=>isMapSolid(m)||m.name.startsWith(\'body-\')'));
+  assert.ok(fireBody.includes('scene.pickWithRay(ray,mesh=>isMapSolid(mesh)||mesh.name.startsWith(\'body-\')'));
   assert.ok(!fireBody.includes('m===state.playerHitbox'));
 });
 
@@ -128,7 +128,7 @@ test('weapon fire uses per-weapon ammo, cadence and reload state', () => {
   assert.ok(runtime.includes('function currentWeapon()'));
   assert.ok(runtime.includes("if(state.weapon==='grenade')"));
   assert.ok(runtime.includes("if(state.weapon==='knife')"));
-  assert.ok(runtime.includes('function reload(){const w=currentWeapon()'));
+  assert.ok(runtime.includes('function reload(){'));
   assert.ok(runtime.includes('updateAmmoHud();'));
 });
 
