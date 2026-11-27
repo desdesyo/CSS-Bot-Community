@@ -24,3 +24,10 @@ export function createTeamRoster(playerTeam = 'CT') {
     [10,'ally',42,0],[11,'ally',0,30]
   ];
 }
+
+export function cameraRelativeMovement(yaw, forward, strafe) {
+  return {
+    x: -Math.sin(yaw) * forward + Math.cos(yaw) * strafe,
+    z: -Math.cos(yaw) * forward - Math.sin(yaw) * strafe
+  };
+}
