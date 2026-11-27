@@ -1,0 +1,58 @@
+name: Deploy SOLO Engine V2 preview
+
+on:
+  push:
+    branches:
+      - feature/solo-engine-v2
+    paths:
+      - "engine/v2/**"
+      - ".github/workflows/deploy-solo-engine-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: solo-engine-v2-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/solo-engine-v2
+
+      - name: Verify engine entry points
+        run: |
+          test -s engine/v2/index.html
+          test -s engine/v2/engine.js
+          test -s engine/v2/engine-core.mjs
+          node --check engine/v2/engine.js
+          node --check engine/v2/human-bots.mjs
+          node --test engine/v2/engine.test.mjs
+
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p _site/engine/v2
+          cp -R engine/v2/. _site/engine/v2/
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
