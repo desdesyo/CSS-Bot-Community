@@ -32,3 +32,5 @@ jobs:
 
       - name: Run engine unit tests
         run: node --test engine/v2/engine.test.mjs
+
+# The main-branch publisher deploys only after these checks pass.
