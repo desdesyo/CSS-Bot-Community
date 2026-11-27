@@ -1026,7 +1026,7 @@ async function boot() {
     } catch(environmentError) {
       console.warn('SOLO environment reflections unavailable; direct lighting remains active.',environmentError);
     }
-    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
+    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0x0FFFFFFF;camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     // The map owns the textured skybox. A second giant solid sphere caused the
     // false black-ceiling look and competed with the horizon gradient.
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.86;hemi.diffuse=new B.Color3(.42,.55,.72);hemi.groundColor=new B.Color3(.13,.16,.19);
@@ -1044,7 +1044,7 @@ async function boot() {
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
-    buildBots();buildPlayerWeapon();initInput();
+    buildBots();buildPlayerWeapon();initInput();drawMinimap();
     window.addEventListener('resize',()=>engine.resize());
     const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
