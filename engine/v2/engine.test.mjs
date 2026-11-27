@@ -557,3 +557,11 @@ test('spectator eye is offset ahead of the bot face and issue diagnostics exclud
   assert.match(engine, /m\.name!=='player-hitbox'&&!m\.isDescendantOf\?\.\(camera\)/);
   assert.match(engine, /mesh\.name==='player-hitbox'\|\|mesh\.isDescendantOf\?\.\(camera\)/);
 });
+
+
+test('issue reports split viewmodel, soldier and world mesh counts for performance diagnosis', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /meshBreakdown=\{viewmodel:0,soldierModels:0,botWeapons:0,world:0\}/);
+  assert.match(engine, /activeMeshes:scene\.getActiveMeshes\?\.\(\)\.length/);
+  assert.match(engine, /renderFps:Math\.round\(engine\.getFps\?\.\(\)\|\|0\)/);
+});
