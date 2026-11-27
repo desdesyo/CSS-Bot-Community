@@ -36,6 +36,7 @@
 </script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
+import { applyDeadzone, chooseConnectedGamepad, isGamepadButtonPressed } from './client/runtime-safety.mjs';
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js')}
 catch(primaryError){try{THREE=await import('https://unpkg.com/three@0.160.0/build/three.module.js')}catch(fallbackError){throw new Error('Не удалось загрузить библиотеку 3D-графики с двух CDN. Проверь подключение к интернету. Основная ошибка: '+String(primaryError)+'; резервная: '+String(fallbackError))}}
@@ -764,13 +765,12 @@ addEventListener('gamepadconnected',e=>{activeGamepadIndex=e.gamepad.index;curre
 addEventListener('gamepaddisconnected',e=>{logEvent('gamepad-disconnected',{id:e.gamepad.id,index:e.gamepad.index});if(activeGamepadIndex===e.gamepad.index)activeGamepadIndex=null;currentPadSnapshot=null;gamepadL1WasDown=false;gamepadReloadWasDown=false;gamepadPauseWasDown=false;gamepadShareWasDown=false;toast('Геймпад отключён');if(gamepadPanelOpen)refreshGamepadPanel()});
 function readGamepad(){
  let pads=[];try{pads=Array.from(navigator.getGamepads?.()||[])}catch(error){console.warn('Gamepad polling failed',error)}
- let p=activeGamepadIndex===null?pads.find(g=>g&&g.connected):pads[activeGamepadIndex];
- if(!p||!p.connected){p=Array.from(pads).find(g=>g&&g.connected);activeGamepadIndex=p?p.index:null}
- if(!p){currentPadSnapshot=null;if(gamepadL1WasDown){closeWeaponWheel(true);gamepadL1WasDown=false}return {x:0,y:0,lookX:0,lookY:0,fire:false}};
+ const selection=chooseConnectedGamepad(pads,activeGamepadIndex),p=selection.gamepad;activeGamepadIndex=selection.index;
+ if(!p){currentPadSnapshot=null;if(gamepadL1WasDown){closeWeaponWheel(true);gamepadL1WasDown=false}gamepadReloadWasDown=false;gamepadPauseWasDown=false;gamepadShareWasDown=false;return {x:0,y:0,lookX:0,lookY:0,fire:false}};
  currentPadSnapshot={id:p.id,index:p.index,mapping:p.mapping,axes:Array.from(p.axes).map(v=>+v.toFixed(3)),buttons:Array.from(p.buttons).map(b=>+Number(b.value||0).toFixed(3)),readAt:performance.now()};
- const axis=i=>Number.isFinite(p.axes?.[i])?Math.max(-1,Math.min(1,p.axes[i])):0;
- const dead=v=>{if(!Number.isFinite(v))return 0;const a=Math.abs(v);return a<.18?0:Math.sign(v)*Math.min(1,(a-.18)/.82)};
- const pressed=i=>!!p.buttons?.[i]?.pressed;
+ const axis=i=>Number.isFinite(p.axes?.[i])?p.axes[i]:0;
+ const dead=v=>applyDeadzone(v,.18);
+ const pressed=i=>isGamepadButtonPressed(p,i);
  const reloadDown=pressed(2);
  if(reloadDown&&!gamepadReloadWasDown)reloadGun();
  gamepadReloadWasDown=reloadDown;
