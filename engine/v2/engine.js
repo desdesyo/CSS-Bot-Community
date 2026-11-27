@@ -1,10 +1,10 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-0450-r3';
-import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-0450-r3';
-import { createWeaponViewmodel } from './weapon-viewmodel.mjs?v=20261128-0450-r3';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-0450-r3';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-0450-r4';
+import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-0450-r4';
+import { createWeaponViewmodel } from './weapon-viewmodel.mjs?v=20261128-0450-r4';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-0450-r4';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -816,6 +816,16 @@ let fieldWalkableCells=null,fieldExploreLastPlan=0;
 try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');if(atlas?.mapId===FIELD_MAP_ID){fieldAtlas={...fieldAtlas,...atlas};fieldAtlas.visitedCells=fieldAtlas.visitedCells||{};fieldAtlas.unreachableCells=Array.isArray(fieldAtlas.unreachableCells)?fieldAtlas.unreachableCells:[];fieldAtlas.activeRoute=Array.isArray(fieldAtlas.activeRoute)?fieldAtlas.activeRoute.slice(-700):[];fieldAtlas.routes=Array.isArray(fieldAtlas.routes)?fieldAtlas.routes.slice(-30):[];fieldAtlas.coverSamples=Array.isArray(fieldAtlas.coverSamples)?fieldAtlas.coverSamples.slice(-350):[];fieldAtlas.lastPersistAt=0;}}catch(e){}
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
 let inputTraceInstalled=false;
+const RUNTIME_DIAGNOSTICS_KEY='solo_engine_v2_runtime_diagnostics_v1';
+let runtimeDiagnostics=[];
+let renderFailureActive=false;
+try{const saved=JSON.parse(localStorage.getItem(RUNTIME_DIAGNOSTICS_KEY)||'[]');if(Array.isArray(saved))runtimeDiagnostics=saved.slice(-100);}catch(e){}
+function recordRuntimeDiagnostic(type,detail={}){
+ const item={wall:new Date().toISOString(),t:Math.round(performance.now()),type,detail};
+ runtimeDiagnostics.push(item);if(runtimeDiagnostics.length>100)runtimeDiagnostics.splice(0,runtimeDiagnostics.length-100);
+ try{localStorage.setItem(RUNTIME_DIAGNOSTICS_KEY,JSON.stringify(runtimeDiagnostics));}catch(e){}
+ if(gameLogRecording)gameLogEvent(type,detail);
+}
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
 let gameLogDbPromise=null,gameLogPersistPending=false,gameLogPersistAgain=false,gameLogRestoring=false;
 function persistFieldAtlas(force=false){const now=performance.now();if(gameLogRecording){fieldAtlas.persistPending=true;return;}if(!force&&now-fieldAtlas.lastPersistAt<7000)return;fieldAtlas.lastPersistAt=now;fieldAtlas.persistPending=false;try{localStorage.setItem(GAME_FIELD_ATLAS_KEY,JSON.stringify({...fieldAtlas,activeRoute:fieldAtlas.activeRoute.slice(-700),routes:fieldAtlas.routes.slice(-30),coverSamples:fieldAtlas.coverSamples.slice(-350)}))}catch(e){console.warn('Field atlas save failed',e);}}
@@ -909,7 +919,7 @@ function updateLogStatus(){
  const start=$('logsStart');if(start)start.textContent=gameLogRecording?'ОСТАНОВИТЬ ЗАПИСЬ':'НАЧАТЬ ЗАПИСЬ';
 }
 function buildGameplayLogPayload(){
- return {app:'SOLO: Wet Ground',format:3,session:'v2-'+Date.now().toString(36),branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogStartedAt?Math.max(0,Math.round(performance.now()-gameLogStartedAt)):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
+ return {app:'SOLO: Wet Ground',format:3,session:'v2-'+Date.now().toString(36),branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogStartedAt?Math.max(0,Math.round(performance.now()-gameLogStartedAt)):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},runtimeDiagnostics:runtimeDiagnostics.slice(-100),performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
 }
 function downloadGameplayLog(){
  const payload=buildGameplayLogPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -980,7 +990,7 @@ async function submitIssueReport(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
- const report={app:'SOLO: Wet Ground',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40),performance:{...gameLogPerf,frameMs:gameLogFrameMs.slice(-120),renderMs:gameLogRenderMs.slice(-120)}}};
+ const report={app:'SOLO: Wet Ground',type:'player-marked-visual-or-world-issue',id,runtimeDiagnostics:runtimeDiagnostics.slice(-100),createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40),performance:{...gameLogPerf,frameMs:gameLogFrameMs.slice(-120),renderMs:gameLogRenderMs.slice(-120)}}};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
@@ -999,17 +1009,20 @@ function showMenuTab(tab){for(const button of document.querySelectorAll('[data-m
 function loadMenuSettings(){try{const s=JSON.parse(localStorage.getItem('solo_menu_settings_v1')||'{}');state.lookSensitivity=Math.max(.5,Math.min(2.5,Number(s.sensitivity)||1));const fov=Math.max(65,Math.min(100,Number(s.fov)||80));$('lookSensitivity').value=state.lookSensitivity;$('fieldOfView').value=fov;$('showMinimap').checked=s.minimap!==false;$('lookSensitivityValue').textContent=state.lookSensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=fov+'°';if(camera)camera.fov=fov*Math.PI/180;$('minimap').style.display=s.minimap===false?'none':'';}catch(e){}}
 function saveMenuSettings(){const settings={sensitivity:Number($('lookSensitivity').value),fov:Number($('fieldOfView').value),minimap:$('showMinimap').checked};state.lookSensitivity=settings.sensitivity;$('lookSensitivityValue').textContent=settings.sensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=settings.fov+'°';if(camera)camera.fov=settings.fov*Math.PI/180;$('minimap').style.display=settings.minimap?'':'none';try{localStorage.setItem('solo_menu_settings_v1',JSON.stringify(settings))}catch(e){}}
 function installMenuControls(){document.querySelectorAll('[data-menu-tab]').forEach(b=>b.addEventListener('click',()=>showMenuTab(b.dataset.menuTab)));$('lookSensitivity').addEventListener('input',saveMenuSettings);$('fieldOfView').addEventListener('input',saveMenuSettings);$('showMinimap').addEventListener('change',saveMenuSettings);$('logsStart').addEventListener('click',handleGameplayLogs);$('logsDownload').addEventListener('click',downloadGameplayLog);$('logsUpload').addEventListener('click',()=>{if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();}void stopAndUploadGameplayLog();});loadMenuSettings();void restoreGameplayLog();updateLogStatus();}
-window.addEventListener('error',e=>gameLogEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
-window.addEventListener('unhandledrejection',e=>gameLogEvent('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
-window.addEventListener('webglcontextlost',e=>gameLogEvent('webgl-context-lost',{status:'lost'}),true);
-window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
-document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
+window.addEventListener('error',e=>recordRuntimeDiagnostic('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
+window.addEventListener('unhandledrejection',e=>recordRuntimeDiagnostic('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
+window.addEventListener('webglcontextlost',e=>recordRuntimeDiagnostic('webgl-context-lost',{status:'lost'}),true);
+window.addEventListener('webglcontextrestored',()=>recordRuntimeDiagnostic('webgl-context-restored'),true);
+document.addEventListener('visibilitychange',()=>recordRuntimeDiagnostic('visibility',{state:document.visibilityState}));
 
 async function boot() {
   try {
+    installMenuControls();
     if(!window.BABYLON)throw new Error('Babylon.js CDN недоступен');
     const B=window.BABYLON;
     engine=new B.Engine(canvas,true,{preserveDrawingBuffer:false,stencil:false,antialias:true,powerPreference:'high-performance',audioEngine:false},true);
+    engine.onContextLostObservable?.add(()=>recordRuntimeDiagnostic('engine-context-lost',{status:'lost'}));
+    engine.onContextRestoredObservable?.add(()=>recordRuntimeDiagnostic('engine-context-restored',{status:'restored'}));
     applyRenderScale();
     scene=new B.Scene(engine);scene.clearColor=new B.Color4(.045,.075,.105,1);scene.ambientColor=new B.Color3(.16,.19,.23);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.0028:.0022;scene.fogColor=new B.Color3(.105,.145,.18);
     scene.imageProcessingConfiguration.toneMappingEnabled=true;
@@ -1053,13 +1066,11 @@ async function boot() {
     collisionBoxes=scene.metadata?.soloCollisionBoxes||scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     collisionIndex=buildCollisionSpatialIndex(collisionBoxes,8);navigationGrid=buildNavigationGrid(collisionBoxes,.38,1.5);
     playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0);
-    camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
-    $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
-    humanBotAssets=await loadHumanBotAssets(B,scene);
-    buildBots();buildPlayerWeapon();initInput();drawMinimap();
-    window.addEventListener('resize',()=>engine.resize());
-    const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
-    $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',()=>{void enterImmersiveMode();start()});$('startFullscreen').addEventListener('click',()=>{void enterImmersiveMode()});
+    const initialSpawn=playerSpawn||getPlayerSpawn(state.playerTeam)||{x:0,z:-41};
+    camera.position.set(initialSpawn.x,1.72,initialSpawn.z);
+    if(!playerSpawn)recordRuntimeDiagnostic('initial-safe-spawn-unavailable',{team:state.playerTeam,authoredSpawn:initialSpawn});
+    // Start rendering the map before network-bound soldier assets are awaited.
+    // A failed/slow GLB request must never leave a fully-created scene unrendered.
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
@@ -1087,8 +1098,17 @@ async function boot() {
         $('fps').textContent=state.fps+' FPS';$('quality').textContent=(mobile?'MOBILE':'DESKTOP')+' · SCALE '+Math.round(state.scale*100)+'% · P95 '+Math.round(p95)+'ms';
         state.frameSamples.length=0;state.sampleAt=now;
       }
-      const renderStarted=performance.now();scene.render();state.lastRenderMs=performance.now()-renderStarted;
+      const renderStarted=performance.now();
+      try{scene.render();state.lastRenderMs=performance.now()-renderStarted;if(renderFailureActive){renderFailureActive=false;recordRuntimeDiagnostic('render-recovered',{renderMs:+state.lastRenderMs.toFixed(2)});}}
+      catch(error){state.lastRenderMs=performance.now()-renderStarted;if(!renderFailureActive){renderFailureActive=true;recordRuntimeDiagnostic('scene-render-error',{message:String(error?.message||error),stack:error?.stack||null,meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null});$('quality').textContent='RENDER ERROR · ДИАГНОСТИКА СОХРАНЕНА';$('loadState').textContent='Ошибка отрисовки сцены: '+(error?.message||error);const failedOverlay=$('overlay');failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');failedOverlay.style.display='flex';}}
     });
-  } catch(error) { console.error(error);const failedOverlay=$('overlay');if(failedOverlay){failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');}status.textContent='Ошибка запуска: '+error.message;$('quality').textContent='ENGINE ERROR'; }
+    $('loadState').textContent='Карта отображается. Загрузка настоящих 3D-бойцов и анимаций…';
+    humanBotAssets=await loadHumanBotAssets(B,scene);
+    buildBots();buildPlayerWeapon();initInput();drawMinimap();
+    window.addEventListener('resize',()=>engine.resize());
+    const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';
+    $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',()=>{void enterImmersiveMode();start()});$('startFullscreen').addEventListener('click',()=>{void enterImmersiveMode()});
+
+  } catch(error) { console.error(error);recordRuntimeDiagnostic('boot-error',{message:String(error?.message||error),stack:error?.stack||null});const failedOverlay=$('overlay');if(failedOverlay){failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');}status.textContent='Ошибка запуска: '+error.message;$('quality').textContent='ENGINE ERROR'; }
 }
 boot();
