@@ -153,6 +153,8 @@ test('spawn compounds keep both factions separated by a long approach', () => {
 
 test('mobile HUD controls stay above the look touch surface', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const mapModule = await import('./wet-street-map.mjs');
+  assert.equal(typeof mapModule.buildWetStreetMap, 'function');
   const css = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
   const rule = selector => css.match(new RegExp(selector + '\\{([^}]*)\\}'));
   const actions = rule('#actions')?.[1] ?? '';
