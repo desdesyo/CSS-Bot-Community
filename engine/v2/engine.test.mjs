@@ -249,4 +249,16 @@ test('engine entrypoint remains valid JavaScript after stripping browser-only im
 });
 
 
-test('Mokry Pol is the active map, with rain-quarter geometry and persistent route atlas identity', async () => {\n  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');\n  const map = await readFile(new URL('./wet-street-map.mjs', import.meta.url), 'utf8');\n  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');\n  assert.match(engine, /buildWetStreetMap\\(B,scene,mobile,shadowGen\\)/);\n  assert.match(engine, /mokry-pol-rainy-quarter-v1/);\n  assert.match(map, /canal deep water/);\n  assert.match(map, /arched stone bridge deck/);\n  assert.match(map, /procedural wet cobblestone/);\n  assert.match(map, /warm street lantern/);\n  assert.match(map, /alley low stone divider/);\n  assert.match(html, /MOKRY POL/);\n});\n
+test('Mokry Pol is the active map, with rain-quarter geometry and persistent route atlas identity', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const map = await readFile(new URL('./wet-street-map.mjs', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(engine, /buildWetStreetMap\\(B,scene,mobile,shadowGen\\)/);
+  assert.match(engine, /mokry-pol-rainy-quarter-v1/);
+  assert.match(map, /canal deep water/);
+  assert.match(map, /arched stone bridge deck/);
+  assert.match(map, /procedural wet cobblestone/);
+  assert.match(map, /warm street lantern/);
+  assert.match(map, /alley low stone divider/);
+  assert.match(html, /MOKRY POL/);
+});
