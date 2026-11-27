@@ -1346,6 +1346,34 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   warning.isPickable=false;
   box('facility sign rain hood',0,6.24,35.18,6.55,.12,.42,iron,false);
 
+  // CONTINUOUS RAIN — camera-independent particle field over the full district.
+  // A tiny procedural streak sprite avoids external dependencies and keeps mobile particle count bounded.
+  const rainTexture=new B.DynamicTexture('fine diagonal rain streak sprite',{width:32,height:96},scene,false);
+  const rainCtx=rainTexture.getContext();
+  rainCtx.clearRect(0,0,32,96);
+  const rainGradient=rainCtx.createLinearGradient(0,0,32,96);
+  rainGradient.addColorStop(0,'rgba(190,215,230,0)');
+  rainGradient.addColorStop(.45,'rgba(190,215,230,.36)');
+  rainGradient.addColorStop(1,'rgba(220,235,242,0)');
+  rainCtx.strokeStyle=rainGradient;rainCtx.lineWidth=2.2;rainCtx.beginPath();rainCtx.moveTo(8,4);rainCtx.lineTo(23,92);rainCtx.stroke();
+  rainTexture.update(false);rainTexture.hasAlpha=true;
+  const rain=B.ParticleSystem?new B.ParticleSystem('district fine rainfall',mobile?240:720,scene):null;
+  if(rain){
+    rain.particleTexture=rainTexture;
+    rain.emitter=new B.Vector3(0,11,0);
+    rain.minEmitBox=new B.Vector3(-51,0,-41);rain.maxEmitBox=new B.Vector3(51,0,41);
+    rain.direction1=new B.Vector3(-.8,-1,.15);rain.direction2=new B.Vector3(.35,-1,.7);
+    rain.minEmitPower=13;rain.maxEmitPower=19;
+    rain.minLifeTime=1.7;rain.maxLifeTime=2.8;
+    rain.minSize=mobile?.018:.022;rain.maxSize=mobile?.038:.052;
+    rain.emitRate=mobile?115:360;rain.updateSpeed=.012;
+    rain.gravity=new B.Vector3(0,-.65,0);
+    rain.color1=new C(.56,.68,.78);rain.color2=new C(.78,.84,.9);
+    rain.colorDead=new C(.24,.34,.42,0);
+    rain.blendMode=B.ParticleSystem.BLENDMODE_STANDARD;
+    rain.start();
+  }
+
   const staticMeshes=[...colliders,...merged],materials=new Set();
   for(const m of staticMeshes){
     m.computeWorldMatrix(true);m.freezeWorldMatrix();
