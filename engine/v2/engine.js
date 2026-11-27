@@ -156,6 +156,36 @@ function closeWeaponWheel(){state.wheelOpen=false;$('weaponWheel').classList.rem
 function chooseWheelAt(x,y){const r=$('weaponWheel').getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=x-cx,dy=y-cy;if(Math.hypot(dx,dy)<24)return;const a=(Math.atan2(dy,dx)+Math.PI*2)%(Math.PI*2);selectWeapon(weaponOrder[Math.round(a/(Math.PI/2))%4]);}
 function reload(){const w=currentWeapon();if(!['rifle','pistol'].includes(state.weapon)||w.ammo>= (state.weapon==='rifle'?30:12)||w.reserve===0)return;const cap=state.weapon==='rifle'?30:12,n=Math.min(cap-w.ammo,w.reserve);w.ammo+=n;w.reserve-=n;updateAmmoHud();}
 
+function findAssistedAimDirection(){
+  const forward=camera.getForwardRay(1).direction.clone().normalize();
+  let best=null,bestAngle=.14;
+  for(const bot of state.bots){
+    if(!bot.alive||bot.team!=='enemy')continue;
+    const target=new BABYLON.Vector3(bot.root.position.x,1.38,bot.root.position.z);
+    const delta=target.subtract(camera.position),distance=delta.length();
+    if(distance<1||distance>currentWeapon().range)continue;
+    const dir=delta.scale(1/distance),dot=BABYLON.Vector3.Dot(forward,dir),angle=Math.acos(Math.max(-1,Math.min(1,dot)));
+    if(angle>=bestAngle)continue;
+    const sight=new BABYLON.Ray(camera.position.clone(),dir,distance+.2);
+    const obstruction=scene.pickWithRay(sight,mesh=>isMapSolid(mesh)&&!mesh.name.startsWith('body-')&&!mesh.name.startsWith('head-')&&mesh!==state.playerHitbox);
+    if(obstruction?.hit&&obstruction.distance<distance-.45)continue;
+    best={dir,angle};bestAngle=angle;
+  }
+  if(!best)return forward;
+  // Gentle, short-range aim assist. It never acquires targets outside the centre cone or through walls.
+  return BABYLON.Vector3.Lerp(forward,best.dir,.42).normalize();
+}
+function spawnBulletTracer(origin,direction,distance){
+  const start=origin.add(direction.scale(.55)),end=start.add(direction.scale(Math.max(2,distance)));
+  const bullet=BABYLON.MeshBuilder.CreateSphere('bullet-tracer',{diameter:.055,segments:6},scene);
+  const glow=new BABYLON.StandardMaterial('bullet-glow-'+performance.now(),scene);glow.disableLighting=true;glow.emissiveColor=new BABYLON.Color3(1,.78,.32);bullet.material=glow;bullet.isPickable=false;
+  const speed=150,travel=Math.max(.035,Math.min(.42,distance/speed));let elapsed=0;
+  const obs=scene.onBeforeRenderObservable.add(()=>{
+    elapsed+=Math.min(.04,engine.getDeltaTime()/1000);
+    const k=Math.min(1,elapsed/travel);bullet.position.copyFrom(BABYLON.Vector3.Lerp(start,end,k));
+    if(k>=1){scene.onBeforeRenderObservable.remove(obs);bullet.dispose();glow.dispose();}
+  });
+}
 function fire() {
   if(!state.started||state.wheelOpen)return;
   const w=currentWeapon(),now=performance.now();
@@ -175,8 +205,10 @@ function fire() {
   }
   if(w.ammo<=0)return;
   state.lastShot=now;w.ammo--;
-  const ray=camera.getForwardRay(w.range);
+  const direction=findAssistedAimDirection(),ray=new BABYLON.Ray(camera.position.clone(),direction,w.range);
   const hit=scene.pickWithRay(ray,m=>isMapSolid(m)||m.name.startsWith('body-')||m.name.startsWith('head-'));
+  const distance=hit?.hit?hit.distance:w.range;
+  spawnBulletTracer(camera.position.clone(),direction,distance);
   if(hit?.hit&&hit.pickedMesh) {
     const target=hit.pickedMesh;
     if(target.metadata?.breakableWindow){
@@ -204,7 +236,7 @@ function updateGamepad(dt){
   state.gamepad.index=pad.index;
   const lx=padAxis(pad.axes?.[0]),ly=padAxis(pad.axes?.[1]),rx=padAxis(pad.axes?.[2]),ry=padAxis(pad.axes?.[3]);
   state.joy.x=lx;state.joy.y=ly;
-  if(state.started){camera.rotation.y+=rx*dt*2.7;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+ry*dt*2.35));}
+  if(state.started&&!padButton(pad,4)){camera.rotation.y+=rx*dt*2.7;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+ry*dt*2.35));}
   const lb=padButton(pad,4);
   if(lb&&!state.gamepad.buttons[4])openWeaponWheel();
   if(!lb&&state.gamepad.buttons[4]&&state.wheelOpen){
