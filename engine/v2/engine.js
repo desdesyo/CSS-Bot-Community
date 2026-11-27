@@ -233,6 +233,52 @@ function fire() {
   updateAmmoHud();
 }
 
+const PAD_DEADZONE=.16;
+function padAxis(v){const a=Math.abs(Number(v)||0);return a<PAD_DEADZONE?0:Math.sign(v)*Math.min(1,(a-PAD_DEADZONE)/(1-PAD_DEADZONE));}
+function padButton(pad,index){const b=pad?.buttons?.[index];return !!(b&&(b.pressed||Number(b.value||0)>.5));}
+function padEdge(pad,index){const pressed=padButton(pad,index),was=!!state.gamepad.buttons[index];state.gamepad.buttons[index]=pressed;return pressed&&!was;}
+function cycleWeapon(){const i=weaponOrder.indexOf(state.weapon);selectWeapon(weaponOrder[(i+1)%weaponOrder.length]);}
+function updateGamepad(dt){
+  const pads=navigator.getGamepads?.()||[];
+  let pad=null;
+  for(const p of pads){if(p?.connected){pad=p;break;}}
+  if(!pad){state.gamepad.index=-1;state.gamepad.buttons=[];state.joy.x=state.joy.y=0;state.gamepad.aim=false;state.gamepad.fire=false;state.firing=state.fireMouse||state.fireTouch;return;}
+  state.gamepad.index=pad.index;
+  const lx=padAxis(pad.axes?.[0]),ly=padAxis(pad.axes?.[1]),rx=padAxis(pad.axes?.[2]),ry=padAxis(pad.axes?.[3]);
+  state.joy.x=lx;state.joy.y=ly;
+  if(state.started&&!padButton(pad,4)){camera.rotation.y+=rx*dt*2.7;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+ry*dt*2.35));}
+  const lb=padButton(pad,4);
+  if(lb&&!state.gamepad.buttons[4])openWeaponWheel();
+  if(!lb&&state.gamepad.buttons[4]&&state.wheelOpen){
+    const ax=padAxis(pad.axes?.[2]),ay=padAxis(pad.axes?.[3]);
+    if(Math.hypot(ax,ay)>.35){const angle=(Math.atan2(ay,ax)+Math.PI*2)%(Math.PI*2);selectWeapon(weaponOrder[Math.round(angle/(Math.PI/2))%4]);}
+    else closeWeaponWheel();
+  }
+  state.gamepad.buttons[4]=lb;
+  if(padEdge(pad,0)&&state.started&&state.gamepad.jumpOffset<=.01)state.gamepad.jumpVelocity=5.1;
+  if(padEdge(pad,1))selectWeapon('knife');
+  if(padEdge(pad,2))reload();
+  if(padEdge(pad,3))cycleWeapon();
+  if(padEdge(pad,5)){selectWeapon('grenade');fire();}
+  if(padEdge(pad,8))toggleFullscreen();
+  if(padEdge(pad,9)&&!state.started)start();
+  if(padEdge(pad,12))selectWeapon('rifle');
+  if(padEdge(pad,15))selectWeapon('pistol');
+  if(padEdge(pad,13))selectWeapon('grenade');
+  if(padEdge(pad,14))selectWeapon('knife');
+  state.gamepad.sprint=padButton(pad,10);
+  const aim=Number(pad.buttons?.[6]?.value||0)>.35||padButton(pad,6);
+  state.gamepad.aim=aim;
+  const targetFov=aim?0.82:1.08;
+  if(camera)camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*12);
+  const trigger=Number(pad.buttons?.[7]?.value||0)>.35||padButton(pad,7);
+  state.gamepad.fire=!!(trigger&&state.started&&!state.wheelOpen);state.firing=state.fireMouse||state.fireTouch||state.gamepad.fire;
+  const bottom=$('bottom');
+  if(bottom)bottom.textContent='ГЕЙМПАД '+(pad.mapping==='standard'?'STANDARD':'CONNECTED')+' · LS движение · RS обзор · RT огонь · LT прицел · LB колесо · A прыжок · X перезарядка';
+  const badge=$('padStatus');if(badge)badge.textContent='PAD: '+(pad.mapping==='standard'?'CONNECTED':'CONNECTED · '+pad.id.slice(0,18));
+}
+
+
 function initInput() {
   window.addEventListener('gamepadconnected',e=>{state.gamepad.index=e.gamepad.index;const n=$('padStatus');if(n)n.textContent='PAD: CONNECTED';});
   window.addEventListener('gamepaddisconnected',e=>{if(state.gamepad.index===e.gamepad.index){state.gamepad.index=-1;state.joy.x=state.joy.y=0;const n=$('padStatus');if(n)n.textContent='PAD: DISCONNECTED';}});
@@ -241,7 +287,8 @@ function initInput() {
   
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
   window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
-  window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.fireMouse=true;state.firing=true;fire();}});\n  window.addEventListener('mouseup',e=>{if(e.button===0){state.fireMouse=false;state.firing=state.fireTouch||state.gamepad.fire;}});
+  window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.fireMouse=true;state.firing=true;fire();}});
+  window.addEventListener('mouseup',e=>{if(e.button===0){state.fireMouse=false;state.firing=state.fireTouch||state.gamepad.fire;}});
   const stick=$('stick'),nub=$('nub');let stickId=null,origin=null;
   stick.addEventListener('pointerdown',e=>{stickId=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.setPointerCapture(e.pointerId)});
   stick.addEventListener('pointermove',e=>{if(e.pointerId!==stickId)return;const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);state.joy.x=dx/48*k;state.joy.y=dy/48*k;nub.style.transform='translate('+state.joy.x*38+'px,'+state.joy.y*38+'px)'});
@@ -305,7 +352,8 @@ async function boot() {
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();buildBots();buildSky(B);buildViewModel();\n    state.muzzleFlash=B.MeshBuilder.CreateSphere('old-style-muzzle-flash',{diameter:.13,segments:6},scene);state.muzzleFlash.parent=camera;state.muzzleFlash.position.set(.24,-.22,-1.30);const flashMat=new B.StandardMaterial('old-style-muzzle-flash-material',scene);flashMat.disableLighting=true;flashMat.emissiveColor=new B.Color3(1,.55,.16);state.muzzleFlash.material=flashMat;state.muzzleFlash.isPickable=false;state.muzzleFlash.setEnabled(false);
+    buildMap();buildBots();buildSky(B);buildViewModel();
+    state.muzzleFlash=B.MeshBuilder.CreateSphere('old-style-muzzle-flash',{diameter:.13,segments:6},scene);state.muzzleFlash.parent=camera;state.muzzleFlash.position.set(.24,-.22,-1.30);const flashMat=new B.StandardMaterial('old-style-muzzle-flash-material',scene);flashMat.disableLighting=true;flashMat.emissiveColor=new B.Color3(1,.55,.16);state.muzzleFlash.material=flashMat;state.muzzleFlash.isPickable=false;state.muzzleFlash.setEnabled(false);
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.75,radius:.28,tessellation:8},scene);state.playerHitbox.position.set(0,.92,73);state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.visibility=0;
     initInput();
     window.addEventListener('resize',()=>engine.resize());
