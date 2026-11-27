@@ -5,7 +5,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
-const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, fireMouse:false, fireTouch:false, touchStickActive:false, reloading:false, weaponKick:0, muzzleFlash:null, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, gamepad:{index:-1,buttons:[],sprint:false,jumpVelocity:0,jumpOffset:0,aim:false,fire:false}, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:105,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
+const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], projectiles:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, fireMouse:false, fireTouch:false, touchStickActive:false, reloading:false, weaponKick:0, muzzleFlash:null, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, gamepad:{index:-1,buttons:[],sprint:false,jumpVelocity:0,jumpOffset:0,aim:false,fire:false}, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:105,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function isMapSolid(mesh) {
   if(!mesh||!mesh.isPickable||mesh===state.playerHitbox)return false;
@@ -35,21 +35,23 @@ function box(name, x,y,z, sx,sy,sz, material, cast=true) {
   return m;
 }
 
-let viewModel={parts:[],byWeapon:{}};
+let viewModel={parts:[],byWeapon:{},root:null};
 function makeViewPart(name,geometry,position,rotation,material){
-  const mesh=geometry();mesh.name='view-'+name;mesh.parent=camera;mesh.position.set(...position);mesh.metadata={...(mesh.metadata||{}),viewBaseZ:mesh.position.z};if(rotation)mesh.rotation.set(...rotation);mesh.material=material;mesh.isPickable=false;mesh.receiveShadows=false;mesh.renderingGroupId=1;mesh.alwaysSelectAsActiveMesh=true;viewModel.parts.push(mesh);return mesh;
+  const mesh=geometry();mesh.name='view-'+name;mesh.parent=viewModel.root||camera;mesh.position.set(...position);mesh.metadata={...(mesh.metadata||{}),viewBaseZ:mesh.position.z};if(rotation)mesh.rotation.set(...rotation);mesh.material=material;mesh.isPickable=false;mesh.receiveShadows=false;mesh.renderingGroupId=1;mesh.alwaysSelectAsActiveMesh=true;viewModel.parts.push(mesh);return mesh;
 }
 function buildViewModel(){
+  viewModel.root=new BABYLON.TransformNode('compact-viewmodel-root',scene);viewModel.root.parent=camera;viewModel.root.position.set(.08,-.10,0);viewModel.root.scaling.setAll(.56);
   const metal=new BABYLON.StandardMaterial('view-gun-metal',scene);metal.diffuseColor=new BABYLON.Color3(.12,.15,.15);metal.specularColor=new BABYLON.Color3(.45,.48,.46);
   const dark=new BABYLON.StandardMaterial('view-dark-polymer',scene);dark.diffuseColor=new BABYLON.Color3(.055,.07,.065);
   const skin=new BABYLON.StandardMaterial('view-gloves',scene);skin.diffuseColor=new BABYLON.Color3(.19,.22,.19);
   const rifle=[],pistol=[],grenade=[],knife=[];
   const addBox=(list,n,p,sz,m,rot=[0,0,0])=>{const o=makeViewPart(n,()=>BABYLON.MeshBuilder.CreateBox('vm-'+n,{width:sz[0],height:sz[1],depth:sz[2]},scene),p,rot,m);list.push(o);return o;};
   // Руки и перчатки от первого лица.
-  addBox(rifle,'right-forearm',[.43,-.39,.46],[.17,.19,.48],skin,[.18,-.2,-.28]);
-  addBox(rifle,'right-glove',[.34,-.31,.67],[.19,.13,.18],skin,[.1,-.2,-.18]);
-  addBox(rifle,'left-forearm',[-.22,-.43,.58],[.16,.17,.43],skin,[-.12,.12,.22]);
-  addBox(rifle,'left-glove',[-.10,-.34,.76],[.18,.12,.16],skin,[0,.1,.1]);
+  const addCapsule=(list,n,p,height,radius,m,rot=[0,0,0])=>{const o=makeViewPart(n,()=>BABYLON.MeshBuilder.CreateCapsule('vm-'+n,{height,radius,tessellation:10,subdivisions:2},scene),p,rot,m);list.push(o);return o;};
+  const addPalm=(list,n,p)=>{const o=makeViewPart(n,()=>BABYLON.MeshBuilder.CreateSphere('vm-'+n,{diameter:1,segments:12},scene),p,[0,0,0],skin);o.scaling.set(.15,.09,.18);list.push(o);return o;};
+  addCapsule(rifle,'right-forearm',[.43,-.39,.46],.56,.09,skin,[0,0,-.72]);addPalm(rifle,'right-glove',[.34,-.31,.67]);
+  addCapsule(rifle,'left-forearm',[-.22,-.43,.58],.50,.085,skin,[0,0,.72]);addPalm(rifle,'left-glove',[-.10,-.34,.76]);
+  for(let i=0;i<4;i++){addCapsule(rifle,'right-finger-'+i,[.28+i*.025,-.35,.78],.105,.018,skin,[Math.PI/2,0,-.1]);addCapsule(rifle,'left-finger-'+i,[-.16+i*.025,-.37,.84],.105,.018,skin,[Math.PI/2,0,.1]);}
   addBox(rifle,'rifle-receiver',[.24,-.23,.78],[.22,.20,.48],metal);
   addBox(rifle,'rifle-handguard',[.24,-.22,1.08],[.16,.15,.34],dark);
   addBox(rifle,'rifle-stock',[.31,-.22,.48],[.14,.16,.28],dark,[0,0,-.08]);
@@ -82,17 +84,57 @@ function makeBot(id, team, x,z, waypoints) {
   const rightArm=BABYLON.MeshBuilder.CreateCapsule('right-arm-'+id,{height:.66,radius:.105,tessellation:9,subdivisions:1},scene);rightArm.parent=root;rightArm.position.set(.27,1.12,0);rightArm.material=armMat;
   const leftLeg=BABYLON.MeshBuilder.CreateCapsule('left-leg-'+id,{height:.72,radius:.12,tessellation:9,subdivisions:1},scene);leftLeg.parent=root;leftLeg.position.set(-.13,.39,0);leftLeg.material=legMat;
   const rightLeg=BABYLON.MeshBuilder.CreateCapsule('right-leg-'+id,{height:.72,radius:.12,tessellation:9,subdivisions:1},scene);rightLeg.parent=root;rightLeg.position.set(.13,.39,0);rightLeg.material=legMat;
-  const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
-  const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
+  const pack=BABYLON.MeshBuilder.CreateSphere('backpack-'+id,{diameter:1,segments:12},scene);pack.parent=root;pack.position.set(0,1.02,-.27);pack.scaling.set(.25,.34,.13);pack.material=mat('pack-'+id,'#343b35',.9);pack.isPickable=false;
+  const vest=BABYLON.MeshBuilder.CreateSphere('vest-'+id,{diameter:1,segments:14},scene);vest.parent=root;vest.position.set(0,1.12,.13);vest.scaling.set(.245,.39,.13);vest.material=mat('vest-'+id,team==='enemy'?'#46564d':'#405a70',.92);vest.isPickable=false;
+  const plate=BABYLON.MeshBuilder.CreateSphere('plate-'+id,{diameter:1,segments:12},scene);plate.parent=root;plate.position.set(0,1.17,.235);plate.scaling.set(.16,.23,.035);plate.material=mat('plate-'+id,team==='enemy'?'#343e39':'#34495e',.78);plate.isPickable=false;
+  const helmet=BABYLON.MeshBuilder.CreateSphere('helmet-shell-'+id,{diameter:.28,segments:12},scene);helmet.parent=root;helmet.position.set(0,1.72,0);helmet.scaling.set(1,.62,1.08);helmet.material=mat('helmet-shell-mat-'+id,team==='enemy'?'#555f50':'#40576d',.85);helmet.isPickable=false;
+  const rifleRoot=new BABYLON.TransformNode('rifle-root-'+id,scene);rifleRoot.parent=root;rifleRoot.position.set(.29,1.22,.34);rifleRoot.rotation.x=-.10;
+  const gunMat=mat('rifle-metal-'+id,'#202729',.42,.72),poly=mat('rifle-poly-'+id,'#303a35',.82);
+  const gun=box('rifle-'+id,0,0,0,.105,.105,.43,gunMat,false);gun.parent=rifleRoot;gun.position.z=.03;
+  const barrel=BABYLON.MeshBuilder.CreateCylinder('rifle-barrel-'+id,{height:.42,diameter:.035,tessellation:8},scene);barrel.parent=rifleRoot;barrel.rotation.x=Math.PI/2;barrel.position.z=.43;barrel.material=gunMat;barrel.isPickable=false;
+  const stock=box('rifle-stock-'+id,0,0,0,.085,.12,.22,poly,false);stock.parent=rifleRoot;stock.position.z=-.25;
+  const magazine=box('rifle-magazine-'+id,0,0,0,.075,.19,.10,poly,false);magazine.parent=rifleRoot;magazine.position.set(0,-.13,.04);
   root.position.set(x,0,z);
-  state.bots.push({id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0,lastFire:0});
-  return root;
+  const bot={id,team,root,body,head,leftArm,rightArm,leftLeg,rightLeg,pack,gun,waypoints,index:0,speed:3.05,phase:id*.73,health:100,alive:true,fireAt:0,lastFire:0,realModel:null,realAnimations:[],realAnimation:null};
+  state.bots.push(bot);return root;
 }
 function buildBots() {
   const r=DUST2_EXPANDED.botRoutes,ct=DUST2_EXPANDED.spawns.ct,t=DUST2_EXPANDED.spawns.t;
   makeBot(1,'enemy',ct.x-8,ct.z,r[0]);makeBot(2,'enemy',ct.x+8,ct.z,r[1]);
   makeBot(3,'ally',t.x-12,t.z,r[2]);makeBot(4,'ally',t.x+12,t.z,r[3]);
   makeBot(5,'enemy',-92,-12,r[4]);makeBot(6,'ally',92,12,r[5]);
+}
+let soldierAssetContainer=null,soldierLoadPromise=null;
+const SOLDIER_MODEL_URLS=['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb','https://raw.githubusercontent.com/mrdoob/three.js/r160/examples/models/gltf/Soldier.glb'];
+function setBotAnimation(bot,kind){
+ if(!bot.realAnimations?.length)return;const key=kind.toLowerCase();
+ const next=bot.realAnimations.find(a=>a.name.toLowerCase()===key)||bot.realAnimations.find(a=>a.name.toLowerCase().includes(key))||bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
+ if(!next||bot.realAnimation===next)return;bot.realAnimations.forEach(a=>{if(a!==next)a.stop()});next.start(true);next.speedRatio=kind==='run'?1.12:1;bot.realAnimation=next;
+}
+function attachSoldierModel(bot){
+ if(!soldierAssetContainer||bot.realModel)return;
+ const instance=soldierAssetContainer.instantiateModelsToScene(name=>'soldier-'+bot.id+'-'+name,true);
+ const rig=new BABYLON.TransformNode('soldier-rig-'+bot.id,scene);rig.parent=bot.root;rig.rotation.y=Math.PI;
+ for(const node of instance.rootNodes)node.parent=rig;rig.computeWorldMatrix(true);
+ const bounds=rig.getHierarchyBoundingVectors(true),height=bounds.max.y-bounds.min.y;
+ if(!Number.isFinite(height)||height<.5||height>5){rig.dispose(false,true);instance.animationGroups.forEach(a=>a.dispose());throw new Error('Invalid soldier model height: '+height)}
+ const scale=1.72/height;rig.scaling.setAll(scale);rig.position.y=-bounds.min.y*scale;
+ const tint=bot.team==='ally'?new BABYLON.Color3(.76,.88,1):new BABYLON.Color3(1,.86,.70);
+ for(const mesh of rig.getChildMeshes(false)){mesh.isPickable=false;mesh.receiveShadows=true;if(mesh.material?.clone){const m=mesh.material.clone('soldier-'+bot.id+'-mat');if(m.albedoColor)m.albedoColor=m.albedoColor.multiply(tint);mesh.material=m}if(!mobile)shadowGen.addShadowCaster(mesh)}
+ for(const part of [bot.body,bot.head,bot.leftArm,bot.rightArm,bot.leftLeg,bot.rightLeg,bot.pack,bot.gun])if(part)part.visibility=0;
+ bot.realModel=rig;bot.realAnimations=instance.animationGroups||[];
+ const run=bot.realAnimations.find(a=>/run|walk/i.test(a.name)),idle=bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
+ if(run){run.start(true);run.speedRatio=1.12;bot.realAnimation=run}else if(idle){idle.start(true);bot.realAnimation=idle}
+}
+async function loadRealSoldiers(){
+ if(soldierLoadPromise)return soldierLoadPromise;
+ soldierLoadPromise=(async()=>{
+  if(!BABYLON.SceneLoader?.LoadAssetContainerAsync)throw new Error('Babylon glTF loader unavailable');let lastError;
+  for(const url of SOLDIER_MODEL_URLS){try{const u=new URL(url),slash=u.pathname.lastIndexOf('/');soldierAssetContainer=await BABYLON.SceneLoader.LoadAssetContainerAsync(u.origin+u.pathname.slice(0,slash+1),u.pathname.slice(slash+1),scene);break}catch(error){lastError=error;console.warn('Soldier asset fallback',url,error)}}
+  if(!soldierAssetContainer)throw lastError||new Error('Soldier model download failed');for(const bot of state.bots)attachSoldierModel(bot);
+  $('loadState').textContent='Настоящие 3D-бойцы и скелетные анимации загружены.';return true;
+ })().catch(error=>{console.warn('Rigged soldier model unavailable; procedural soldiers remain active',error);$('loadState').textContent='Резервные 3D-бойцы загружены.';soldierLoadPromise=null;return false});
+ return soldierLoadPromise;
 }
 function updateBotAI() {
   // Tactical decisions and combat run at 8 Hz.
@@ -143,7 +185,7 @@ function updateBotMotion(dt) {
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
     bot.phase+=dt*8;const stride=Math.sin(bot.phase)*.42;bot.leftLeg.rotation.x=stride;bot.rightLeg.rotation.x=-stride;bot.leftArm.rotation.x=-stride*.7;bot.rightArm.rotation.x=stride*.7;bot.body.position.y=.88+Math.abs(Math.sin(bot.phase*2))*.018;
-    bot.head.position.y=1.64+Math.abs(Math.sin(bot.phase*2))*.012;
+    bot.head.position.y=1.64+Math.abs(Math.sin(bot.phase*2))*.012;if(bot.realAnimations?.length)setBotAnimation(bot,'run');
   }
 }
 
@@ -185,20 +227,22 @@ function findAssistedAimDirection(){
   // Gentle, short-range aim assist. It never acquires targets outside the centre cone or through walls.
   return BABYLON.Vector3.Lerp(forward,best.dir,.42).normalize();
 }
-function spawnBulletTracer(origin,direction,distance){
-  const start=origin.add(direction.scale(.55)),end=start.add(direction.scale(Math.max(2,distance)));
-  const bullet=BABYLON.MeshBuilder.CreateSphere('bullet-tracer',{diameter:.075,segments:8},scene);
-  const glow=new BABYLON.StandardMaterial('bullet-tracer-material-'+performance.now(),scene);glow.disableLighting=true;glow.emissiveColor=new BABYLON.Color3(1,.78,.32);bullet.material=glow;bullet.isPickable=false;
-  const speed=240,travel=Math.max(.045,Math.min(.34,distance/speed));let elapsed=0;
-  const obs=scene.onBeforeRenderObservable.add(()=>{elapsed+=Math.min(.04,engine.getDeltaTime()/1000);const k=Math.min(1,elapsed/travel);bullet.position.copyFrom(BABYLON.Vector3.Lerp(start,end,k));if(k>=1){scene.onBeforeRenderObservable.remove(obs);bullet.dispose();glow.dispose();}});
+function spawnBallisticProjectile(origin,direction,damage){
+ const material=new BABYLON.StandardMaterial('player-projectile-'+performance.now(),scene);material.disableLighting=true;material.emissiveColor=new BABYLON.Color3(1,.78,.34);
+ const mesh=BABYLON.MeshBuilder.CreateSphere('player-projectile',{diameter:.045,segments:6},scene);mesh.material=material;mesh.position.copyFrom(origin);mesh.isPickable=false;
+ const trail=BABYLON.MeshBuilder.CreateLines('player-projectile-trail',{points:[origin.clone(),origin.subtract(direction.scale(.38))],updatable:true},scene);trail.color=new BABYLON.Color3(1,.72,.35);trail.isPickable=false;
+ state.projectiles.push({mesh,material,trail,velocity:direction.clone().normalize().scale(235),life:1.15,damage});
 }
-function showMuzzleFlash(){
-  if(!state.muzzleFlash)return;
-  state.muzzleFlash.setEnabled(true);
-  window.clearTimeout(state.muzzleFlashTimer);
-  state.muzzleFlashTimer=window.setTimeout(()=>state.muzzleFlash?.setEnabled(false),42);
+function disposeProjectile(p){p.mesh.dispose();p.material.dispose();p.trail.dispose()}
+function updateProjectiles(dt){
+ for(let i=state.projectiles.length-1;i>=0;i--){const p=state.projectiles[i],from=p.mesh.position.clone();p.velocity.y-=9.81*dt;
+  const next=from.add(p.velocity.scale(dt)),segment=next.subtract(p.mesh.position),distance=segment.length();
+  if(distance>.0001){const ray=new BABYLON.Ray(p.mesh.position.clone(),segment.scale(1/distance),distance);const hit=scene.pickWithRay(ray,m=>m!==state.playerHitbox&&(m.name.startsWith('body-')||m.name.startsWith('head-')||isMapSolid(m)));
+   if(hit?.hit&&hit.pickedMesh){const target=hit.pickedMesh;if(target.metadata?.breakableWindow){target.isPickable=false;target.isVisible=false}else{const bot=state.bots.find(b=>target.parent===b.root);if(bot&&bot.team==='enemy'&&bot.alive){bot.health-=target.name.startsWith('head-')?100:p.damage;if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false)}}}p.mesh.position.copyFrom(hit.pickedPoint||next);disposeProjectile(p);state.projectiles.splice(i,1);continue}}
+  p.mesh.position.copyFrom(next);p.life-=dt;BABYLON.MeshBuilder.CreateLines('player-projectile-trail',{points:[next,next.subtract(p.velocity.clone().normalize().scale(.38))],instance:p.trail});
+  if(p.life<=0||next.y<.05){disposeProjectile(p);state.projectiles.splice(i,1)}
+ }
 }
-
 function fire() {
   if(!state.started||state.wheelOpen||state.reloading)return;
   const w=currentWeapon(),now=performance.now();
@@ -221,24 +265,11 @@ function fire() {
   // Old engine's hitscan feel: the shot is resolved immediately from the centre of the crosshair.
   // Aim assist only nudges the ray toward a visible target inside a small cone.
   state.lastShot=now;w.ammo--;
-  const direction=findAssistedAimDirection();
-  const ray=new BABYLON.Ray(camera.position.clone(),direction,w.range);
-  const hit=scene.pickWithRay(ray,mesh=>isMapSolid(mesh)||mesh.name.startsWith('body-')||mesh.name.startsWith('head-'));
-  spawnBulletTracer(camera.position.clone(),direction,hit?.hit?hit.distance:w.range);
-  showMuzzleFlash();
-  state.weaponKick=.04;
-  if(hit?.hit&&hit.pickedMesh) {
-    const target=hit.pickedMesh;
-    if(target.metadata?.breakableWindow){
-      target.isPickable=false;target.isVisible=false;
-      const p=hit.pickedPoint||target.getAbsolutePosition();
-      for(let i=0;i<7;i++){const end=p.add(new BABYLON.Vector3((Math.random()-.5)*.8,(Math.random()-.5)*.8,(Math.random()-.5)*.8));const shard=BABYLON.MeshBuilder.CreateLines('glass-shard',{points:[p,end]},scene);shard.color=new BABYLON.Color3(.55,.8,.88);shard.alpha=.85;setTimeout(()=>shard.dispose(),450);}
-    } else {
-      const bot=state.bots.find(b=>target.parent===b.root);
-      if(bot&&bot.team==='enemy'&&bot.alive){bot.health-=target.name.startsWith('head-')?100:w.damage;if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);}}
-    }
-  }
-  updateAmmoHud();
+  const forward=findAssistedAimDirection(),right=camera.getDirection(BABYLON.Axis.X),origin=camera.position.clone().add(forward.scale(.68)).add(right.scale(.19)).add(new BABYLON.Vector3(0,-.18,0));
+  const spread=state.weapon==='pistol'?.0025:.0011+Math.random()*.0018;
+  const direction=forward.add(right.scale((Math.random()-.5)*spread)).add(new BABYLON.Vector3(0,(Math.random()-.5)*spread,0)).normalize();
+  showMuzzleFlash();state.recoilPitch=Math.min(.09,state.recoilPitch+.012+Math.random()*.004);
+  spawnBallisticProjectile(origin,direction,w.damage);updateAmmoHud();
 }
 
 const PAD_DEADZONE=.16;
@@ -344,7 +375,7 @@ function updatePlayer(dt) {
   if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92+state.gamepad.jumpOffset,camera.position.z);
 }
 function start() {
-  state.started=true;state.firing=false;state.fireMouse=false;state.fireTouch=false;state.gamepad.fire=false;state.reloading=false;state.weaponKick=0;updateViewModel();state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0;camera.position.y=1.65;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
+  state.started=true;state.firing=false;state.fireMouse=false;state.fireTouch=false;state.gamepad.fire=false;state.reloading=false;state.projectiles.forEach(disposeProjectile);state.projectiles.length=0;state.weaponKick=0;updateViewModel();state.gamepad.jumpVelocity=0;state.gamepad.jumpOffset=0;camera.position.y=1.65;overlay.style.display='none';state.hp=100;state.ammo=30;state.reserve=90;state.weapons.rifle.ammo=30;state.weapons.rifle.reserve=90;state.weapons.pistol.ammo=12;state.weapons.pistol.reserve=48;state.weapons.grenade.ammo=1;state.weapons.grenade.reserve=2;state.weapon='rifle';closeWeaponWheel();state.bots.forEach(b=>{b.health=100;b.alive=true;b.root.setEnabled(true);b.index=0});$('health').textContent='HP 100';updateAmmoHud();startButton.textContent='ЗАПУСК';camera.position.set(DUST2_EXPANDED.spawns.t.x,1.65,DUST2_EXPANDED.spawns.t.z-4);camera.rotation.set(0,Math.PI,0);if(state.playerHitbox)state.playerHitbox.position.set(camera.position.x,.92,camera.position.z);
   if(!mobile)canvas.requestPointerLock?.();
 }
 async function boot() {
@@ -361,9 +392,10 @@ async function boot() {
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildMap();buildBots();buildSky(B);buildViewModel();
-    state.muzzleFlash=B.MeshBuilder.CreateSphere('old-style-muzzle-flash',{diameter:.13,segments:6},scene);state.muzzleFlash.parent=camera;state.muzzleFlash.position.set(.24,-.22,-1.30);const flashMat=new B.StandardMaterial('old-style-muzzle-flash-material',scene);flashMat.disableLighting=true;flashMat.emissiveColor=new B.Color3(1,.55,.16);state.muzzleFlash.material=flashMat;state.muzzleFlash.isPickable=false;state.muzzleFlash.setEnabled(false);
+    state.muzzleFlash=B.MeshBuilder.CreateSphere('old-style-muzzle-flash',{diameter:.13,segments:6},scene);state.muzzleFlash.parent=viewModel.root;state.muzzleFlash.position.set(.24,-.22,1.58);const flashMat=new B.StandardMaterial('old-style-muzzle-flash-material',scene);flashMat.disableLighting=true;flashMat.emissiveColor=new B.Color3(1,.55,.16);state.muzzleFlash.material=flashMat;state.muzzleFlash.isPickable=false;state.muzzleFlash.setEnabled(false);
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.75,radius:.28,tessellation:8},scene);state.playerHitbox.position.set(0,.92,73);state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.visibility=0;
     initInput();
+    loadRealSoldiers();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
     $('start').addEventListener('click',start);
@@ -374,6 +406,7 @@ async function boot() {
       updateGamepad(dt);
       if(state.started) {
         if(state.firing)fire();
+        updateProjectiles(dt);
         if(state.weaponKick){for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ+state.weaponKick;}state.weaponKick*=Math.exp(-dt*45);if(state.weaponKick<.0005){state.weaponKick=0;for(const mesh of viewModel.parts){if(mesh.metadata?.viewBaseZ!==undefined)mesh.position.z=mesh.metadata.viewBaseZ;}}}
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
         if(now-state.lastHud>100){drawRadar();state.lastHud=now;}
