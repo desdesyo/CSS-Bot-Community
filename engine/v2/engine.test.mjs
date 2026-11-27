@@ -347,3 +347,12 @@ test('Wet Ground primary facades face into the playable street and contain real 
   assert.match(map, /wrought iron balcony rail/);
   assert.match(map, /projecting horizontal floor band/);
 });
+
+test('Wet Ground central avenue continues over the canal on a real bridge', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /\[\[-20,'west'\],\[0,'main'\],\[20,'east'\]\]/);
+  assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
+  assert.match(map, /main north bridge road approach/);
+  assert.match(map, /main south bridge road approach/);
+  assert.match(map, /riverCrossings:\[-20,0,20\]/);
+});
