@@ -1307,7 +1307,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       wet.position.set(x,.071,at(distance));wet.rotation.x=Math.PI/2;wet.material=puddle;wet.isPickable=false;
     }
     // CT parked rain-dark sedan: grounded reference vehicle at the CT storefront curb.
-    if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',9.8,at(1.8),'#263b43');
+    if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',8.15,at(1.8),'#263b43');
     const wire=B.MeshBuilder.CreateTube(label+' overhead bundled power cable',{
       path:[new B.Vector3(westFace,7.15,at(5.5)),new B.Vector3((westFace+eastFace)/2,6.65,at(4.2)),new B.Vector3(eastFace,7.15,at(5.5))],
       radius:.024,tessellation:6},scene);
@@ -1545,7 +1545,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     rippleMaterial.specularColor=new C(.42,.56,.66);
     rippleMaterial.alpha=.12;rippleMaterial.disableLighting=true;
     const ring=B.MeshBuilder.CreateTorus('expanding rain impact ring '+index,{diameter:1,thickness:.018,tessellation:32},scene);
-    ring.position.set(x,.105,z);ring.material=rippleMaterial;ring.isPickable=false;
+    ring.position.set(x,.105,z);ring.rotation.x=Math.PI/2;ring.material=rippleMaterial;ring.isPickable=false;
     return {mesh:ring,material:rippleMaterial,phase:index/ rainRippleSites.length};
   });
   scene.onBeforeRenderObservable.add(()=>{
