@@ -26,15 +26,15 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       put('door left pier',x-W/2-T/2,1.6,z,T,3.2,.34,m);put('door right pier',x+W/2+T/2,1.6,z,T,3.2,.34,m);
       put('door lintel',x,2.62,z,W+2*T,1.16,.36,m);
       put('door recessed shadow',x,1.03,z+sgn*.19,W,.08,.035,shadow);
-      const leaf=put('wood door leaf',x+.48,1.03,z+sgn*.22,W-.1,2.02,.07,wood);leaf.isPickable=false;
+      const leaf=put('recessed open doorway shadow',x,1.03,z+sgn*.225,W-.12,2.02,.035,shadow);leaf.isPickable=false;
       put('door stone threshold',x,.06,z,W+.18,.12,.55,trim);
-      put('door upper transom',x,2.34,z,W,.24,.12,wood);
+      put('door upper transom',x,2.34,z+sgn*.08,W,.12,.10,wood);
       put('door handle',x+W*.34,1.05,z+sgn*.28,.045,.12,.035,metal);
     }else{
       put('door left pier',x,1.6,z-W/2-T/2,.34,3.2,T,m);put('door right pier',x,1.6,z+W/2+T/2,.34,3.2,T,m);
       put('door lintel',x,2.62,z,.36,1.16,W+2*T);
       put('door recessed shadow',x+sgn*.19,1.03,z,.035,.08,W,shadow);
-      const leaf=put('wood door leaf',x+sgn*.22,1.03,z+.48,.07,2.02,W-.1,wood);leaf.isPickable=false;
+      const leaf=put('recessed open doorway shadow',x+sgn*.225,1.03,z,.035,2.02,W-.12,shadow);leaf.isPickable=false;
       put('door stone threshold',x,.06,z,.55,.12,W+.18,trim);
       put('door handle',x+sgn*.28,1.05,z+W*.34,.035,.12,.045,metal);
     }
@@ -46,8 +46,8 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
       slab(n+' left reveal',x-W/2-T/2,centerY+.15,z,T,1.8,.34,m);slab(n+' right reveal',x+W/2+T/2,centerY+.15,z,T,1.8,.34,m);
       slab(n+' upper reveal',x,centerY+1.03,z,W+2*T,.32,.34,m);slab(n+' lower sill',x,centerY-.58,z,W+2*T,.24,.52,trim);
       slab(n+' dark recess',x,centerY,z+sgn*.18,W,1,.035,shadow);slab(n+' glass',x,centerY,z+sgn*.21,W-.12,.88,.025,glass);
-      slab(n+' vertical mullion',x,centerY,z+sgn*.25,.055,.9,.035,trim);slab(n+' horizontal mullion',x,1.4,z+sgn*.25,W-.08,.055,.035,trim);
-      slab(n+' shutter left',x-W/2-.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);slab(n+' shutter right',x+W/2+.17,centerY+.05,z+sgn*.24,.22,1.18,.09,wood);
+      slab(n+' vertical mullion',x,centerY,z+sgn*.25,.055,.9,.035,trim);slab(n+' horizontal mullion',x,centerY,z+sgn*.25,W-.08,.055,.035,trim);
+      slab(n+' shutter left',x-W/2-.17,centerY+.05,z+sgn*.24,.16,1.08,.065,wood);slab(n+' shutter right',x+W/2+.17,centerY+.05,z+sgn*.24,.16,1.08,.065,wood);
     }else{
       slab(n+' left reveal',x,centerY+.15,z-W/2-T/2,.34,1.8,T,m);slab(n+' right reveal',x,centerY+.15,z+W/2+T/2,.34,1.8,T,m);
       slab(n+' upper reveal',x,centerY+1.03,z,.34,.32,W+2*T,m);slab(n+' lower sill',x,centerY-.58,z,.52,.24,W+2*T,trim);
