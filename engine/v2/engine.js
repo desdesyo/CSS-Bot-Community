@@ -449,7 +449,8 @@ function initInput() {
   window.addEventListener('keyup',e=>state.keys.delete(e.code));
   canvas.addEventListener('click',()=>{if(!mobile&&state.started)canvas.requestPointerLock?.()});
   window.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){camera.rotation.y+=e.movementX*.0022;camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+e.movementY*.0022))}});
-  window.addEventListener('mousedown',e=>{if(e.button===0&&state.started){state.firing=true;fire()}});
+  // Desktop firing is canvas-only. Mobile taps must never synthesize a shot; the FIRE pointer control owns touch shooting.
+  canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.firing=true;fire()}});
   window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
   window.addEventListener('blur',()=>{state.keys.clear();state.firing=false});
   const stick=$('stick'),nub=$('nub');let stickId=null,origin=null;
@@ -483,7 +484,10 @@ function initInput() {
   };
   fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
-  for(const button of document.querySelectorAll('[data-weapon]'))button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
+  for(const button of document.querySelectorAll('[data-weapon]')){
+    button.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){e.preventDefault();e.stopPropagation();selectWeapon(button.dataset.weapon)}});
+    button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
+  }
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
   $('issueQuick').addEventListener('click',submitIssueReport);
