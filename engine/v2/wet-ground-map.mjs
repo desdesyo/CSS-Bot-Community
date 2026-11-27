@@ -21,6 +21,49 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glass=mat('midnight window glass','#101d2d',.16,.42);
   const roof=mat('slate roofs','#202b39',.92);
   const amber=mat('warm lamp glass','#ffd49a',.25);
+
+  // Procedural masonry surfaces: remove the flat, toy-like solid-color look
+  // without adding external downloads or expensive per-frame shader work.
+  const makeFacadeTexture=(name,kind)=>{
+    const size=mobile?512:1024,tex=new B.DynamicTexture(name,{width:size,height:size},scene,false);
+    const ctx=tex.getContext(),rand=(()=>{let seed=kind==='brick'?42117:kind==='stone'?73191:99173;return()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);})();
+    const base=kind==='brick'?'#39434a':kind==='stone'?'#46515b':'#465461';
+    ctx.fillStyle=base;ctx.fillRect(0,0,size,size);
+    if(kind==='brick'){
+      const rows=mobile?13:22,cols=mobile?9:16,cw=size/cols,ch=size/rows;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        const ox=(y%2)*cw*.5,shade=Math.floor(49+rand()*29),px=x*cw+ox,py=y*ch;
+        ctx.fillStyle='rgba(12,19,25,.9)';ctx.fillRect(px+2,py+2,cw-4,ch-4);
+        ctx.fillStyle='rgb('+shade+','+(shade+5)+','+(shade+9)+')';
+        ctx.fillRect(px+3,py+3,cw-6,ch-6);
+        if(rand()>.55){ctx.fillStyle='rgba(12,20,28,.18)';ctx.fillRect(px+4,py+ch*.65,cw-8,ch*.18);}
+      }
+    }else if(kind==='stone'){
+      const rows=8,cols=5,cw=size/cols,ch=size/rows;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        const shade=Math.floor(57+rand()*30),px=x*cw,py=y*ch;
+        ctx.fillStyle='rgba(9,17,25,.55)';ctx.fillRect(px+2,py+2,cw-4,ch-4);
+        ctx.fillStyle='rgb('+shade+','+(shade+7)+','+(shade+12)+')';ctx.fillRect(px+4,py+4,cw-8,ch-8);
+        ctx.strokeStyle='rgba(190,205,211,.08)';ctx.lineWidth=2;ctx.strokeRect(px+7,py+7,cw-14,ch-14);
+      }
+    }else{
+      for(let i=0;i<(mobile?1800:6500);i++){
+        const v=Math.floor(90+rand()*75);ctx.fillStyle='rgba('+v+','+(v+5)+','+(v+9)+','+(rand()*.12)+')';
+        const x=rand()*size,y=rand()*size,r=.4+rand()*2.2;ctx.fillRect(x,y,r,r);
+      }
+      // Rain streaks and dirty runoff beneath window ledges.
+      for(let i=0;i<34;i++){const x=rand()*size,y=rand()*size,h=size*(.08+rand()*.42);ctx.fillStyle='rgba(8,18,27,'+(.035+rand()*.07)+')';ctx.fillRect(x,y,1+rand()*3,h);}
+      for(let i=0;i<22;i++){const x=rand()*size,y=rand()*size;ctx.fillStyle='rgba(178,190,194,.055)';ctx.fillRect(x,y,8+rand()*38,1+rand()*3);}
+    }
+    // Fine surface grain keeps broad walls from reading as flat polygons.
+    for(let i=0;i<(mobile?1200:4200);i++){const v=rand()>.5?255:0;ctx.fillStyle='rgba('+v+','+v+','+v+','+(rand()*.045)+')';ctx.fillRect(rand()*size,rand()*size,1,1);}
+    tex.update(false);tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;tex.uScale=kind==='brick'?2.6:2.1;tex.vScale=2.1;
+    return tex;
+  };
+  plaster.albedoTexture=makeFacadeTexture('rain-streaked plaster texture','plaster');
+  brick.albedoTexture=makeFacadeTexture('aged dark brickwork texture','brick');
+  stone.albedoTexture=makeFacadeTexture('weathered cut stone texture','stone');
+
   const warmWindow=mat('occupied apartment window glow','#e9ae6d',.34);
   if(warmWindow.emissiveColor)warmWindow.emissiveColor=new C(.62,.25,.07);
   const water=mat('canal deep water','#102b3d',.075,.32);
@@ -474,6 +517,43 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const skybox=B.MeshBuilder.CreateBox('blue-hour skyline skybox',{size:180},scene);
   skybox.material=skyMaterial;skybox.infiniteDistance=true;skybox.isPickable=false;skybox.checkCollisions=false;skybox.applyFog=false;skybox.renderingGroupId=0;
   skybox.computeWorldMatrix(true);skybox.freezeWorldMatrix();
+
+
+  // Beyond the playable quarter, a layered real-city silhouette replaces the
+  // empty void: rooflines, apartment blocks and scattered occupied windows fade into rain haze.
+  const farMasonry=mat('distant rain-dark city masonry','#303c48',.94);
+  const farRoof=mat('distant slate roof silhouettes','#1c2936',.92);
+  const farGlass=mat('distant unlit apartment windows','#182b3a',.42,.12);
+  const farLit=mat('distant occupied windows','#b8794d',.48);
+  if(farLit.emissiveColor)farLit.emissiveColor=new C(.22,.075,.025);
+  const distantBlock=(name,x,z,w,d,h,face)=>{
+    box(name+' silhouette',x,h/2,z,w,h,d,farMasonry,false,false);
+    box(name+' roofline',x,h+.12,z,w+.5,.24,d+.5,farRoof,false,false);
+    const side=face==='west'?-1:1,fx=x+side*(w/2+.025);
+    for(let level=1;level<=Math.floor(h/2.8);level++){
+      const y=level*2.55;
+      for(let n=0;n<Math.max(2,Math.floor(d/3.2));n++){
+        const zz=z-d*.42+n*(d*.84/Math.max(1,Math.floor(d/3.2)-1));
+        box(name+' distant window frame',fx,y,zz,.035,1.05,1.15,farRoof,false,false);
+        if((n+level+Math.round(x))%4===0)box(name+' distant lit window',fx+side*.025,y,zz,.025,.72,.76,farLit,false,false);
+        else box(name+' distant dark window',fx+side*.025,y,zz,.025,.82,.86,farGlass,false,false);
+      }
+    }
+  };
+  [
+    ['north apartment skyline',-39,-57,18,9,17,'east'],
+    ['north office skyline',-13,-61,13,10,24,'east'],
+    ['north residential skyline',13,-59,19,11,15,'west'],
+    ['north tower silhouette',40,-63,12,12,29,'west'],
+    ['south apartment skyline',-42,57,15,10,20,'east'],
+    ['south warehouse skyline',-17,61,20,12,13,'east'],
+    ['south residential skyline',12,59,16,11,19,'west'],
+    ['south tower silhouette',40,62,14,10,25,'west'],
+    ['west skyline blocks',-61,-25,10,17,18,'east'],
+    ['west skyline blocks',-64,10,11,19,23,'east'],
+    ['east skyline blocks',61,-22,10,16,21,'west'],
+    ['east skyline blocks',64,15,11,18,16,'west']
+  ].forEach(args=>distantBlock(...args));
 
   // A single planar reflection pass gives the wet street and canal real building/light reflections.
   // It is deliberately low-resolution and refreshed less often on phones.
