@@ -264,6 +264,21 @@ test('Wet Ground district has curved masonry bridges, a walkable service tunnel 
   assert.match(map, /plastered_wall_05/);
   assert.match(map, /mobile\?'1k':'2k'/);
 });
+test('Wet Ground is a connected multi-street district, not a single spawn alley', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /FULL DISTRICT EXTENSION/);
+  assert.match(map, /south district cross street/);
+  assert.match(map, /north district cross street/);
+  assert.match(map, /canal bank east-west market connector/);
+  assert.match(map, /quarterBuilding\('cross-street corner tenement'/);
+  assert.match(map, /west market court worn cobblestone/);
+  assert.match(map, /market court fountain stone basin/);
+  assert.match(map, /old quarter enamel street sign/);
+  assert.match(map, /mesh\.position\.x=cx-dz/);
+  assert.match(map, /mesh\.position\.z=cz\+dx/);
+  assert.match(map, /mesh\.rotation\.y\+=Math\.PI\/2/);
+});
+
 test('photographic facade PBR maps are applied after procedural fallbacks and survive material freezing', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   const relief = map.indexOf('for(const [material,kind] of [[plaster');
