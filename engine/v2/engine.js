@@ -7,15 +7,17 @@ import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
+  const tint=BABYLON.Color3.FromHexString(color);
+  if(mobile){const m=new BABYLON.StandardMaterial(name,scene);m.diffuseColor=tint;m.specularColor=new BABYLON.Color3(.12,.12,.12);return m;}
   const m = new BABYLON.PBRMaterial(name, scene);
-  m.albedoColor = BABYLON.Color3.FromHexString(color); m.roughness = roughness; m.metallic = metallic;
+  m.albedoColor = tint; m.roughness = roughness; m.metallic = metallic;
   return m;
 }
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
 let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn=getPlayerSpawn('CT'), projectileMaterial;
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
-  m.position.set(x,y,z); m.material=material; m.receiveShadows=true; m.checkCollisions=!!collide;
+  m.position.set(x,y,z); m.material=material; m.receiveShadows=!mobile; m.checkCollisions=!!collide;
   if(cast && !mobile) shadowGen.addShadowCaster(m);
   return m;
 }
@@ -92,10 +94,10 @@ function buildMap() {
   cargo(-10,-25,3,5,2.4);cargo(10,-9,3,5,2.4);cargo(-10,7,3,4,2.1);cargo(10,15,3,4,2.1);
   // Bombsite A: open industrial loading yard close to the CT landing zone.
   groundPatch('bombsite concrete apron',0,23,25,18,concrete,.055);
-  for(const [x,z,w,d] of [[-12,14,.25,18],[12,14,.25,18],[-12,32,.25,18],[12,32,.25,18]])box('bombsite painted boundary',x,.025,z,w,.035,d,yellow,false,false);
+  for(const [x,z,w,d] of [[-12,14,.25,18],[12,14,.25,18],[-12,32,.25,18],[12,32,.25,18]])box('bombsite painted boundary',x,.085,z,w,.035,d,yellow,false,false);
   for(const [x,z] of [[-8,20],[8,27]])cargo(x,z,3,5,2.5);
   box('bombsite plant platform',0,.12,23,4,.22,3,yellow,false,false);
-  box('bombsite site marker',0,.025,23,7,.035,.18,white,false,false);
+  box('bombsite site marker',0,.085,23,7,.035,.18,white,false,false);
   // CT cover positions defend the yard without sealing its entrances.
   for(const [x,z,w,d] of [[-8,34,4,1.1],[8,34,4,1.1],[-14,23,1.1,4],[14,23,1.1,4]])box('site concrete cover',x,.65,z,w,1.3,d,concrete);
   // Distinct faction landing aprons. T is deliberately far from A; CT is staged beside it.
@@ -103,8 +105,8 @@ function buildMap() {
   groundPatch('T landing apron',0,-36,22,9,tMark,.065);
   groundPatch('CT landing apron',0,34,22,8,ctMark,.065);
   for(const x of [-10,10]){
-    box('T landing boundary',x,.03,-36,.16,.04,8,yellow,false,false);
-    box('CT landing boundary',x,.03,34,.16,.04,7,yellow,false,false);
+    box('T landing boundary',x,.09,-36,.16,.04,8,yellow,false,false);
+    box('CT landing boundary',x,.09,34,.16,.04,7,yellow,false,false);
   }
   box('T landing sign',0,2.5,-42,5,1.1,.18,tMark,false,false);
   box('CT landing sign',0,2.5,42,5,1.1,.18,ctMark,false,false);
@@ -131,7 +133,7 @@ function buildMap() {
     box((sign<0?'T':'CT')+' base overhead sign',0,3.3,sign*40,8,.55,.22,metal,false,false);
   }
   // Road markings, drains, lamps and roof equipment give the district scale.
-  for(const z of [-31,-19,-7,5,17,29,39])box('broken lane marking',0,.025,z,.14,.035,3.2,yellow,false,false);
+  for(const z of [-31,-19,-7,5,17,29,39])box('broken lane marking',0,.08,z,.14,.035,3.2,yellow,false,false);
   for(const x of [-18,18])for(const z of [-26,0,28]){
     const pole=box('streetlight pole',x,3,z,.12,6,.12,metal,false,false);
     box('streetlight head',x,6,z,.8,.16,.35,yellow,false,false);
