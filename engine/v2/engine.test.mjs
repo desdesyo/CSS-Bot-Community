@@ -356,3 +356,8 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   assert.match(map, /label\+' south bridge road approach'/);
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
+
+test('field atlas invalidates routes from the previous abstract Wet Ground layout', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /FIELD_MAP_ID='wet-ground-street-panorama-v2'/);
+});
