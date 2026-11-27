@@ -16,12 +16,11 @@ export function moveToward(position, target, speed, dt) {
 }
 export function createTeamRoster(playerTeam = 'CT') {
   if (playerTeam !== 'CT' && playerTeam !== 'T') throw new Error('playerTeam must be CT or T');
-  const enemyTeam = playerTeam === 'CT' ? 'enemy' : 'ally';
-  const allyTeam = playerTeam === 'CT' ? 'ally' : 'enemy';
+  // "enemy"/"ally" are relative to the human player, not CT/T faction names.
   return [
-    [1,enemyTeam,-36,-30],[2,enemyTeam,36,-30],[3,enemyTeam,-44,8],
-    [4,enemyTeam,44,8],[5,enemyTeam,-18,-35],[6,enemyTeam,18,-35],
-    [7,allyTeam,-18,35],[8,allyTeam,18,35],[9,allyTeam,-42,0],
-    [10,allyTeam,42,0],[11,allyTeam,0,30]
+    [1,'enemy',-36,-30],[2,'enemy',36,-30],[3,'enemy',-44,8],
+    [4,'enemy',44,8],[5,'enemy',-18,-35],[6,'enemy',18,-35],
+    [7,'ally',-18,35],[8,'ally',18,35],[9,'ally',-42,0],
+    [10,'ally',42,0],[11,'ally',0,30]
   ];
 }
