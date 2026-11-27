@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const video = $('video'), status = $('status');
-let socket, pc, channel, connected = false, fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false;
+let socket, pc, channel, connected = false; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false;
 const say = text => { status.textContent = text; };
 function sendSignal(message) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message)); }
 function sendInput() {
@@ -24,8 +24,8 @@ async function connect() {
     try {
       if (m.type === 'joined' && m.peerReady) await offer();
       if (m.type === 'peer-ready') await offer();
-      if (m.type === 'answer') await pc.setRemoteDescription(m.description);
-      if (m.type === 'ice' && m.candidate) await pc.addIceCandidate(m.candidate);
+      if (m.type === 'answer') { await pc.setRemoteDescription(m.description); for (const candidate of pendingIce.splice(0)) await pc.addIceCandidate(candidate); }
+      if (m.type === 'ice' && m.candidate) { if (pc.remoteDescription) await pc.addIceCandidate(m.candidate); else pendingIce.push(m.candidate); }
       if (m.type === 'peer-left') { say('Облачный хост отключился'); video.srcObject = null; }
     } catch (error) { say('Ошибка подключения: ' + error.message); }
   });
@@ -54,7 +54,7 @@ let lookId = null, last = null;
 $('look').addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};$('look').setPointerCapture(e.pointerId);});
 $('look').addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;look.x+=(e.clientX-last.x)*.004;look.y+=(e.clientY-last.y)*.004;last={x:e.clientX,y:e.clientY};});
 $('look').addEventListener('pointerup',()=>lookId=null);$('look').addEventListener('pointercancel',()=>lookId=null);
-window.addEventListener('keydown',e=>{if(e.code==='KeyW')move.y=-1;if(e.code==='KeyS')move.y=1;if(e.code==='KeyA')move.x=-1;if(e.code==='KeyD')move.x=1;if(e.code==='Space')jump=true;if(e.code==='KeyR')reload=true;if(e.code==='Mouse0')fire=true;});
-window.addEventListener('keyup',e=>{if(['KeyW','KeyS'].includes(e.code))move.y=0;if(['KeyA','KeyD'].includes(e.code))move.x=0;if(e.code==='Space')jump=false;});
+const held=new Set();const syncKeys=()=>{move.x=(held.has('KeyD')?1:0)-(held.has('KeyA')?1:0);move.y=(held.has('KeyS')?1:0)-(held.has('KeyW')?1:0);};window.addEventListener('keydown',e=>{held.add(e.code);syncKeys();if(e.code==='Space')jump=true;if(e.code==='KeyR')reload=true;});
+window.addEventListener('keyup',e=>{held.delete(e.code);syncKeys();if(e.code==='Space')jump=false;});video.addEventListener('click',()=>video.requestPointerLock?.());window.addEventListener('mousemove',e=>{if(document.pointerLockElement===video){look.x+=e.movementX*.0022;look.y+=e.movementY*.0022;}});window.addEventListener('mousedown',e=>{if(e.button===0)fire=true;});window.addEventListener('mouseup',e=>{if(e.button===0)fire=false;});
 setInterval(sendInput,33);
 window.addEventListener('beforeunload',()=>{sendSignal({type:'hangup'});pc?.close();socket?.close();});
