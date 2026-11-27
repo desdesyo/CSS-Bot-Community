@@ -27,7 +27,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const makeFacadeTexture=(name,kind)=>{
     const size=mobile?512:1024,tex=new B.DynamicTexture(name,{width:size,height:size},scene,false);
     const ctx=tex.getContext(),rand=(()=>{let seed=kind==='brick'?42117:kind==='stone'?73191:99173;return()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);})();
-    const base=kind==='brick'?'#39434a':kind==='stone'?'#46515b':'#465461';
+    const base=kind==='brick'?'#514744':kind==='stone'?'#59656e':'#66727c';
     ctx.fillStyle=base;ctx.fillRect(0,0,size,size);
     if(kind==='brick'){
       const rows=mobile?13:22,cols=mobile?9:16,cw=size/cols,ch=size/rows;
@@ -51,9 +51,26 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
         const v=Math.floor(90+rand()*75);ctx.fillStyle='rgba('+v+','+(v+5)+','+(v+9)+','+(rand()*.12)+')';
         const x=rand()*size,y=rand()*size,r=.4+rand()*2.2;ctx.fillRect(x,y,r,r);
       }
-      // Rain streaks and dirty runoff beneath window ledges.
-      for(let i=0;i<34;i++){const x=rand()*size,y=rand()*size,h=size*(.08+rand()*.42);ctx.fillStyle='rgba(8,18,27,'+(.035+rand()*.07)+')';ctx.fillRect(x,y,1+rand()*3,h);}
-      for(let i=0;i<22;i++){const x=rand()*size,y=rand()*size;ctx.fillStyle='rgba(178,190,194,.055)';ctx.fillRect(x,y,8+rand()*38,1+rand()*3);}
+      // Strong, directional rain runoff: visible from street distance, especially
+      // beneath window sills and roof edges. Layered widths avoid the old hairline-noise look.
+      for(let i=0;i<52;i++){
+        const x=rand()*size,y=rand()*size,w=2+rand()*7,h=size*(.12+rand()*.58);
+        const a=.075+rand()*.14;
+        ctx.fillStyle='rgba(8,17,25,'+a+')';ctx.fillRect(x,y,w,h);
+        if(i%3===0){ctx.fillStyle='rgba(178,194,202,'+(a*.32)+')';ctx.fillRect(x+w+1,y+size*.025,1+rand()*2,h*.58);}
+      }
+      // Dirty tide marks and mineral deposits under ledges.
+      for(let i=0;i<30;i++){
+        const x=rand()*size,y=rand()*size,w=18+rand()*110;
+        ctx.fillStyle='rgba(9,18,25,'+(.08+rand()*.12)+')';ctx.fillRect(x,y,w,2+rand()*6);
+        ctx.fillStyle='rgba(190,199,201,.10)';ctx.fillRect(x+rand()*w,y+3,w*.22,1+rand()*2);
+      }
+      // A few broad damp patches break up otherwise uniform plaster.
+      for(let i=0;i<18;i++){
+        const x=rand()*size,y=rand()*size,w=16+rand()*80,h=20+rand()*110;
+        ctx.fillStyle='rgba(13,24,33,'+(.035+rand()*.075)+')';
+        ctx.beginPath();ctx.ellipse(x,y,w,h,rand()*.18,0,Math.PI*2);ctx.fill();
+      }
     }
     // Fine surface grain keeps broad walls from reading as flat polygons.
     for(let i=0;i<(mobile?1200:4200);i++){const v=rand()>.5?255:0;ctx.fillStyle='rgba('+v+','+v+','+v+','+(rand()*.045)+')';ctx.fillRect(rand()*size,rand()*size,1,1);}
@@ -572,18 +589,37 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     else merged.push(...parts);
   }
 
-  // Procedural blue-hour sky: luminous horizon gradient and sparse stars, not a flat black clear color.
-  const skyTexture=new B.DynamicTexture('wet quarter night sky',{width:512,height:256},scene,false);
-  const skyCtx=skyTexture.getContext(),skyGradient=skyCtx.createLinearGradient(0,0,0,256);
-  skyGradient.addColorStop(0,'#07111f');skyGradient.addColorStop(.48,'#172b40');skyGradient.addColorStop(.78,'#40586b');skyGradient.addColorStop(1,'#9aa1a0');
-  skyCtx.fillStyle=skyGradient;skyCtx.fillRect(0,0,512,256);
-  let starSeed=9137;const starRand=()=>((starSeed=(starSeed*1664525+1013904223)>>>0)/4294967296);
-  for(let i=0;i<58;i++){const x=starRand()*512,y=starRand()*145,r=.35+starRand()*.75;skyCtx.fillStyle='rgba(210,226,245,'+(.18+starRand()*.42)+')';skyCtx.beginPath();skyCtx.arc(x,y,r,0,Math.PI*2);skyCtx.fill();}
-  skyTexture.update(false);
-  const skyMaterial=new B.StandardMaterial('blue-hour skyline material',scene);
+  // Spherical lat-long sky: a cube stretched a 2:1 gradient over six faces,
+  // producing the hard seams and giant angular "ceiling" seen in the user's report.
+  // A true inward-facing sphere gives one continuous horizon and no visible corners.
+  const skyTexture=new B.DynamicTexture('wet quarter blue-hour atmosphere',{width:1024,height:512},scene,false);
+  const skyCtx=skyTexture.getContext(),skyGradient=skyCtx.createLinearGradient(0,0,0,512);
+  skyGradient.addColorStop(0,'#071321');skyGradient.addColorStop(.34,'#10263b');skyGradient.addColorStop(.63,'#29445b');skyGradient.addColorStop(.82,'#607485');skyGradient.addColorStop(1,'#b1aaa0');
+  skyCtx.fillStyle=skyGradient;skyCtx.fillRect(0,0,1024,512);
+  // Soft cloud banks are painted into the sky texture (no extra draw calls).
+  let cloudSeed=9137;const skyRand=()=>((cloudSeed=(cloudSeed*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<34;i++){
+    const x=skyRand()*1024,y=170+skyRand()*185,w=55+skyRand()*210,h=5+skyRand()*18;
+    const cloud=skyCtx.createRadialGradient(x,y,1,x,y,w);
+    cloud.addColorStop(0,'rgba(151,174,190,'+(.10+skyRand()*.10)+')');
+    cloud.addColorStop(1,'rgba(151,174,190,0)');
+    skyCtx.fillStyle=cloud;skyCtx.save();skyCtx.translate(x,y);skyCtx.scale(1,h/Math.max(1,w));skyCtx.beginPath();skyCtx.arc(0,0,w,0,Math.PI*2);skyCtx.fill();skyCtx.restore();
+  }
+  // A restrained moon glow gives the horizon a real light source without a flat white disc.
+  const moonGlow=skyCtx.createRadialGradient(760,150,2,760,150,92);
+  moonGlow.addColorStop(0,'rgba(218,226,231,.42)');moonGlow.addColorStop(.16,'rgba(174,198,213,.16)');moonGlow.addColorStop(1,'rgba(174,198,213,0)');
+  skyCtx.fillStyle=moonGlow;skyCtx.fillRect(660,50,200,200);
+  skyCtx.fillStyle='rgba(222,229,231,.72)';skyCtx.beginPath();skyCtx.arc(760,150,7,0,Math.PI*2);skyCtx.fill();
+  for(let i=0;i<105;i++){
+    const x=skyRand()*1024,y=skyRand()*205,r=.35+skyRand()*.9;
+    skyCtx.fillStyle='rgba(218,230,241,'+(.16+skyRand()*.38)+')';skyCtx.beginPath();skyCtx.arc(x,y,r,0,Math.PI*2);skyCtx.fill();
+  }
+  skyTexture.update(false);skyTexture.coordinatesMode=B.Texture.SPHERICAL_MODE;
+  skyTexture.wrapU=skyTexture.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  const skyMaterial=new B.StandardMaterial('continuous spherical blue-hour sky material',scene);
   skyMaterial.backFaceCulling=false;skyMaterial.disableLighting=true;skyMaterial.emissiveTexture=skyTexture;
   skyMaterial.diffuseColor=new C(0,0,0);skyMaterial.specularColor=new C(0,0,0);
-  const skybox=B.MeshBuilder.CreateBox('blue-hour skyline skybox',{size:180},scene);
+  const skybox=B.MeshBuilder.CreateSphere('continuous blue-hour sky atmosphere',{diameter:180,segments:mobile?20:32},scene);
   skybox.material=skyMaterial;skybox.infiniteDistance=true;skybox.isPickable=false;skybox.checkCollisions=false;skybox.applyFog=false;skybox.renderingGroupId=0;
   skybox.computeWorldMatrix(true);skybox.freezeWorldMatrix();
 
@@ -634,7 +670,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     wetMirror.blurKernel=mobile?10:14;
     wetMirror.refreshRate=mobile?4:2;
     wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
-      if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed'))return false;
+      if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed')||mesh.name.includes('sky atmosphere'))return false;
       mesh.computeWorldMatrix(true);
       return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;
     });
