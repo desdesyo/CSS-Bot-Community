@@ -95,8 +95,8 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   const arms = node('viewmodel-arms-rig');
   const leftArm = node('left-arm-pivot', arms);
   const rightArm = node('right-arm-pivot', arms);
-  leftArm.position.set(-.48, -.34, .36);
-  rightArm.position.set(.48, -.34, .38);
+  leftArm.position.set(-.48, -.34, .15);
+  rightArm.position.set(.34, -.34, .38);
   const armPart = (name, parent, a, b, r, mat) => capsule(name, parent, a, b, r, mat);
   armPart('left upper sleeve', leftArm, [0,-.22,.27], [.10,.03,-.02], .105, m.cloth);
   armPart('left forearm sleeve', leftArm, [.10,.03,-.02], [.30,.18,-.36], .073, m.cloth);
