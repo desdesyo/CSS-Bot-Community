@@ -40,7 +40,7 @@ let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js')}
 catch(primaryError){try{THREE=await import('https://unpkg.com/three@0.160.0/build/three.module.js')}catch(fallbackError){throw new Error('Не удалось загрузить библиотеку 3D-графики с двух CDN. Проверь подключение к интернету. Основная ошибка: '+String(primaryError)+'; резервная: '+String(fallbackError))}}
 const canvas=document.querySelector('#game');
-const isTouchDevice=matchMedia('(pointer:coarse)').matches;
+const isTouchDevice=matchMedia('(pointer:coarse)').matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 let mergeGeometries=null;if(isTouchDevice){try{({mergeGeometries}=await import('three/addons/utils/BufferGeometryUtils.js'))}catch(error){console.warn('Mobile mesh batching unavailable',error)}}
 const renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouchDevice,powerPreference:'high-performance',stencil:false,depth:true});
 let qualityScale=isTouchDevice?.68:1.5,lastAppliedQuality=qualityScale,qualityWindowStart=performance.now(),qualityFrames=0;const renderScale=()=>Math.min(devicePixelRatio,qualityScale);
@@ -203,7 +203,7 @@ function compactBotMeshes(root,hitMeshes){
    if(!mesh.isMesh||mesh.isSkinnedMesh||mesh.isInstancedMesh||Array.isArray(mesh.material)||!mesh.geometry)continue;
    const list=buckets.get(mesh.material)||[];list.push(mesh);buckets.set(mesh.material,list);
   }
-  for(const [material,meshes] of buckets){if(meshes.length<3)continue;
+  for(const [material,meshes] of buckets){if(meshes.length<2)continue;
    const pieces=[];let merged=null;
    try{for(const mesh of meshes){mesh.updateMatrix();const geometry=mesh.geometry.clone();geometry.applyMatrix4(mesh.matrix);pieces.push(geometry)}merged=mergeGeometries(pieces,false);if(merged)for(const geometry of pieces)geometry.dispose()}catch(error){console.warn('Bot mesh batch skipped',error)}
    if(!merged){for(const geometry of pieces)geometry.dispose();continue}
@@ -328,7 +328,80 @@ function spawnBot(x,z,team='enemy'){
 }function disposeBotVisuals(bot){bot.realMixer?.stopAllAction?.();const realIds=new Set(),materialsToDispose=new Set();if(bot.realModel)bot.realModel.traverse(o=>realIds.add(o.id));bot.group.traverse(o=>{if(!o.isMesh)return;if(!realIds.has(o.id))o.geometry?.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];for(const material of materials)if(material)materialsToDispose.add(material)});for(const material of materialsToDispose)material.dispose();scene.remove(bot.group)}function spawnWave(){for(const b of bots)disposeBotVisuals(b);bots.length=0;allySpawns.forEach(([x,z])=>spawnBot(x,z,'ally'));enemySpawns.forEach(([x,z])=>spawnBot(x,z,'enemy'));if(realBotAsset&&realBotClone)void attachRealBotModels()}
 async function initRealBotModels(){if(realBotLoadPromise)return realBotLoadPromise;realBotLoadPromise=(async()=>{const errors=[];try{const [{GLTFLoader},{clone}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/utils/SkeletonUtils.js')]);realBotLoader=new GLTFLoader();realBotClone=clone;try{const {KTX2Loader}=await import('three/addons/loaders/KTX2Loader.js');realBotKtx2Loader=new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/').detectSupport(renderer);realBotLoader.setKTX2Loader(realBotKtx2Loader)}catch(textureError){console.warn('KTX2 decoder unavailable; PNG/JPEG textures remain supported',textureError)}let gltf=null;for(const url of SOLDIER_GLB_URLS){try{gltf=await realBotLoader.loadAsync(url);if(gltf?.scene)break}catch(error){errors.push(url+': '+String(error?.message||error))}}if(!gltf?.scene)throw new Error(errors.join(' | ')||'GLB не содержит сцену');realBotAsset=gltf;await attachRealBotModels();toast('3D-модель солдата загружена · анимации подключены');return true}catch(error){console.error('Soldier GLB load failed',error);toast('Модель солдата недоступна. Игра продолжит работу с резервной моделью.');realBotLoadPromise=null;return false}})();return realBotLoadPromise}
 function playRealBotAnimation(bot,name,once=false){if(!bot.realActions)return;const key=name.toLowerCase(),clipName=Object.keys(bot.realActions).find(n=>n.toLowerCase()===key)||Object.keys(bot.realActions).find(n=>n.toLowerCase().includes(key))||(key==='idle'?Object.keys(bot.realActions).find(n=>/tpose/i.test(n)):null);if(!clipName)return;const next=bot.realActions[clipName];if(bot.realCurrentAction===next&&next.isRunning())return;next.reset();next.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);next.clampWhenFinished=once;next.fadeIn(.12).play();if(bot.realCurrentAction&&bot.realCurrentAction!==next)bot.realCurrentAction.crossFadeTo(next,.16,false);bot.realCurrentAction=next;bot.realState=key}
-async function attachRealBotModels(){if(!realBotAsset||!realBotClone)return;for(const bot of bots){if(!bot.alive||bot.realModel)continue;const model=realBotClone(realBotAsset.scene);model.rotation.y=Math.PI;model.scale.setScalar(1);model.position.set(0,0,0);model.updateMatrixWorld(true);let boneCount=0;model.traverse(o=>{if(o.isBone)boneCount++});const sourceBounds=new THREE.Box3().setFromObject(model),sourceSize=sourceBounds.getSize(new THREE.Vector3()),sourceHeight=sourceSize.y;const scale=Number.isFinite(sourceHeight)&&sourceHeight>.1?THREE.MathUtils.clamp(1.72/sourceHeight,.05,4):1;model.scale.setScalar(scale);model.position.y=-sourceBounds.min.y*scale;model.updateMatrixWorld(true);const normalizedBounds=new THREE.Box3().setFromObject(model),normalizedHeight=normalizedBounds.getSize(new THREE.Vector3()).y;if(!Number.isFinite(normalizedHeight)||normalizedHeight<1.2||normalizedHeight>2.2){console.warn('Soldier model rejected: invalid normalized height',normalizedHeight);continue}model.position.y-=normalizedBounds.min.y;model.updateMatrixWorld(true);model.userData.soloBoneCount=boneCount;model.userData.soloNormalizedHeight=+normalizedHeight.toFixed(3);const tint=new THREE.Color(bot.team==='ally'?0x9db9d8:0xc7b58b);model.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;o.frustumCulled=!o.isSkinnedMesh;if(o.material){const wasArray=Array.isArray(o.material),mats=wasArray?o.material:[o.material],converted=mats.map(m=>{const copy=m.clone();if(copy.color)copy.color.multiply(tint);copy.roughness=Math.max(.48,copy.roughness??.8);copy.needsUpdate=true;return copy});o.material=wasArray?converted:converted[0]}}});bot.group.add(model);for(const child of bot.group.children)if(child!==bot.rifle&&child!==bot.shadow&&child!==model)child.visible=false;bot.realModel=model;bot.realHeadBone=null;bot.realRightArmBone=null;bot.realSpineBone=null;model.traverse(o=>{if(o.isBone){if(/head/i.test(o.name))bot.realHeadBone=o;if(!bot.realRightArmBone&&(/right.*arm|arm.*r/i.test(o.name)))bot.realRightArmBone=o;if(!bot.realSpineBone&&/(spine2|chest|spine)/i.test(o.name))bot.realSpineBone=o}if(o.isMesh&&!bot.hitMeshes.includes(o))bot.hitMeshes.push(o)});bot.realMixer=new THREE.AnimationMixer(model);bot.realActions={};for(const clip of realBotAsset.animations||[])bot.realActions[clip.name]=bot.realMixer.clipAction(clip);const handNames=['mixamorigRightHand','mixamorig:RightHand','RightHand','Hand_R','Hand.R','hand_r','HandRight'];let hand=null;model.traverse(o=>{if(!hand&&handNames.includes(o.name))hand=o});if(hand){model.updateMatrixWorld(true);bot.group.updateMatrixWorld(true);hand.attach(bot.rifle)}else{bot.rifle.position.set(.12,1.08,-.28);bot.rifle.scale.setScalar(.72)}playRealBotAnimation(bot,'Idle')}}
+async function attachRealBotModels(){
+ if(!realBotAsset||!realBotClone)return;
+ for(const bot of bots){
+  if(!bot.alive||bot.realModel)continue;
+  const model=realBotClone(realBotAsset.scene);
+  model.rotation.y=Math.PI;
+  model.scale.setScalar(1);
+  model.position.set(0,0,0);
+  model.updateMatrixWorld(true);
+  const bones=[];
+  model.traverse(o=>{if(o.isBone)bones.push(o)});
+  const boneBounds=new THREE.Box3();
+  for(const bone of bones)boneBounds.expandByPoint(bone.getWorldPosition(new THREE.Vector3()));
+  const boneHeight=boneBounds.isEmpty()?0:boneBounds.max.y-boneBounds.min.y;
+  const sourceBounds=new THREE.Box3().setFromObject(model);
+  const meshHeight=sourceBounds.isEmpty()?0:sourceBounds.max.y-sourceBounds.min.y;
+  // GLB mesh bounds can describe the bind pose while Mixamo bones use a
+  // different unit scale. Normalize from the actual bone hierarchy first.
+  const measuredHeight=Number.isFinite(boneHeight)&&boneHeight>.1?boneHeight:meshHeight;
+  if(!Number.isFinite(measuredHeight)||measuredHeight<.1||measuredHeight>1000){
+   console.warn('Soldier model rejected: invalid source height',{boneHeight,meshHeight});
+   continue;
+  }
+  const scale=1.72/measuredHeight;
+  if(!Number.isFinite(scale)||scale<.0001||scale>10){
+   console.warn('Soldier model rejected: unsafe normalization scale',scale);
+   continue;
+  }
+  model.scale.setScalar(scale);
+  const sourceMinY=boneHeight>.1?boneBounds.min.y:sourceBounds.min.y;
+  model.position.y=-sourceMinY*scale;
+  model.updateMatrixWorld(true);
+  const normalizedBoneBounds=new THREE.Box3();
+  for(const bone of bones)normalizedBoneBounds.expandByPoint(bone.getWorldPosition(new THREE.Vector3()));
+  const normalizedHeight=normalizedBoneBounds.isEmpty()?0:normalizedBoneBounds.max.y-normalizedBoneBounds.min.y;
+  if(!Number.isFinite(normalizedHeight)||normalizedHeight<1.55||normalizedHeight>1.9){
+   console.warn('Soldier model rejected: skeleton did not normalize',{normalizedHeight,scale});
+   continue;
+  }
+  model.userData.soloBoneCount=bones.length;
+  model.userData.soloNormalizedHeight=+normalizedHeight.toFixed(3);
+  model.userData.soloSourceBoneHeight=+boneHeight.toFixed(3);
+  model.userData.soloSourceMeshHeight=+meshHeight.toFixed(3);
+  const tint=new THREE.Color(bot.team==='ally'?0x9db9d8:0xc7b58b);
+  model.traverse(o=>{
+   if(o.isMesh){
+    o.castShadow=false;o.receiveShadow=false;o.frustumCulled=!o.isSkinnedMesh;
+    if(o.material){
+     const wasArray=Array.isArray(o.material),mats=wasArray?o.material:[o.material];
+     const converted=mats.map(m=>{const copy=m.clone();if(copy.color)copy.color.multiply(tint);copy.roughness=Math.max(.48,copy.roughness??.8);copy.needsUpdate=true;return copy});
+     o.material=wasArray?converted:converted[0];
+    }
+   }
+  });
+  bot.group.add(model);
+  for(const child of bot.group.children)if(child!==bot.rifle&&child!==bot.shadow&&child!==model)child.visible=false;
+  bot.realModel=model;bot.realHeadBone=null;bot.realRightArmBone=null;bot.realSpineBone=null;
+  model.traverse(o=>{
+   if(o.isBone){
+    if(/head/i.test(o.name))bot.realHeadBone=o;
+    if(!bot.realRightArmBone&&(/right.*arm|arm.*r/i.test(o.name)))bot.realRightArmBone=o;
+    if(!bot.realSpineBone&&/(spine2|chest|spine)/i.test(o.name))bot.realSpineBone=o;
+   }
+   if(o.isMesh&&!bot.hitMeshes.includes(o))bot.hitMeshes.push(o);
+  });
+  bot.realMixer=new THREE.AnimationMixer(model);bot.realActions={};
+  for(const clip of realBotAsset.animations||[])bot.realActions[clip.name]=bot.realMixer.clipAction(clip);
+  const handNames=['mixamorigRightHand','mixamorig:RightHand','RightHand','Hand_R','Hand.R','hand_r','HandRight'];
+  let hand=null;model.traverse(o=>{if(!hand&&handNames.includes(o.name))hand=o});
+  if(hand){model.updateMatrixWorld(true);bot.group.updateMatrixWorld(true);hand.attach(bot.rifle)}
+  else{bot.rifle.position.set(.12,1.08,-.28);bot.rifle.scale.setScalar(.72)}
+  playRealBotAnimation(bot,'Idle');
+ }
+}
 spawnWave();if(!isTouchDevice)void initRealBotModels();
 const ray=new THREE.Raycaster();ray.far=65;const aimRaycaster=new THREE.Raycaster();aimRaycaster.far=65;let aimDistance=65,aimSensitivity=1,aimSensitivityTarget=1,lastAimRayAt=0,aimTargeted=false;const clock=new THREE.Clock();const keys=new Set();let weaponKick=0,weaponFireAnim=0,cameraRecoil=0;let aimAssist=true;let started=false,locked=false,paused=false,scoreVisible=false,gamepadPanelOpen=false,pausedBeforePad=false,leftInvertX=false,leftInvertY=false,playerDeaths=0,moveStick={x:0,y:0},fire=false,yaw=0,pitch=0,ammo=30,reserve=90,reload=0,kills=0,hp=100,shotCooldown=0,gamepadReloadWasDown=false,roundNumber=1,wins=0,losses=0,roundRemaining=90,roundEnded=false,roundRestartIn=0;
 const weaponInventory={primary:{label:'ВИНТОВКА',ammo:30,reserve:90,clip:30},pistol:{label:'ПИСТОЛЕТ',ammo:12,reserve:36,clip:12}};let currentWeapon='primary',grenades=2,weaponWheelOpen=false,wheelSelected='primary',wheelInputMode='',wheelPointer={x:0,y:-90};let gamepadL1WasDown=false,fireWasDown=false,meleeCooldown=0;
@@ -540,7 +613,58 @@ async function checkFreshControlLogs(){
  }catch(error){out.textContent='Не удалось проверить свежие журналы: '+(error?.message||String(error))+' . Проверь подключение и доступность GitHub.'}
  finally{btn.disabled=false;btn.textContent='ПРОВЕРИТЬ СВЕЖИЕ ЛОГИ'}
 }
-function showControlLogPanel(){const wasPaused=paused;if(started){paused=true;fire=false}const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');panel.style.display='flex';const report=analyzeControlLogs(controlLogs),samples=report.samples,events=report.events;card.innerHTML='<h2>ЖУРНАЛ УПРАВЛЕНИЯ</h2><div id="logStatus">'+(controlRecording?'Запись идёт':'Запись остановлена')+'</div><div id="logStats"><div>Всего записей: <b>'+controlLogs.length+'</b></div><div>Сэмплов: <b>'+samples+'</b></div><div>Событий: <b>'+events+'</b></div><div>Средний FPS: <b>'+report.averageFps+'</b></div><div>Сэмплов геймпада: <b>'+report.gamepadSamples+'</b></div><div>Активных осей: <b>'+report.activeAxisSamples+'</b></div><div>Правый стик: <b>'+report.rightStickSamples+'</b></div><div>Движение: <b>'+report.movementSamples+'</b></div></div><p id="logAnalysis" style="padding:10px;background:#20343b;border-radius:6px;color:#f0d49d"><b>'+report.status+'</b><br>'+report.notes.join('<br>')+'</p><h3 style="font-size:13px;color:#8dd6c6">СВЕЖИЕ ЖУРНАЛЫ ИЗ GITHUB</h3><button id="logCheckFresh" style="width:100%">ПРОВЕРИТЬ СВЕЖИЕ ЛОГИ</button><div id="freshLogsStatus" style="font-size:12px;line-height:1.5;margin-top:8px;color:#d1dcdf">Нажми кнопку, чтобы проверить до 5 последних загруженных сессий и увидеть FPS, оси, движение и ошибки.</div><p id="logHelp">ПОРЯДОК: 1) Нажми «ЛОГИ» в HUD — начнётся запись. 2) Подключи геймпад и покажи проблему: по 2 секунды удерживай стик вверх, вниз, влево, вправо; затем поверни камеру и подвигайся по диагонали. 3) Нажми «ОТПРАВИТЬ ЛОГ». Токен GitHub вводится только при первой отправке и сохраняется в хранилище этого браузера на этом устройстве. Не используй общий телефон. Не отправляй токен в чат. Лог появится в logs/controls в feature/solo-crossplay-foundation. Если отправка не удалась, журнал останется на устройстве.</p><div id="panelActions"><button id="logDownload">СКАЧАТЬ КОПИЮ</button><button id="logForgetToken">УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН</button><button id="logClose">ЗАКРЫТЬ</button></div>';document.querySelector('#logDownload').onclick=downloadControlLogs;document.querySelector('#logCheckFresh').onclick=checkFreshControlLogs;document.querySelector('#logForgetToken').onclick=()=>{clearControlToken();toast('Сохранённый токен удалён с этого устройства')};document.querySelector('#logClose').onclick=()=>{panel.style.display='none';paused=wasPaused};}
+async function checkFreshGameplayLogs(){
+ const out=document.querySelector('#gameDiagFreshStatus'),btn=document.querySelector('#gameDiagCheckFresh');
+ if(!out||!btn)return;
+ btn.disabled=true;btn.textContent='ПРОВЕРКА…';out.textContent='Читаю последние игровые JSON из logs/gameplay…';
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ try{
+  const list=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/logs/gameplay?ref='+encodeURIComponent(CONTROL_BRANCH),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+  if(!list.ok)throw new Error('GitHub API HTTP '+list.status);
+  const files=await list.json();
+  if(!Array.isArray(files))throw new Error('GitHub вернул неверный список');
+  const latest=files.filter(x=>x?.type==='file'&&/\.json$/i.test(x.name||'')).sort((a,b)=>b.name.localeCompare(a.name)).slice(0,3);
+  if(!latest.length){out.textContent='В logs/gameplay пока нет JSON-журналов.';return}
+  const loaded=await Promise.allSettled(latest.map(async file=>{
+   const response=await fetch(file.download_url,{cache:'no-store'});if(!response.ok)throw new Error(file.name+': HTTP '+response.status);
+   return {file,data:await response.json()};
+  }));
+  const rows=[];
+  for(const item of loaded){
+   if(item.status!=='fulfilled'){rows.push('<div style="padding:8px;background:#492b2b;border-radius:5px">Ошибка чтения: '+esc(item.reason?.message)+'</div>');continue}
+   const {file,data}=item.value,records=Array.isArray(data.records)?data.records:[],events=Array.isArray(data.events)?data.events:[];
+   const frames=(Array.isArray(data.performance?.frameMs)?data.performance.frameMs:records.map(x=>x.rawFrameMs)).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+   const q=p=>frames.length?frames[Math.floor((frames.length-1)*p)]:null;
+   const renders=records.map(x=>x.render||{}),peak=k=>Math.max(0,...renders.map(x=>Number(x[k])||0));
+   const bots=records.flatMap(x=>x.categories?.bots||[]),heights=[];
+   for(const row of records)for(const bot of row.categories?.skeleton?.bots||[]){
+    const ys=(bot.bones||[]).map(b=>Number(b.world?.y)).filter(Number.isFinite);
+    if(ys.length)heights.push(Math.max(...ys)-Math.min(...ys));
+   }
+   const longTasks=events.filter(x=>x.type==='longtask').length,loafs=events.filter(x=>x.type==='long-animation-frame').length;
+   const errors=events.filter(x=>/error|lost/i.test(x.type||''));
+   const maxHeight=heights.length?Math.max(...heights):null;
+   const flags=[];
+   if(maxHeight&&maxHeight>2.25)flags.push('СКЕЛЕТ ВЫШЕ НОРМЫ: '+maxHeight.toFixed(2)+' м');
+   if(q(.5)>50)flags.push('СИЛЬНЫЕ ПРОСАДКИ КАДРОВ');
+   if(peak('calls')>300)flags.push('СЛИШКОМ МНОГО DRAW CALLS');
+   if(errors.length)flags.push('СОБЫТИЯ ОШИБОК/ПОТЕРИ КОНТЕКСТА: '+errors.length);
+   const details=[
+    'Записей: '+records.length+' · событий: '+events.length,
+    'Frame time P50/P90/P99: '+[q(.5),q(.9),q(.99)].map(v=>v===null?'—':v.toFixed(1)+' мс').join(' / '),
+    'Зависания: longtask '+longTasks+' · long-animation-frame '+loafs,
+    'Рендер максимум: '+peak('calls')+' вызовов · '+peak('triangles')+' треугольников · '+peak('geometries')+' геометрий · '+peak('textures')+' текстур',
+    'Скелет: '+(maxHeight?maxHeight.toFixed(2)+' м по костям':'нет снимка костей')+' · моделей в записях: '+bots.filter(b=>b.hasModel).length,
+    'Ошибки/потеря WebGL: '+errors.length,
+    flags.length?'ВЫВОД: '+flags.join('; '):'Критические пороги по доступным данным не превышены'
+   ];
+   rows.push('<div style="padding:9px;margin:7px 0;background:#20343b;border-radius:6px"><b>'+esc(file.name)+'</b><div style="font-size:12px;line-height:1.55;margin-top:5px">'+details.map(esc).join('<br>')+'</div></div>');
+  }
+  out.innerHTML='<b>Проверены последние игровые журналы: '+latest.length+'</b>'+rows.join('');
+ }catch(error){out.textContent='Не удалось проверить игровые журналы: '+(error?.message||String(error))}
+ finally{btn.disabled=false;btn.textContent='ПРОВЕРИТЬ ИГРОВЫЕ ЛОГИ'}
+}
+function showControlLogPanel(){const wasPaused=paused;if(started){paused=true;fire=false}const panel=document.querySelector('#panel'),card=document.querySelector('#panelCard');panel.style.display='flex';const report=analyzeControlLogs(controlLogs),samples=report.samples,events=report.events;card.innerHTML='<h2>ЖУРНАЛ УПРАВЛЕНИЯ</h2><div id="logStatus">'+(controlRecording?'Запись идёт':'Запись остановлена')+'</div><div id="logStats"><div>Всего записей: <b>'+controlLogs.length+'</b></div><div>Сэмплов: <b>'+samples+'</b></div><div>Событий: <b>'+events+'</b></div><div>Средний FPS: <b>'+report.averageFps+'</b></div><div>Сэмплов геймпада: <b>'+report.gamepadSamples+'</b></div><div>Активных осей: <b>'+report.activeAxisSamples+'</b></div><div>Правый стик: <b>'+report.rightStickSamples+'</b></div><div>Движение: <b>'+report.movementSamples+'</b></div></div><p id="logAnalysis" style="padding:10px;background:#20343b;border-radius:6px;color:#f0d49d"><b>'+report.status+'</b><br>'+report.notes.join('<br>')+'</p><h3 style="font-size:13px;color:#8dd6c6">СВЕЖИЕ ЖУРНАЛЫ ИЗ GITHUB</h3><button id="logCheckFresh" style="width:100%">ПРОВЕРИТЬ СВЕЖИЕ ЛОГИ УПРАВЛЕНИЯ</button><div id="freshLogsStatus" style="font-size:12px;line-height:1.5;margin-top:8px;color:#d1dcdf">Нажми кнопку, чтобы проверить до 5 последних загруженных сессий и увидеть FPS, оси, движение и ошибки.</div><button id="gameDiagCheckFresh" style="width:100%;margin-top:8px">ПРОВЕРИТЬ ИГРОВЫЕ ЛОГИ</button><div id="gameDiagFreshStatus" style="font-size:12px;line-height:1.5;margin-top:8px;color:#d1dcdf">Показывает размеры скелетов, задержки кадров, ошибки WebGL и нагрузку рендера из logs/gameplay.</div><p id="logHelp">ПОРЯДОК: 1) Нажми «ЛОГИ» в HUD — начнётся запись. 2) Подключи геймпад и покажи проблему: по 2 секунды удерживай стик вверх, вниз, влево, вправо; затем поверни камеру и подвигайся по диагонали. 3) Нажми «ОТПРАВИТЬ ЛОГ». Токен GitHub вводится только при первой отправке и сохраняется в хранилище этого браузера на этом устройстве. Не используй общий телефон. Не отправляй токен в чат. Лог появится в logs/controls в feature/solo-crossplay-foundation. Если отправка не удалась, журнал останется на устройстве.</p><div id="panelActions"><button id="logDownload">СКАЧАТЬ КОПИЮ</button><button id="logForgetToken">УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН</button><button id="logClose">ЗАКРЫТЬ</button></div>';document.querySelector('#logDownload').onclick=downloadControlLogs;document.querySelector('#logCheckFresh').onclick=checkFreshControlLogs;document.querySelector('#gameDiagCheckFresh').onclick=checkFreshGameplayLogs;document.querySelector('#logForgetToken').onclick=()=>{clearControlToken();toast('Сохранённый токен удалён с этого устройства')};document.querySelector('#logClose').onclick=()=>{panel.style.display='none';paused=wasPaused};}
 window.addEventListener('error',e=>{const detail={message:e.message,source:e.filename,line:e.lineno,column:e.colno};logEvent('window-error',detail);gameDiagEvent('window-error',detail)});
 window.addEventListener('unhandledrejection',e=>{const detail={reason:String(e.reason?.stack||e.reason)};logEvent('unhandled-rejection',detail);gameDiagEvent('unhandled-rejection',detail)});
 document.addEventListener('visibilitychange',()=>{const detail={state:document.visibilityState};logEvent('visibility',detail);gameDiagEvent('visibility',detail)});
