@@ -28,7 +28,7 @@ export function createCloudSignalingServer({
     if (!client.room) return;
     const room = rooms.get(client.room);
     if (!room) return;
-    if (room[client.role] === client) room[client.role] = null;
+    if (room[client.role] === client.ws) room[client.role] = null;
     const peer = room[client.role === 'host' ? 'player' : 'host'];
     send(peer, { type: 'peer-left', role: client.role });
     if (!room.host && !room.player) rooms.delete(client.room);
@@ -54,6 +54,7 @@ export function createCloudSignalingServer({
         if (room[role]) return ws.close(1013, 'Role already occupied');
         client.room = roomId;
         client.role = role;
+        client.ws = ws;
         room[role] = ws;
         ws.client = client;
         send(ws, { type: 'joined', room: roomId, role, peerReady: !!room[role === 'host' ? 'player' : 'host'] });
