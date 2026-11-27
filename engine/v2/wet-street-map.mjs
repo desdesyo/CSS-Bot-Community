@@ -46,6 +46,7 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   const cobbleTex=makeCobbleTexture();
   if(cobble.albedoTexture!==undefined)cobble.albedoTexture=cobbleTex;
   else cobble.diffuseTexture=cobbleTex;
+  if(!mobile && cobble.bumpTexture!==undefined)cobble.bumpTexture=cobbleTex;
   cobbleTex.uScale=mobile?7:10;cobbleTex.vScale=mobile?8:12;
   if(cobble.metallic!==undefined)cobble.metallic=.08;
   const ground=B.MeshBuilder.CreateGround('Mokry Pol district foundation',{width:106,height:84,subdivisions:1},scene);
