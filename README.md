@@ -18,6 +18,10 @@ Community tactical AI and support systems for a Counter-Strike: Source-compatibl
 - Evidence-weighted weak-plate selection (no omniscient knowledge).
 - Retreat probability, cover reward and MVP event scoring.
 
+## Главный аудит и техническое задание
+
+Единый источник требований, текущий аудит реализации и обязательные критерии приёмки: [docs/MASTER_TZ.md](docs/MASTER_TZ.md). Все дальнейшие работы SOLO Engine должны соответствовать этому документу; статусы функций должны подтверждаться игровыми тестами.
+
 ## Project scope
 
 CSSBC is intended as a broad gameplay and presentation overhaul:
