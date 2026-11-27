@@ -67,7 +67,7 @@ function buildViewModel(){
   addBox(knife,'knife-arm',[.38,-.4,.56],[.17,.18,.42],skin,[.12,-.2,-.3]);
   addBox(knife,'knife-handle',[.30,-.29,.80],[.10,.10,.23],dark,[.18,0,0]);
   const blade=makeViewPart('knife-blade',()=>BABYLON.MeshBuilder.CreateBox('vm-knife-blade',{width:.09,height:.025,depth:.36},scene),[.30,-.22,1.08],[0,0,0],metal);knife.push(blade);
-  const sharedArms=rifle.filter(m=>/right-forearm|right-glove|left-forearm|left-glove/.test(m.name));pistol.push(...sharedArms);grenade.push(...sharedArms);knife.push(...sharedArms);viewModel.byWeapon={rifle,pistol,grenade,knife};updateViewModel();
+  const sharedArms=rifle.filter(m=>/right-forearm|right-glove|left-forearm|left-glove|right-finger|left-finger/.test(m.name));pistol.push(...sharedArms);grenade.push(...sharedArms);knife.push(...sharedArms);viewModel.byWeapon={rifle,pistol,grenade,knife};updateViewModel();
 }
 function updateViewModel(){
   for(const [id,parts] of Object.entries(viewModel.byWeapon))for(const mesh of parts)mesh.setEnabled(state.started&&id===state.weapon);
@@ -114,7 +114,7 @@ function setBotAnimation(bot,kind){
 function attachSoldierModel(bot){
  if(!soldierAssetContainer||bot.realModel)return;
  const instance=soldierAssetContainer.instantiateModelsToScene(name=>'soldier-'+bot.id+'-'+name,true);
- const rig=new BABYLON.TransformNode('soldier-rig-'+bot.id,scene);rig.parent=bot.root;rig.rotation.y=Math.PI;
+ const rig=new BABYLON.TransformNode('soldier-rig-'+bot.id,scene);rig.parent=bot.root;rig.rotation.y=0;
  for(const node of instance.rootNodes)node.parent=rig;rig.computeWorldMatrix(true);
  const bounds=rig.getHierarchyBoundingVectors(true),height=bounds.max.y-bounds.min.y;
  if(!Number.isFinite(height)||height<.5||height>5){rig.dispose(false,true);instance.animationGroups.forEach(a=>a.dispose());throw new Error('Invalid soldier model height: '+height)}
