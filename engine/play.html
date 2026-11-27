@@ -55,9 +55,9 @@ renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMappin
 renderer.info.autoReset=true;
 // Hard-disable mesh shadow flags globally; no shadow-caster registration should be requested.
 function disableShadowCasters(root){root.traverse(object=>{if(object.isLight)object.castShadow=false;if(object.isMesh||object.isInstancedMesh){object.castShadow=false;object.receiveShadow=false}})}
-disableShadowCasters(scene);
 const shadowSize=isTouchDevice?1024:2048;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x697875);scene.fog=new THREE.Fog(0x697875,42,125);
+disableShadowCasters(scene);
 // Optional PBR environment generation is deferred; base scene startup does not depend on it.
 async function initPbrEnvironment(){try{const {RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js');if(!renderer||renderer.getContext()?.isContextLost())return false;const pmrem=new THREE.PMREMGenerator(renderer);try{const env=pmrem.fromScene(new RoomEnvironment(),.04);if(env?.texture)scene.environment=env.texture;return true}finally{pmrem.dispose()}}catch(error){console.warn('Optional PBR environment skipped; using stable standard lighting',error);return false}}
 const camera=new THREE.PerspectiveCamera(86,innerWidth/innerHeight,.08,150);camera.position.set(0,1.7,12);
