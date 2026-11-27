@@ -431,7 +431,10 @@ function updateBotMotion(dt) {
     if(goal){
       const dx=goal.x-bot.root.position.x,dz=goal.z-bot.root.position.z,dist=Math.hypot(dx,dz);
       const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},goal,bot.combatState==='patrol'?bot.speed:bot.speed*1.12,dt);
-      const localColliders=queryCollisionSpatialIndex(collisionIndex,bot.root.position.x-2.2,bot.root.position.x+2.2,bot.root.position.z-2.2,bot.root.position.z+2.2);const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:0,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},localColliders,.38,1.72,.07);
+      const localColliders=queryCollisionSpatialIndex(collisionIndex,bot.root.position.x-2.2,bot.root.position.x+2.2,bot.root.position.z-2.2,bot.root.position.z+2.2);// Collision helper expects eye-height Y (same convention as the player camera).
+      // Passing y=0 made every ground-level wall look like an overhead obstruction and
+      // silently skipped collision tests, which is why bots walked through buildings.
+      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},localColliders,.38,1.72,.07);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
         if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
