@@ -183,6 +183,19 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   const cobbleTex=makeCobbleTexture();
   cobble.albedoTexture=cobbleTex;
+  // Spatial roughness variation: polished traffic paths, porous stone crowns and dark mortar.
+  const cobbleRough=new B.DynamicTexture('cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,false);
+  const roughCtx=cobbleRough.getContext();roughCtx.fillStyle='rgb(235,235,235)';roughCtx.fillRect(0,0,mobile?512:1024,mobile?512:1024);
+  let roughSeed=77123;const roughRand=()=>((roughSeed=(roughSeed*1664525+1013904223)>>>0)/4294967296);
+  const roughW=mobile?512:1024,roughRows=mobile?18:28,roughCols=mobile?13:20,rw=roughW/roughCols,rh=roughW/roughRows;
+  for(let y=0;y<roughRows;y++)for(let x=0;x<roughCols;x++){
+    const px=x*rw+(y%2)*rw*.46,py=y*rh,val=Math.floor(125+roughRand()*90);
+    roughCtx.fillStyle='rgb('+val+','+val+','+val+')';roughCtx.fillRect(px+2,py+2,rw-4,rh-4);
+    roughCtx.fillStyle='rgb(48,48,48)';roughCtx.fillRect(px,py,rw,2);roughCtx.fillRect(px,py,rw,2);
+    if(roughRand()>.55){roughCtx.fillStyle='rgba(75,75,75,.28)';roughCtx.beginPath();roughCtx.ellipse(px+rw*.5,py+rh*.5,rw*.25,rh*.18,0,0,Math.PI*2);roughCtx.fill();}
+  }
+  cobbleRough.update(false);cobbleRough.gammaSpace=false;cobbleRough.wrapU=cobbleRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  cobble.roughnessTexture=cobbleRough;
   cobbleTex.uScale=mobile?7:10;cobbleTex.vScale=mobile?8:12;
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,false);
