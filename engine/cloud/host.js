@@ -83,9 +83,10 @@ setInterval(async()=>{
     const stats=await videoSender.getStats();let line='';
     stats.forEach(s=>{
       if(s.type==='outbound-rtp'&&s.kind==='video'){
-        const now=performance.now(),fps=s.framesPerSecond||0,bytes=s.bytesSent||0;
-        let bitrate=0;if(lastStats){const sec=(now-lastStats.time)/1000;bitrate=Math.max(0,(bytes-lastStats.bytes)*8/sec/1000000);}
-        lastStats={time:now,bytes};
+        const now=performance.now(),bytes=s.bytesSent||0,frames=s.framesEncoded||0;
+        let bitrate=0,fps=s.framesPerSecond||0;
+        if(lastStats){const sec=(now-lastStats.time)/1000;bitrate=Math.max(0,(bytes-lastStats.bytes)*8/sec/1000000);if(!fps&&sec>0)fps=Math.max(0,(frames-lastStats.frames)/sec);}
+        lastStats={time:now,bytes,frames};
         line=' · '+(s.frameWidth||0)+'×'+(s.frameHeight||0)+' · '+Math.round(fps)+' FPS · '+bitrate.toFixed(1)+' Mbps';
       }
     });
