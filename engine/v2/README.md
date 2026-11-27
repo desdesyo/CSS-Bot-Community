@@ -11,7 +11,7 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 - First-person desktop input and mobile dual-stick/fire input.
 - Six lightweight animated agents with waypoint movement.
 - AI decisions are stepped at 8 Hz; rendering remains independent.
-- Adaptive resolution uses 2-second frame-time windows and a 95th-percentile frame-time target. Mobile scale is bounded to 72–100%; desktop 78–135%.
+- Adaptive resolution uses 2-second frame-time windows and a 95th-percentile frame-time target. Mobile scale is bounded to 82–100%; desktop 78–135%.
 - Minimal HUD telemetry: FPS, render scale and p95 frame time.
 
 ## Run
