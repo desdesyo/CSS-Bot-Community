@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
@@ -449,4 +449,31 @@ test('both player spawn zones have authored high-detail street fragments and fac
 test('field atlas invalidates routes from the previous abstract Wet Ground layout', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /FIELD_MAP_ID='wet-ground-street-panorama-v2'/);
+});
+
+
+test('patrol routes advance cyclically instead of pinning bots at the final waypoint', () => {
+  assert.equal(advancePatrolIndex(0, 7), 1);
+  assert.equal(advancePatrolIndex(6, 7), 0);
+  assert.equal(advancePatrolIndex(4, 0), 0);
+});
+
+test('spectator cycling selects only living allies and wraps in both directions', () => {
+  const bots=[{id:7,alive:true},{id:8,alive:false},{id:9,alive:true},{id:10,alive:true}];
+  assert.equal(selectNextLivingBot(bots,7,1).id,9);
+  assert.equal(selectNextLivingBot(bots,9,1).id,10);
+  assert.equal(selectNextLivingBot(bots,10,1).id,7);
+  assert.equal(selectNextLivingBot(bots,7,-1).id,10);
+  assert.equal(selectNextLivingBot(bots.filter(b=>!b.alive),7,1),null);
+});
+
+test('spatial collision index returns only nearby blockers without duplicates', () => {
+  const boxes=[
+    {name:'near',minX:-1,maxX:1,minZ:-1,maxZ:1},
+    {name:'far',minX:40,maxX:42,minZ:40,maxZ:42},
+    {name:'edge',minX:7,maxX:9,minZ:0,maxZ:2}
+  ];
+  const index=buildCollisionSpatialIndex(boxes,8);
+  const found=queryCollisionSpatialIndex(index,-2,8,-2,3);
+  assert.deepEqual(found.map(b=>b.name).sort(),['edge','near']);
 });
