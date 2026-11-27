@@ -680,7 +680,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const lampMat=mat('lamp bronze','#252a31',.38,.7),glow=mat('amber glowing glass','#ffbf72',.22);
   if(glow.emissiveColor)glow.emissiveColor=new C(1,.48,.16);
   let lightCount=0;
-  const lamp=(x,z,wallMount=false)=>{
+  function lamp(x,z,wallMount=false){
     if(wallMount){
       box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
       box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
@@ -693,7 +693,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
       if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
     }
-  };
+  }
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
   for(const z of [-30,-8,18,35]){lamp(-7.35,z,true);lamp(7.35,z,true);}
   // Junction lanterns are placed only after the lamp factory is initialized.
