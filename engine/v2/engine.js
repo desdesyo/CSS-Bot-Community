@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Не найден canvas#renderCanvas в index.html');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const cloudHost = new URLSearchParams(location.search).get('cloudHost') === '1';
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
@@ -416,7 +417,7 @@ async function boot() {
     camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.65,38),scene);camera.minZ=.08;camera.maxZ=260;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.68;hemi.diffuse=new B.Color3(.77,.81,.83);hemi.groundColor=new B.Color3(.24,.25,.22);
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
-    shadowGen=mobile?null:new B.ShadowGenerator(1024,sun);if(shadowGen){shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=8;shadowGen.bias=.0005;shadowGen.normalBias=.02;}
+    shadowGen=mobile?null:new B.ShadowGenerator(cloudHost?4096:2048,sun);if(shadowGen){shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=8;shadowGen.bias=.0005;shadowGen.normalBias=.02;}
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildMap();buildBots();buildSky(B);buildViewModel();
     state.muzzleFlash=B.MeshBuilder.CreateSphere('old-style-muzzle-flash',{diameter:.13,segments:6},scene);state.muzzleFlash.parent=viewModel.root;state.muzzleFlash.position.set(.24,-.22,1.58);const flashMat=new B.StandardMaterial('old-style-muzzle-flash-material',scene);flashMat.disableLighting=true;flashMat.emissiveColor=new B.Color3(1,.55,.16);state.muzzleFlash.material=flashMat;state.muzzleFlash.isPickable=false;state.muzzleFlash.setEnabled(false);
