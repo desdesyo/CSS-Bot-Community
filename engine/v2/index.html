@@ -12,7 +12,40 @@
 <div id="hud"><div id="top"><div id="brand">SOLO ENGINE / V2 · MOKRY POL</div><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
 <div id="actions"><button id="logsQuick" type="button">● ЛОГИ</button><button id="issueQuick" type="button">⚑ ОТМЕТИТЬ БАГ</button><button id="fullScreen" type="button">FULLSCREEN</button><button id="pause" type="button">PAUSE</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
 <div id="overlay"><div id="card"><h1>SOLO ENGINE V2</h1><p>МОКРЫЙ ПОЛ · ночной квартал после дождя, узкие переулки, мокрая брусчатка, канал и два каменных моста. В центре — подпольная биолаборатория с полноценной серверной, контрольной, шлюзами и стойками оборудования. Задача — захватить или уничтожить серверную. 10 секунд защищённого развёртывания с пятью союзниками.</p><p id="loadState">Загрузка графического ядра…</p><div id="teamSelect" style="display:flex;gap:10px;justify-content:center;margin:16px 0"><button id="selectCT" class="selected" type="button">CT</button><button id="selectT" type="button">T</button></div><p style="font-size:12px">6 × 6 · 1 игрок + 5 союзников против 6 бойцов</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button id="startFullscreen" type="button">ПОЛНЫЙ ЭКРАН</button><button id="start" disabled>ЗАПУСК</button></div></div></div>
-<script src="https://cdn.babylonjs.com/babylon.js"></script>
-<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-<script type="module" src="./engine.js"></script>
+<script type="module">
+const status=document.getElementById('loadState');
+const quality=document.getElementById('quality');
+const show=(message,detail='')=>{status.textContent=message;if(detail)quality.textContent=detail;};
+const loadScript=(src,timeout=14000)=>new Promise((resolve,reject)=>{
+ const script=document.createElement('script');let settled=false;
+ const timer=setTimeout(()=>finish(new Error('Тайм-аут загрузки '+src)),timeout);
+ const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);script.onload=script.onerror=null;if(error){script.remove();reject(error)}else resolve();};
+ script.src=src;script.onload=()=>finish();script.onerror=()=>finish(new Error('Не удалось загрузить '+src));
+ document.head.appendChild(script);
+});
+async function loadFirst(candidates,label){
+ let lastError;
+ for(const url of candidates){try{await loadScript(url);return url}catch(error){lastError=error;console.warn(label,error)}}
+ throw lastError||new Error(label+' недоступен');
+}
+try{
+ show('Загрузка графического ядра Babylon.js…','LOADING BABYLON RENDERER');
+ await loadFirst([
+  'https://cdn.babylonjs.com/babylon.js',
+  'https://cdn.jsdelivr.net/npm/babylonjs@7.54.3/babylon.js'
+ ],'Babylon.js');
+ show('Загрузка поддержки 3D-моделей…','LOADING OPTIONAL MODEL SUPPORT');
+ try{
+  await loadFirst([
+   'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
+   'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
+  ],'Babylon loaders');
+ }catch(error){console.warn('3D model loader unavailable; procedural soldiers will be used',error)}
+ show('Запуск сцены…','INITIALIZING SCENE');
+ await import('./engine.js');
+}catch(error){
+ console.error('SOLO Engine bootstrap failed',error);
+ show('Не удалось загрузить графическое ядро: '+(error?.message||error),'BOOT ERROR · проверь интернет/CDN');
+}
+</script>
 </body></html>
