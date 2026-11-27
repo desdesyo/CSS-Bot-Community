@@ -192,11 +192,11 @@ test('uploaded tactical artwork is used for the cinematic menu and loading scree
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const artwork = await readFile(new URL('./assets/solo-menu-cover.jpeg', import.meta.url));
   assert.ok(artwork.byteLength > 100000);
-  assert.match(html, /solo-menu-cover\\.jpeg/);
-  assert.match(html, /id="overlay" class="is-loading"/);
-  assert.match(html, /#overlay\\.is-loading/);
-  assert.match(html, /#overlay::before/);
-  assert.match(engine, /classList\\.remove\\('is-loading','is-error'\\)/);
+  assert.ok(html.includes('solo-menu-cover.jpeg'));
+  assert.ok(html.includes('id="overlay" class="is-loading"'));
+  assert.ok(html.includes('#overlay.is-loading'));
+  assert.ok(html.includes('#overlay::before'));
+  assert.ok(engine.includes("classList.remove('is-loading','is-error')"));
 });
 
 test('SOLO menu exposes working play, settings and diagnostics panels with local log export', async () => {
