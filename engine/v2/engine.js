@@ -150,7 +150,7 @@ function fire() {
     const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
     if(bot&&bot.team==='enemy'&&bot.alive) {
       bot.health-=hit.pickedMesh.name.startsWith('head-')?100:34;
-      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);state.kills++;$('round').textContent='KILLS '+state.kills}
+      if(bot.health<=0){bot.alive=false;bot.root.setEnabled(false);state.kills++;$('kills').textContent='KILLS '+state.kills}
     }
   }
   $('ammo').textContent=state.ammo+' / '+state.reserve;
@@ -219,7 +219,7 @@ function start() {
   if(state.playerDead){
     state.hp=100;state.ammo=30;state.reserve=90;state.kills=0;state.roundTime=90;state.playerDead=false;state.reloading=false;
     for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;}
-    $('health').textContent='HP 100';$('ammo').textContent='30 / 90';$('round').textContent='ROUND 01';
+    $('health').textContent='HP 100';$('ammo').textContent='30 / 90';$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='01:30';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
   state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,0,0);
@@ -248,7 +248,7 @@ async function boot() {
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
-        if(state.roundTime<=0)endRound(state.kills>0);
+        if(state.roundTime<=0)endRound(false);
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
         if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
       }
