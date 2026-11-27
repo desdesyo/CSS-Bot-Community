@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "fix/solo-engine-runtime-stability-*"
+      - "feature/solo-crossplay-foundation"
   pull_request:
 
 jobs:
