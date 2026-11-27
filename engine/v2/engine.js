@@ -400,6 +400,7 @@ function initInput() {
   for(const button of document.querySelectorAll('[data-weapon]'))button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
   $('fullScreen').addEventListener('click',toggleFullscreen);
   $('logsQuick').addEventListener('click',handleGameplayLogs);
+  $('issueQuick').addEventListener('click',submitIssueReport);
   $('pause').addEventListener('click',()=>{if(state.started){state.started=false;state.firing=false;overlay.style.display='flex';status.textContent='ПАУЗА';startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;}});
 
 }
@@ -478,6 +479,51 @@ async function stopAndUploadGameplayLog(){
  }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
  finally{gameLogUploading=false;btn.disabled=false}
 }
+
+let issueReportBusy=false;
+function collectIssueSceneContext(){
+ const hit=scene.pick(canvas.width/2,canvas.height/2,m=>m.isEnabled()&&m.isVisible);
+ const picked=hit?.hit?hit.pickedMesh:null;
+ const visibleMeshes=[];
+ for(const mesh of scene.meshes){
+  if(!mesh||mesh===scene.activeCamera||!mesh.isEnabled()||!mesh.isVisible||mesh.visibility===0)continue;
+  let p;try{p=mesh.getBoundingInfo().boundingSphere.centerWorld}catch(e){continue}
+  const d=BABYLON.Vector3.Distance(camera.position,p);
+  if(d<18)visibleMeshes.push({name:mesh.name,type:mesh.getClassName?.()||'Mesh',distance:+d.toFixed(2),position:{x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2)},visible:mesh.isVisible,visibility:mesh.visibility,material:mesh.material?.name||null,materialAlpha:mesh.material?.alpha??null,checkCollisions:!!mesh.checkCollisions,enabled:mesh.isEnabled()});
+ }
+ visibleMeshes.sort((a,b)=>a.distance-b.distance);
+ return {camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
+}
+function captureIssueScreenshot(){
+ try{const url=canvas.toDataURL('image/png');if(url&&url.startsWith('data:image/png;base64,')&&url.length>5000)return url.split(',')[1]}catch(error){return {error:String(error)}}
+ return null;
+}
+async function uploadIssueFile(path,content,message,token){
+ const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message,content,branch:GAME_LOG_BRANCH})});
+ const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+').')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
+ return result;
+}
+async function submitIssueReport(){
+ if(issueReportBusy)return;
+ const description=prompt('Что именно здесь не так? Например: невидимая стена, текстура, прозрачная стена, непроходимый проход. Можно оставить пустым.');
+ if(description===null)return;
+ const context=collectIssueSceneContext(),screenshot=captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
+ const report={app:'SOLO Engine V2',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40)}};
+ let token=savedGameplayToken();
+ if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
+ issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
+ try{
+  const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
+  const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add player issue report '+id,token);
+  let imagePath=null;
+  if(screenshot){imagePath='logs/issues/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
+  if(gameLogRecording)gameLogEvent('issue-marker',{id,description:description.trim(),jsonPath,imagePath});
+  btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
+  alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));
+ }catch(error){console.error('Issue report upload failed',error);btn.textContent='↻ ПОВТОРИТЬ ОТЧЁТ';alert('Не удалось отправить отчёт: '+error.message)}
+ finally{issueReportBusy=false;btn.disabled=false}
+}
+
 function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording){stopAndUploadGameplayLog();return}if(gameLogRecords.length||gameLogEvents.length){stopAndUploadGameplayLog();return}startGameplayLog()}
 window.addEventListener('error',e=>gameLogEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
 window.addEventListener('unhandledrejection',e=>gameLogEvent('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
