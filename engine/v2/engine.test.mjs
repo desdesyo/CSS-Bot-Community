@@ -210,3 +210,30 @@ test('field developer preserves pending reports locally if GitHub upload cannot 
   assert.match(engine, /Отчёт сохранён локально/);
   assert.match(engine, /localStorage\.getItem\('solo_github_log_token'\)/);
 });
+
+test('field developer builds a persistent walkable map atlas, records routes and cover, and explores unvisited cells', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /GAME_FIELD_ATLAS_KEY/);
+  assert.match(engine, /FIELD_MAP_ID='industrial-district-v1'/);
+  assert.match(engine, /function buildFieldWalkableCells\(\)/);
+  assert.match(engine, /function chooseFieldExploreGoal\(bot,now\)/);
+  assert.match(engine, /findPathAStar\(here,\{x:cell\.x,z:cell\.z\}/);
+  assert.match(engine, /function recordFieldDeveloperPosition\(bot,now\)/);
+  assert.match(engine, /field-map-cell-visited/);
+  assert.match(engine, /field-cover-observed/);
+  assert.match(engine, /function finalizeFieldRoute\(\)/);
+  assert.match(engine, /function applyLearnedRoutesToBots\(\)/);
+  assert.match(engine, /ai-learned-route-assigned/);
+  assert.match(engine, /field-developer-stuck/);
+  assert.match(engine, /mapAtlas:\{/);
+});
+
+test('short test sessions retain incomplete rounds and upload accumulated diagnostics at eight rounds', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /developerSessionRounds\+\+/);
+  assert.match(engine, /function developerUploadDue\(\)\{return developerSessionRounds>=5\|\|\(developerSessionRounds<5&&developerRoundBatch\.length>=8\);\}/);
+  assert.match(engine, /developerRoundBatch=Array\.isArray\(dev\.rounds\)\?dev\.rounds\.slice\(-25\):\[\]/);
+  assert.match(engine, /shortSessionsAccumulationRounds:8/);
+  assert.match(engine, /developerSessionRounds=0;developerLastUploadError=null/);
+  assert.match(engine, /rounds:developerRoundBatch\.slice\(\)/);
+});
