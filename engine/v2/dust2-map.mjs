@@ -75,15 +75,19 @@ export function buildExpandedDust2(B,scene,shadowGen,mat,box){
     slab(n+' rear wall',x,h/2,z+(front==='south'?-d/2+th/2:d/2-th/2),w,h,th,m);
     const fz=z+(front==='south'?d/2-th/2:-d/2+th/2),sgn=front==='south'?1:-1;
     // Ground-floor wall piers leave door and window voids at believable human scale.
-    slab(n+' front pier left',x-w/2+1.0,1.6,fz,2,3.2,th,m);
-    slab(n+' front pier right',x+w/2-1.0,1.6,fz,2,3.2,th,m);
-    slab(n+' front central pier',x,1.6,fz,.65,3.2,th,m);
-    doorway(n+' entrance',x-w*.22,fz,front,m);
-    window(n+' ground window',x+w*.22,fz,front,m);
+    const doorX=x-w*.22,windowX=x+w*.22,doorW=1.55,windowW=1.55;
+    const left=x-w/2+th,right=x+w/2-th;
+    // Ground facade wall panels stop at the real door/window openings.
+    const spans=[[left,doorX-doorW/2],[doorX+doorW/2,windowX-windowW/2],[windowX+windowW/2,right]];
+    for(let i=0;i<spans.length;i++){const [a,b]=spans[i];if(b>a+.05)slab(n+' ground facade panel '+i,(a+b)/2,1.6,fz,b-a,3.2,th,m);}
+    doorway(n+' entrance',doorX,fz,front,m);
+    window(n+' ground window',windowX,fz,front,m);
     if(floors>1){
       slab(n+' upper floor',x,3.35,z,w+.3,.3,d+.3,trim);
-      slab(n+' upper facade',x,4.8,fz,w,2.9,th,m);
-      window(n+' upper left window',x-w*.23,fz,front,m);window(n+' upper right window',x+w*.23,fz,front,m);
+      const upperY=4.8,upperBase=3.2,upperTop=6.1,winW=1.55;
+      const upperWindows=[x-w*.23,x+w*.23],upperSpans=[[left,upperWindows[0]-winW/2],[upperWindows[0]+winW/2,upperWindows[1]-winW/2],[upperWindows[1]+winW/2,right]];
+      for(let i=0;i<upperSpans.length;i++){const [a,b]=upperSpans[i];if(b>a+.05)slab(n+' upper facade panel '+i,(a+b)/2,upperY,fz,b-a,upperTop-upperBase,th,m);}
+      for(const wx of upperWindows){slab(n+' upper window recess',wx,4.8,fz+(front==='south'?.18:-.18),1.2,1,.04,shadow);window(n+' upper window',wx,fz,front,m);}
       slab(n+' balcony deck',x,3.55,fz+sgn*.85,w*.56,.18,1.25,stone);
       slab(n+' balcony rail',x,4.05,fz+sgn*1.4,w*.56,.08,.08,metal);
       for(let i=0;i<5;i++)slab(n+' balcony baluster '+i,x-w*.25+i*w*.125,3.82,fz+sgn*1.4,.045,.48,.045,metal);
