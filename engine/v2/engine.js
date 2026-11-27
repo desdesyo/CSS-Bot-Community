@@ -281,14 +281,14 @@ function fire() {
   if(state.ammo<=0){if(state.reserve>0)reload();return;}
   state.lastShot=now;state.ammo--;
   const ray=camera.getForwardRay(1);
-  const origin=camera.position.add(ray.direction.scale(.78));
+  const origin=muzzleFlash?muzzleFlash.getAbsolutePosition().clone():camera.position.add(ray.direction.scale(.78));
   const projectile=BABYLON.MeshBuilder.CreateSphere('player-bullet',{diameter:.055,segments:6},scene);
   const material=new BABYLON.StandardMaterial('player-bullet-material',scene);
   material.diffuseColor=new BABYLON.Color3(.95,.78,.38);material.emissiveColor=new BABYLON.Color3(.8,.48,.12);
   projectile.material=material;projectile.position.copyFrom(origin);
   state.projectiles.push({mesh:projectile,velocity:ray.direction.scale(125),life:1.25});
   if(muzzleFlash){muzzleFlash.isVisible=true;window.setTimeout(()=>{if(muzzleFlash)muzzleFlash.isVisible=false},45);}
-  if(weaponRoot){weaponRoot.position.z=-.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=-.72},65);}
+  if(weaponRoot){weaponRoot.position.z=.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=.72},65);}
   $('ammo').textContent=state.ammo+' / '+state.reserve;
 }
 function reload(){
