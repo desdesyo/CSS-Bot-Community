@@ -221,6 +221,6 @@ test('player shots use bounded one-frame hitscan instead of per-frame projectile
 test('shadow casters are optional and never dereference a missing shadow generator on mobile',()=>{
   assert.ok(runtime.includes('if(shadowGen)shadowGen.addShadowCaster(body)'));
   assert.ok(runtime.includes('if(!mobile&&shadowGen)shadowGen.addShadowCaster(mesh)'));
-  const calls=[...runtime.matchAll(/shadowGen\\.addShadowCaster\\(/g)];
+  const calls=runtime.split('shadowGen.addShadowCaster').length-1;
   assert.equal(calls.length,2,'all shadow caster registrations must remain explicitly guarded');
 });
