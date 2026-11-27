@@ -96,12 +96,41 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   brick.albedoTexture=makeFacadeTexture('aged dark brickwork texture','brick');
   stone.albedoTexture=makeFacadeTexture('weathered cut stone texture','stone');
 
+  // Slate is not a flat blue slab: layered shingle courses, chipped edges and mineral
+  // runoff are baked into a repeatable material map for every roof plane and tile.
+  const slateSize=mobile?512:1024;
+  const slateAlbedo=new B.DynamicTexture('weathered slate roof shingle albedo',{width:slateSize,height:slateSize},scene,false);
+  const slateRough=new B.DynamicTexture('weathered slate roof roughness',{width:slateSize,height:slateSize},scene,false);
+  const slateCtx=slateAlbedo.getContext(),slateRoughCtx=slateRough.getContext();
+  slateCtx.fillStyle='#111a25';slateCtx.fillRect(0,0,slateSize,slateSize);
+  slateRoughCtx.fillStyle='#d7d7d7';slateRoughCtx.fillRect(0,0,slateSize,slateSize);
+  let slateSeed=28731;const slateRand=()=>((slateSeed=(slateSeed*1664525+1013904223)>>>0)/4294967296);
+  const slateRows=mobile?9:16,slateCols=mobile?6:10,slateW=slateSize/slateCols,slateH=slateSize/slateRows;
+  for(let sy=0;sy<slateRows;sy++)for(let sx=0;sx<slateCols;sx++){
+    const offset=(sy%2)*slateW*.5,px=sx*slateW+offset,py=sy*slateH;
+    const shade=28+Math.floor(slateRand()*28),inset=2+slateRand()*4;
+    slateCtx.fillStyle='rgba(3,8,14,.95)';slateCtx.fillRect(px+1,py+1,slateW-2,slateH-2);
+    const g=slateCtx.createLinearGradient(px,py,px+slateW,py+slateH);
+    g.addColorStop(0,'rgb('+(shade+12)+','+(shade+19)+','+(shade+29)+')');
+    g.addColorStop(.55,'rgb('+shade+','+(shade+7)+','+(shade+15)+')');
+    g.addColorStop(1,'rgb('+(shade-8)+','+(shade-3)+','+(shade+5)+')');
+    slateCtx.fillStyle=g;slateCtx.beginPath();slateCtx.moveTo(px+inset,py+inset);slateCtx.lineTo(px+slateW-inset,py+inset+slateRand()*3);slateCtx.lineTo(px+slateW-inset*.8,py+slateH-inset);slateCtx.lineTo(px+inset*.8,py+slateH-inset*.7);slateCtx.closePath();slateCtx.fill();
+    slateCtx.strokeStyle='rgba(177,198,211,.13)';slateCtx.lineWidth=1;slateCtx.beginPath();slateCtx.moveTo(px+4,py+4);slateCtx.lineTo(px+slateW*.7,py+4);slateCtx.stroke();
+    slateRoughCtx.fillStyle='rgb('+Math.floor(170+slateRand()*70)+', '+Math.floor(170+slateRand()*70)+', '+Math.floor(170+slateRand()*70)+')';slateRoughCtx.fillRect(px+inset,py+inset,slateW-inset*2,slateH-inset*2);
+    if(slateRand()>.72){slateCtx.fillStyle='rgba(33,54,47,.48)';slateCtx.fillRect(px+slateW*.1,py+slateH*.72,slateW*.34,slateH*.12);}
+  }
+  slateAlbedo.update(false);slateRough.update(false);
+  slateAlbedo.wrapU=slateAlbedo.wrapV=slateRough.wrapU=slateRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  slateAlbedo.uScale=slateAlbedo.vScale=2.4;slateRough.uScale=slateRough.vScale=2.4;slateRough.gammaSpace=false;
+  roof.albedoTexture=slateAlbedo;roof.roughnessTexture=slateRough;
+  roof.albedoColor=new C(.78,.84,.94);
+
   // CC0 photographic PBR materials from Poly Haven. The procedural maps above remain
   // as an immediate fallback; failed network loads restore them instead of leaving blank walls.
   const loadScannedPbr=(material,asset,repeat,normalLevel)=>{
     const resolution=mobile?'1k':'2k';
     const base='https://dl.polyhaven.org/file/ph-assets/Textures/jpg/'+resolution+'/'+asset+'/'+asset;
-    const fallbacks={albedoTexture:material.albedoTexture,bumpTexture:material.bumpTexture,roughnessTexture:material.roughnessTexture};
+    const fallbacks={albedoTexture:material.albedoTexture,bumpTexture:material.bumpTexture,roughnessTexture:material.roughnessTexture,ambientTexture:material.ambientTexture};
     const bind=(slot,suffix,gammaSpace)=>{
       const textureUrl=base+'_'+suffix+'_'+resolution+'.jpg';
       const texture=new B.Texture(textureUrl,scene,false,false,B.Texture.TRILINEAR_SAMPLINGMODE,()=>{
@@ -109,9 +138,14 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
         texture.uScale=repeat;texture.vScale=repeat;
         texture.anisotropicFilteringLevel=mobile?4:8;
         if(slot==='bumpTexture')texture.level=normalLevel;
+        // Materials are frozen after the static atlas is built. Re-open only for this
+        // one-time asynchronous texture swap so Babylon recompiles the PBR shader.
+        material.unfreeze?.();
         material[slot]=texture;
+        material.markAsDirty?.(B.Material.TextureDirtyFlag);
       },()=>{
-        if(material[slot]===texture)material[slot]=fallbacks[slot];
+        texture.dispose?.();
+        if(!material[slot])material[slot]=fallbacks[slot]??null;
       });
       texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
       texture.uScale=repeat;texture.vScale=repeat;texture.anisotropicFilteringLevel=mobile?4:8;
@@ -119,15 +153,14 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     bind('albedoTexture','diff',true);
     bind('bumpTexture','nor_gl',false);
     bind('roughnessTexture','rough',false);
-    material.bumpTexture.level=normalLevel;
+    bind('ambientTexture','ao',false);
+    material.ambientColor=new C(.34,.34,.34);
+    material.useAmbientInGrayScale=true;
+    material.ambientTextureStrength=.72;
   };
   plaster.albedoColor=new C(.72,.82,.92);
   brick.albedoColor=new C(.78,.82,.88);
   stone.albedoColor=new C(.78,.84,.9);
-  loadScannedPbr(plaster,'plastered_wall_05',2,mobile?.34:.48);
-  loadScannedPbr(brick,'worn_brick_wall',2,mobile?.42:.58);
-  loadScannedPbr(stone,'stone_wall',2,mobile?.42:.6);
-
   // A compact second PBR layer gives the spawn quarter real surface relief:
   // mortar recesses, chipped stone edges, plaster pores, mineral streaks and
   // material-specific roughness. Mobile maps are deliberately capped at 512px.
@@ -172,6 +205,12 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     material.bumpTexture=maps.normal;material.bumpTexture.level=mobile?.24:.42;
     material.roughnessTexture=maps.rough;
   }
+
+  // Load the photographic maps AFTER procedural fallbacks are assigned. This ordering
+  // prevents the generated relief maps from silently replacing scanned normal/roughness.
+  loadScannedPbr(plaster,'plastered_wall_05',2,mobile?.34:.48);
+  loadScannedPbr(brick,'worn_brick_wall',2,mobile?.42:.58);
+  loadScannedPbr(stone,'stone_wall',2,mobile?.42:.6);
 
   const warmWindow=mat('occupied apartment window glow','#e9ae6d',.34);
   if(warmWindow.emissiveColor)warmWindow.emissiveColor=new C(.62,.25,.07);
@@ -396,6 +435,22 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const plane=B.MeshBuilder.CreateBox(name+' pitched slate roof plane',{width:w*.53,height:.22,depth:d+.7},scene);
       plane.position.set(x+sideSign*w*.255,h+.34,z);
       plane.rotation.z=sideSign*.19;plane.material=roof;plane.isPickable=false;plane.receiveShadows=true;
+      // Individually overlapping slate courses break the old single-box roof silhouette.
+      const tileColumns=Math.max(2,Math.floor(w/2.1)),tileRows=Math.max(3,Math.floor(d/1.55));
+      for(let row=0;row<tileRows;row++)for(let col=0;col<tileColumns;col++){
+        const tileX=x+sideSign*w*.255+(col-(tileColumns-1)/2)*(w*.49/tileColumns);
+        const tileY=h+.34+Math.abs(tileX-x)*.193+.13;
+        const tileZ=z-d*.46+row*(d*.92/Math.max(1,tileRows-1));
+        const tile=box(name+' overlapping slate roof tile',tileX,tileY,tileZ,w*.49/tileColumns*.94,.045,Math.min(1.48,d/tileRows*.88),roof,false);
+        tile.rotation.z=sideSign*.19;
+        tile.isPickable=false;
+      }
+      // Raised lead flashing and ridge-side snow/rain guards are visible at street level.
+      for(let row=1;row<tileRows;row++){
+        const seamZ=z-d*.46+row*(d*.92/tileRows);
+        const seam=box(name+' slate roof course seam',x+sideSign*w*.255,h+.34+w*.255*.193+.17,seamZ,w*.48,.025,.035,iron,false);
+        seam.rotation.z=sideSign*.19;
+      }
     };
     roofPlane(-1);roofPlane(1);
     box(name+' slate roof ridge cap',x,h+.58,z,.22,.16,d+.82,iron,false);
