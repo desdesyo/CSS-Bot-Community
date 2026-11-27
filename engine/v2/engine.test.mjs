@@ -7,9 +7,9 @@ const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.url)), 'utf8');
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
-  assert.match(html, /<canvas\\b[^>]*id=["']renderCanvas["']/i);
-  assert.match(runtime, /const canvas = \\$\\('renderCanvas'\\)/);
-  assert.match(runtime, /new B\\.Engine\\(canvas,/);
+  assert.ok(html.includes('<canvas id="renderCanvas"'));
+  assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
+  assert.ok(runtime.includes('new B.Engine(canvas,'));
 });
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
