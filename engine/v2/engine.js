@@ -1,22 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-export function adaptiveScale(p95, current, isMobile = mobile) {
-  const target = isMobile ? 33.3 : 16.7;
-  const min = isMobile ? 0.72 : 0.78;
-  const max = isMobile ? 1.0 : 1.35;
-  if (!Number.isFinite(p95) || p95 <= 0) return Math.max(min, Math.min(max, current));
-  if (p95 > target * 1.18) return Math.max(min, current - 0.06);
-  if (p95 < target * 0.78) return Math.min(max, current + 0.025);
-  return Math.max(min, Math.min(max, current));
-}
-export function moveToward(position, target, speed, dt) {
-  const dx = target.x - position.x, dz = target.z - position.z;
-  const distance = Math.hypot(dx, dz);
-  if (distance < 0.001) return { x: position.x, z: position.z, arrived: true };
-  const step = Math.min(distance, speed * dt);
-  return { x: position.x + dx / distance * step, z: position.z + dz / distance * step, arrived: distance <= step };
-}
-const canvas = $('renderCanvas');
+import { adaptiveScale, moveToward } from './engine-core.mjs';
 const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
