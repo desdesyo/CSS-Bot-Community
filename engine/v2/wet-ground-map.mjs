@@ -564,18 +564,18 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   // Two continuous cross-streets plus short bank-side connectors form a legible
   // street grid. The canal remains a genuine barrier except at the three bridges.
-  floor('south district cross street',0,-20,91,6.2,.032,cobble);
-  floor('north district cross street',0,27,91,6.2,.032,cobble);
+  floor('south district cross street',0,-20,72,6.2,.032,cobble);
+  floor('north district cross street',0,27,72,6.2,.032,cobble);
   for(const side of [-1,1]){
-    floor('canal bank east-west market connector',side*25,5.2,39,5.2,.034,cobble);
+    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,cobble);
     for(const z of [-23.5,-16.5,23.5,30.5]){
-      floor('cross street granite pedestrian edge',side*25,z,39,.42,.072,stone);
+      floor('cross street granite pedestrian edge',side*20,z,18,.42,.072,stone);
     }
   }
   for(const z of [-20,27]){
     for(const side of [-1,1]){
-      floor('cross street granite north curb',side*25,z-3.35,40,.42,.075,stone);
-      floor('cross street granite south curb',side*25,z+3.35,40,.42,.075,stone);
+      floor('cross street granite north curb',side*20,z-3.35,36,.42,.075,stone);
+      floor('cross street granite south curb',side*20,z+3.35,36,.42,.075,stone);
       for(let x=-43;x<=43;x+=8){
         const grate=box('cross street storm drain',x,.09,z+(side>0?3.05:-3.05),.82,.035,.24,iron,false);
         grate.isPickable=false;
@@ -627,7 +627,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
 
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
   for(const [x,z,w,d,h] of [
-    [-41,-30,9,15,6.6],[-36,-4,12,19,7.2],[-42,21,10,12,6.8],[-35,37,12,9,6.4],
+    [-36,-4,12,19,7.2],[-42,21,10,12,6.8],[-35,37,12,9,6.4],
     [41,-30,12,12,7.1],[43,-4,9,18,6.7],[37,20,13,13,7.4],[43,37,9,9,6.5]
   ]) building('outer quarter row',x,z,w,d,h,brick,x<0?'west':'east');
   // WALKABLE MASONRY ARCADES — arched thresholds frame existing alley gaps.
