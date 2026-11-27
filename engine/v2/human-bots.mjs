@@ -32,7 +32,7 @@ export async function loadHumanBotAssets(B, scene) {
   return { models, animations };
 }
 
-export function createHumanBot(B, scene, shadowGen, root, team, id, assets) {
+export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMobile = false) {
   const source = assets.models[(id - 1) % assets.models.length];
   const instance = source.instantiateModelsToScene(
     name => "soldier-" + id + "-" + name,
@@ -52,12 +52,21 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets) {
     const transform = bone.getTransformNode?.();
     if (transform) boneByName.set(bone.name,transform);
   }
+  let rightHand = null;
+  for (const [name,node] of nodeByName) {
+    if (/right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) { rightHand=node; break; }
+  }
+  if (!rightHand) for (const [name,node] of boneByName) {
+    if (/right.?hand|hand.?r|mixamorig:RightHand/i.test(name)) { rightHand=node; break; }
+  }
+
   const tintedMaterials = new Set();
   for (const node of instance.rootNodes) {
     for (const mesh of node.getChildMeshes?.(false) || []) {
       mesh.isPickable = false;
-      mesh.receiveShadows = true;
-      if (shadowGen && mesh.getTotalVertices() > 100) shadowGen.addShadowCaster(mesh);
+      mesh.receiveShadows = !isMobile;
+      // Skinned shadow casters are disproportionately expensive on mobile GPUs.
+      if (!isMobile && shadowGen && mesh.getTotalVertices() > 100) shadowGen.addShadowCaster(mesh);
       const material = mesh.material;
       if (material?.albedoColor && !tintedMaterials.has(material)) {
         tintedMaterials.add(material);
@@ -94,7 +103,7 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets) {
   const head = B.MeshBuilder.CreateSphere("head-" + id,{diameter:.36,segments:10},scene);
   head.parent=root;head.position.y=1.68;head.visibility=0;head.isVisible=true;head.isPickable=true;
 
-  const rig = { root, skeleton, animationGroups, current:"" };
+  const rig = { root, skeleton, animationGroups, current:"", rightHand };
   setAnimation(rig,"idle");
   return { body, head, rig };
 }
@@ -108,4 +117,10 @@ function setAnimation(rig,name) {
 
 export function animateHumanBot(rig,moving=true,running=false) {
   setAnimation(rig,running ? "run" : moving ? "walk" : "idle");
+}
+
+export function stopHumanBot(rig) {
+  if (!rig) return;
+  for (const group of Object.values(rig.animationGroups)) group.stop();
+  rig.current = "dead";
 }
