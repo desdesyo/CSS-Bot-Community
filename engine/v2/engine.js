@@ -150,7 +150,7 @@ function makeBot(id, team, x,z, waypoints) {
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
   const weapons=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1,developerRole:null});
   return root;
 }
 function buildBots() {
@@ -179,6 +179,8 @@ function buildBots() {
     const routeSet=faction==='T'?tRoutes:ctRoutes;
     makeBot(id,team,x,z,routeSet[(id-1)%routeSet.length]);
   }
+  const fieldDeveloper=state.bots.find(bot=>bot.team==='ally');
+  if(fieldDeveloper){fieldDeveloper.developerRole='field-developer';state.fieldDeveloperId=fieldDeveloper.id;}
 }
 let weaponRoot, muzzleFlash, weaponViewmodel;
 function buildPlayerWeapon(){
@@ -322,7 +324,7 @@ function updateBotAI() {
         if(bot.activeWeapon==='knife'){
           if(chosenDistance<2.15&&now>bot.meleeUntil){
             bot.meleeUntil=now+850;
-            if(chosen.kind==='player'){state.hp=Math.max(0,state.hp-28);$('health').textContent='HP '+state.hp;if(state.hp===0)endRound(false);}
+            if(chosen.kind==='player'){const previousHp=state.hp;state.hp=Math.max(0,state.hp-28);gameLogEvent('player-damaged',{sourceBot:bot.id,weapon:'knife',damage:28,previousHp,remainingHp:state.hp});$('health').textContent='HP '+state.hp;if(state.hp===0)endRound(false);}
             else if(chosen.bot?.alive)damageBot(chosen.bot,45,false);
           }
           bot.fireAt=now+180;
@@ -341,6 +343,7 @@ function updateBotAI() {
             const spread=isPistol?.105:.082;
             direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread*.7;direction.z+=(Math.random()-.5)*spread;direction.normalize();
             spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,isPistol?36:42,bot.id,isPistol?12:9);
+            gameLogEvent('bot-shot',{id:bot.id,team:bot.team,target:chosen.kind==='player'?'player':chosen.bot?.id||null,weapon:bot.activeWeapon,distance:+chosenDistance.toFixed(2),ammo:bot[magazine]});
             bot.weaponKick=Math.min(.16,bot.weaponKick+(isPistol?.09:.055));
           }
         }
@@ -423,13 +426,16 @@ function spawnProjectile(origin,direction,ownerTeam,speed,ownerId=null,damage=34
 }
 function killBot(bot,credit=false) {
   if(!bot||!bot.alive)return;
+  gameLogEvent('bot-killed',{id:bot.id,team:bot.team,developerRole:bot.developerRole||null,credited:credit,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)}});
   bot.health=0;bot.alive=false;bot.deadAt=performance.now();bot.deathStartX=bot.root.rotation.x;
   bot.body.isPickable=false;bot.head.isPickable=false;bot.combatState='dead';bot.target=null;bot.navPath=[];
   stopHumanBot(bot.rig);if(credit){state.kills++;$('kills').textContent='KILLS '+state.kills}
 }
 function damageBot(bot,damage,credit=false) {
   if(!bot?.alive)return;
+  const previousHp=bot.health;
   bot.health=Math.max(0,bot.health-Math.max(0,damage));
+  gameLogEvent('bot-damaged',{id:bot.id,team:bot.team,damage:+Math.max(0,damage).toFixed(1),previousHp,remainingHp:bot.health,credited:credit});
   if(bot.health===0)killBot(bot,credit);
 }
 function resolvePlayerHitscan(slot) {
@@ -668,6 +674,7 @@ function toggleFullscreen(){
 }
 function endRound(won){
   if(state.playerDead)return;
+  recordDeveloperRound(won);
   state.playerDead=true;state.started=false;state.paused=false;state.firing=false;
   overlay.style.display='flex';status.textContent=won?'ПОБЕДА · ВСЕ ПРОТИВНИКИ УСТРАНЕНЫ':'ПОРАЖЕНИЕ · БОЕЦ ВЫБЫЛ';
   startButton.textContent='НОВЫЙ РАУНД';startButton.disabled=false;
@@ -682,6 +689,7 @@ function start() {
   }
   if(!resuming){state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;}}
   state.paused=false;state.started=true;overlay.style.display='none';
+  startDeveloperRecorder();
   if(!resuming){camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000,alliesGuarding:true});}
   else gameLogEvent('game-resumed',{weapon:state.weaponSlot,position:{x:camera.position.x,z:camera.position.z}});
   if(!mobile)canvas.requestPointerLock?.();
@@ -690,12 +698,17 @@ function start() {
 const GAME_LOG_KEY='solo_engine_v2_gameplay_logs_v1';
 const GAME_LOG_BRANCH='feature/solo-engine-v2';
 const GAME_LOG_LIMIT=1200;
+const GAME_LOG_EVENT_LIMIT=1200;
+const GAME_DEV_STATE_KEY='solo_engine_v2_field_developer_v1';
 let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
+let developerRoundsCompleted=0,developerRoundBatch=[],developerUploadBusy=false,developerLastUploadError=null;
+try{const dev=JSON.parse(localStorage.getItem(GAME_DEV_STATE_KEY)||'null');if(dev){developerRoundsCompleted=Number(dev.roundsCompleted)||0;developerRoundBatch=Array.isArray(dev.rounds)?dev.rounds.slice(-5):[];}}catch(e){}
 let inputTraceInstalled=false;
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
-try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-250):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
-function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-250),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
-function gameLogEvent(type,detail={}){if(!gameLogRecording)return;gameLogEvents.push({t:Math.round(performance.now()),wall:new Date().toISOString(),type,detail});if(gameLogEvents.length>250)gameLogEvents.shift();if(gameLogEvents.length%5===0)persistGameLog()}
+try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-GAME_LOG_EVENT_LIMIT):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
+function persistDeveloperState(){try{localStorage.setItem(GAME_DEV_STATE_KEY,JSON.stringify({roundsCompleted:developerRoundsCompleted,rounds:developerRoundBatch.slice(-5),lastUploadError:developerLastUploadError}))}catch(e){console.warn('Field developer state save failed',e)}}
+function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-GAME_LOG_EVENT_LIMIT),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}persistDeveloperState()}
+function gameLogEvent(type,detail={}){if(!gameLogRecording)return;gameLogEvents.push({t:Math.round(performance.now()),wall:new Date().toISOString(),type,detail});if(gameLogEvents.length>GAME_LOG_EVENT_LIMIT)gameLogEvents.shift();if(gameLogEvents.length%5===0)persistGameLog()}
 function captureGameplayLog(dt,now){
  if(!gameLogRecording)return;
  const ms=Math.max(0,dt*1000),renderMs=Math.max(0,state.lastRenderMs||0);gameLogPerf.frames++;
@@ -703,8 +716,8 @@ function captureGameplayLog(dt,now){
  gameLogPerf.maxFrameMs=Math.max(gameLogPerf.maxFrameMs,ms);gameLogPerf.maxRenderMs=Math.max(gameLogPerf.maxRenderMs,renderMs);
  gameLogFrameMs.push(+ms.toFixed(2));if(gameLogFrameMs.length>240)gameLogFrameMs.shift();
  gameLogRenderMs.push(+renderMs.toFixed(2));if(gameLogRenderMs.length>240)gameLogRenderMs.shift();
- if(now-gameLogLastSample<500)return;gameLogLastSample=now;
- const bots=state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
+ if(now-gameLogLastSample<1000)return;gameLogLastSample=now;
+ const bots=state.bots.map(b=>({id:b.id,team:b.team,role:b.developerRole||null,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
  gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height},activeMeshes:scene.getActiveMeshes().length,totalMeshes:scene.meshes.length},ai:{bots:state.bots.map(b=>({id:b.id,team:b.team,state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:b.navPath.length-b.navIndex})),aimTargetId:state.aimTargetId},movement:state.lastMove,frameMs:+ms.toFixed(2)});
  if(gameLogRecords.length>GAME_LOG_LIMIT)gameLogRecords.shift();
  if(now-gameLogLastPersist>5000){gameLogLastPersist=now;persistGameLog()}
@@ -791,7 +804,47 @@ async function submitIssueReport(){
  finally{issueReportBusy=false;btn.disabled=false}
 }
 
-function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording){stopAndUploadGameplayLog();return}if(gameLogRecords.length||gameLogEvents.length){stopAndUploadGameplayLog();return}startGameplayLog()}
+function startDeveloperRecorder(){
+ if(gameLogRecording)return;
+ gameLogRecording=true;gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;
+ gameLogEvent('field-developer-online',{botId:state.fieldDeveloperId??null,role:'autonomous-field-qa',mission:'collect-gameplay-diagnostics',uploadEveryRounds:5,roundsCompleted:developerRoundsCompleted});
+ gameLogEvent('recording-start',{automatic:true,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();
+ const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/5';btn.title='Автосбор логов активен. Отправка каждые 5 раундов.';}
+}
+function recordDeveloperRound(won){
+ if(!gameLogRecording)startDeveloperRecorder();
+ const summary={number:developerRoundsCompleted+1,completedAt:new Date().toISOString(),result:won?'win':'loss',durationSeconds:+(180-Math.max(0,state.roundTime)).toFixed(1),player:{hp:state.hp,dead:state.playerDead,kills:state.kills,weapon:state.weaponSlot,position:{x:+camera.position.x.toFixed(2),z:+camera.position.z.toFixed(2)}},bots:state.bots.map(b=>({id:b.id,team:b.team,role:b.developerRole||null,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null})),performance:{fps:state.fps,scale:state.scale,...gameLogPerf}};
+ developerRoundBatch.push(summary);if(developerRoundBatch.length>5)developerRoundBatch.shift();developerRoundsCompleted++;
+ gameLogEvent('round-completed',{...summary,completedRounds:developerRoundsCompleted,batchProgress:developerRoundBatch.length});persistGameLog();
+ const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/5';btn.title='Автосбор: '+developerRoundBatch.length+' из 5 раундов';}
+ if(developerRoundBatch.length>=5)void uploadDeveloperDiagnosticsBatch();
+}
+async function uploadDeveloperDiagnosticsBatch(){
+ if(developerUploadBusy||developerRoundBatch.length<5)return false;
+ const token=savedGameplayToken();
+ if(!token){developerLastUploadError='missing-github-token';persistDeveloperState();const btn=$('logsQuick');if(btn){btn.textContent='DEV: TOKEN';btn.title='Для автоматической отправки один раз добавь GitHub token через кнопку логов.';}return false;}
+ developerUploadBusy=true;const btn=$('logsQuick');if(btn){btn.disabled=true;btn.textContent='DEV: UPLOAD';}
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='field-dev-'+Date.now().toString(36),path='logs/gameplay/field-developer/'+stamp+'-'+session+'-5-rounds.json';
+ const payload={app:'SOLO Engine V2',format:3,type:'autonomous-field-developer-report',agent:{role:'autonomous-field-qa',botId:state.fieldDeveloperId??null,team:'ally',mission:'collect diagnostics without requiring player actions'},session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),roundsCompleted:developerRoundsCompleted,rounds:developerRoundBatch.slice(-5),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},events:gameLogEvents.slice(-GAME_LOG_EVENT_LIMIT),records:gameLogRecords.slice(-GAME_LOG_LIMIT)};
+ try{
+  const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add autonomous field developer diagnostics (5 rounds)',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
+  const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub token rejected ('+response.status+')')}throw new Error(result.message||('GitHub API HTTP '+response.status));}
+  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();developerRoundBatch=[];developerLastUploadError=null;persistGameLog();
+  if(btn){btn.textContent='DEV 0/5';btn.title='Отчёт успешно отправлен. Автосбор продолжается.';}gameLogEvent('developer-report-uploaded',{path,commit:result.commit?.sha||null,rounds:5});return true;
+ }catch(error){developerLastUploadError=String(error?.message||error);persistDeveloperState();console.error('Field developer upload failed',error);if(btn){btn.textContent='DEV: RETRY';btn.title='Отчёт сохранён локально. Повторная отправка будет при следующей попытке.';}return false;}
+ finally{developerUploadBusy=false;if(btn)btn.disabled=false;}
+}
+function handleGameplayLogs(){
+ if(gameLogUploading||developerUploadBusy)return;
+ if(!savedGameplayToken()){
+  let token=prompt('Один раз добавь Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Он сохранится только в этом браузере, чтобы бот мог отправлять отчёты каждые 5 раундов.');
+  if(!token)return;token=token.trim();if(!token)return;
+  try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return;}
+  if(developerRoundBatch.length>=5)void uploadDeveloperDiagnosticsBatch();else alert('Токен сохранён. Бот-разработчик уже собирает логи автоматически. Отправка — каждые 5 раундов.');return;
+ }
+ if(developerRoundBatch.length>=5){void uploadDeveloperDiagnosticsBatch();return;}
+ if(!gameLogRecording)startDeveloperRecorder();alert('Автосбор активен. Бот-разработчик отправит диагностический отчёт после 5 завершённых раундов.');
+}
 window.addEventListener('error',e=>gameLogEvent('window-error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno,error:e.error?.stack||null}));
 window.addEventListener('unhandledrejection',e=>gameLogEvent('unhandled-rejection',{reason:String(e.reason?.stack||e.reason)}));
 window.addEventListener('webglcontextlost',e=>gameLogEvent('webgl-context-lost',{status:'lost'}),true);
