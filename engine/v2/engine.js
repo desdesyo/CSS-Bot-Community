@@ -43,8 +43,8 @@ function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
-  const rifle=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,rifle,rightHand:human.rig.rightHand,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0,deadAt:0,spawn:{x,z},navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol'});
+  const weapons=createBotWeapon(root,id,team);
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,fireAt:0,deadAt:0,spawn:{x,z},waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol'});
   return root;
 }
 function buildBots() {
@@ -97,24 +97,36 @@ function createBotWeapon(root,id,team){
     botWeaponMaterials={
       body:mat('bot rifle polymer','#202725',.56,.08),
       metal:mat('bot rifle steel','#555d59',.38,.62),
-      grip:mat('bot rifle grip','#151b19',.9,0)
+      grip:mat('bot rifle grip','#151b19',.9,0),
+      pistol:mat('bot pistol polymer','#252d2a',.52,.12),
+      knife:mat('bot knife steel','#69716d',.3,.72)
     };
   }
-  const holder=new BABYLON.TransformNode('bot-rifle-'+id,scene);holder.parent=root;
-  holder.position.set(.22,1.24,.20);
-  const make=(name,pos,size,material)=>{
-    const m=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);
-    m.parent=holder;m.position.set(...pos);m.material=material;m.isPickable=false;m.receiveShadows=true;return m;
+  const build=(name,offset)=>{const holder=new BABYLON.TransformNode(name+'-'+id,scene);holder.parent=root;holder.position.copyFrom(offset);return holder;};
+  const make=(parent,name,pos,size,material)=>{
+    const m=BABYLON.MeshBuilder.CreateBox(name+'-'+id,{width:size[0],height:size[1],depth:size[2]},scene);
+    m.parent=parent;m.position.set(...pos);m.material=material;m.isPickable=false;m.receiveShadows=true;return m;
   };
-  make('bot rifle receiver '+id,[0,0,0],[.105,.09,.27],botWeaponMaterials.body);
-  make('bot rifle handguard '+id,[0,.005,.25],[.085,.075,.28],botWeaponMaterials.body);
-  make('bot rifle barrel '+id,[0,.015,.48],[.035,.035,.24],botWeaponMaterials.metal);
-  make('bot rifle muzzle '+id,[0,.015,.61],[.045,.045,.055],botWeaponMaterials.grip);
-  make('bot rifle stock '+id,[0,0,-.22],[.09,.085,.22],botWeaponMaterials.body);
-  make('bot rifle magazine '+id,[0,-.13,.02],[.075,.18,.09],botWeaponMaterials.metal);
-  make('bot rifle grip '+id,[0,-.105,-.045],[.07,.16,.075],botWeaponMaterials.grip);
-  make('bot rifle optic '+id,[0,.075,.015],[.065,.055,.09],botWeaponMaterials.grip);
-  return holder;
+  const rifle=build('bot-rifle',{x:.22,y:1.24,z:.20});
+  make(rifle,'bot rifle receiver',[0,0,0],[.105,.09,.27],botWeaponMaterials.body);
+  make(rifle,'bot rifle handguard',[0,.005,.25],[.085,.075,.28],botWeaponMaterials.body);
+  make(rifle,'bot rifle barrel',[0,.015,.48],[.035,.035,.24],botWeaponMaterials.metal);
+  make(rifle,'bot rifle muzzle',[0,.015,.61],[.045,.045,.055],botWeaponMaterials.grip);
+  make(rifle,'bot rifle stock',[0,0,-.22],[.09,.085,.22],botWeaponMaterials.body);
+  make(rifle,'bot rifle magazine',[0,-.13,.02],[.075,.18,.09],botWeaponMaterials.metal);
+  make(rifle,'bot rifle grip',[0,-.105,-.045],[.07,.16,.075],botWeaponMaterials.grip);
+  make(rifle,'bot rifle optic',[0,.075,.015],[.065,.055,.09],botWeaponMaterials.grip);
+  const pistol=build('bot-pistol',{x:.19,y:1.22,z:.23});
+  make(pistol,'bot pistol slide',[0,.015,.06],[.075,.07,.25],botWeaponMaterials.metal);
+  make(pistol,'bot pistol frame',[0,-.04,.10],[.07,.07,.17],botWeaponMaterials.body);
+  make(pistol,'bot pistol grip',[0,-.12,.16],[.065,.15,.08],botWeaponMaterials.grip);
+  make(pistol,'bot pistol magazine',[0,-.13,.12],[.045,.12,.045],botWeaponMaterials.metal);
+  const knife=build('bot-knife',{x:.16,y:1.18,z:.20});
+  make(knife,'bot knife handle',[0,0,.08],[.045,.045,.16],botWeaponMaterials.grip);
+  make(knife,'bot knife guard',[0,.025,-.005],[.095,.018,.025],botWeaponMaterials.metal);
+  make(knife,'bot knife blade',[0,.025,-.16],[.045,.018,.27],botWeaponMaterials.knife);
+  pistol.setEnabled(false);knife.setEnabled(false);
+  return {rifle,pistol,knife};
 }
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
@@ -130,6 +142,11 @@ function updateBotAI() {
   const now=performance.now();
   for(const bot of state.bots) {
     if(!bot.alive)continue;
+    if(bot.reloadUntil&&now>=bot.reloadUntil){
+      if(bot.activeWeapon==='rifle'){const n=Math.min(30-bot.ammo,bot.reserve);bot.ammo+=n;bot.reserve-=n;}
+      else if(bot.activeWeapon==='pistol'){const n=Math.min(12-bot.pistolAmmo,bot.pistolReserve);bot.pistolAmmo+=n;bot.pistolReserve-=n;}
+      bot.reloadUntil=0;
+    }
     const candidates=[];
     if(bot.team==='enemy'&&!state.playerDead)candidates.push({kind:'player',position:camera.position});
     for(const other of state.bots)if(other.alive&&other.team!==bot.team)candidates.push({kind:'bot',bot:other,position:other.root.position});
@@ -139,7 +156,7 @@ function updateBotAI() {
       const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
       const aim=candidate.kind==='player'?candidate.position.add(new BABYLON.Vector3(0,-.25,0)):candidate.position.add(new BABYLON.Vector3(0,1.05,0));
       const delta=aim.subtract(origin),distance=delta.length();
-      if(distance<3||distance>40)continue;
+      if(distance<1.25||distance>40)continue;
       const ray=new BABYLON.Ray(origin,delta.normalize(),distance);
       const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&!m.name.startsWith('body-'+bot.id)&&!m.name.startsWith('head-'+bot.id));
       const visible=!hit?.hit||(candidate.kind==='player'&&hit.pickedMesh?.name==='player-hitbox')||(candidate.kind==='bot'&&hit.pickedMesh?.parent===candidate.bot.root);
@@ -149,6 +166,14 @@ function updateBotAI() {
     if(chosen){
       bot.combatState='engage';
       const target=chosen.position;
+      // Bots now choose a real loadout: knife at contact range, pistol when rifle ammo is exhausted.
+      if(chosenDistance<2.15){bot.activeWeapon='knife';bot.meleeUntil=bot.meleeUntil||0;}
+      else if(bot.ammo<=0&&bot.reserve<=0)bot.activeWeapon='pistol';
+      else if(bot.activeWeapon==='knife'&&chosenDistance>3.2)bot.activeWeapon=bot.ammo>0?'rifle':'pistol';
+      const weapon=bot.weapons;
+      weapon.rifle.setEnabled(bot.activeWeapon==='rifle');
+      weapon.pistol.setEnabled(bot.activeWeapon==='pistol');
+      weapon.knife.setEnabled(bot.activeWeapon==='knife');
       if(chosenDistance>14){
         const away=Math.atan2(bot.root.position.x-target.x,bot.root.position.z-target.z);
         const goal={x:target.x+Math.sin(away)*9,z:target.z+Math.cos(away)*9};
@@ -156,16 +181,40 @@ function updateBotAI() {
           bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+1500;
         }
       }else{bot.navPath=[];bot.navGoal=null;bot.combatState='fire';}
-      if(now>=bot.fireAt&&chosenDistance<38){
-        bot.fireAt=now+(bot.team==='enemy'?650:720)+Math.random()*350;
-        const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
-        const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.25,0)):target.add(new BABYLON.Vector3(0,1.05,0));
-        const direction=aim.subtract(origin).normalize();
-        direction.x+=(Math.random()-.5)*.035;direction.y+=(Math.random()-.5)*.025;direction.z+=(Math.random()-.5)*.035;direction.normalize();
-        spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,42,bot.id);
+      if(bot.activeWeapon==='rifle'&&bot.ammo===0&&bot.reserve>0&&!bot.reloadUntil)bot.reloadUntil=now+1450;
+      if(bot.activeWeapon==='pistol'&&bot.pistolAmmo===0&&bot.pistolReserve>0&&!bot.reloadUntil)bot.reloadUntil=now+1250;
+      if(now>=bot.fireAt&&chosenDistance<38&&!bot.reloadUntil){
+        if(bot.activeWeapon==='knife'){
+          if(chosenDistance<2.15&&now>bot.meleeUntil){
+            bot.meleeUntil=now+850;
+            if(chosen.kind==='player'){state.hp=Math.max(0,state.hp-28);$('health').textContent='HP '+state.hp;if(state.hp===0)endRound(false);}
+            else if(chosen.bot?.alive)damageBot(chosen.bot,45,false);
+          }
+          bot.fireAt=now+180;
+        }else{
+          const isPistol=bot.activeWeapon==='pistol';
+          const magazine=isPistol?'pistolAmmo':'ammo';
+          if(bot[magazine]<=0){
+            if(isPistol&&bot.pistolReserve<=0){bot.activeWeapon='knife';}
+            else if(!isPistol&&bot.reserve<=0){bot.activeWeapon='pistol';}
+          }else{
+            bot[magazine]--;
+            bot.fireAt=now+(isPistol?390:bot.team==='enemy'?540:620)+Math.random()*(isPistol?180:260);
+            const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
+            const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.25,0)):target.add(new BABYLON.Vector3(0,1.05,0));
+            const direction=aim.subtract(origin).normalize();
+            const spread=isPistol?.026:.019;
+            direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread*.7;direction.z+=(Math.random()-.5)*spread;direction.normalize();
+            spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,isPistol?36:42,bot.id);
+          }
+        }
       }
     }else{
       bot.combatState='patrol';bot.target=null;
+      bot.activeWeapon=bot.ammo>0?'rifle':bot.pistolAmmo>0?'pistol':'knife';
+      bot.weapons.rifle.setEnabled(bot.activeWeapon==='rifle');
+      bot.weapons.pistol.setEnabled(bot.activeWeapon==='pistol');
+      bot.weapons.knife.setEnabled(bot.activeWeapon==='knife');
       const wp=bot.waypoints[bot.index];
       if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){bot.index=(bot.index+1)%bot.waypoints.length;bot.navPath=[];bot.navGoal=null;}
       const goal={x:wp[0],z:wp[1]};
@@ -212,11 +261,13 @@ function updateBotMotion(dt) {
       bot.root.rotation.y+=delta*Math.min(1,dt*6);
       bot.root.rotation.y=Math.atan2(Math.sin(bot.root.rotation.y),Math.cos(bot.root.rotation.y));
     }
-    if(bot.rightHand&&bot.rifle){
+    const held=bot.weapons?.[bot.activeWeapon||'rifle'];
+    if(bot.rightHand&&held){
       bot.root.computeWorldMatrix(true);bot.rightHand.computeWorldMatrix(true);
       const inverse=bot.root.getWorldMatrix().clone().invert();
       const local=BABYLON.Vector3.TransformCoordinates(bot.rightHand.getAbsolutePosition(),inverse);
-      bot.rifle.position.set(local.x+.02,local.y-.025,local.z+.05);
+      held.position.set(local.x+.02,local.y-.025,local.z+.05);
+      if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.combatState==='fire'?-0.08:0;}
     }
     bot.phase+=dt*7;
   }
