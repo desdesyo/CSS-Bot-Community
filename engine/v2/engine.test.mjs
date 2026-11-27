@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
@@ -127,4 +127,24 @@ test('aim assist prioritizes a nearby enemy almost on the crosshair over a dista
   assert.ok(near < far);
   assert.ok(aimCandidateScore(0.02, 8) < aimCandidateScore(0.02, 25));
   assert.equal(aimCandidateScore(-1, 5), Infinity);
+});
+
+
+test('default CT deployment is inside the CT base, not at the enemy T spawn', () => {
+  assert.deepEqual(getPlayerSpawn('CT'), {x:0,z:36});
+  assert.deepEqual(getPlayerSpawn('T'), {x:0,z:-40});
+  const ct=getPlayerSpawn('CT');
+  const nearestEnemy=Math.min(...TEAM_SPAWNS.T.map(([x,z])=>Math.hypot(x-ct.x,z-ct.z)));
+  assert.ok(nearestEnemy>65, 'enemy deployment must be far from CT player spawn');
+});
+test('each player deployment is colocated with five allied spawn slots', () => {
+  for(const team of ['CT','T']){
+    const player=getPlayerSpawn(team);
+    const allies=TEAM_SPAWNS[team].slice(0,5);
+    assert.ok(allies.every(([x,z])=>Math.hypot(x-player.x,z-player.z)<12));
+  }
+});
+test('spawn compounds keep both factions separated by a long approach', () => {
+  const ct=getPlayerSpawn('CT'),t=getPlayerSpawn('T');
+  assert.ok(Math.hypot(ct.x-t.x,ct.z-t.z)>=76);
 });
