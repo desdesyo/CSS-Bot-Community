@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward } from './engine-core.mjs';
-const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -46,13 +46,40 @@ function makeBot(id, team, x,z, waypoints) {
   return root;
 }
 function buildBots() {
+  // 6v6 means 12 combatants total: the human player plus 11 bots.
+  // The player's selected side always has five AI teammates; the opposing side has six bots.
   const routes=[
-    [[-35,-30],[-25,-8],[-37,14],[-20,31]], [[35,-30],[25,-8],[37,14],[20,31]],
-    [[-44,8],[-28,0],[-10,-8],[-24,16]], [[44,8],[28,0],[10,-8],[24,16]],
-    [[-18,-35],[-8,-18],[8,-12],[18,-32]], [[18,35],[8,18],[-8,12],[-18,32]]
+    [[-35,-30],[-25,-8],[-37,14],[-20,31]],
+    [[35,-30],[25,-8],[37,14],[20,31]],
+    [[-44,8],[-28,0],[-10,-8],[-24,16]],
+    [[44,8],[28,0],[10,-8],[24,16]],
+    [[-18,-35],[-8,-18],[8,-12],[18,-32]],
+    [[18,-35],[8,-18],[-8,-12],[-18,-32]],
+    [[-18,35],[-8,18],[8,12],[18,32]],
+    [[18,35],[8,18],[-8,12],[-18,32]],
+    [[-42,0],[-30,-10],[-18,0],[-30,12]],
+    [[42,0],[30,-10],[18,0],[30,12]],
+    [[0,30],[-10,18],[0,8],[10,18]]
   ];
-  makeBot(1,'enemy',-36,-30,routes[0]);makeBot(2,'enemy',36,-30,routes[1]);makeBot(3,'enemy',-44,8,routes[2]);
-  makeBot(4,'enemy',44,8,routes[3]);makeBot(5,'ally',-18,-35,routes[4]);makeBot(6,'ally',18,35,routes[5]);
+  const enemyTeam=state.playerTeam==='CT'?'enemy':'ally';
+  const allyTeam=state.playerTeam==='CT'?'ally':'enemy';
+  const roster=[
+    [1,enemyTeam,-36,-30],[2,enemyTeam,36,-30],[3,enemyTeam,-44,8],
+    [4,enemyTeam,44,8],[5,enemyTeam,-18,-35],[6,enemyTeam,18,-35],
+    [7,allyTeam,-18,35],[8,allyTeam,18,35],[9,allyTeam,-42,0],
+    [10,allyTeam,42,0],[11,allyTeam,0,30]
+  ];
+  for(const [id,team,x,z] of roster) makeBot(id,team,x,z,routes[id-1]);
+}
+function setPlayerTeam(team) {
+  if(state.started || (team!=='CT' && team!=='T')) return;
+  state.playerTeam=team;
+  for(const bot of state.bots) bot.root.dispose();
+  state.bots.length=0;
+  buildBots();
+  $('team').textContent='TEAM '+team;
+  $('selectCT').classList.toggle('selected',team==='CT');
+  $('selectT').classList.toggle('selected',team==='T');
 }
 function updateBotAI() {
   // Expensive tactical decisions run at 8 Hz; movement is deliberately not stepped here.
@@ -135,7 +162,7 @@ async function boot() {
     buildMap();buildBots();initInput();
     window.addEventListener('resize',()=>engine.resize());
     $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Запусти тестовую сцену.';$('quality').textContent=mobile?'MOBILE PROFILE · SHADOWS 1024':'DESKTOP PROFILE · SHADOWS 2048';
-    $('start').addEventListener('click',start);
+    $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
