@@ -164,24 +164,6 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     const p=B.MeshBuilder.CreateDisc('irregular rain puddle',{radius:1,tessellation:24},scene);
     p.scaling.set(w,.01,d);p.position.set(x,.065,z);p.material=puddle;p.isPickable=false;
   }
-  // A single planar reflection pass gives the wet street and canal real building/light reflections.
-  // It is deliberately low-resolution and refreshed less often on phones.
-  let wetMirror=null;
-  if(B.MirrorTexture){
-    wetMirror=new B.MirrorTexture('rain-soaked street planar reflections',new B.Vector2(mobile?256:768,mobile?256:768),scene,true);
-    wetMirror.mirrorPlane=new B.Plane(0,-1,0,-.075);
-    wetMirror.level=mobile?.24:.38;
-    wetMirror.blurKernel=mobile?18:28;
-    wetMirror.refreshRate=mobile?4:2;
-    wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
-      if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed'))return false;
-      mesh.computeWorldMatrix(true);
-      return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;
-    });
-    cobble.reflectionTexture=wetMirror;
-    water.reflectionTexture=wetMirror;
-    puddle.reflectionTexture=wetMirror;
-  }
 
   // Warm wall lamps and old cast-iron street lanterns, with tightly budgeted light count.
   const lampMat=mat('lamp bronze','#252a31',.38,.7),glow=mat('amber glowing glass','#ffbf72',.22);
@@ -192,13 +174,13 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
       box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
       const bulb=box('warm lantern glass',x,3.45,z-.22,.2,.4,.08,glow,false);
-      if(!mobile&&lightCount++<10){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=.55;l.range=9;}
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.34:.55;l.range=mobile?7:9;}
     }else{
       cylinder('cast iron lamp post',x,2.4,z,.16,4.8,lampMat);
       box('lantern cross arm',x,4.7,z,.85,.12,.12,lampMat,false);
       box('lantern hood',x,5.05,z,.65,.18,.65,lampMat,false);
       box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
-      if(!mobile&&lightCount++<10){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=.68;l.range=12;}
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
     }
   };
   for(const z of [-34,-20,16,31]){lamp(-8.9,z);lamp(8.9,z);}
@@ -208,6 +190,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const neonCyan=mat('cyan shop sign emission','#56dff2',.24);
   const neonAmber=mat('amber shop sign emission','#ffd18a',.24);
   const neonRed=mat('red pharmacy sign emission','#ff625e',.28);
+  if(neonCyan.emissiveColor)neonCyan.emissiveColor=new C(.06,.62,.82);
+  if(neonAmber.emissiveColor)neonAmber.emissiveColor=new C(.85,.42,.12);
+  if(neonRed.emissiveColor)neonRed.emissiveColor=new C(.72,.045,.035);
   for(const [x,z,w,signMat] of [[-11.2,-25,4.8,neonAmber],[11.2,-13,4.2,neonCyan],[-11.2,10,5.2,neonRed],[11.2,29,4.6,neonAmber]]){
     box('illuminated shop sign backing',x,3.55,z,w,.72,.16,iron,false);
     box('illuminated shop sign face',x,3.56,z-.105,w-.24,.48,.035,signMat,false);
@@ -397,6 +382,25 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
     else merged.push(...parts);
   }
+  // A single planar reflection pass gives the wet street and canal real building/light reflections.
+  // It is deliberately low-resolution and refreshed less often on phones.
+  let wetMirror=null;
+  if(B.MirrorTexture){
+    wetMirror=new B.MirrorTexture('rain-soaked street planar reflections',new B.Vector2(mobile?256:768,mobile?256:768),scene,true);
+    wetMirror.mirrorPlane=new B.Plane(0,-1,0,-.075);
+    wetMirror.level=mobile?.24:.38;
+    wetMirror.blurKernel=mobile?18:28;
+    wetMirror.refreshRate=mobile?4:2;
+    wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
+      if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed'))return false;
+      mesh.computeWorldMatrix(true);
+      return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;
+    });
+    cobble.reflectionTexture=wetMirror;
+    water.reflectionTexture=wetMirror;
+    puddle.reflectionTexture=wetMirror;
+  }
+
   const staticMeshes=[...colliders,...merged],materials=new Set();
   for(const m of staticMeshes){
     m.computeWorldMatrix(true);m.freezeWorldMatrix();
