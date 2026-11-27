@@ -325,14 +325,14 @@ test('Wet Ground bridge mouths are wide, visible, and have continuous road appro
   assert.match(map, /low pale stone bridge parapet/);
   assert.match(map, /north bridge road approach/);
   assert.match(map, /south bridge road approach/);
-  assert.match(map, /\[\[-40\.5,25\],\[0,24\],\[40\.5,25\]\]/);
+  assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
   assert.match(map, /barrier\.isVisible=true/);
   assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
 });
 test('Wet Ground adds grounded street interiors and outer rainy landscape without blocking routes', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /GROCERY shop rear interior wall/);
-  assert.match(map, /CAFE stocked wall shelf/);
+  assert.match(map, /label\+' shop rear interior wall'/);
+  assert.match(map, /label\+' stocked wall shelf'/);
   assert.match(map, /north rain-soaked terrain shoulder/);
   assert.match(map, /dense wet street tree canopy/);
   assert.match(map, /rain-worn roadside boulder/);
@@ -352,7 +352,7 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /\[\[-20,'west'\],\[0,'main'\],\[20,'east'\]\]/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
-  assert.match(map, /main north bridge road approach/);
-  assert.match(map, /main south bridge road approach/);
+  assert.match(map, /label\+' north bridge road approach'/);
+  assert.match(map, /label\+' south bridge road approach'/);
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
