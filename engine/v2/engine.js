@@ -302,7 +302,7 @@ function updateBotAI() {
         const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.25,0)):target.add(new BABYLON.Vector3(0,1.05,0));
         const direction=aim.subtract(origin).normalize();
         direction.x+=(Math.random()-.5)*.035;direction.y+=(Math.random()-.5)*.025;direction.z+=(Math.random()-.5)*.035;direction.normalize();
-        spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,42);
+        spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,42,bot.id);
       }
     }else{
       bot.combatState='patrol';bot.target=null;
@@ -361,7 +361,7 @@ function updateBotMotion(dt) {
     bot.phase+=dt*7;
   }
 }
-function spawnProjectile(origin,direction,ownerTeam,speed) {
+function spawnProjectile(origin,direction,ownerTeam,speed,ownerId=null) {
   if(!projectileMaterial){
     projectileMaterial=new BABYLON.StandardMaterial('shared-projectile-material',scene);
     projectileMaterial.diffuseColor=new BABYLON.Color3(.95,.78,.38);
@@ -369,7 +369,7 @@ function spawnProjectile(origin,direction,ownerTeam,speed) {
   }
   const mesh=BABYLON.MeshBuilder.CreateSphere('combat-projectile',{diameter:.055,segments:6},scene);
   mesh.material=projectileMaterial;mesh.position.copyFrom(origin);mesh.isPickable=false;
-  state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam});
+  state.projectiles.push({mesh,velocity:direction.scale(speed),life:1.7,ownerTeam,ownerId});
 }
 function killBot(bot) {
   if(!bot||!bot.alive)return;
@@ -392,7 +392,7 @@ function updateBulletPhysics(dt) {
       hit=scene.pickWithRay(ray,m=>{
         if(!m||!m.isEnabled()||!m.isPickable)return false;
         const n=m.name.toLowerCase();
-        return n.startsWith('body-')||n.startsWith('head-')||n==='player-hitbox'||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground';
+        return (p.ownerId==null||(!n.startsWith('body-'+p.ownerId)&&!n.startsWith('head-'+p.ownerId)))&&(n.startsWith('body-')||n.startsWith('head-')||n==='player-hitbox'||n.includes('wall')||n.includes('crate')||n.includes('cover')||n.includes('barrier')||n.includes('beam')||n==='ground';
       });
     }
     if(hit?.hit&&hit.pickedMesh){
@@ -428,7 +428,7 @@ function fire() {
   state.lastShot=now;state.weaponAmmo[slot]--;
   const ray=camera.getForwardRay(1);
   const origin=slot==='rifle'&&muzzleFlash?muzzleFlash.getAbsolutePosition().clone():camera.position.add(ray.direction.scale(.7));
-  spawnProjectile(origin,ray.direction,'player',slot==='rifle'?125:105);
+  spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105);
   if(muzzleFlash&&slot==='rifle'){muzzleFlash.isVisible=true;window.setTimeout(()=>{if(muzzleFlash)muzzleFlash.isVisible=false},45);}
   if(weaponRoot){weaponRoot.position.z=.68;window.setTimeout(()=>{if(weaponRoot)weaponRoot.position.z=.72},65);}
   $('ammo').textContent=state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
@@ -536,6 +536,7 @@ function updatePlayer(dt) {
   }
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
+  if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
 function toggleFullscreen(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
@@ -575,7 +576,7 @@ function captureGameplayLog(dt,now){
  gameLogRenderMs.push(+renderMs.toFixed(2));if(gameLogRenderMs.length>240)gameLogRenderMs.shift();
  if(now-gameLogLastSample<500)return;gameLogLastSample=now;
  const bots=state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
- gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height}},movement:state.lastMove,frameMs:+ms.toFixed(2)});
+ gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height},activeMeshes:scene.getActiveMeshes().length,totalMeshes:scene.meshes.length},ai:{bots:state.bots.map(b=>({id:b.id,team:b.team,state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:b.navPath.length-b.navIndex})),aimTargetId:state.aimTargetId},movement:state.lastMove,frameMs:+ms.toFixed(2)});
  if(gameLogRecords.length>GAME_LOG_LIMIT)gameLogRecords.shift();
  if(now-gameLogLastPersist>5000){gameLogLastPersist=now;persistGameLog()}
 }
