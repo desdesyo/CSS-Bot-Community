@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
-const video = $('video'), status = $('status');\nconst weaponOrder=['rifle','pistol','grenade','knife'];
+const video = $('video'), status = $('status');
+const weaponOrder=['rifle','pistol','grenade','knife'];
 let socket, pc, channel, connected = false, statsTimer = 0, lastVideoStats = null; const pendingIce = []; let fire = false, move = { x: 0, y: 0 }, look = { x: 0, y: 0 }, reload = false, jump = false, weapon = 'rifle';
 const say = text => { status.textContent = text; };
 function sendSignal(message) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message)); }
@@ -60,7 +61,8 @@ async function offer() {
   sendSignal({ type: 'offer', description: pc.localDescription });
   say('Согласование видеопотока…');
 }
-$('join').addEventListener('click', () => connect().catch(error => say(error.message)));\n$('weapon').addEventListener('pointerdown',e=>{
+$('join').addEventListener('click', () => connect().catch(error => say(error.message)));
+$('weapon').addEventListener('pointerdown',e=>{
   e.preventDefault();const i=weaponOrder.indexOf(weapon);weapon=weaponOrder[(i+1)%weaponOrder.length];
   $('weapon').textContent=weapon.toUpperCase();
 });
