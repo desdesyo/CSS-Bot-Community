@@ -306,3 +306,11 @@ test('cloud viewer exposes mobile weapon cycling and suppresses text selection',
   assert.ok(viewer.includes('weaponOrder[(i+1)%weaponOrder.length]'));
   assert.ok(viewer.includes('let firePointerId=null'));
 });
+
+test('Kaggle kiosk autostart fills the full 1920x1080 viewport without requiring a user gesture',()=>{
+  const host=readFileSync(new URL('../cloud/host.js',import.meta.url),'utf8');
+  const page=readFileSync(new URL('../cloud/host.html',import.meta.url),'utf8');
+  assert.ok(host.includes("if(autoStart)document.documentElement.classList.add('cloud-kiosk')"));
+  assert.ok(page.includes('html.cloud-kiosk iframe{height:100vh}'));
+  assert.ok(host.includes('frames=s.framesEncoded||0'));
+});
