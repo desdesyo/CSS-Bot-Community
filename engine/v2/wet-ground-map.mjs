@@ -1584,6 +1584,30 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     rain.start();
   }
 
+  // Preserve the exact gameplay AABBs before batching collider meshes. Rendering
+  // hundreds of individual wall fragments was another large mobile draw-call cost.
+  const gameplayColliders=colliders.map(mesh=>{
+    mesh.computeWorldMatrix(true);const bounds=mesh.getBoundingInfo().boundingBox;
+    return {name:mesh.name,minX:bounds.minimumWorld.x,maxX:bounds.maximumWorld.x,minY:bounds.minimumWorld.y,maxY:bounds.maximumWorld.y,minZ:bounds.minimumWorld.z,maxZ:bounds.maximumWorld.z};
+  });
+  scene.metadata=scene.metadata||{};
+  scene.metadata.soloCollisionBoxes=gameplayColliders;
+  const colliderGroups=new Map(),colliderKept=[];
+  for(const mesh of colliders){
+    if(!mesh.material||mesh.material.alpha<.999){colliderKept.push(mesh);continue;}
+    const key=mesh.material.uniqueId;
+    if(!colliderGroups.has(key))colliderGroups.set(key,[]);
+    colliderGroups.get(key).push(mesh);
+  }
+  const colliderBatches=[];
+  for(const [materialId,parts] of colliderGroups){
+    if(parts.length<2){colliderKept.push(...parts);continue;}
+    const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
+    if(joined){joined.name='Wet Ground wall collision batch '+materialId;joined.isPickable=true;joined.checkCollisions=false;joined.receiveShadows=true;colliderBatches.push(joined);}
+    else colliderKept.push(...parts);
+  }
+  for(const mesh of colliderKept){mesh.checkCollisions=false;mesh.isPickable=true;}
+
   // Batch every late static mesh by material. The previous pass left the skyline,
   // spawn streets, air conditioners, utility lines, drains and debris as hundreds of
   // independent draw calls; on mobile this was the dominant 6-FPS bottleneck.
@@ -1613,7 +1637,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
   }
-  const staticMeshes=[...colliders,...merged,...lateMerged,...lateKept],materials=new Set();
+  const staticMeshes=[...colliderBatches,...colliderKept,...merged,...lateMerged,...lateKept],materials=new Set();
   for(const mesh of staticMeshes){
     if(!mesh||mesh.isDisposed?.())continue;
     mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();
