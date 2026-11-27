@@ -267,25 +267,50 @@ function setPlayerTeam(team) {
   $('selectT').classList.toggle('selected',team==='T');
 }
 function updateBotAI() {
-  // Tactical decisions and enemy fire run at 8 Hz; movement remains frame-rate based.
   const now=performance.now();
   for(const bot of state.bots) {
-    if(!bot.alive) continue;
-    const target=bot.waypoints[bot.index];
-    if(Math.hypot(target[0]-bot.root.position.x,target[1]-bot.root.position.z)<.65) bot.index=(bot.index+1)%bot.waypoints.length;
-    if(bot.team!=='enemy'||state.playerDead) continue;
-    const origin=bot.root.position.add(new BABYLON.Vector3(0,1.25,0));
-    const destination=camera.position.clone();
-    const delta=destination.subtract(origin), distance=delta.length();
-    if(distance<5||distance>38||now<bot.fireAt) continue;
-    const ray=new BABYLON.Ray(origin,delta.normalize(),distance);
-    const obstruction=scene.pickWithRay(ray,m=>m!==bot.body&&m!==bot.head&&!m.name.startsWith('rifle-')&&!m.name.startsWith('pack-')&&!m.name.startsWith('helmet-')&&!m.name.startsWith('body-')&&!m.name.startsWith('head-'));
-    bot.fireAt=now+650+Math.random()*650;
-    if(!obstruction?.hit||obstruction.distance>=distance-1.1) {
-      if(Math.random()<.24) {
-        state.hp=Math.max(0,state.hp-(5+Math.floor(Math.random()*7)));
-        $('health').textContent='HP '+state.hp;
-        if(state.hp===0)endRound(false);
+    if(!bot.alive)continue;
+    const candidates=[];
+    if(bot.team==='enemy'&&!state.playerDead)candidates.push({kind:'player',position:camera.position});
+    for(const other of state.bots)if(other.alive&&other.team!==bot.team)candidates.push({kind:'bot',bot:other,position:other.root.position});
+    candidates.sort((a,b)=>BABYLON.Vector3.Distance(bot.root.position,a.position)-BABYLON.Vector3.Distance(bot.root.position,b.position));
+    let chosen=null,chosenDistance=Infinity;
+    for(const candidate of candidates){
+      const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
+      const aim=candidate.kind==='player'?candidate.position.add(new BABYLON.Vector3(0,-.25,0)):candidate.position.add(new BABYLON.Vector3(0,1.05,0));
+      const delta=aim.subtract(origin),distance=delta.length();
+      if(distance<3||distance>40)continue;
+      const ray=new BABYLON.Ray(origin,delta.normalize(),distance);
+      const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&!m.name.startsWith('body-'+bot.id)&&!m.name.startsWith('head-'+bot.id));
+      const visible=!hit?.hit||(candidate.kind==='player'&&hit.pickedMesh?.name==='player-hitbox')||(candidate.kind==='bot'&&hit.pickedMesh?.parent===candidate.bot.root);
+      if(visible){chosen=candidate;chosenDistance=distance;break;}
+    }
+    bot.target=chosen;
+    if(chosen){
+      bot.combatState='engage';
+      const target=chosen.position;
+      if(chosenDistance>14){
+        const away=Math.atan2(bot.root.position.x-target.x,bot.root.position.z-target.z);
+        const goal={x:target.x+Math.sin(away)*9,z:target.z+Math.cos(away)*9};
+        if(!bot.navGoal||Math.hypot(bot.navGoal.x-goal.x,bot.navGoal.z-goal.z)>2||now>bot.repathAt){
+          bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+1500;
+        }
+      }else{bot.navPath=[];bot.navGoal=null;bot.combatState='fire';}
+      if(now>=bot.fireAt&&chosenDistance<38){
+        bot.fireAt=now+(bot.team==='enemy'?650:720)+Math.random()*350;
+        const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
+        const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.25,0)):target.add(new BABYLON.Vector3(0,1.05,0));
+        const direction=aim.subtract(origin).normalize();
+        direction.x+=(Math.random()-.5)*.035;direction.y+=(Math.random()-.5)*.025;direction.z+=(Math.random()-.5)*.035;direction.normalize();
+        spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,42);
+      }
+    }else{
+      bot.combatState='patrol';bot.target=null;
+      const wp=bot.waypoints[bot.index];
+      if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){bot.index=(bot.index+1)%bot.waypoints.length;bot.navPath=[];bot.navGoal=null;}
+      const goal={x:wp[0],z:wp[1]};
+      if(!bot.navGoal||Math.hypot(bot.navGoal.x-goal.x,bot.navGoal.z-goal.z)>.1||now>bot.repathAt){
+        bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+2500;
       }
     }
   }
