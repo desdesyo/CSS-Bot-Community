@@ -14,15 +14,21 @@ export function moveToward(position, target, speed, dt) {
   const step = Math.min(distance, Math.max(0, speed) * Math.max(0, dt));
   return { x: position.x + dx / distance * step, z: position.z + dz / distance * step, arrived: distance <= step };
 }
+export const TEAM_SPAWNS = Object.freeze({
+  // Six compact, mirrored landing positions. CT deploys beside the bombsite;
+  // T deploys at the far end of the district and must cross the map.
+  T: Object.freeze([[-6,-35],[-3,-37],[0,-35],[3,-37],[6,-35],[0,-40]]),
+  CT: Object.freeze([[-6,31],[-3,33],[0,31],[3,33],[6,31],[0,36]])
+});
+export const BOMB_SITE = Object.freeze({x:0,z:23});
 export function createTeamRoster(playerTeam = 'CT') {
   if (playerTeam !== 'CT' && playerTeam !== 'T') throw new Error('playerTeam must be CT or T');
-  // "enemy"/"ally" are relative to the human player, not CT/T faction names.
-  return [
-    [1,'enemy',-36,-30],[2,'enemy',36,-30],[3,'enemy',-44,8],
-    [4,'enemy',44,8],[5,'enemy',-18,-35],[6,'enemy',18,-35],
-    [7,'ally',-18,35],[8,'ally',18,35],[9,'ally',-42,0],
-    [10,'ally',42,0],[11,'ally',0,30]
-  ];
+  // The player occupies the sixth slot of their faction's landing formation.
+  // "enemy"/"ally" remain relative to the player for combat logic.
+  const enemyTeam = playerTeam === 'CT' ? 'T' : 'CT';
+  const enemy = TEAM_SPAWNS[enemyTeam].map(([x,z],i)=>[i+1,'enemy',x,z]);
+  const ally = TEAM_SPAWNS[playerTeam].slice(0,5).map(([x,z],i)=>[i+7,'ally',x,z]);
+  return [...enemy,...ally];
 }
 
 export function cameraRelativeMovement(yaw, forward, strafe) {
