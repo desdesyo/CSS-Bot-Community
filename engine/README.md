@@ -65,3 +65,8 @@ The server listens on port 8080 by default. For remote cross-play, deploy it on 
 6. Separately test offline mode: reload without server address, move and shoot bots.
 
 For internet play, deploy the server behind HTTPS/WSS and host the client over HTTPS.
+
+
+## Cloud gaming prototype
+
+A WebRTC host/viewer prototype is available in [cloud/](cloud/README.md). It streams the V2 canvas from a GPU-hosted desktop browser to Android/PC and forwards player input over a data channel. The viewer/host pages are published with the V2 demo. The signaling relay is implemented and tested, but no persistent GPU host or public WSS signaling service is deployed; see the cloud README for exact setup and limitations.
