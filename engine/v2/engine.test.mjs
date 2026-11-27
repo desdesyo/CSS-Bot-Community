@@ -303,10 +303,13 @@ test('gameplay diagnostics keep synchronous serialization and storage out of fra
   const event = engine.slice(eventStart, eventEnd);
   assert.ok(captureStart >= 0 && captureEnd > captureStart);
   assert.ok(eventStart >= 0 && eventEnd > eventStart);
-  assert.doesNotMatch(capture, /JSON\\.stringify|localStorage\\.setItem|new Blob/);
-  assert.doesNotMatch(event, /JSON\\.stringify|localStorage\\.setItem|new Blob/);
-  assert.match(engine, /indexedDB\\.open/);
-  assert.match(engine, /now-gameLogLastPersist>10000/);
+  for (const hotPath of [capture, event]) {
+    assert.equal(hotPath.includes('JSON.stringify'), false);
+    assert.equal(hotPath.includes('localStorage.setItem'), false);
+    assert.equal(hotPath.includes('new Blob'), false);
+  }
+  assert.equal(engine.includes('indexedDB.open'), true);
+  assert.equal(engine.includes('now-gameLogLastPersist>10000'), true);
 });
 
 test('field atlas persistence is deferred while gameplay diagnostics are recording', async () => {
@@ -314,6 +317,5 @@ test('field atlas persistence is deferred while gameplay diagnostics are recordi
   const start = engine.indexOf('function persistFieldAtlas(');
   const end = engine.indexOf('function fieldCellAt(', start);
   const persist = engine.slice(start, end);
-  assert.match(persist, /if\\(gameLogRecording\\)/);
-  assert.match(persist, /fieldAtlas\\.persistPending=true/);
+  assert.equal(persist.includes('if(gameLogRecording){fieldAtlas.persistPending=true;return;}'), true);
 });
