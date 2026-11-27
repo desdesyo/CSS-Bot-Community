@@ -97,7 +97,7 @@ export function cameraRelativeMovement(yaw, forward, strafe) {
 
 
 /** Swept circular player-vs-AABB collision with axis sliding. */
-export function moveWithAabbCollisions(position, movement, colliders = [], radius = 0.36, playerHeight = 1.72, maxStep = 0.10) {
+export function moveWithAabbCollisions(position, movement, colliders = [], radius = 0.36, playerHeight = 1.72, maxStep = 0.10, spatialIndex = null) {
   const dx = Number.isFinite(movement.x) ? movement.x : 0;
   const dz = Number.isFinite(movement.z) ? movement.z : 0;
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / Math.max(0.02, maxStep)));
@@ -105,7 +105,12 @@ export function moveWithAabbCollisions(position, movement, colliders = [], radiu
   let x = position.x, z = position.z, blockedX = false, blockedZ = false;
   const blockedBy = new Set();
   const collides = (px, pz) => {
-    for (const box of colliders) {
+    // Query only the spatial cells touched by this candidate position. Passing the
+    // complete 600+ collider array here made every player substep scan the whole map.
+    const nearby = spatialIndex?.kind === 'solo-collision-index-v1'
+      ? queryCollisionSpatialIndex(spatialIndex, px-radius, px+radius, pz-radius, pz+radius)
+      : colliders;
+    for (const box of nearby) {
       if (box.maxY <= position.y - playerHeight + 0.04 || box.minY >= position.y - 0.04) continue;
       const nearestX = Math.max(box.minX, Math.min(px, box.maxX));
       const nearestZ = Math.max(box.minZ, Math.min(pz, box.maxZ));
