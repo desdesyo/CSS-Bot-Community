@@ -16,6 +16,10 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 - Adaptive resolution uses 2-second frame-time windows and a 95th-percentile frame-time target. Mobile scale is bounded to 72–100%; desktop 78–135%.
 - Minimal HUD telemetry: FPS, render scale and p95 frame time.
 
+## Deployment
+
+The default-branch workflow publishes the exact V2 revision only after `SOLO Engine V2 source checks` succeeds. It downloads the six licensed soldier GLBs and three matching Biped clips into the Pages artifact, then deploys through the `github-pages` environment. The publisher workflow lives on `main` so GitHub Pages branch/environment policy is evaluated against the default branch while the tested game source remains isolated on `feature/solo-engine-v2`.
+
 ## Run
 Open `/engine/v2/` on the published Pages site or serve the repository root over HTTP. The engine loads Babylon.js from its official CDN; an internet connection is required.
 
