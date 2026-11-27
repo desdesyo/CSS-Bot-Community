@@ -92,7 +92,7 @@ jobs:
           if (!html.includes('b.realRecoil=.18') || !html.includes('b.realRightArmBone.rotation.x') || !html.includes('b.realSpineBone.rotation.x')) throw new Error('Skinned soldier firing recoil must animate upper body bones');
           if (!html.includes('В браузер встроены 27 отдельных 3D-вариантов бойцов') || !html.includes('spawnWave();updateHud()') || !html.includes('id="operatorSelect"')) throw new Error('Training mode must expose the browser-native 27-character roster and selection');
           if (!html.includes('antialias:true') || !html.includes('qualityScale=isTouchDevice?1.0:1.25') || !html.includes('minQuality=isTouchDevice?.68:.78,maxQuality=isTouchDevice?1.0:1.5')) throw new Error('Adaptive render profile must allow mobile downscaling while preserving a quality floor');
-          if (!html.includes('minQuality=isTouchDevice?.68:.78') || !html.includes('measuredFps<38')) throw new Error('Adaptive render safety fallback and mobile quality floor are required');
+          if (!html.includes('minQuality=isTouchDevice?.68:.78') || !html.includes('p90>targetFrameMs*1.25')) throw new Error('Adaptive render safety fallback and mobile quality floor are required');
           if (!html.includes('aimRaycaster.intersectObjects(aimTargets,false)')) throw new Error('Aim raycast must use the static collider list');
           if (!html.includes('livingAllies=[],livingEnemies=[]') || !html.includes('b.losTimer=.14')) throw new Error('Bot AI work must reuse team lists and throttle line-of-sight checks');
           if (!html.includes('if(!isTouchDevice){const lamp=new THREE.PointLight')) throw new Error('Mobile point-light budget must be limited');
