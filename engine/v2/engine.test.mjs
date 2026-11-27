@@ -280,6 +280,7 @@ test('cloud host requests fullscreen capture and reports GPU/encoded stream diag
   assert.ok(host.includes('captureStream(60)'));
   assert.ok(host.includes('WEBGL_debug_renderer_info'));
   assert.ok(host.includes('framesPerSecond'));
+  assert.ok(host.includes('frames=s.framesEncoded||0'));
   assert.ok(host.includes('requestFullscreen'));
   assert.ok(page.includes('html:fullscreen iframe{height:100vh}'));
 });
