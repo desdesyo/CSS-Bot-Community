@@ -223,6 +223,7 @@ test('field developer builds a persistent walkable map atlas, records routes and
   assert.match(engine, /field-cover-observed/);
   assert.match(engine, /function finalizeFieldRoute\(\)/);
   assert.match(engine, /function applyLearnedRoutesToBots\(\)/);
+  assert.match(engine, /if\(bot\.developerRole==='field-developer'\)continue/);
   assert.match(engine, /ai-learned-route-assigned/);
   assert.match(engine, /field-developer-stuck/);
   assert.match(engine, /mapAtlas:\{/);
