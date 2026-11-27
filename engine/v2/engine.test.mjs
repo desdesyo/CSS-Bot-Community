@@ -326,7 +326,7 @@ test('Wet Ground bridge mouths are wide, visible, and have continuous road appro
   assert.match(map, /north bridge road approach/);
   assert.match(map, /south bridge road approach/);
   assert.match(map, /\[\[-40\.5,25\],\[0,24\],\[40\.5,25\]\]/);
-  assert.match(map, /barrier\.isVisible=false/);
+  assert.match(map, /barrier\.isVisible=true/);
   assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
 });
 test('Wet Ground adds grounded street interiors and outer rainy landscape without blocking routes', async () => {
