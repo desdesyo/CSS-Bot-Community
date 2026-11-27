@@ -577,8 +577,8 @@ test('renderer explicitly owns the active camera and initializes the map HUD bef
 test('release URLs invalidate cached engine and dependency modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(html, /import\('\.\/engine\.js\?v=20261128-0450-r2'\)/);
+  assert.match(html, /import\('\.\/engine\.js\?v=20261128-0450-r3'\)/);
   for (const moduleName of ['engine-core.mjs','human-bots.mjs','weapon-viewmodel.mjs','wet-ground-map.mjs']) {
-    assert.ok(engine.includes("./"+moduleName+"?v=20261128-0450-r2"), 'missing cache version for '+moduleName);
+    assert.ok(engine.includes("./"+moduleName+"?v=20261128-0450-r3"), 'missing cache version for '+moduleName);
   }
 });
