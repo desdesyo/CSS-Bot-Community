@@ -387,7 +387,10 @@ function updateBotMotion(dt) {
       const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},goal,bot.combatState==='patrol'?bot.speed:bot.speed*1.12,dt);
       const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:0,z:bot.root.position.z},{x:next.x-bot.root.position.x,z:next.z-bot.root.position.z},collisionBoxes,.38,1.72,.07);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
-      if((resolved.blockedX||resolved.blockedZ)&&dist>.8){bot.navPath=[];bot.navGoal=null;bot.repathAt=0;}
+      if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
+        if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,role:bot.developerRole||null,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
+        bot.blockedLogged=true;bot.navPath=[];bot.navGoal=null;bot.repathAt=0;
+      }else bot.blockedLogged=false;
       animateHumanBot(bot.rig,dist>.25,bot.speed>2.7);
     }else animateHumanBot(bot.rig,false,false);
     let lookAt=null;
@@ -806,10 +809,12 @@ async function submitIssueReport(){
 
 function startDeveloperRecorder(){
  if(gameLogRecording)return;
+ installInputDiagnostics();
  gameLogRecording=true;gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;
  gameLogEvent('field-developer-online',{botId:state.fieldDeveloperId??null,role:'autonomous-field-qa',mission:'collect-gameplay-diagnostics',uploadEveryRounds:5,roundsCompleted:developerRoundsCompleted});
  gameLogEvent('recording-start',{automatic:true,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();
  const btn=$('logsQuick');if(btn){btn.textContent='DEV '+developerRoundBatch.length+'/5';btn.title='Автосбор логов активен. Отправка каждые 5 раундов.';}
+ if(developerRoundBatch.length>=5)void uploadDeveloperDiagnosticsBatch();
 }
 function recordDeveloperRound(won){
  if(!gameLogRecording)startDeveloperRecorder();
