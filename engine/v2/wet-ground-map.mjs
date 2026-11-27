@@ -150,7 +150,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   for(const [x,label] of [[-20,'west'],[20,'east']]){
     // The bridge is a true north/south crossing: open ends face both river banks.
     // Side rails run parallel to the crossing and never form a wall across its mouth.
-    floor(label+' broad stone bridge deck',x,0,12,16,.22,stone);
+    floor(label+' arched stone bridge deck',x,0,12,16,.22,stone);
     for(const side of [-1,1]){
       const railX=x+side*5.72;
       box(label+' bridge side parapet',railX,.72,0,.32,.82,13.2,trim,false);
