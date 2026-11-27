@@ -44,7 +44,7 @@ function makeBot(id, team, x,z, waypoints) {
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
   const weapons=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,fireAt:0,deadAt:0,spawn:{x,z},waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol'});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol'});
   return root;
 }
 function buildBots() {
@@ -206,6 +206,7 @@ function updateBotAI() {
             const spread=isPistol?.026:.019;
             direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread*.7;direction.z+=(Math.random()-.5)*spread;direction.normalize();
             spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,isPistol?36:42,bot.id);
+            bot.weaponKick=Math.min(.16,bot.weaponKick+(isPistol?.09:.055));
           }
         }
       }
@@ -267,7 +268,9 @@ function updateBotMotion(dt) {
       const inverse=bot.root.getWorldMatrix().clone().invert();
       const local=BABYLON.Vector3.TransformCoordinates(bot.rightHand.getAbsolutePosition(),inverse);
       held.position.set(local.x+.02,local.y-.025,local.z+.05);
-      if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.combatState==='fire'?-0.08:0;}
+      bot.weaponKick=Math.max(0,(bot.weaponKick||0)-dt*.8);
+      held.rotation.x=-bot.weaponKick;
+      if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.combatState==='fire'?-0.08:bot.activeWeapon==='knife'?-0.16:0;}
     }
     bot.phase+=dt*7;
   }
@@ -326,7 +329,7 @@ function fire() {
   const slot=state.weaponSlot,rate=slot==='rifle'?105:slot==='pistol'?240:520;
   if(now-state.lastShot<rate)return;
   if(slot==='knife'){
-    state.lastShot=now;
+    state.lastShot=now;weaponViewmodel?.fire();
     const ray=camera.getForwardRay(2.1);
     const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&(m.name.startsWith('body-')||m.name.startsWith('head-')));
     if(hit?.hit&&hit.pickedMesh){
