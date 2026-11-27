@@ -112,7 +112,7 @@ function updateBotMotion(dt) {
 function fire() {
   const now=performance.now();if(now-state.lastShot<105||state.ammo<=0)return;
   state.lastShot=now;state.ammo--;const ray=camera.getForwardRay(95);
-  const hit=scene.pickWithRay(ray,m=>m.metadata?.breakableWindow===true||m.name.startsWith('body-')||m.name.startsWith('head-'));
+  const hit=scene.pickWithRay(ray,m=>m===state.playerHitbox||isMapSolid(m)||m.name.startsWith('body-')||m.name.startsWith('head-'));
   if(hit?.hit&&hit.pickedMesh) {
     const target=hit.pickedMesh;
     if(target.metadata?.breakableWindow){
