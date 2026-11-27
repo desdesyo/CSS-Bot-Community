@@ -4,7 +4,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
-import { buildWetStreetMap } from './wet-street-map.mjs';
+import { buildWetGroundMap } from './wet-ground-map.mjs';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -650,7 +650,7 @@ function drawMinimap(){
   // Collision silhouettes give the player an actual top-down map, not just radar dots.
   ctx.fillStyle='#9aa69b55';
   for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
-  ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('MOKRY POL',px(-5),py(-39));
+  ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('WET GROUND',px(-5),py(-39));
   ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.font='bold 7px system-ui';ctx.fillText('BIOSECURE / SERVER',px(-10),py(15));ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
@@ -708,7 +708,7 @@ const GAME_LOG_LIMIT=1200;
 const GAME_LOG_EVENT_LIMIT=1200;
 const GAME_DEV_STATE_KEY='solo_engine_v2_field_developer_v1';
 const GAME_FIELD_ATLAS_KEY='solo_engine_v2_field_atlas_v1';
-const FIELD_MAP_ID='mokry-pol-rainy-quarter-v1';
+const FIELD_MAP_ID='wet-ground-rainy-quarter-v1';
 const FIELD_CELL_SIZE=3;
 let developerSessionRounds=0,developerForceUpload=false;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
@@ -904,7 +904,7 @@ async function boot() {
     const sun=new B.DirectionalLight('moonlight',new B.Vector3(-.35,-1,.2),scene);sun.position=new B.Vector3(24,38,-18);sun.diffuse=new B.Color3(.22,.36,.62);sun.intensity=.34;
     shadowGen=new B.ShadowGenerator(mobile?512:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.blurKernel=mobile?0:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildWetStreetMap(B,scene,mobile,shadowGen);
+    buildWetGroundMap(B,scene,mobile,shadowGen);
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
