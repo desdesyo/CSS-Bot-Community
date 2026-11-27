@@ -342,6 +342,8 @@ function initInput() {
     camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+Math.max(-.25,Math.min(.25,Number(input.lookY)||0))));
     state.fireTouch=input.fire===true;state.firing=state.fireMouse||state.fireTouch||state.gamepad.fire;
     if(input.reload===true)reload();
+    if(['rifle','pistol','grenade','knife'].includes(input.weapon))selectWeapon(input.weapon);
+    state.gamepad.sprint=input.sprint===true;
     if(input.jump===true&&state.started&&state.gamepad.jumpOffset<=.01&&state.gamepad.jumpVelocity<=0)state.gamepad.jumpVelocity=5.1;
   });
   window.addEventListener('gamepadconnected',e=>{state.gamepad.index=e.gamepad.index;const n=$('padStatus');if(n)n.textContent='PAD: CONNECTED';});
