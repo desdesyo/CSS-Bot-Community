@@ -705,7 +705,7 @@ const GAME_LOG_BRANCH='feature/solo-engine-v2';
 const GAME_LOG_LIMIT=1200;
 const GAME_LOG_EVENT_LIMIT=1200;
 const GAME_FIELD_ATLAS_KEY='solo_engine_v2_field_atlas_v1';
-const FIELD_MAP_ID='wet-ground-rainy-quarter-v1';
+const FIELD_MAP_ID='wet-ground-street-panorama-v2';
 const FIELD_CELL_SIZE=3;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
 let fieldWalkableCells=null,fieldExploreLastPlan=0;
