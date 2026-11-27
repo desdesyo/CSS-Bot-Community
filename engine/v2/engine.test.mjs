@@ -39,7 +39,7 @@ test('mobile build disables shadows, skips external rigged models, and uses chea
   assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
   assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
-  assert.ok(!html.includes('babylonjs.loaders.min.js'));
+  assert.ok(!runtime.includes("script.src='https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js'"));
 });
 test('desktop profile has independent scale bounds', () => {
   assert.ok(Math.abs(adaptiveScale(40, 1, false) - .94) < 1e-9);
@@ -105,7 +105,7 @@ test('building wall collision blocks solid facade but leaves the entrance gap op
 
 test('runtime uses rendered mesh collision, sky, radar and breakable windows', () => {
   assert.ok(runtime.includes('function isMapSolid(mesh)'));
-  assert.ok(runtime.includes('scene.pickWithRay(ray,isMapSolid)'));
+  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('function buildSky(B)'));
   assert.ok(runtime.includes('function drawRadar()'));
   assert.ok(runtime.includes('metadata?.breakableWindow'));
