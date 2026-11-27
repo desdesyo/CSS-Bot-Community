@@ -214,7 +214,7 @@ test('field developer preserves pending reports locally if GitHub upload cannot 
 test('field developer builds a persistent walkable map atlas, records routes and cover, and explores unvisited cells', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /GAME_FIELD_ATLAS_KEY/);
-  assert.match(engine, /FIELD_MAP_ID='industrial-district-v1'/);
+  assert.match(engine, /FIELD_MAP_ID='mokry-pol-rainy-quarter-v1'/);
   assert.match(engine, /function buildFieldWalkableCells\(\)/);
   assert.match(engine, /function chooseFieldExploreGoal\(bot,now\)/);
   assert.match(engine, /findPathAStar\(here,\{x:cell\.x,z:cell\.z\}/);
