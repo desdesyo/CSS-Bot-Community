@@ -266,6 +266,9 @@ test('Wet Ground renderer enables image-based reflections for physically based m
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /CubeTexture\.CreateFromPrefilteredData/);
   assert.match(engine, /environmentSpecular\.env/);
+  assert.match(engine, /cobblestone_street_night_1k\.hdr/);
+  assert.match(engine, /HDRCubeTexture/);
+  assert.match(engine, /onLoadObservable/);
   assert.match(engine, /scene\.environmentIntensity=mobile\?\.62:\.88/);
 });
 
