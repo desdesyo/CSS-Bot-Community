@@ -264,6 +264,19 @@ test('Wet Ground district has curved masonry bridges, a walkable service tunnel 
   assert.match(map, /plastered_wall_05/);
   assert.match(map, /mobile\?'1k':'2k'/);
 });
+test('photographic facade PBR maps are applied after procedural fallbacks and survive material freezing', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  const relief = map.indexOf('for(const [material,kind] of [[plaster');
+  const scanned = map.indexOf("loadScannedPbr(plaster,'plastered_wall_05'");
+  assert.ok(relief > 0 && scanned > relief, 'scanned maps must be attached after generated fallback relief');
+  assert.match(map, /bind\('ambientTexture','ao',false\)/);
+  assert.match(map, /material\.unfreeze\?\.\(\)/);
+  assert.match(map, /material\.markAsDirty\?\.\(B\.Material\.TextureDirtyFlag\)/);
+  assert.match(map, /weathered slate roof shingle albedo/);
+  assert.match(map, /overlapping slate roof tile/);
+  assert.match(map, /slate roof course seam/);
+});
+
 test('Wet Ground renderer enables image-based reflections for physically based materials', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /CubeTexture\.CreateFromPrefilteredData/);
