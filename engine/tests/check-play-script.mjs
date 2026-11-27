@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const playSource = readFileSync(resolve(root, 'play.html'), 'utf8');
+const sceneDeclaration = playSource.indexOf('const scene=new THREE.Scene()');
+if (sceneDeclaration < 0) throw new Error('SOLO scene declaration is missing');
+if (playSource.includes('disableShadowCasters(scene)')) throw new Error('Unsafe scene traversal during startup is forbidden');
+const firstSceneUse = playSource.indexOf('scene.add(');
+if (firstSceneUse >= 0 && firstSceneUse < sceneDeclaration) throw new Error('Scene is used before initialization');
 for (const file of ['play.html', 'import.html']) {
   const html = readFileSync(resolve(root, file), 'utf8');
   const scripts = [...html.matchAll(/<script(?:\s+type="(module)")?>([\s\S]*?)<\/script>/g)];
