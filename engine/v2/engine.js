@@ -1,9 +1,9 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn } from './engine-core.mjs';
-import { loadHumanBotAssets, createHumanBot, animateHumanBot } from './human-bots.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0 };
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar } from './engine-core.mjs';
+import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -11,7 +11,7 @@ function mat(name, color, roughness=0.8, metallic=0) {
   return m;
 }
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
-let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn={x:0,z:-41};
+let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn={x:0,z:-41}, projectileMaterial;
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
   m.position.set(x,y,z); m.material=material; m.receiveShadows=true; m.checkCollisions=!!collide;
@@ -40,10 +40,10 @@ function buildMap() {
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
-  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets);
+  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
   const rifle=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,rifle,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,rifle,rightHand:human.rig.rightHand,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0,deadAt:0,spawn:{x,z},navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol'});
   return root;
 }
 function buildBots() {
@@ -423,6 +423,7 @@ function updatePlayer(dt) {
     weaponRoot.position.x=.18+Math.cos(state.simTime*5)*.009*moving;
   }
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
+  if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
 function toggleFullscreen(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
@@ -437,11 +438,11 @@ function endRound(won){
 function start() {
   if(state.playerDead){
     state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=90;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
-    for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;}
+    for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='01:30';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,0,0);
+  state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
   if(!mobile)canvas.requestPointerLock?.();
 }
 
@@ -557,9 +558,10 @@ async function boot() {
     camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.68;hemi.diffuse=new B.Color3(.77,.81,.83);hemi.groundColor=new B.Color3(.24,.25,.22);
     const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
-    shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
+    shadowGen=new B.ShadowGenerator(mobile?512:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.blurKernel=mobile?0:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildMap();
+    state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=0;state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     playerSpawn=findSafePlayerSpawn([{x:0,z:-41},{x:0,z:40},{x:-50,z:0},{x:50,z:0},{x:-48,z:-38},{x:48,z:-38},{x:-48,z:38},{x:48,z:38}],collisionBoxes,.36,1.72,0)||{x:0,z:-41};
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
