@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward } from './engine.js';
+import { adaptiveScale, moveToward } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.equal(adaptiveScale(55, .9, true), .84);
