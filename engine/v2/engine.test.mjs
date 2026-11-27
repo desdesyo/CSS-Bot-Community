@@ -55,6 +55,13 @@ test('player collision stops movement at a wall without tunnelling', () => {
   assert.equal(result.blockedZ,true);
   assert.deepEqual(result.blockedBy,['wall']);
 });
+test('bot eye-height collision uses the same wall volume as player collision', () => {
+  const wall = [{ name:'building facade', minX:-5, maxX:5, minY:0, maxY:4.4, minZ:2, maxZ:2.5 }];
+  const result = moveWithAabbCollisions({x:0,y:1.72,z:0},{x:0,z:5},wall,.38,1.72,.07);
+  assert.ok(result.z < 1.65);
+  assert.equal(result.blockedZ,true);
+  assert.deepEqual(result.blockedBy,['building facade']);
+});
 test('player collision slides along a wall', () => {
   const wall = [{ name:'wall', minX:-5, maxX:5, minY:0, maxY:4, minZ:2, maxZ:2.5 }];
   const result = moveWithAabbCollisions({x:0,y:1.72,z:0},{x:2,z:3},wall,.36,1.72,.1);
@@ -476,4 +483,21 @@ test('spatial collision index returns only nearby blockers without duplicates', 
   const index=buildCollisionSpatialIndex(boxes,8);
   const found=queryCollisionSpatialIndex(index,-2,8,-2,3);
   assert.deepEqual(found.map(b=>b.name).sort(),['edge','near']);
+});
+
+
+test('mobile scene batches late-authored static map details without dropping dynamic effects', async () => {
+  const source = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(source, /lateStaticStart/);
+  assert.match(source, /late static batch/);
+  assert.match(source, /expanding rain impact ring/);
+  assert.match(source, /wetMirror\.renderList=scene\.meshes\.filter/);
+});
+test('bot movement passes eye height to the collision solver', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /moveWithAabbCollisions\(\{x:bot\.root\.position\.x,y:1\.72,z:bot\.root\.position\.z\}/);
+});
+test('spectator and timed round result UI exists in the shipped page', async () => {
+  const source = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  for (const id of ['spectatorHud','spectatorLabel','spectatorPrev','spectatorNext','roundEnd','roundWinner','roundReason','roundCountdown']) assert.match(source, new RegExp('id="'+id+'"'));
 });
