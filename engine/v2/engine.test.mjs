@@ -34,7 +34,8 @@ test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(12, .79, true) - .8) < 1e-9);
 });
 test('mobile build disables shadows, skips external rigged models, and uses cheap map collision',()=>{
-  assert.ok(runtime.includes('shadowGen=mobile?null:new B.ShadowGenerator(1024,sun)'));
+  assert.ok(runtime.includes("const cloudHost = new URLSearchParams(location.search).get('cloudHost') === '1'"));
+  assert.ok(runtime.includes('shadowGen=mobile?null:new B.ShadowGenerator(cloudHost?4096:2048,sun)'));
   assert.ok(runtime.includes("if(mobile){$('loadState').textContent='Мобильный профиль: облегчённые бойцы без тяжёлых GLB-моделей.';return false;}"));
   assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
