@@ -907,6 +907,15 @@ async function boot() {
     scene.imageProcessingConfiguration.exposure=1.22;scene.imageProcessingConfiguration.contrast=1.12;
     scene.imageProcessingConfiguration.vignetteEnabled=true;scene.imageProcessingConfiguration.vignetteWeight=.12;scene.imageProcessingConfiguration.vignetteColor=new B.Color4(.015,.03,.05,0);
     scene.environmentIntensity=mobile?.9:1.15;
+    // Real image-based lighting supplies physically plausible highlights to wet stone,
+    // glazing and metal while the hand-authored sky remains the visible atmosphere.
+    try {
+      scene.environmentTexture=B.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',scene);
+      scene.environmentTexture.gammaSpace=false;
+      scene.environmentIntensity=mobile?.62:.88;
+    } catch(environmentError) {
+      console.warn('SOLO environment reflections unavailable; direct lighting remains active.',environmentError);
+    }
     camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     // The map owns the textured skybox. A second giant solid sphere caused the
     // false black-ceiling look and competed with the horizon gradient.
