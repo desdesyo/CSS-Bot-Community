@@ -154,7 +154,7 @@ test('spawn compounds keep both factions separated by a long approach', () => {
 test('mobile HUD controls stay above the look touch surface', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const mapModule = await import('./wet-ground-map.mjs');
-  assert.equal(typeof mapModule.buildWetStreetMap, 'function');
+  assert.equal(typeof mapModule.buildWetGroundMap, 'function');
   const css = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
   const rule = selector => css.match(new RegExp(selector + '\\{([^}]*)\\}'));
   const actions = rule('#actions')?.[1] ?? '';
@@ -255,7 +255,7 @@ test('Wet Ground is the active rain-quarter map with persistent route atlas iden
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(engine, /buildWetGroundMap\\(B,scene,mobile,shadowGen\\)/);
+  assert.match(engine, /buildWetGroundMap\(B,scene,mobile,shadowGen\)/);
   assert.match(engine, /wet-ground-rainy-quarter-v1/);
   assert.match(map, /canal deep water/);
   assert.match(map, /arched stone bridge deck/);
