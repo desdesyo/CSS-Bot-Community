@@ -6,7 +6,7 @@ on:
       - "engine/client/**"
       - "engine/play.html"
       - "engine/import.html"
-      - "engine/v2/**"
+      - "engine/v2/**"\n      - "engine/cloud/**"
       - ".github/workflows/publish-solo-demo.yml"
   workflow_dispatch:
 permissions:
