@@ -339,23 +339,30 @@ function fire() {
   const slot=state.weaponSlot,rate=slot==='rifle'?105:slot==='pistol'?240:520;
   if(now-state.lastShot<rate)return;
   if(slot==='knife'){
-    state.lastShot=now;weaponViewmodel?.fire();
-    const ray=camera.getForwardRay(2.1);
-    const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&(m.name.startsWith('body-')||m.name.startsWith('head-')));
-    if(hit?.hit&&hit.pickedMesh){
-      const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-      if(bot&&bot.team==='enemy'&&bot.alive)damageBot(bot,100,true)
-    }
+    if(!weaponViewmodel?.fire())return;
+    state.lastShot=now;
+    gameLogEvent('melee-swing-start',{source:state.fireInputSource||'loop',slot,range:2.1});
     return;
   }
   if(state.weaponAmmo[slot]<=0){if(state.weaponReserve[slot]>0)reload();return;}
   state.lastShot=now;state.weaponAmmo[slot]--;
   gameLogEvent('shot-fired',{source:state.fireInputSource||'loop',slot,ammo:state.weaponAmmo[slot],yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3)});
   const ray=camera.getForwardRay(1);
-  const origin=slot==='rifle'&&muzzleFlash?muzzleFlash.getAbsolutePosition().clone():camera.position.add(ray.direction.scale(.7));
+  const muzzleNode=slot==='rifle'?weaponViewmodel?.muzzleFlash:weaponViewmodel?.pistolFlash;
+  const origin=muzzleNode?.getAbsolutePosition().clone()||camera.position.add(ray.direction.scale(.7));
   spawnProjectile(origin,ray.direction,'ally',slot==='rifle'?125:105,'player');
   weaponViewmodel?.fire();
   $('ammo').textContent=state.weaponAmmo[slot]+' / '+state.weaponReserve[slot];
+}
+function resolvePlayerMeleeImpact(){
+  if(!weaponViewmodel?.consumeMeleeHit())return;
+  const ray=camera.getForwardRay(2.1);
+  const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&(m.name.startsWith('body-')||m.name.startsWith('head-')));
+  if(hit?.hit&&hit.pickedMesh){
+    const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
+    if(bot&&bot.team==='enemy'&&bot.alive){damageBot(bot,100,true);gameLogEvent('melee-hit',{target:bot.id,distance:hit.distance});return;}
+  }
+  gameLogEvent('melee-miss',{range:2.1});
 }
 function reload(){
   const slot=state.weaponSlot,max=slot==='rifle'?30:12;
@@ -638,7 +645,7 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
       if(state.started) {
-        updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0));updateAimAssist(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0));resolvePlayerMeleeImpact();updateAimAssist(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         if(state.roundTime<=0)endRound(false);
