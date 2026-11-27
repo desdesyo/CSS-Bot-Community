@@ -293,7 +293,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     if (reloadT > 0) reloadT = Math.max(0,reloadT-d);
     const r = smooth(reloadProgress);
     root.position.x = initial.x + Math.sin(walking*.5)*.004*moving;
-    root.position.y = initial.y + bob - r*.07 + recoil*.012;
+    root.position.y = initial.y + bob - r*.07 + recoil*.012 - Math.sin(switchT*Math.PI)*.035;
     root.position.z = initial.z - recoil*.12;
     root.rotation.x = recoil*.035 + Math.sin(time*1.7)*.003;
     rifle.rotation.x = selected==='rifle'?recoil*.045:0;
@@ -310,7 +310,6 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     rightArm.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.62 : reloadDip*(selected==='pistol'?.72:.52);
     rightArm.rotation.z = selected==='knife' ? -.18 : -reloadDip*.22;
     leftArm.rotation.x = selected==='knife' ? .12 : reloadDip*.12;
-    root.position.y -= switchDip*.035;
     stock.rotation.x = recoil*.018;
   }
   function select(slot) {
