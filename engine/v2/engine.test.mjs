@@ -167,3 +167,20 @@ test('mobile HUD controls stay above the look touch surface', async () => {
   assert.match(weaponBar, /z-index:13/);
   assert.match(overlay, /z-index:20/);
 });
+
+test('player bullets use center-screen hitscan and tracer projectiles cannot double-damage', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /function resolvePlayerHitscan\(slot\)/);
+  assert.match(engine, /camera\.getForwardRay\(120\)/);
+  assert.match(engine, /resolvePlayerHitscan\(slot\);[\s\S]*spawnProjectile\(origin,ray\.direction,'ally',[^;]*,'player',0\)/);
+  assert.match(engine, /p\.damage>0/);
+  assert.match(engine, /gameLogEvent\('shot-hit'/);
+  assert.match(engine, /gameLogEvent\('shot-miss'/);
+});
+
+test('knife attacks clear firearm recoil and use a dedicated melee swing', async () => {
+  const viewmodel = await readFile(new URL('./weapon-viewmodel.mjs', import.meta.url), 'utf8');
+  assert.match(viewmodel, /selected === 'knife'[\s\S]*recoil = 0; fireT = 0; shotFlash = 0/);
+  assert.match(viewmodel, /meleeT = 1; meleeHitPending = true/);
+  assert.match(viewmodel, /if \(slot==='knife'\)[\s\S]*recoil=0;fireT=0;shotFlash=0/);
+});
