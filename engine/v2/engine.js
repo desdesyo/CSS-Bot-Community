@@ -3,6 +3,18 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?1:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
+const PLAYER_BLOCKERS = [
+  [-22,-18,9,1],[22,-18,9,1],[-22,17,9,1],[22,17,9,1],[0,-30,1,9],[0,30,1,9],[-39,0,1,11],[39,0,1,11],
+  [-12,-9,1.55,1.55],[12,-9,1.55,1.55],[-12,10,1.55,1.55],[12,10,1.55,1.55],[-31,-22,1.55,1.55],[31,-22,1.55,1.55],[-31,22,1.55,1.55],[31,22,1.55,1.55],[-3,0,1.55,1.55],[3,0,1.55,1.55],
+  [-8,-27,2.8,1],[8,-27,2.8,1],[-8,27,2.8,1],[8,27,2.8,1]
+];
+function isPlayerBlocked(x,z) {
+  for(let i=0;i<PLAYER_BLOCKERS.length;i++){
+    const r=PLAYER_BLOCKERS[i];
+    if(Math.abs(x-r[0])<r[2]+.38&&Math.abs(z-r[1])<r[3]+.38)return true;
+  }
+  return false;
+}
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
   m.albedoColor = BABYLON.Color3.FromHexString(color); m.roughness = roughness; m.metallic = metallic;
@@ -120,15 +132,9 @@ function updatePlayer(dt) {
   const yaw=camera.rotation.y;
   const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
   const dz=(Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
-  const blocked=(x,z)=> {
-    const rects=[[-22,-18,9,1],[22,-18,9,1],[-22,17,9,1],[22,17,9,1],[0,-30,1,9],[0,30,1,9],[-39,0,1,11],[39,0,1,11],
-      [-12,-9,1.55,1.55],[12,-9,1.55,1.55],[-12,10,1.55,1.55],[12,10,1.55,1.55],[-31,-22,1.55,1.55],[31,-22,1.55,1.55],[-31,22,1.55,1.55],[31,22,1.55,1.55],[-3,0,1.55,1.55],[3,0,1.55,1.55],
-      [-8,-27,2.8,1], [8,-27,2.8,1],[-8,27,2.8,1],[8,27,2.8,1]];
-    return rects.some(([cx,cz,hx,hz])=>Math.abs(x-cx)<hx+.38&&Math.abs(z-cz)<hz+.38);
-  };
   const nextX=Math.max(-53,Math.min(53,camera.position.x+dx)),nextZ=Math.max(-42,Math.min(42,camera.position.z+dz));
-  if(!blocked(nextX,camera.position.z))camera.position.x=nextX;
-  if(!blocked(camera.position.x,nextZ))camera.position.z=nextZ;
+  if(!isPlayerBlocked(nextX,camera.position.z))camera.position.x=nextX;
+  if(!isPlayerBlocked(camera.position.x,nextZ))camera.position.z=nextZ;
 }
 function start() {
   state.started=true;overlay.style.display='none';camera.position.set(0,1.72,38);camera.rotation.set(0,Math.PI,0);
