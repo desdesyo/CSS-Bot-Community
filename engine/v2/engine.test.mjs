@@ -492,6 +492,8 @@ test('mobile scene batches late-authored static map details without dropping dyn
   assert.match(source, /late static batch/);
   assert.match(source, /expanding rain impact ring/);
   assert.match(source, /wetMirror\.renderList=scene\.meshes\.filter/);
+  assert.match(source, /Map-authored parent transforms are static/);
+  assert.doesNotMatch(source, /if\(mesh\.parent\|\|mesh\.material\.alpha/);
 });
 test('bot movement passes eye height to the collision solver', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
