@@ -153,7 +153,7 @@ test('spawn compounds keep both factions separated by a long approach', () => {
 
 test('mobile HUD controls stay above the look touch surface', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const mapModule = await import('./wet-street-map.mjs');
+  const mapModule = await import('./wet-ground-map.mjs');
   assert.equal(typeof mapModule.buildWetStreetMap, 'function');
   const css = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
   const rule = selector => css.match(new RegExp(selector + '\\{([^}]*)\\}'));
@@ -216,7 +216,7 @@ test('field developer preserves pending reports locally if GitHub upload cannot 
 test('field developer builds a persistent walkable map atlas, records routes and cover, and explores unvisited cells', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /GAME_FIELD_ATLAS_KEY/);
-  assert.match(engine, /FIELD_MAP_ID='mokry-pol-rainy-quarter-v1'/);
+  assert.match(engine, /FIELD_MAP_ID='wet-ground-rainy-quarter-v1'/);
   assert.match(engine, /function buildFieldWalkableCells\(\)/);
   assert.match(engine, /function chooseFieldExploreGoal\(bot,now\)/);
   assert.match(engine, /findPathAStar\(here,\{x:cell\.x,z:cell\.z\}/);
@@ -251,18 +251,18 @@ test('engine entrypoint remains valid JavaScript after stripping browser-only im
 });
 
 
-test('Mokry Pol is the active map, with rain-quarter geometry and persistent route atlas identity', async () => {
+test('Wet Ground is the active rain-quarter map with persistent route atlas identity', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const map = await readFile(new URL('./wet-street-map.mjs', import.meta.url), 'utf8');
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(engine, /buildWetStreetMap\(B,scene,mobile,shadowGen\)/);
-  assert.match(engine, /mokry-pol-rainy-quarter-v1/);
+  assert.match(engine, /buildWetGroundMap\\(B,scene,mobile,shadowGen\\)/);
+  assert.match(engine, /wet-ground-rainy-quarter-v1/);
   assert.match(map, /canal deep water/);
   assert.match(map, /arched stone bridge deck/);
   assert.match(map, /procedural wet cobblestone/);
   assert.match(map, /warm street lantern/);
   assert.match(map, /alley low stone divider/);
-  assert.match(html, /MOKRY POL/);
+  assert.match(html, /WET GROUND/);
 });
 
 test('real rigged soldier models are mandatory; primitive placeholder soldiers are forbidden', async () => {
