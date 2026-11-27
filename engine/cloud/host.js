@@ -1,7 +1,8 @@
 const qs = new URLSearchParams(location.search);
 const room = (qs.get('room') || '').toUpperCase();
 const signalUrl = qs.get('signal') || 'wss://YOUR-SIGNAL-HOST.example';
-const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';\nconst autoStart = qs.get('autostart') === '1';
+const token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+const autoStart = qs.get('autostart') === '1';
 const status = document.getElementById('status');
 const frame = document.getElementById('game');
 let socket, pc, stream, peerReady = false, videoSender = null, lastStats = null; const pendingIce = [];
