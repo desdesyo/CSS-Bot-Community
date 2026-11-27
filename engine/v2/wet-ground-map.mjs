@@ -6,10 +6,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const mapStart=scene.meshes.length;
   const C = B.Color3;
   const mat = (name, hex, roughness=.88, metallic=0) => {
-    const m = mobile ? new B.StandardMaterial(name, scene) : new B.PBRMaterial(name, scene);
+    const m = new B.PBRMaterial(name, scene);
     const color = C.FromHexString(hex);
-    if (m.albedoColor !== undefined) { m.albedoColor=color; m.roughness=roughness; m.metallic=metallic; }
-    else { m.diffuseColor=color; m.specularColor=new C(.42,.46,.5); m.specularPower=96; }
+    m.albedoColor=color; m.roughness=mobile?Math.max(.24,roughness):roughness; m.metallic=metallic;
+    m.environmentIntensity=mobile?.8:1.15; m.directIntensity=1.05; m.emissiveIntensity=1;
+    if(m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.18;m.clearCoat.roughness=.28;}
     return m;
   };
   const plaster=mat('wet blue-gray plaster','#303f50',.92);
@@ -20,11 +21,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glass=mat('midnight window glass','#101d2d',.16,.42);
   const roof=mat('slate roofs','#202b39',.92);
   const amber=mat('warm lamp glass','#ffd49a',.25);
-  const water=mat('canal deep water','#071a2a',.12,.58);
+  const water=mat('canal deep water','#102b3d',.075,.32);
   water.diffuseColor && (water.diffuseColor=new C(.035,.11,.18));
   if(water.albedoColor) water.albedoColor=new C(.035,.11,.18);
   if(water.emissiveColor) water.emissiveColor=new C(.008,.025,.05);
-  const cobble=mat('Wet Ground wet cobblestone PBR','#344251',.2,.12);
+  const cobble=mat('Wet Ground wet cobblestone PBR','#43596b',.13,.16);
   const makeCobbleTexture = () => {
     const size=mobile?1024:2048, tex=new B.DynamicTexture('procedural wet cobblestone', {width:size,height:size}, scene, false);
     const ctx=tex.getContext(), rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
@@ -129,20 +130,20 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     return {face};
   };
   const blocks=[
-    ['west tenement A',-17,-29,10,15,8.2,plaster,'west'],
-    ['west tenement B',-17,-9,10,15,7.4,stone,'west'],
-    ['west tenement C',-17,15,10,16,8.5,brick,'west'],
-    ['west tenement D',-17,34,10,12,7.2,plaster,'west'],
-    ['east tenement A',17,-29,10,15,7.6,stone,'east'],
-    ['east tenement B',17,-9,10,15,8.4,plaster,'east'],
-    ['east tenement C',17,15,10,16,7.3,brick,'east'],
-    ['east tenement D',17,34,10,12,8.1,stone,'east']
+    ['west tenement A',-18,-30,12,14,8.2,plaster,'west'],
+    ['west tenement B',-16,-8,9,13,7.4,stone,'west'],
+    ['west tenement C',-18,15,12,17,8.5,brick,'west'],
+    ['west tenement D',-16,34,9,11,7.2,plaster,'west'],
+    ['east tenement A',18,-30,9,14,7.6,stone,'east'],
+    ['east tenement B',17,-8,12,16,8.4,plaster,'east'],
+    ['east tenement C',18,16,9,13,7.3,brick,'east'],
+    ['east tenement D',16,35,12,11,8.1,stone,'east']
   ];
   for(const args of blocks) building(...args);
   // Secondary rows define side streets while preserving multiple walkable cut-throughs.
   for(const [x,z,w,d,h] of [
-    [-38,-27,10,16,6.6],[-38,-5,10,15,7.2],[-38,18,10,15,6.8],[-38,36,10,10,6.4],
-    [38,-27,10,16,7.1],[38,-5,10,15,6.7],[38,18,10,15,7.4],[38,36,10,10,6.5]
+    [-39,-29,11,13,6.6],[-37,-6,9,17,7.2],[-40,19,12,13,6.8],[-37,36,9,10,6.4],
+    [39,-28,9,14,7.1],[40,-5,12,16,6.7],[37,18,9,16,7.4],[39,36,12,10,6.5]
   ]) building('outer quarter row',x,z,w,d,h,brick,x<0?'west':'east');
   // Alleys are real openings between blocks; short walls, gates, bins and stoops create cover.
   for(const [x,z,w,d] of [[-11,-19,1,5],[-11,5,1,5],[-11,27,1,5],[11,-19,1,5],[11,5,1,5],[11,27,1,5],[-31,-16,1,6],[31,16,1,6]]){
@@ -159,10 +160,29 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   const puddle=mat('shallow rain puddle','#172c40',.08,.3);
   if(puddle.emissiveColor)puddle.emissiveColor=new C(.012,.025,.045);
-  for(const [x,z,w,d] of [[-4,-31,2.6,1.2],[4,-18,1.9,.8],[-3,-8,2.1,.7],[3,12,2.8,1.1],[-4,25,1.7,.9],[4,36,2.2,1]]){
+  for(const [x,z,w,d] of [[-4,-35,3.8,1.55],[4,-29,2.7,1.1],[-3,-18,3.1,1.2],[4,-11,2.5,1.0],[-4,-4,3.6,1.35],[3,7,2.8,1.15],[-4,16,3.2,1.25],[4,25,2.6,1.0],[-3,34,3.8,1.5],[7,39,2.4,.9]]){
     const p=B.MeshBuilder.CreateDisc('irregular rain puddle',{radius:1,tessellation:24},scene);
     p.scaling.set(w,.01,d);p.position.set(x,.065,z);p.material=puddle;p.isPickable=false;
   }
+  // A single planar reflection pass gives the wet street and canal real building/light reflections.
+  // It is deliberately low-resolution and refreshed less often on phones.
+  let wetMirror=null;
+  if(B.MirrorTexture){
+    wetMirror=new B.MirrorTexture('rain-soaked street planar reflections',new B.Vector2(mobile?256:768,mobile?256:768),scene,true);
+    wetMirror.mirrorPlane=new B.Plane(0,-1,0,-.075);
+    wetMirror.level=mobile?.24:.38;
+    wetMirror.blurKernel=mobile?18:28;
+    wetMirror.refreshRate=mobile?4:2;
+    wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
+      if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed'))return false;
+      mesh.computeWorldMatrix(true);
+      return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;
+    });
+    cobble.reflectionTexture=wetMirror;
+    water.reflectionTexture=wetMirror;
+    puddle.reflectionTexture=wetMirror;
+  }
+
   // Warm wall lamps and old cast-iron street lanterns, with tightly budgeted light count.
   const lampMat=mat('lamp bronze','#252a31',.38,.7),glow=mat('amber glowing glass','#ffbf72',.22);
   if(glow.emissiveColor)glow.emissiveColor=new C(1,.48,.16);
@@ -183,6 +203,44 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   for(const z of [-34,-20,16,31]){lamp(-8.9,z);lamp(8.9,z);}
   for(const z of [-30,-8,18,35]){lamp(-11.6,z,true);lamp(11.6,z,true);}
+
+  // Wet-night storefronts: readable pools of amber/cyan light, not a uniformly dark box.
+  const neonCyan=mat('cyan shop sign emission','#56dff2',.24);
+  const neonAmber=mat('amber shop sign emission','#ffd18a',.24);
+  const neonRed=mat('red pharmacy sign emission','#ff625e',.28);
+  for(const [x,z,w,signMat] of [[-11.2,-25,4.8,neonAmber],[11.2,-13,4.2,neonCyan],[-11.2,10,5.2,neonRed],[11.2,29,4.6,neonAmber]]){
+    box('illuminated shop sign backing',x,3.55,z,w,.72,.16,iron,false);
+    box('illuminated shop sign face',x,3.56,z-.105,w-.24,.48,.035,signMat,false);
+    box('shop awning',x,2.85,z+(.6),w+.45,.16,1.05,brick,false);
+    for(let i=-2;i<=2;i++)box('awning rib',x+i*w/5,2.76,z+.6,.035,.08,1.05,trim,false);
+  }
+  // A rain-dark delivery van and loading details break up the repeated block rhythm.
+  const vanBody=mat('delivery van dark teal paint','#263d43',.3,.42);
+  const vanGlass=mat('delivery van smoked glass','#142c38',.12,.5);
+  const vanWheel=mat('delivery van rubber','#101519',.94);
+  const van=(x,z,rot=0)=>{
+    const root=new B.TransformNode('parked delivery van',scene);root.position.set(x,0,z);root.rotation.y=rot;
+    const part=(name,px,py,pz,w,h,d,m)=>{const q=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);q.parent=root;q.position.set(px,py,pz);q.material=m;q.isPickable=false;return q;};
+    part('van lower body',0,.82,0,2.15,1.35,4.25,vanBody);
+    part('van cargo roof',0,1.72,.2,2.05,.55,2.85,vanBody);
+    part('van windscreen',0,1.55,-1.93,1.82,.82,.045,vanGlass);
+    part('van side window',1.09,1.53,-1.12,.035,.55,1.1,vanGlass);
+    for(const xx of [-.82,.82])for(const zz of [-1.42,1.42]){
+      const wheel=B.MeshBuilder.CreateCylinder('van tire',{diameter:.76,height:.22,tessellation:16},scene);
+      wheel.parent=root;wheel.rotation.z=Math.PI/2;wheel.position.set(xx,.42,zz);wheel.material=vanWheel;wheel.isPickable=false;
+    }
+    root.computeWorldMatrix(true);
+  };
+  van(-31,-20,-.08);van(31,8,Math.PI+.04);
+  // Rain chains, balcony details and fire escapes create layered facades and silhouettes.
+  for(const [x,z] of [[-18,-30],[18,-8],[-18,15],[18,35]]){
+    for(const level of [4.0,6.3]){
+      box('fire escape landing',x+(x<0?5.3:-5.3),level,z,1.25,.12,3.2,iron,false);
+      box('fire escape outer rail',x+(x<0?5.9:-5.9),level+.42,z, .08,.84,3.2,trim,false);
+      for(const dz of [-1.4,0,1.4])box('fire escape baluster',x+(x<0?5.9:-5.9),level+.2,z+dz,.05,.4,.05,iron,false);
+    }
+  }
+
   // Short footbridges and service crossings along the embankment.
   for(const x of [-44,44]){
     floor('riverside stone landing',x,0,5,11,.16,stone);
