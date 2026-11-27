@@ -497,8 +497,9 @@ test('mobile scene batches late-authored static map details without dropping dyn
   assert.match(source, /late static batch/);
   assert.match(source, /expanding rain impact ring/);
   assert.match(source, /wetMirror\.renderList=scene\.meshes\.filter/);
-  assert.match(source, /Map-authored parent transforms are static/);
-  assert.doesNotMatch(source, /if\(mesh\.parent\|\|mesh\.material\.alpha/);
+  assert.match(source, /Do not merge parented meshes/);
+  assert.match(source, /mesh\.computeWorldMatrix\(true\)/);
+  assert.match(source, /mesh\.parent\|\|mesh\.skeleton\|\|mesh\.hasThinInstances/);
 });
 test('bot movement passes eye height to the collision solver', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
@@ -582,8 +583,18 @@ test('renderer explicitly owns the active camera and initializes the map HUD bef
 test('release URLs invalidate cached engine and dependency modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(html, /import\('\.\/engine\.js\?v=20261128-0450-r3'\)/);
+  assert.match(html, /import\('\.\/engine\.js\?v=20261128-0450-r4'\)/);
   for (const moduleName of ['engine-core.mjs','human-bots.mjs','weapon-viewmodel.mjs','wet-ground-map.mjs']) {
-    assert.ok(engine.includes("./"+moduleName+"?v=20261128-0450-r3"), 'missing cache version for '+moduleName);
+    assert.ok(engine.includes("./"+moduleName+"?v=20261128-0450-r4"), 'missing cache version for '+moduleName);
   }
+});
+
+
+test('map renderer starts before network-bound soldier assets and diagnostics are installed before boot', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.ok(engine.indexOf('installMenuControls();') < engine.indexOf('humanBotAssets=await loadHumanBotAssets(B,scene)'));
+  assert.ok(engine.indexOf('engine.runRenderLoop(()=>{') < engine.indexOf('humanBotAssets=await loadHumanBotAssets(B,scene)'));
+  assert.match(engine, /scene-render-error/);
+  assert.match(engine, /runtimeDiagnostics:runtimeDiagnostics\.slice\(-100\)/);
+  assert.match(engine, /engine-context-lost/);
 });
