@@ -9,9 +9,10 @@ const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, r
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const tint=BABYLON.Color3.FromHexString(color);
-  if(mobile){const m=new BABYLON.StandardMaterial(name,scene);m.diffuseColor=tint;m.specularColor=new BABYLON.Color3(.12,.12,.12);return m;}
   const m = new BABYLON.PBRMaterial(name, scene);
-  m.albedoColor = tint; m.roughness = roughness; m.metallic = metallic;
+  m.albedoColor=tint; m.roughness=mobile?Math.max(.28,roughness):roughness; m.metallic=metallic;
+  m.environmentIntensity=mobile?.8:1.05; m.directIntensity=1.05;
+  if(m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.12;m.clearCoat.roughness=.32;}
   return m;
 }
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
@@ -896,15 +897,23 @@ async function boot() {
   try {
     if(!window.BABYLON)throw new Error('Babylon.js CDN недоступен');
     const B=window.BABYLON;
-    engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:true,powerPreference:'high-performance',audioEngine:false},true);
+    engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:!mobile,powerPreference:'high-performance',audioEngine:false},true);
     engine.setHardwareScalingLevel(1/state.scale);
-    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.008,.025,.055,1);scene.ambientColor=new B.Color3(.045,.07,.11);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.009:.006;scene.fogColor=new B.Color3(.025,.065,.12);
-    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
-    const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.42;hemi.diffuse=new B.Color3(.20,.34,.55);hemi.groundColor=new B.Color3(.035,.055,.085);
-    const sun=new B.DirectionalLight('moonlight',new B.Vector3(-.35,-1,.2),scene);sun.position=new B.Vector3(24,38,-18);sun.diffuse=new B.Color3(.22,.36,.62);sun.intensity=.34;
-    shadowGen=new B.ShadowGenerator(mobile?512:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.blurKernel=mobile?0:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
+    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.035,.065,.095,1);scene.ambientColor=new B.Color3(.12,.16,.2);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.0038:.003;scene.fogColor=new B.Color3(.075,.115,.16);
+    scene.imageProcessingConfiguration.toneMappingEnabled=true;
+    scene.imageProcessingConfiguration.toneMappingType=B.ImageProcessingConfiguration.TONEMAPPING_ACES;
+    scene.imageProcessingConfiguration.exposure=1.18;scene.imageProcessingConfiguration.contrast=1.2;
+    scene.imageProcessingConfiguration.vignetteEnabled=true;scene.imageProcessingConfiguration.vignetteWeight=.16;scene.imageProcessingConfiguration.vignetteColor=new B.Color4(.015,.03,.05,0);
+    scene.environmentIntensity=mobile?.8:1.1;
+    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
+    const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.72;hemi.diffuse=new B.Color3(.34,.48,.68);hemi.groundColor=new B.Color3(.10,.13,.17);
+    const sun=new B.DirectionalLight('moonlight',new B.Vector3(-.35,-1,.2),scene);sun.position=new B.Vector3(24,38,-18);sun.diffuse=new B.Color3(.42,.56,.78);sun.intensity=.48;
+    const cityFill=new B.DirectionalLight('distant city sky bounce',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.22,.34,.43);cityFill.intensity=.18;
+    shadowGen=new B.ShadowGenerator(mobile?768:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.usePercentageCloserFiltering=!mobile;shadowGen.blurKernel=mobile?0:20;shadowGen.bias=.00035;shadowGen.normalBias=.018;shadowGen.darkness=.28;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildWetGroundMap(B,scene,mobile,shadowGen);
+    const glowLayer=new B.GlowLayer('wet quarter emissive glow',scene,{blurKernelSize:mobile?16:32});glowLayer.intensity=mobile?.32:.48;
+    window.__SOLO_GLOW_LAYER__=glowLayer;
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
