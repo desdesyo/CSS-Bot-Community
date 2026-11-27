@@ -357,6 +357,23 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
 
+test('both player spawn zones have authored high-detail street fragments and facade PBR relief', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /makeFacadeRelief/);
+  assert.match(map, /material\.bumpTexture=maps\.normal/);
+  assert.match(map, /material\.roughnessTexture=maps\.rough/);
+  assert.match(map, /buildSpawnFragment\('CT',36,-8\.93,14\.43/);
+  assert.match(map, /buildSpawnFragment\('T',-40,-6\.93,8\.43/);
+  assert.match(map, /illuminated fascia/);
+  assert.match(map, /rain awning canopy/);
+  assert.match(map, /deep storefront glass/);
+  assert.match(map, /worn zebra crossing stripe/);
+  assert.match(map, /warm spawn streetlight/);
+  assert.match(map, /CT parked rain-dark sedan/);
+  assert.match(map, /bicycle front wheel/);
+  assert.match(map, /overhead bundled power cable/);
+});
+
 test('field atlas invalidates routes from the previous abstract Wet Ground layout', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /FIELD_MAP_ID='wet-ground-street-panorama-v2'/);
