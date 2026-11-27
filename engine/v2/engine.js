@@ -30,8 +30,7 @@ function buildMapCollisionIndex(){
       }
   }
 }
-function isPlayerBlocked(x,z){
-  const radius=.34,candidates=new Set();
+function isPlayerBlocked(x,z,radius=.34){,candidates=new Set();
   for(let gx=Math.floor((x-radius)/MAP_COLLISION_CELL);gx<=Math.floor((x+radius)/MAP_COLLISION_CELL);gx++)
     for(let gz=Math.floor((z-radius)/MAP_COLLISION_CELL);gz<=Math.floor((z+radius)/MAP_COLLISION_CELL);gz++)
       for(const item of mapCollisionGrid.get(gx+','+gz)||[])candidates.add(item);
@@ -202,8 +201,12 @@ function updateBotMotion(dt) {
     if(!bot.alive) continue;
     const target=bot.waypoints[bot.index];
     const moveX=target[0]-bot.root.position.x,moveZ=target[1]-bot.root.position.z;
-    const next=moveToward({x:bot.root.position.x,z:bot.root.position.z},{x:target[0],z:target[1]},bot.speed,dt);
-    bot.root.position.x=next.x;bot.root.position.z=next.z;
+    const current={x:bot.root.position.x,z:bot.root.position.z};
+    const next=moveToward(current,{x:target[0],z:target[1]},bot.speed,dt);
+    if(!isPlayerBlocked(next.x,next.z,.25)){bot.root.position.x=next.x;bot.root.position.z=next.z;}
+    else if(!isPlayerBlocked(next.x,current.z,.25))bot.root.position.x=next.x;
+    else if(!isPlayerBlocked(current.x,next.z,.25))bot.root.position.z=next.z;
+    else bot.index=(bot.index+1)%bot.waypoints.length;
     const yaw=Math.atan2(moveX,moveZ);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
