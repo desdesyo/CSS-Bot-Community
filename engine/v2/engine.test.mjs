@@ -8,6 +8,8 @@ const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.ur
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
+  assert.ok(html.includes('./engine.js?v=20261127-2'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
 });
