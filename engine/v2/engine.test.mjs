@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-15'));
+  assert.ok(html.includes('./engine.js?v=20261127-16'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .68, true) - .60) < 1e-9);
@@ -69,7 +69,7 @@ test('expanded map collision bounds keep players inside the map and block perime
 test('runtime uses the expanded Dust2 map and spawns the player at T spawn', () => {
   assert.ok(runtime.includes("buildExpandedDust2(BABYLON,scene,shadowGen,mat,box)"));
   assert.ok(runtime.includes("DUST2_EXPANDED.spawns.t"));
-  assert.ok(runtime.includes('scene.pickWithRay(ray,isMapSolid)'));
+  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
 });
 
 test('both team spawns and both bombsite centers are walkable', () => {
@@ -145,7 +145,7 @@ test('non-standard Android gamepads can move with the D-pad when only one stick 
   assert.ok(runtime.includes("if(pad.mapping==='standard'||axes.length>=4)"));
 });
 test('full Gamepad API support maps both sticks, triggers, face buttons, bumpers and D-pad',()=>{
-  for(const token of ['function padAxis(v)','function padButton(pad,index)','function updateGamepad(dt)','pad.axes?.[0]','pad.axes?.[2]','pad.buttons?.[6]?.value','pad.buttons?.[7]?.value','padEdge(pad,0)','padEdge(pad,2)','padEdge(pad,3)','padEdge(pad,5)','padEdge(pad,8)','padEdge(pad,9)','padEdge(pad,12)','padEdge(pad,15)','gamepadconnected','gamepaddisconnected']) assert.ok(runtime.includes(token),'missing gamepad mapping '+token);
+  for(const token of ['function padAxis(v)','function padButton(pad,index)','function updateGamepad(dt)','const axes=pad.axes||[]','axes[0]','axes[2]','pad.buttons?.[6]?.value','pad.buttons?.[7]?.value','padEdge(pad,0)','padEdge(pad,2)','padEdge(pad,3)','padEdge(pad,5)','padEdge(pad,8)','padEdge(pad,9)','padEdge(pad,12)','padEdge(pad,15)','gamepadconnected','gamepaddisconnected']) assert.ok(runtime.includes(token),'missing gamepad mapping '+token);
   assert.ok(runtime.includes('state.gamepad.sprint=padButton(pad,10)'));
   assert.ok(runtime.includes('camera.fov+=(targetFov-camera.fov)'));
   assert.ok(runtime.includes('updateGamepad(dt);'));
@@ -197,7 +197,7 @@ test('legacy weapon kick moves the viewmodel rather than changing aim direction'
 });
 
 test('V2 loads rigged animated soldier models and scales the first-person weapon down',()=>{
-  assert.ok(html.includes('babylonjs.loaders.min.js'));
+  assert.ok(runtime.includes("script.src='https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js'"));
   assert.ok(runtime.includes('LoadAssetContainerAsync'));
   assert.ok(runtime.includes('instantiateModelsToScene'));
   assert.ok(runtime.includes('setBotAnimation(bot'));
