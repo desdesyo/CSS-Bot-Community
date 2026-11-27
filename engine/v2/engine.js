@@ -373,7 +373,8 @@ function updateBotMotion(dt) {
       held.position.set(local.x+.02,local.y-.025,local.z+.05);
       bot.weaponKick=Math.max(0,(bot.weaponKick||0)-dt*.8);
       held.rotation.x=-bot.weaponKick;
-      if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.combatState==='fire'?-0.08:bot.activeWeapon==='knife'?-0.16:0;}
+      if(bot.rig.rightHand){bot.rig.rightHand.rotation.x=bot.activeWeapon==='knife'?-0.22:-0.12;bot.rig.rightHand.rotation.z=bot.activeWeapon==='knife'?.08:0;}
+      if(bot.rig.leftHand){bot.rig.leftHand.rotation.x=bot.activeWeapon==='knife'?.08:-.28;bot.rig.leftHand.rotation.z=bot.activeWeapon==='knife'?-.12:.16;}
     }
     bot.phase+=dt*7;
   }
