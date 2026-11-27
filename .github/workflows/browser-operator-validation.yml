@@ -1,0 +1,40 @@
+name: Browser operator pack validation
+on:
+  push:
+    branches: [feature/browser-27-character-operator-pack]
+    paths:
+      - "engine/play.html"
+      - "engine/client/operator-roster.js"
+      - "engine/client/operator-roster.test.mjs"
+      - ".github/workflows/browser-operator-validation.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate 27-character roster and support tiers
+        run: node --test engine/client/operator-roster.test.mjs
+      - name: Check JavaScript syntax
+        run: |
+          node --check engine/client/operator-roster.js
+          node --check engine/client/operator-roster.test.mjs
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("engine/play.html").read_text(encoding="utf-8")
+          match = re.search(r'<script type="module">([\\s\\S]*?)</script>', html)
+          if not match:
+              raise SystemExit("3D module script was not found")
+          Path("/tmp/solo-play.mjs").write_text(match.group(1), encoding="utf-8")
+          required = ["operatorSelect", "CSSBC_OPERATORS", "support_ct_b_sniper", "juggernaut"]
+          missing = [item for item in required if item not in html and item not in Path("engine/client/operator-roster.js").read_text(encoding="utf-8")]
+          if missing:
+              raise SystemExit("Missing browser integration markers: " + ", ".join(missing))
+          PY
+          node --check /tmp/solo-play.mjs
