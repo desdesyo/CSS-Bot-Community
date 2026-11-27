@@ -1,10 +1,10 @@
 export function adaptiveScale(p95, current, isMobile = false) {
-  const target = isMobile ? 33.3 : 16.7;
-  const min = isMobile ? 0.82 : 0.78;
-  const max = isMobile ? 1.0 : 1.35;
+  const target = isMobile ? 40 : 16.7;
+  const min = isMobile ? 0.5 : 0.78;
+  const max = isMobile ? 0.8 : 1.35;
   if (!Number.isFinite(p95) || p95 <= 0) return Math.max(min, Math.min(max, current));
-  if (p95 > target * 1.18) return Math.max(min, current - 0.06);
-  if (p95 < target * 0.78) return Math.min(max, current + 0.025);
+  if (p95 > target * 1.18) return Math.max(min, current - (isMobile ? 0.08 : 0.06));
+  if (p95 < target * 0.78) return Math.min(max, current + (isMobile ? 0.015 : 0.025));
   return Math.max(min, Math.min(max, current));
 }
 export function moveToward(position, target, speed, dt) {
