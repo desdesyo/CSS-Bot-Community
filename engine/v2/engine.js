@@ -36,7 +36,7 @@ function isPlayerBlocked(x,z,radius=.34){
     for(let gz=Math.floor((z-radius)/MAP_COLLISION_CELL);gz<=Math.floor((z+radius)/MAP_COLLISION_CELL);gz++)
       for(const item of mapCollisionGrid.get(gx+','+gz)||[])candidates.add(item);
   for(const item of candidates){
-    if(item.mesh.isDisposed())continue;
+    if(item.mesh.isDisposed()||!item.mesh.isVisible||item.mesh.visibility===0)continue;
     if(x+radius>item.minX&&x-radius<item.maxX&&z+radius>item.minZ&&z-radius<item.maxZ)return true;
   }
   return false;
