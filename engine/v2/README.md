@@ -7,7 +7,7 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 
 ## Current vertical slice
 - WebGL rendering with device-aware antialiasing and shadow-map budgets.
-- PBR material pipeline and the North Docks combat map with freight rails, a gantry crane, industrial cover and fortified CT/T deployment compounds.
+- PBR material pipeline and the Mokry Pol rain-soaked old-quarter map with low-rise blue-gray buildings, narrow alleys, a canal, two stone bridges, wet cobblestone, puddles and warm lanterns.
 - Real third-party skinned soldier meshes (roughly 13k–15.5k triangles each, 80-bone rigs, embedded PBR textures), bundled locally in the Pages artifact; no primitive body-part stand-ins.
 - First-person desktop input and mobile dual-stick/fire input.
 - Procedural high-detail first-person M4-style rifle, detailed 9mm service pistol and full-tang combat knife, with separate moving parts, controls, magazines, sights and materials.
@@ -27,3 +27,11 @@ Open `/engine/v2/` on the published Pages site or serve the repository root over
 
 ## Explicit limitations
 This is a new engine foundation and greybox vertical slice, not yet a CSS:S content port. It does not yet have final custom-made studio character assets, networking, full collision/physics or verified Redmi 12 performance. The rifle viewmodel is a procedural Babylon.js asset, not a scanned or externally authored photorealistic mesh. See `ASSET_CREDITS.md` for model and animation licenses. The mobile hardware must be measured before setting acceptance targets.
+
+
+## Active level: Мокрый Пол
+- Main reference: user-saved visual reference named “Мокрый Пол”.
+- Nighttime blue-hour rain atmosphere, dark blue-gray low-rise masonry, reflective wet cobblestone, warm amber lamps, shallow puddles, drainage, overhead wires and light fog.
+- A cross-quarter canal divides the map; two stone bridges connect both banks. Collision barriers prevent shortcutting across the water, and bridge approaches remain open to players and bots.
+- Multiple side streets, short cross alleys, recessed entrances and low cover create alternate routes and sightlines. The walkable atlas uses a new map identity so old industrial-district route data is not mixed into this level.
+- Procedural cobblestone texture is generated at runtime at 512 px on coarse/mobile devices and 1024 px on desktop; static level transforms/materials are frozen after build. Dynamic point-light count is capped and disabled on mobile.
