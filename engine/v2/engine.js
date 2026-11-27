@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null };
@@ -119,7 +119,7 @@ function makeBot(id, team, x,z, waypoints) {
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
   const weapons=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:125,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1});
   return root;
 }
 function buildBots() {
@@ -246,8 +246,8 @@ function updateBotAI() {
     candidates.sort((a,b)=>BABYLON.Vector3.Distance(bot.root.position,a.position)-BABYLON.Vector3.Distance(bot.root.position,b.position));
     let chosen=null,chosenDistance=Infinity;
     for(const candidate of candidates){
-      const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
-      const aim=candidate.kind==='player'?candidate.position.add(new BABYLON.Vector3(0,-.25,0)):candidate.position.add(new BABYLON.Vector3(0,1.05,0));
+      const origin=bot.root.position.add(new BABYLON.Vector3(0,1.48,0));
+      const aim=candidate.kind==='player'?candidate.position.add(new BABYLON.Vector3(0,-.25,0)):candidate.position.add(new BABYLON.Vector3(0,1.28,0));
       const delta=aim.subtract(origin),distance=delta.length();
       if(distance<1.25||distance>40)continue;
       const ray=new BABYLON.Ray(origin,delta.normalize(),distance);
@@ -302,13 +302,13 @@ function updateBotAI() {
             else if(!isPistol&&bot.reserve<=0){bot.activeWeapon='pistol';}
           }else{
             bot[magazine]--;
-            bot.fireAt=now+(isPistol?760:880)+Math.random()*(isPistol?360:420);
-            const origin=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
-            const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.25,0)):target.add(new BABYLON.Vector3(0,1.05,0));
+            bot.fireAt=now+(isPistol?1250:1450)+Math.random()*(isPistol?450:550);
+            const origin=bot.root.position.add(new BABYLON.Vector3(0,1.48,0));
+            const aim=chosen.kind==='player'?target.add(new BABYLON.Vector3(0,-.12,0)):target.add(new BABYLON.Vector3(0,1.28,0));
             const direction=aim.subtract(origin).normalize();
-            const spread=isPistol?.065:.048;
+            const spread=isPistol?.105:.082;
             direction.x+=(Math.random()-.5)*spread;direction.y+=(Math.random()-.5)*spread*.7;direction.z+=(Math.random()-.5)*spread;direction.normalize();
-            spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,isPistol?36:42,bot.id,isPistol?18:14);
+            spawnProjectile(origin.add(direction.scale(.42)),direction,bot.team,isPistol?36:42,bot.id,isPistol?12:9);
             bot.weaponKick=Math.min(.16,bot.weaponKick+(isPistol?.09:.055));
           }
         }
@@ -414,9 +414,9 @@ function updateBulletPhysics(dt) {
     }
     if(hit?.hit&&hit.pickedMesh){
       const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
-      if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(42,p.damage*2.5):p.damage,p.ownerId==='player');
+      if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(85,p.damage*2):p.damage,p.ownerId==='player');
       if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'){
-        state.hp=Math.max(0,state.hp-(p.damage?Math.max(3,Math.round(p.damage*.32))+Math.floor(Math.random()*2):6));$('health').textContent='HP '+state.hp;
+        state.hp=Math.max(0,state.hp-(p.damage?Math.max(2,Math.round(p.damage*.22)):6));$('health').textContent='HP '+state.hp;
         if(state.hp===0)endRound(false);
       }
       p.life=0;
@@ -547,27 +547,30 @@ function initInput() {
 }
 function updateAimAssist(dt) {
   const forward=camera.getForwardRay(1).direction.normalize();
-  const cosLimit=Math.cos(mobile ? 0.34 : 0.24);
-  let best=null,bestDot=cosLimit;
+  const maxAngle=mobile?.40:.28;
+  let best=null,bestScore=Infinity,bestTarget=null;
   for(const bot of state.bots){
     if(!bot.alive||bot.team!=='enemy')continue;
-    const target=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
+    // Aim at upper torso, not the head center: less vertical snapping on mobile.
+    const target=bot.root.position.add(new BABYLON.Vector3(0,1.22,0));
     const delta=target.subtract(camera.position),distance=delta.length();
-    if(distance>34||distance<.5)continue;
-    const direction=delta.scale(1/distance),dot=BABYLON.Vector3.Dot(forward,direction);
-    if(dot<=bestDot)continue;
+    if(distance>36||distance<.5)continue;
+    const direction=delta.scale(1/distance);
+    const dot=Math.max(-1,Math.min(1,BABYLON.Vector3.Dot(forward,direction)));
+    const angle=Math.acos(dot);
+    if(angle>maxAngle)continue;
     const ray=new BABYLON.Ray(camera.position,direction,distance);
     const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&m.name!=='player-hitbox');
     if(hit?.hit&&hit.pickedMesh.parent!==bot.root)continue;
-    best=bot;bestDot=dot;
+    const score=aimCandidateScore(angle,distance);
+    if(score<bestScore){best=bot;bestScore=score;bestTarget=target;}
   }
   state.aimTargetId=best?.id??null;
-  if(!best)return;
-  const target=best.root.position.add(new BABYLON.Vector3(0,1.28,0));
-  const dx=target.x-camera.position.x,dz=target.z-camera.position.z,dy=target.y-camera.position.y;
+  if(!best||!state.started)return;
+  const dx=bestTarget.x-camera.position.x,dz=bestTarget.z-camera.position.z,dy=bestTarget.y-camera.position.y;
   const yaw=Math.atan2(dx,dz),pitch=-Math.atan2(dy,Math.hypot(dx,dz));
   const yawDelta=Math.atan2(Math.sin(yaw-camera.rotation.y),Math.cos(yaw-camera.rotation.y));
-  const strength=(state.firing ? 0.24 : 0.105)*Math.min(1,dt*60);
+  const strength=(state.firing ? 0.19 : 0.075)*Math.min(1,dt*60);
   camera.rotation.y+=yawDelta*strength;
   camera.rotation.x+=(pitch-camera.rotation.x)*strength;
 }
@@ -602,7 +605,7 @@ function endRound(won){
 function start() {
   if(state.playerDead){
     state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.playerDead=false;state.reloading=false;for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
-    for(const bot of state.bots){bot.health=125;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
+    for(const bot of state.bots){bot.health=100;bot.alive=true;bot.root.setEnabled(true);bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navGoal=null;bot.combatState='patrol';}
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
@@ -734,7 +737,7 @@ async function boot() {
     shadowGen=new B.ShadowGenerator(mobile?512:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.blurKernel=mobile?0:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildMap();
-    state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=0;state.playerHitbox.isVisible=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
+    state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     playerSpawn=findSafePlayerSpawn([{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]}],collisionBoxes,.36,1.72,0)||{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]};
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
