@@ -81,6 +81,51 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   brick.albedoTexture=makeFacadeTexture('aged dark brickwork texture','brick');
   stone.albedoTexture=makeFacadeTexture('weathered cut stone texture','stone');
 
+  // A compact second PBR layer gives the spawn quarter real surface relief:
+  // mortar recesses, chipped stone edges, plaster pores, mineral streaks and
+  // material-specific roughness. Mobile maps are deliberately capped at 512px.
+  const makeFacadeRelief=(kind)=>{
+    const size=mobile?512:1024;
+    const normal=new B.DynamicTexture(kind+' facade tangent normal',{width:size,height:size},scene,false);
+    const rough=new B.DynamicTexture(kind+' facade roughness',{width:size,height:size},scene,false);
+    const n=normal.getContext(),r=rough.getContext();
+    n.fillStyle='rgb(128,128,255)';n.fillRect(0,0,size,size);
+    r.fillStyle=kind==='brick'?'rgb(218,218,218)':kind==='stone'?'rgb(198,198,198)':'rgb(232,232,232)';r.fillRect(0,0,size,size);
+    let seed=kind==='brick'?31871:kind==='stone'?64193:91273;
+    const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+    if(kind==='brick'||kind==='stone'){
+      const cols=kind==='brick'?12:6,rows=kind==='brick'?24:9,cw=size/cols,ch=size/rows;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        const ox=kind==='brick'?(y%2)*cw*.5:0,px=x*cw+ox,py=y*ch;
+        n.fillStyle='rgb(92,116,246)';n.fillRect(px+1,py+1,cw-2,ch-2);
+        n.fillStyle='rgb(145,139,252)';n.fillRect(px+3,py+3,cw-6,2);
+        n.fillStyle='rgb(116,128,249)';n.fillRect(px+3,py+3,2,ch-6);
+        r.fillStyle='rgb('+Math.floor(175+rnd()*65)+', '+Math.floor(175+rnd()*65)+', '+Math.floor(175+rnd()*65)+')';
+        r.fillRect(px+3,py+3,cw-6,ch-6);
+        if(rnd()>.55){n.fillStyle='rgb(118,143,250)';n.fillRect(px+cw*.2,py+ch*.72,cw*.5,2);}
+      }
+    }else{
+      for(let i=0;i<110;i++){
+        const x=rnd()*size,y=rnd()*size,w=2+rnd()*12,h=18+rnd()*150;
+        n.fillStyle='rgba(104,124,248,'+(.12+rnd()*.25)+')';n.fillRect(x,y,w,h);
+        r.fillStyle='rgba(105,105,105,'+(.06+rnd()*.14)+')';r.fillRect(x,y,w,h);
+      }
+      for(let i=0;i<2400;i++){
+        const x=rnd()*size,y=rnd()*size,v=Math.floor(116+rnd()*28);
+        n.fillStyle='rgba('+v+', '+(128+(v-128)) +',250,'+(.08+rnd()*.2)+')';n.fillRect(x,y,1+rnd()*2,1+rnd()*3);
+      }
+    }
+    normal.update(false);rough.update(false);
+    normal.gammaSpace=false;rough.gammaSpace=false;
+    normal.wrapU=normal.wrapV=rough.wrapU=rough.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    return {normal,rough};
+  };
+  for(const [material,kind] of [[plaster,'plaster'],[brick,'brick'],[stone,'stone']]){
+    const maps=makeFacadeRelief(kind);
+    material.bumpTexture=maps.normal;material.bumpTexture.level=mobile?.24:.42;
+    material.roughnessTexture=maps.rough;
+  }
+
   const warmWindow=mat('occupied apartment window glow','#e9ae6d',.34);
   if(warmWindow.emissiveColor)warmWindow.emissiveColor=new C(.62,.25,.07);
   const water=mat('canal deep water','#102b3d',.075,.32);
@@ -692,6 +737,161 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       tuft.position.set(x+(n-2)*.13,.12,z+(n%2)*.18);tuft.rotation.z=(n-2)*.12;tuft.material=grass;tuft.isPickable=false;
     }
   }
+
+
+  // SPAWN QUARTER — two bespoke 26m street fragments, one around each faction
+  // deployment. These are authored as lived-in frontages rather than another
+  // repeated block grid: illuminated shop signs, awnings, deep glazing, meters,
+  // rainwater hardware, street lamps, crosswalks, bins, bike stands and puddles.
+  const spawnIron=mat('spawn quarter blackened iron','#17232b',.42,.68);
+  const spawnPaint=mat('spawn quarter worn enamel','#354b50',.56,.24);
+  const spawnWood=mat('spawn quarter dark timber','#493b32',.78);
+  const spawnGlass=mat('spawn quarter storefront glass','#142b38',.12,.48);
+  const spawnWarm=mat('spawn quarter warm shop glazing','#e8ae72',.24);
+  if(spawnWarm.emissiveColor)spawnWarm.emissiveColor=new C(.68,.27,.065);
+  const spawnLamp=mat('spawn quarter amber practical lights','#ffd39a',.2);
+  if(spawnLamp.emissiveColor)spawnLamp.emissiveColor=new C(.95,.48,.16);
+  const spawnAsphalt=mat('spawn quarter worn asphalt patches','#1a2935',.18,.08);
+  const spawnStone=mat('spawn quarter pale worn kerb stone','#59636a',.82);
+  const spawnSign=(label,base,accent)=>{
+    const tex=new B.DynamicTexture('street sign '+label,{width:768,height:192},scene,false);
+    const ctx=tex.getContext();
+    ctx.fillStyle=base;ctx.fillRect(0,0,768,192);
+    ctx.fillStyle=accent;ctx.fillRect(0,0,768,9);ctx.fillRect(0,183,768,9);
+    ctx.strokeStyle='rgba(230,222,202,.62)';ctx.lineWidth=3;ctx.strokeRect(12,12,744,168);
+    ctx.fillStyle='#f0e6d2';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='bold 68px Arial';ctx.fillText(label,384,88);
+    ctx.font='bold 20px Arial';ctx.fillStyle='#b9c6c5';ctx.fillText('ОТКРЫТО  ·  24 ЧАСА',384,151);
+    tex.update(false);
+    const m=new B.StandardMaterial('illuminated enamel sign '+label,scene);
+    m.diffuseTexture=tex;m.emissiveTexture=tex;m.disableLighting=true;m.backFaceCulling=false;
+    return m;
+  };
+  const makeSpawnCar=(name,x,z,paint)=>{
+    const root=new B.TransformNode(name,scene);root.position.set(x,0,z);
+    const part=(n,px,py,pz,w,h,d,m)=>{const q=B.MeshBuilder.CreateBox(n,{width:w,height:h,depth:d},scene);q.parent=root;q.position.set(px,py,pz);q.material=m;q.isPickable=false;return q;};
+    const body=mat(name+' aged automotive paint',paint,.32,.48);
+    const rubber=mat(name+' tire rubber','#0b1116',.94);
+    const chrome=mat(name+' dull chrome','#78858a',.28,.76);
+    part(name+' lower body',0,.72,0,1.92,1.05,4.25,body);
+    part(name+' cabin',0,1.48,-.12,1.72,.86,2.35,body);
+    part(name+' front windscreen',0,1.53,-1.31,1.58,.64,.045,spawnGlass);
+    part(name+' rear glass',0,1.53,1.08,1.52,.62,.045,spawnGlass);
+    for(const side of [-1,1]){
+      part(name+' side windows',side*.875,1.53,-.12,.035,.55,1.9,spawnGlass);
+      part(name+' chrome door strip',side*.974,.73,-.05,.025,.055,2.25,chrome);
+      for(const zz of [-1.38,1.38]){
+        const wheel=B.MeshBuilder.CreateCylinder(name+' wet tire',{diameter:.68,height:.2,tessellation:16},scene);
+        wheel.parent=root;wheel.rotation.z=Math.PI/2;wheel.position.set(side*.91,.38,zz);wheel.material=rubber;wheel.isPickable=false;
+        const hub=B.MeshBuilder.CreateCylinder(name+' dull wheel hub',{diameter:.31,height:.215,tessellation:12},scene);
+        hub.parent=root;hub.rotation.z=Math.PI/2;hub.position.set(side*1.02,.38,zz);hub.material=chrome;hub.isPickable=false;
+      }
+    }
+    for(const side of [-1,1]){
+      part(name+' warm headlamp',side*.62,.83,-2.14,.34,.2,.035,spawnLamp);
+      part(name+' red tail lamp',side*.64,.83,2.14,.3,.22,.035,neonAmber);
+      part(name+' bumper',side*0,.42,-2.17,1.8,.13,.16,chrome);
+    }
+    part(name+' number plate',0,.65,-2.205,.62,.18,.025,trim);
+    root.computeWorldMatrix(true);
+  };
+  const buildSpawnFragment=(team,z,westFace,eastFace,westShop,eastShop)=>{
+    const label=team==='CT'?'CT':'T';
+    for(const [side,face,shop,index] of [[-1,westFace,westShop,0],[1,eastFace,eastShop,1]]){
+      const dir=side<0?1:-1;
+      const signMat=spawnSign(shop,side<0?'#182a33':'#302a25',side<0?'#c59a62':'#8c6b51');
+      // A projecting striped rain awning and enamel shop fascia sit in front of
+      // the existing masonry elevation, with no change to its collision shell.
+      box(label+' '+shop+' illuminated fascia',face+dir*.19,3.18,z,.12,.72,3.45,signMat,false);
+      box(label+' '+shop+' rain awning canopy',face+dir*.78,2.72,z,1.24,.16,3.8,side<0?spawnPaint:spawnWood,false);
+      box(label+' '+shop+' awning front valance',face+dir*1.38,2.48,z,.12,.42,3.8,spawnWarm,false);
+      for(let stripe=-3;stripe<=3;stripe++){
+        box(label+' '+shop+' awning seam',face+dir*.79,2.805,z+stripe*.52,.018,.012,.035,trim,false);
+      }
+      for(const dz of [-2.28,2.28]){
+        box(label+' '+shop+' deep storefront glass',face+dir*.095,1.54,z+dz,.045,1.52,1.62,spawnGlass,false);
+        for(const edge of [-.84,.84])box(label+' '+shop+' storefront frame',face+dir*.15,1.54,z+dz+edge,.13,1.7,.12,spawnIron,false);
+        box(label+' '+shop+' display warm backlight',face+dir*.08,1.55,z+dz,.025,1.15,1.25,spawnWarm,false);
+        box(label+' '+shop+' lower display shelf',face+dir*.24,.92,z+dz,.35,.08,1.35,spawnWood,false);
+      }
+      // Recessed entry hardware: intercom, mailbox, drain pipe, utility meter,
+      // cable conduit and a small wall lantern at human scale.
+      box(label+' '+shop+' stone doorstep',face+dir*.42,.13,z,1.0,.16,1.8,spawnStone,false);
+      box(label+' '+shop+' entry intercom',face+dir*.22,1.55,z-.98,.08,.34,.22,spawnIron,false);
+      box(label+' '+shop+' brass mailbox',face+dir*.25,1.22,z+1.08,.22,.38,.42,spawnPaint,false);
+      box(label+' '+shop+' wall lantern housing',face+dir*.32,2.48,z-1.7,.18,.42,.24,spawnIron,false);
+      box(label+' '+shop+' wall lantern glass',face+dir*.43,2.48,z-1.7,.035,.25,.15,spawnLamp,false);
+      for(const zz of [z-4.25,z+4.25]){
+        box(label+' '+shop+' rainwater downpipe',face+dir*.28,3.55,zz,.15,7.0,.15,spawnIron,false);
+        for(let y=.8;y<6.6;y+=1.6)box(label+' '+shop+' downpipe bracket',face+dir*.36,y,zz,.22,.07,.2,spawnStone,false);
+      }
+      box(label+' '+shop+' wall AC unit',face+dir*.42,5.45,z+3.25,.92,.62,.72,spawnPaint,false);
+      const fan=B.MeshBuilder.CreateCylinder(label+' '+shop+' AC fan',{diameter:.34,height:.04,tessellation:18},scene);
+      fan.position.set(face+dir*.65,5.45,z+3.25);fan.rotation.z=Math.PI/2;fan.material=spawnIron;fan.isPickable=false;
+      for(let fin=0;fin<4;fin++)box(label+' '+shop+' AC grille fin',face+dir*.68,5.45,z+3.25+(fin-1.5)*.12,.025,.4,.025,trim,false);
+      // Narrow iron fire-escape ladder and wall brackets break the silhouette.
+      box(label+' '+shop+' service ladder rail A',face+dir*.3,4.15,z-3.15,.07,5.4,.07,spawnIron,false);
+      box(label+' '+shop+' service ladder rail B',face+dir*.3,4.15,z-2.45,.07,5.4,.07,spawnIron,false);
+      for(let rung=0;rung<13;rung++)box(label+' '+shop+' service ladder rung',face+dir*.3,1.65+rung*.4,z-2.8,.08,.045,.72,spawnIron,false);
+    }
+    // Crosswalk, kerb cuts, storm drains and rain-dark patches establish a
+    // believable human-scale arrival point without obstructing the spawn lane.
+    for(let stripe=-4;stripe<=4;stripe++){
+      box(label+' worn zebra crossing stripe',stripe*.78,.078,z-5.7,.54,.025,1.7,spawnStone,false);
+    }
+    for(const x of [-5.25,5.25]){
+      box(label+' granite curb return',x,.13,z, .22,.24,12.5,spawnStone,false);
+      for(const dz of [-4.2,0,4.2])box(label+' cast storm drain',x+(x<0?.42:-.42),.09,z+dz,.72,.035,1.15,spawnIron,false);
+    }
+    // Two warm street lamps and their practical light pools; dynamic point lights
+    // are omitted on mobile, where the baked emissive glass remains visible.
+    for(const side of [-1,1]){
+      const x=side*6.9;
+      cylinder(label+' tapered streetlamp pole',x,3.0,z+side*4.6,.13,6.0,spawnIron);
+      box(label+' streetlamp arm',x-side*.48,5.85,z+side*4.6,.95,.09,.09,spawnIron,false);
+      box(label+' streetlamp head',x-side*.92,5.72,z+side*4.6,.72,.18,.32,spawnIron,false);
+      box(label+' streetlamp diffuser',x-side*.92,5.61,z+side*4.6,.54,.035,.23,spawnLamp,false);
+      if(!mobile){
+        const light=new B.PointLight(label+' warm spawn streetlight',new B.Vector3(x-side*.92,5.5,z+side*4.6),scene);
+        light.diffuse=new C(.95,.62,.36);light.intensity=.32;light.range=12;
+      }
+    }
+    // A bicycle, utility cabinet, litter bins and wet paving stains add lived-in
+    // scale. These props stay against the edges, clear of the player's movement.
+    const bikeX=-4.35;
+    cylinder(label+' bicycle front wheel',bikeX,.58,z+2.25,.78,.055,spawnIron);
+    cylinder(label+' bicycle rear wheel',bikeX,.58,z+.55,.78,.055,spawnIron);
+    for(const [x1,z1,x2,z2] of [[bikeX,.58,bikeX,z+2.25],[bikeX,.58,bikeX+.62,z+1.4],[bikeX+.62,z+1.4,bikeX,z+2.25],[bikeX,.58,bikeX+.62,z+1.4]]){
+      const tube=B.MeshBuilder.CreateTube(label+' bicycle frame tube',{path:[new B.Vector3(x1,z1===.58?1.0:.58,z1),new B.Vector3(x2,z2===z+1.4?1.0:.58,z2)],radius:.035,tessellation:6},scene);
+      tube.material=spawnPaint;tube.isPickable=false;
+    }
+    cylinder(label+' bicycle seat post',bikeX+.62,.88,z+1.4,.07,.48,spawnIron);
+    box(label+' public utility cabinet',4.35,.82,z+2.8,.82,1.64,.62,spawnPaint,false);
+    box(label+' utility cabinet service door',4.35,.84,z+2.47,.62,1.24,.035,spawnIron,false);
+    for(let slot=0;slot<4;slot++)box(label+' cabinet ventilation slot',4.35,.48+slot*.2,z+2.43,.36,.035,.025,trim,false);
+    for(const x of [-4.8,4.8]){
+      box(label+' street refuse bin body',x,.58,z-2.8,.68,1.16,.68,spawnIron,false);
+      box(label+' street refuse bin lid',x,1.18,z-2.8,.76,.12,.74,spawnStone,false);
+    }
+    for(const [x,d] of [[-2.9,2.4],[2.8,1.8],[-1.4,1.2]]){
+      const wet=B.MeshBuilder.CreateDisc(label+' irregular rain puddle',{radius:1,tessellation:32},scene);
+      wet.scaling.set(d,.012,d*.62);wet.position.set(x,.071,z+(x<0?3.8:-3.5));wet.rotation.x=Math.PI/2;wet.material=puddle;wet.isPickable=false;
+    }
+    // One parked compact car is kept in the wider east-side forecourt, not in
+    // the central player path; the T spawn uses a bicycle and loading props only.
+    if(team==='CT')makeSpawnCar('CT parked rain-dark sedan',9.8,z+1.8,'#263b43');
+    // Sagging service wires are tied to ceramic insulators on both elevations.
+    const wire=B.MeshBuilder.CreateTube(label+' overhead bundled power cable',{
+      path:[new B.Vector3(westFace,7.15,z-5.5),new B.Vector3((westFace+eastFace)/2,6.65,z-4.2),new B.Vector3(eastFace,7.15,z-5.5)],
+      radius:.024,tessellation:6},scene);
+    wire.material=spawnIron;wire.isPickable=false;
+    for(const x of [westFace,eastFace]){
+      box(label+' porcelain cable insulator',x,7.18,z-5.5,.22,.16,.18,spawnStone,false);
+      box(label+' junction box',x,6.72,z-5.5,.32,.42,.24,spawnPaint,false);
+    }
+  };
+  buildSpawnFragment('CT',36,-8.93,14.43,'ПРОДУКТЫ','МАСТЕРСКАЯ');
+  buildSpawnFragment('T',-40,-6.93,8.43,'АПТЕКА','КАФЕ');
 
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
