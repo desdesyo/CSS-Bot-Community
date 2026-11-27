@@ -36,7 +36,7 @@ The server listens on port 8080 by default. For remote cross-play, deploy it on 
 ## Gameplay and crash diagnostics
 
 - `GAME LOG` in the in-game quick HUD starts/stops the detailed gameplay recorder (frame-time percentiles, hitches, renderer memory/calls, physics/collisions, bot state, skeleton/animation samples and browser performance entries).
-- Startup JavaScript errors, unhandled promise rejections and WebGL context loss are captured even before manual recording starts. A bounded crash journal is persisted in browser local storage and restored on the next launch.
+- Startup JavaScript errors, unhandled promise rejections and WebGL context loss are captured even before manual recording starts. A bounded crash journal is persisted in browser local storage and restored on the next launch. The startup error overlay also has a direct `СКАЧАТЬ ЛОГ ОШИБКИ` button, so diagnostics can be retrieved even when the 3D scene never starts.
 - Open `ЛОГИ` and use `СКАЧАТЬ ПОЛНЫЙ ИГРОВОЙ ЛОГ` to export the complete local diagnostics bundle, or press `GAME LOG` when a saved crash journal is present to upload it to `logs/gameplay/` in the active branch. Upload requires the existing local GitHub Contents token; failed uploads keep the journal on the device.
 - Control/input logs remain separate under `ЛОГИ` and `logs/controls/`.
 
