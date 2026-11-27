@@ -11,7 +11,6 @@ test('V2 startup resolves the render canvas declared by its HTML entrypoint', ()
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
 });
-
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
   assert.ok(Math.abs(adaptiveScale(12, .9, true) - .925) < 1e-9);
