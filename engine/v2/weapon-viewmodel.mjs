@@ -248,13 +248,14 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   tip.parent=blade;tip.position.set(.015,-.075,-.43);tip.rotation.x=Math.PI/2;tip.material=m.metal;tip.isPickable=false;tip.renderingGroupId=1;
 
   const initial = { x:.18, y:-.27, z:.72 };
-  let recoil = 0, reloadT = 0, reloadDuration = 1.45, shotFlash = 0, time = 0, meleeT = 0, switchT = 0;
+  let recoil = 0, fireT = 0, reloadT = 0, reloadDuration = 1.45, reloadWeapon = null, shotFlash = 0, time = 0, meleeT = 0, switchT = 0;
   let walking = 0, selected = 'rifle';
   const clamp01 = v => Math.max(0,Math.min(1,v));
   const smooth = v => {v=clamp01(v);return v*v*(3-2*v)};
   function fire() {
     if (selected === 'knife') { meleeT = 1; return; }
     recoil = Math.min(1.8,recoil + (selected === 'rifle' ? .72 : .58));
+    fireT = 1;
     shotFlash = .07;
     bolt.position.z = -.055;
     bolt.position.y = .045;
@@ -265,16 +266,19 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   function beginReload(duration = 1.45) {
     reloadT = duration;
     reloadDuration = duration;
+    reloadWeapon = selected;
     magPivot.setEnabled(true);
     if(selected==='pistol')pistolMag.setEnabled(true);
   }
   function completeReload() {
     reloadT = 0;
+    reloadWeapon = null;
     magPivot.position.set(0,-.12,.005);
     magPivot.rotation.set(0,0,0);
     pistolMag.position.set(.015,-.14,.085);
     pistolMag.rotation.set(0,0,0);
     pistolSlide.position.set(0,0,0);
+    bolt.position.set(-.02,.045,-.02);
     rightArm.rotation.set(0,0,0);
     leftArm.rotation.set(0,0,0);
   }
@@ -282,35 +286,79 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     const d = Math.max(0,Math.min(.05,dt || 0));
     time += d;
     recoil = Math.max(0,recoil - d*5.8);
+    fireT = Math.max(0,fireT-d*9);
     shotFlash = Math.max(0,shotFlash-d);
     if (shotFlash === 0) { muzzleFlash.isVisible = false; pistolFlash.isVisible=false; }
-    meleeT=Math.max(0,meleeT-d*3.2);
-    switchT=Math.max(0,switchT-d*4.5);
+    const previousMelee = meleeT;
+    meleeT = Math.max(0,meleeT-d*3.2);
+    switchT = Math.max(0,switchT-d*4.5);
+
     const moving = clamp01(Math.abs(movement));
     walking += d*(moving > .05 ? 9 : 2.2);
-    const bob = Math.sin(walking)*.008*moving;
-    const reloadProgress = reloadT > 0 ? 1-reloadT/reloadDuration : 0;
+    const reloadElapsed = reloadT > 0 ? reloadDuration-reloadT : 0;
     if (reloadT > 0) reloadT = Math.max(0,reloadT-d);
-    const r = smooth(reloadProgress);
+    const progress = reloadWeapon && reloadDuration > 0 ? clamp01(reloadElapsed/reloadDuration) : 0;
+    const r = smooth(progress);
+    const reloadActive = reloadT > 0 || (reloadWeapon !== null && progress < 1);
+    const reloadDip = Math.sin(r*Math.PI);
+    const lift = Math.sin(switchT*Math.PI);
+
+    // Camera-relative idle/breathing and movement sway. Engine movement may add its own
+    // small displacement; this layer remains additive and is reset every frame.
+    const bob = Math.sin(walking)*.008*moving;
     root.position.x = initial.x + Math.sin(walking*.5)*.004*moving;
-    root.position.y = initial.y + bob - r*.07 + recoil*.012 - Math.sin(switchT*Math.PI)*.035;
+    root.position.y = initial.y + bob - reloadDip*.075 + recoil*.012 - lift*.045;
     root.position.z = initial.z - recoil*.12;
     root.rotation.x = recoil*.035 + Math.sin(time*1.7)*.003;
-    rifle.rotation.x = selected==='rifle'?recoil*.045:0;
-    pistol.rotation.x = selected==='pistol'?recoil*.055:0;
-    pistolSlide.position.z = Math.max(-.035,pistolSlide.position.z+d*.24);
-    pistolMag.position.y = -.14 - (reloadT>0&&selected==='pistol'?Math.sin(r*Math.PI)*.15:0);
+    root.rotation.z = Math.sin(walking*.5)*.006*moving;
+
+    // Distinct firing response for each weapon, with spring return to the rest pose.
+    rifle.rotation.x = selected==='rifle' ? recoil*.045 + fireT*.018 : 0;
+    pistol.rotation.x = selected==='pistol' ? recoil*.055 + fireT*.025 : 0;
+    pistolSlide.position.z = Math.min(0,pistolSlide.position.z+d*.72);
+    pistolSlide.position.z = Math.max(-.045,pistolSlide.position.z);
+    bolt.position.z = -.02 - recoil*.055;
+    bolt.position.x = -.02 + fireT*.012;
+
+    // Magazines follow a three-stage removal / insertion arc rather than scaling or
+    // teleporting. reloadWeapon is captured at reload start, so switching slots is safe.
+    const magOut = smooth(clamp01(progress/.38));
+    const magIn = smooth(clamp01((progress-.58)/.34));
+    if (reloadWeapon === 'rifle') {
+      magPivot.position.y = -.12 - magOut*.17 + magIn*.17;
+      magPivot.position.z = .005 + magOut*.035 - magIn*.035;
+      magPivot.rotation.x = magOut*.48 - magIn*.48;
+    } else {
+      pistolMag.position.y = -.14 - magOut*.15 + magIn*.15;
+      pistolMag.position.z = .085 + magOut*.025 - magIn*.025;
+      pistolMag.rotation.x = magOut*.35 - magIn*.35;
+      pistolSlide.position.z = progress > .82 ? -.025*(1-smooth((progress-.82)/.18)) : pistolSlide.position.z;
+    }
+
+    // Weapon-specific hand poses: support hand reaches the magazine; knife hand drives
+    // the slash and recovers naturally. No pose accumulates between frames.
+    const reloadPose = reloadActive ? reloadDip : 0;
+    rightArm.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.72 : reloadPose*(selected==='pistol'?.82:.58);
+    rightArm.rotation.y = selected==='knife' ? Math.sin(meleeT*Math.PI)*.10 : 0;
+    rightArm.rotation.z = selected==='knife' ? -.20 : -reloadPose*.24;
+    leftArm.rotation.x = selected==='knife' ? .16 : reloadPose*.20;
+    leftArm.rotation.y = selected==='knife' ? -.08 : 0;
+    leftArm.rotation.z = selected==='knife' ? .12 : reloadPose*.10;
+    rifle.position.y = selected==='rifle' ? lift*.045 : 0;
+    pistol.position.y = selected==='pistol' ? lift*.045 : 0;
+    knife.position.y = selected==='knife' ? lift*.045 : 0;
     knife.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.95 : 0;
     knife.rotation.y = selected==='knife' ? Math.sin(meleeT*Math.PI)*.12 : 0;
-    const switchDip=Math.sin(switchT*Math.PI);
-    bolt.position.z = -.02 - recoil*.055;
-    const reloadDip = Math.sin(r*Math.PI);
-    magPivot.position.y = -.12 - reloadDip*.15;
-    magPivot.rotation.x = reloadDip*.18;
-    rightArm.rotation.x = selected==='knife' ? -Math.sin(meleeT*Math.PI)*.62 : reloadDip*(selected==='pistol'?.72:.52);
-    rightArm.rotation.z = selected==='knife' ? -.18 : -reloadDip*.22;
-    leftArm.rotation.x = selected==='knife' ? .12 : reloadDip*.12;
     stock.rotation.x = recoil*.018;
+
+    if (reloadT === 0 && reloadWeapon !== null) {
+      // Hold the magazine in its seated position until the gameplay reload completes.
+      if (reloadWeapon === 'rifle') {
+        magPivot.position.set(0,-.12,.005); magPivot.rotation.set(0,0,0);
+      } else {
+        pistolMag.position.set(.015,-.14,.085); pistolMag.rotation.set(0,0,0);
+      }
+    }
   }
   function select(slot) {
     selected = slot;
