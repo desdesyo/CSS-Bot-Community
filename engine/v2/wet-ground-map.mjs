@@ -877,7 +877,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       wet.scaling.set(distance===3.8?2.4:distance===6.2?1.8:1.2,.012,.72);
       wet.position.set(x,.071,at(distance));wet.rotation.x=Math.PI/2;wet.material=puddle;wet.isPickable=false;
     }
-    if(team==='CT')makeSpawnCar('CT parked rain-dark sedan',9.8,at(1.8),'#263b43');
+    if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',9.8,at(1.8),'#263b43');
     const wire=B.MeshBuilder.CreateTube(label+' overhead bundled power cable',{
       path:[new B.Vector3(westFace,7.15,at(5.5)),new B.Vector3((westFace+eastFace)/2,6.65,at(4.2)),new B.Vector3(eastFace,7.15,at(5.5))],
       radius:.024,tessellation:6},scene);
