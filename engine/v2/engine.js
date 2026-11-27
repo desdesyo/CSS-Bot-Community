@@ -71,7 +71,7 @@ function buildMap() { buildExpandedDust2(BABYLON,scene,shadowGen,mat,box); }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
   const uniform=team==='enemy'?enemyMaterial:allyMaterial;
-  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.12,radius:.21,tessellation:10,subdivisions:1},scene);body.parent=root;body.position.y=.88;body.material=uniform;body.receiveShadows=true;shadowGen.addShadowCaster(body);
+  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.12,radius:.21,tessellation:10,subdivisions:1},scene);body.parent=root;body.position.y=.88;body.material=uniform;body.receiveShadows=true;if(shadowGen)shadowGen.addShadowCaster(body);
   const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.24,segments:12},scene);head.parent=root;head.position.y=1.64;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
   const armMat=mat('armour-'+id,team==='enemy'?'#4b5b54':'#465d74',.9),legMat=mat('trousers-'+id,team==='enemy'?'#39443e':'#35495c',.94);
   const leftArm=BABYLON.MeshBuilder.CreateCapsule('left-arm-'+id,{height:.66,radius:.105,tessellation:9,subdivisions:1},scene);leftArm.parent=root;leftArm.position.set(-.27,1.12,0);leftArm.material=armMat;
@@ -114,7 +114,7 @@ function attachSoldierModel(bot){
  if(!Number.isFinite(height)||height<.5||height>5){rig.dispose(false,true);instance.animationGroups.forEach(a=>a.dispose());throw new Error('Invalid soldier model height: '+height)}
  const scale=1.72/height;rig.scaling.setAll(scale);rig.position.y=-bounds.min.y*scale;
  const tint=bot.team==='ally'?new BABYLON.Color3(.76,.88,1):new BABYLON.Color3(1,.86,.70);
- for(const mesh of rig.getChildMeshes(false)){mesh.isPickable=false;mesh.receiveShadows=true;if(mesh.material?.clone){const m=mesh.material.clone('soldier-'+bot.id+'-mat');if(m.albedoColor)m.albedoColor=m.albedoColor.multiply(tint);mesh.material=m}if(!mobile)shadowGen.addShadowCaster(mesh)}
+ for(const mesh of rig.getChildMeshes(false)){mesh.isPickable=false;mesh.receiveShadows=true;if(mesh.material?.clone){const m=mesh.material.clone('soldier-'+bot.id+'-mat');if(m.albedoColor)m.albedoColor=m.albedoColor.multiply(tint);mesh.material=m}if(!mobile&&shadowGen)shadowGen.addShadowCaster(mesh)}
  for(const part of [bot.body,bot.head,bot.leftArm,bot.rightArm,bot.leftLeg,bot.rightLeg,bot.pack,bot.gun])if(part)part.visibility=0;
  for(const part of bot.fallbackParts||[])if(part)part.visibility=0;bot.realModel=rig;bot.realAnimations=instance.animationGroups||[];
  const run=bot.realAnimations.find(a=>/run|walk/i.test(a.name)),idle=bot.realAnimations.find(a=>/idle|tpose/i.test(a.name));
