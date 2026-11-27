@@ -189,47 +189,82 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   // Low-rise buildings: 2–3 floors, irregular facades, open doorways and service alleys.
   const building=(name,x,z,w,d,h,material,front)=>{
-    const side=front==='west'?-1:1, face=x+side*(w/2+.07);
+    // Fronts face the inhabited street: west-side blocks look east, east-side blocks look west.
+    const side=front==='west'?1:-1, face=x+side*(w/2+.07);
     box(name+' rear wall',x,h/2,z-d/2,w,h,.48,material,true);
     box(name+' outer wall',x-side*w/2,h/2,z,.48,h,d,material,true);
     box(name+' inner wall north',x+side*w/2,h/2,z-d/2+.6,.48,h,d*.34,material,true);
     box(name+' inner wall south',x+side*w/2,h/2,z+d/2-.6,.48,h,d*.34,material,true);
     box(name+' flat slate roof',x,h+.12,z,w+.45,.28,d+.45,roof,false);
-    for(const zz of [z-d*.28,z+d*.28]){
-      box(name+' facade window recess',face,2.55,zz,.12,1.65,2.05,iron,false);
-      box(name+' dark window glass',face+side*.075,2.55,zz,.04,1.34,1.72,glass,false);
-      if(Math.round(z+zz)%2===0)box(name+' occupied warm window',face+side*.105,2.55,zz,.035,.72,.94,warmWindow,false);
-      box(name+' stone window sill',face+side*.12,1.68,zz,.28,.14,2.3,trim,false);
-      box(name+' lintel',face,3.43,zz,.2,.16,2.35,trim,false);
-    }
-    box(name+' doorway canopy',face+side*.18,2.5,z,.8,.18,2.4,iron,false);
-    box(name+' door',face+side*.02,1.1,z,.08,2.2,1.7,roof,false);
-    box(name+' door step',face+side*.5,.14,z,1.1,.24,2.1,trim,false);
-    for(const zz of [z-d*.42,z+d*.42]){
-      box(name+' facade drainpipe',face+side*.16, h*.45,zz,.13,h*.9,.13,iron,false);
-    }
-    for(let floorIndex=1;floorIndex<=2;floorIndex++){
-      const fy=floorIndex===1?4.1:6.3;
-      if(fy<h-.6){
-        box(name+' balcony slab',face+side*.5,fy-.7,z,.9,.14,2.8,trim,false);
-        box(name+' balcony rail',face+side*.92,fy-.22,z,.12,.85,2.8,iron,false);
+    // Build a real inward-facing elevation with masonry piers and openings, not glazing pasted on blank walls.
+    const floors=Math.max(1,Math.ceil(h/2.75));
+    for(let level=0;level<floors;level++){
+      const bottom=level*2.72,top=Math.min(h,bottom+2.72),floorHeight=top-bottom;
+      if(floorHeight<1.65)continue;
+      const windowY=bottom+Math.min(1.62,floorHeight-.78),windowH=Math.min(1.28,floorHeight-.72),windowW=1.32;
+      const windowZs=level===0?[z-d*.29,z+d*.29]:[z-d*.31,z,z+d*.31];
+      const openings=windowZs.map(zz=>({z:zz,width:windowW,height:windowH,centerY:windowY,type:'window'}));
+      if(level===0)openings.push({z,width:1.72,height:Math.min(2.22,floorHeight-.12),centerY:Math.min(1.12,floorHeight/2),type:'door'});
+      openings.sort((a,b)=>a.z-b.z);
+      let cursor=z-d/2;
+      for(const opening of openings){
+        const left=opening.z-opening.width/2,right=opening.z+opening.width/2;
+        if(left>cursor+.12)box(name+' facade masonry pier',face,bottom+floorHeight/2,(cursor+left)/2,.22,floorHeight,left-cursor,material,true);
+        const openingBottom=opening.centerY-opening.height/2,openingTop=opening.centerY+opening.height/2;
+        if(openingBottom>bottom+.08)box(name+' facade opening sill masonry',face,(bottom+openingBottom)/2,opening.z,.22,openingBottom-bottom,opening.width,material,true);
+        if(top>openingTop+.08)box(name+' facade opening lintel masonry',face,(openingTop+top)/2,opening.z,.22,top-openingTop,opening.width,material,true);
+        if(opening.type==='window'){
+          const frameX=face+side*.14;
+          box(name+' recessed window shadow',frameX,opening.centerY,opening.z,.09,opening.height+.18,opening.width+.18,iron,false);
+          box(name+' deep-set window glass',frameX+side*.055,opening.centerY,opening.z,.035,opening.height-.12,opening.width-.12,glass,false);
+          for(const dz of [-opening.width/2,opening.width/2])box(name+' stone window jamb',frameX+side*.10,opening.centerY,opening.z+dz,.22,opening.height+.22,.12,trim,false);
+          box(name+' stone window head',frameX+side*.10,opening.centerY+opening.height/2+.08,opening.z,.24,.14,opening.width+.18,trim,false);
+          box(name+' projecting stone sill',frameX+side*.16,opening.centerY-opening.height/2-.08,opening.z,.38,.16,opening.width+.32,trim,false);
+          if((level+Math.round(z+opening.z))%3===0)box(name+' warm occupied window interior',frameX+side*.09,opening.centerY,opening.z,.025,opening.height*.56,opening.width*.62,warmWindow,false);
+          if(level>0&&Math.abs(opening.z-z)<.2){
+            box(name+' projecting balcony slab',face+side*.58,bottom+.72,z,1.12,.16,1.95,trim,false);
+            box(name+' wrought iron balcony rail',face+side*1.12,bottom+1.13,z,.08,.76,1.95,iron,false);
+            for(const dz of [-.82,-.4,0,.4,.82])box(name+' balcony baluster',face+side*1.12,bottom+1.13,z+dz,.045,.76,.045,iron,false);
+          }
+        }else{
+          const doorX=face+side*.15;
+          box(name+' recessed timber entrance door',doorX,opening.centerY,opening.z,.075,opening.height-.08,opening.width-.12,roof,false);
+          box(name+' entrance transom glass',doorX+side*.055,opening.centerY+opening.height*.34,opening.z,.035,.28,opening.width*.62,warmWindow,false);
+          for(const dz of [-opening.width/2,opening.width/2])box(name+' carved stone door jamb',doorX+side*.12,opening.centerY,opening.z+dz,.24,opening.height+.12,.16,trim,false);
+          box(name+' carved stone door lintel',doorX+side*.12,opening.centerY+opening.height/2+.06,opening.z,.26,.16,opening.width+.22,trim,false);
+          cylinder(name+' brass entrance handle',doorX+side*.2,opening.centerY-.08,opening.z+.48,.075,.075,amber);
+          box(name+' recessed entrance canopy',face+side*.42,2.52,z,1.05,.16,2.55,iron,false);
+          box(name+' stone entrance threshold',face+side*.38,.13,z,1.1,.18,2.05,trim,false);
+        }
+        cursor=Math.max(cursor,right);
       }
+      if(cursor<z+d/2-.12)box(name+' facade end pier',face,bottom+floorHeight/2,(cursor+z+d/2)/2,.22,floorHeight,z+d/2-cursor,material,true);
+    }
+    box(name+' cut-stone street plinth',face+side*.06,.34,z,.34,.68,d,trim,false);
+    for(const level of [2.72,5.44])if(level<h-.2)box(name+' projecting horizontal floor band',face+side*.17,level,z,.38,.13,d+.18,trim,false);
+    box(name+' upper facade cornice',face+side*.18,h-.18,z,.46,.22,d+.45,trim,false);
+    for(const zz of [z-d*.43,z+d*.43]){
+      box(name+' facade rain downpipe',face+side*.27,h*.48,zz,.16,h*.94,.16,iron,false);
+      for(let y=1;y<h-1;y+=2.6)box(name+' drainpipe wall bracket',face+side*.34,y,zz,.2,.08,.22,trim,false);
+    }
+    for(const zz of [z-d*.34,z+d*.34]){
+      box(name+' facade corner pilaster',face+side*.13,h/2,zz,.3,h,.32,trim,false);
+      for(let y=.7;y<h-1;y+=1.35)box(name+' pilaster stone joint',face+side*.3,y,zz,.035,.035,.34,iron,false);
     }
     box(name+' chimney',x+side*w*.25,h+.9,z-d*.2,.8,1.5,.8,stone,false);
     box(name+' rain gutter',x,h+.28,z+d/2,w+.5,.12,.12,iron,false);
-    // recessed wall alcove makes the doorway legible from the playable street
     return {face};
   };
   // The old mirrored row grid is gone: each frontage has its own setback,
   // footprint and height, leaving a broad market court on one side and a tight
   // service alley on the other. The bombsite stays fixed for objective logic.
   const blocks=[
-    ['west tenement A',-19,-32,13,12,8.2,plaster,'west'],
+    ['west tenement A',-16,-32,13,12,8.2,plaster,'west'],
     ['west tenement B',-15,-6,10,17,7.4,stone,'west'],
     ['west tenement C',-20,17,13,14,8.5,brick,'west'],
     ['west tenement D',-13,35,8,10,7.2,plaster,'west'],
-    ['east tenement A',20,-32,10,12,7.6,stone,'east'],
-    ['east tenement B',20,-7,14,18,8.4,plaster,'east'],
+    ['east tenement A',16,-32,10,12,7.6,stone,'east'],
+    ['east tenement B',16.5,-7,14,18,8.4,plaster,'east'],
     ['east tenement C',16,17,10,14,7.3,brick,'east'],
     ['east tenement D',21,36,13,10,8.1,stone,'east']
   ];
