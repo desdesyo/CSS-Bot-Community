@@ -21,16 +21,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare static game
+      - name: Prepare SOLO Engine V2
         run: |
           mkdir -p dist
-          cp engine/play.html dist/index.html
-          cp engine/play.html "dist/solo-${GITHUB_SHA}.html"
-          cp engine/import.html dist/import.html
-          mkdir -p dist/client
-          cp -R engine/client/. dist/client/
-          mkdir -p dist/engine/v2
-          cp -R engine/v2/. dist/engine/v2/
+          # Public entry point is the new Babylon.js V2 runtime, not legacy engine/play.html.
+          cp -R engine/v2/. dist/
+          # Immutable build-specific copy prevents mobile browsers reusing an older page.
+          mkdir -p "dist/solo-v2-${GITHUB_SHA}"
+          cp -R engine/v2/. "dist/solo-v2-${GITHUB_SHA}/"
+          # Preserve the previous prototype only under an explicit legacy route.
+          mkdir -p dist/legacy
+          cp engine/play.html dist/legacy/index.html
+          cp engine/import.html dist/legacy/import.html
+          mkdir -p dist/legacy/client
+          cp -R engine/client/. dist/legacy/client/
           touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
