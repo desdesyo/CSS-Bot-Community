@@ -230,7 +230,7 @@ test('Wet Ground is the active rain-quarter map with persistent route atlas iden
   assert.match(engine, /wet-ground-street-panorama-v2/);
   assert.match(map, /canal deep water/);
   assert.match(map, /arched stone bridge deck/);
-  assert.match(map, /procedural wet cobblestone/);
+  assert.match(map, /photographic irregular wet cobblestone albedo/);
   assert.match(map, /warm street lantern/);
   assert.match(map, /alley low stone divider/);
   assert.match(html, /WET GROUND/);
@@ -244,6 +244,24 @@ test('real rigged soldier models are mandatory; primitive placeholder soldiers a
   assert.doesNotMatch(bots, /fallback-torso|fallback-head|using procedural soldiers/);
 });
 
+
+test('Wet Ground district has curved masonry bridges, a walkable service tunnel and layered roof architecture', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /curved stone arch intrados/);
+  assert.match(map, /bridge arch voussoir/);
+  assert.match(map, /west service tunnel worn stone floor/);
+  assert.match(map, /service tunnel carved stone portal arch/);
+  assert.match(map, /pitched slate roof plane/);
+  assert.match(map, /roof ventilation curb/);
+  assert.match(map, /continuous curved limestone arcade arch/);
+  assert.match(map, /cobblestone variable roughness map/);
+});
+test('Wet Ground renderer enables image-based reflections for physically based materials', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /CubeTexture\.CreateFromPrefilteredData/);
+  assert.match(engine, /environmentSpecular\.env/);
+  assert.match(engine, /scene\.environmentIntensity=mobile\?\.62:\.88/);
+});
 
 test('Wet Ground uses physical PBR materials and real planar wet-surface reflections on mobile and desktop', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
