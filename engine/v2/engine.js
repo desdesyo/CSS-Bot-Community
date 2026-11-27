@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
+import { createHumanBot, animateHumanBot } from './human-bots.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -38,12 +39,9 @@ function buildMap() {
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
-  const body=BABYLON.MeshBuilder.CreateCapsule('body-'+id,{height:1.35,radius:.27,tessellation:8,subdivisions:1},scene);body.parent=root;body.position.y=.92;body.material=team==='enemy'?enemyMaterial:allyMaterial;body.receiveShadows=true;shadowGen.addShadowCaster(body);
-  const head=BABYLON.MeshBuilder.CreateSphere('head-'+id,{diameter:.42,segments:8},scene);head.parent=root;head.position.y=1.78;head.material=mat('helmet-'+id,team==='enemy'?'#b58a55':'#718d9b',.78);
-  const pack=box('backpack-'+id,0,0,0,.52,.58,.25,mat('pack-'+id,'#343b35',.9),false);pack.parent=root;pack.position.set(0,1.0,.29);
-  const gun=box('rifle-'+id,0,0,0,.12,.12,.92,mat('rifle-'+id,'#202729',.42,.72),false);gun.parent=root;gun.position.set(.28,1.25,.38);
+  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id);
   root.position.set(x,0,z);
-  state.bots.push({id,team,root,body,head,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,fireAt:0});
   return root;
 }
 function buildBots() {
@@ -135,8 +133,7 @@ function updateBotMotion(dt) {
     const yaw=Math.atan2(target[0]-bot.root.position.x,target[1]-bot.root.position.z);
     let delta=(yaw-bot.root.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI;
     bot.root.rotation.y+=delta*Math.min(1,dt*7);
-    bot.phase+=dt*7;bot.body.position.y=.92+Math.abs(Math.sin(bot.phase))*.035;
-    bot.head.position.y=1.78+Math.abs(Math.sin(bot.phase))*.018;
+    bot.phase+=dt*7;animateHumanBot(bot.rig,bot.phase,true);
   }
 }
 function fire() {
