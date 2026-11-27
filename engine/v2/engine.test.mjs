@@ -171,3 +171,14 @@ test('legacy rifle firing cadence, hold-to-fire and timed reload are preserved',
   assert.ok(runtime.includes("},1250);"));
   assert.ok(runtime.includes('old-style-muzzle-flash'));
 });
+
+test('touch movement remains active without a connected gamepad', () => {
+  assert.ok(runtime.includes('touchStickActive:false'));
+  assert.ok(runtime.includes('if(!state.touchStickActive)state.joy.x=state.joy.y=0'));
+  assert.ok(runtime.includes('state.touchStickActive=true'));
+});
+test('legacy weapon kick moves the viewmodel rather than changing aim direction', () => {
+  assert.ok(runtime.includes('state.weaponKick=.04'));
+  assert.ok(runtime.includes('viewBaseZ'));
+  assert.ok(runtime.includes('mesh.position.z=mesh.metadata.viewBaseZ+state.weaponKick'));
+});
