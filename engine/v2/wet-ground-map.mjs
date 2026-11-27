@@ -859,13 +859,20 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     // A bicycle, utility cabinet, litter bins and wet paving stains add lived-in
     // scale. These props stay against the edges, clear of the player's movement.
     const bikeX=-4.35;
-    cylinder(label+' bicycle front wheel',bikeX,.58,z+2.25,.78,.055,spawnIron);
-    cylinder(label+' bicycle rear wheel',bikeX,.58,z+.55,.78,.055,spawnIron);
-    for(const [x1,z1,x2,z2] of [[bikeX,.58,bikeX,z+2.25],[bikeX,.58,bikeX+.62,z+1.4],[bikeX+.62,z+1.4,bikeX,z+2.25],[bikeX,.58,bikeX+.62,z+1.4]]){
-      const tube=B.MeshBuilder.CreateTube(label+' bicycle frame tube',{path:[new B.Vector3(x1,z1===.58?1.0:.58,z1),new B.Vector3(x2,z2===z+1.4?1.0:.58,z2)],radius:.035,tessellation:6},scene);
-      tube.material=spawnPaint;tube.isPickable=false;
+    for(const [wheelName,wheelZ] of [['front',z+2.25],['rear',z+.55]]){
+      const wheel=B.MeshBuilder.CreateCylinder(label+' bicycle '+wheelName+' wheel',{diameter:.78,height:.055,tessellation:20},scene);
+      wheel.rotation.z=Math.PI/2;wheel.position.set(bikeX,.58,wheelZ);wheel.material=spawnIron;wheel.isPickable=false;
+      const hub=B.MeshBuilder.CreateCylinder(label+' bicycle '+wheelName+' hub',{diameter:.12,height:.07,tessellation:12},scene);
+      hub.rotation.z=Math.PI/2;hub.position.set(bikeX,.58,wheelZ);hub.material=trim;hub.isPickable=false;
     }
-    cylinder(label+' bicycle seat post',bikeX+.62,.88,z+1.4,.07,.48,spawnIron);
+    const bikeTube=(name,a,b)=>{const tube=B.MeshBuilder.CreateTube(label+' bicycle '+name,{path:[new B.Vector3(...a),new B.Vector3(...b)],radius:.035,tessellation:6},scene);tube.material=spawnPaint;tube.isPickable=false;};
+    bikeTube('lower frame',[bikeX,.58,z+.55],[bikeX,.58,z+2.25]);
+    bikeTube('rear diagonal',[bikeX,.58,z+.55],[bikeX+.62,.58,z+1.4]);
+    bikeTube('front diagonal',[bikeX+.62,.58,z+1.4],[bikeX,.58,z+2.25]);
+    bikeTube('top tube',[bikeX,.58,z+2.25],[bikeX+.62,.58,z+1.4]);
+    bikeTube('seat post',[bikeX+.62,.58,z+1.4],[bikeX+.62,1.02,z+1.4]);
+    bikeTube('handlebar stem',[bikeX, .58,z+2.25],[bikeX-.08,1.02,z+2.45]);
+    cylinder(label+' bicycle seat',bikeX+.62,1.06,z+1.4,.12,.3,spawnIron);
     box(label+' public utility cabinet',4.35,.82,z+2.8,.82,1.64,.62,spawnPaint,false);
     box(label+' utility cabinet service door',4.35,.84,z+2.47,.62,1.24,.035,spawnIron,false);
     for(let slot=0;slot<4;slot++)box(label+' cabinet ventilation slot',4.35,.48+slot*.2,z+2.43,.36,.035,.025,trim,false);
