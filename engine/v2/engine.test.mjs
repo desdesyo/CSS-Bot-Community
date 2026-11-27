@@ -294,3 +294,15 @@ test('cloud host pins render scale to native 1080p target instead of adaptive su
   assert.ok(runtime.includes('const targetDpr=cloudHost?1:(mobile?1:1.5)'));
   assert.ok(runtime.includes('const next=cloudHost?1:adaptiveScale(p95,state.scale,mobile)'));
 });
+
+test('destroyed or hidden map panels stop blocking player movement',()=>{
+  assert.ok(runtime.includes('item.mesh.isDisposed()||!item.mesh.isVisible||item.mesh.visibility===0'));
+});
+test('cloud viewer exposes mobile weapon cycling and suppresses text selection',()=>{
+  const page=readFileSync(new URL('../cloud/viewer.html',import.meta.url),'utf8');
+  const viewer=readFileSync(new URL('../cloud/viewer.js',import.meta.url),'utf8');
+  assert.ok(page.includes('user-select:none'));
+  assert.ok(page.includes('id="weapon"'));
+  assert.ok(viewer.includes('weaponOrder[(i+1)%weaponOrder.length]'));
+  assert.ok(viewer.includes('let firePointerId=null'));
+});
