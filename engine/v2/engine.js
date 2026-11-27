@@ -461,9 +461,27 @@ function initInput() {
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
   look.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
-  $('fire').addEventListener('pointerdown',e=>{e.preventDefault();$('fire').setPointerCapture?.(e.pointerId);state.firing=true;$('fire').classList.add('active');fire()});
-  const stopFire=()=>{state.firing=false;$('fire').classList.remove('active')};
-  $('fire').addEventListener('pointerup',stopFire);$('fire').addEventListener('pointercancel',stopFire);$('fire').addEventListener('pointerleave',stopFire);
+  const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
+  fireButton.addEventListener('pointerdown',e=>{
+    e.preventDefault();fireId=e.pointerId;fireButton.setPointerCapture(e.pointerId);
+    const r=fireButton.getBoundingClientRect();fireLast={x:r.left+r.width/2,y:r.top+r.height/2};
+    state.firing=true;fireButton.classList.add('active');fire();
+  });
+  fireButton.addEventListener('pointermove',e=>{
+    if(e.pointerId!==fireId||!fireLast)return;
+    const dx=e.clientX-fireLast.x,dy=e.clientY-fireLast.y;fireLast={x:e.clientX,y:e.clientY};
+    const r=fireButton.getBoundingClientRect(),ox=e.clientX-(r.left+r.width/2),oy=e.clientY-(r.top+r.height/2);
+    const len=Math.hypot(ox,oy),k=Math.min(1,38/Math.max(1,len));
+    state.fireStick.x=ox/38*k;state.fireStick.y=oy/38*k;
+    fireNub.style.transform='translate('+state.fireStick.x*30+'px,'+state.fireStick.y*30+'px)';
+    camera.rotation.y+=dx*.0042;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042));
+  });
+  const stopFire=e=>{
+    if(e&&fireId!==null&&e.pointerId!==fireId)return;
+    fireId=null;fireLast=null;state.firing=false;state.fireStick.x=state.fireStick.y=0;
+    fireNub.style.transform='';fireButton.classList.remove('active');
+  };
+  fireButton.addEventListener('pointerup',stopFire);fireButton.addEventListener('pointercancel',stopFire);
   $('reload').addEventListener('click',reload);
   for(const button of document.querySelectorAll('[data-weapon]'))button.addEventListener('click',()=>selectWeapon(button.dataset.weapon));
   $('fullScreen').addEventListener('click',toggleFullscreen);
@@ -471,6 +489,32 @@ function initInput() {
   $('issueQuick').addEventListener('click',submitIssueReport);
   $('pause').addEventListener('click',()=>{if(state.started){state.started=false;state.firing=false;overlay.style.display='flex';status.textContent='ПАУЗА';startButton.textContent='ПРОДОЛЖИТЬ';startButton.disabled=false;}});
 
+}
+function updateAimAssist(dt) {
+  const forward=camera.getForwardRay(1).direction.normalize();
+  const cosLimit=Math.cos(mobile ? 0.34 : 0.24);
+  let best=null,bestDot=cosLimit;
+  for(const bot of state.bots){
+    if(!bot.alive||bot.team!=='enemy')continue;
+    const target=bot.root.position.add(new BABYLON.Vector3(0,1.28,0));
+    const delta=target.subtract(camera.position),distance=delta.length();
+    if(distance>34||distance<.5)continue;
+    const direction=delta.scale(1/distance),dot=BABYLON.Vector3.Dot(forward,direction);
+    if(dot<=bestDot)continue;
+    const ray=new BABYLON.Ray(camera.position,direction,distance);
+    const hit=scene.pickWithRay(ray,m=>m&&m.isPickable&&m.name!=='player-hitbox');
+    if(hit?.hit&&hit.pickedMesh.parent!==bot.root)continue;
+    best=bot;bestDot=dot;
+  }
+  state.aimTargetId=best?.id??null;
+  if(!best)return;
+  const target=best.root.position.add(new BABYLON.Vector3(0,1.28,0));
+  const dx=target.x-camera.position.x,dz=target.z-camera.position.z,dy=target.y-camera.position.y;
+  const yaw=Math.atan2(dx,dz),pitch=-Math.atan2(dy,Math.hypot(dx,dz));
+  const yawDelta=Math.atan2(Math.sin(yaw-camera.rotation.y),Math.cos(yaw-camera.rotation.y));
+  const strength=(state.firing ? 0.24 : 0.105)*Math.min(1,dt*60);
+  camera.rotation.y+=yawDelta*strength;
+  camera.rotation.x+=(pitch-camera.rotation.x)*strength;
 }
 function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
@@ -643,7 +687,7 @@ async function boot() {
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
       if(state.started) {
-        updatePlayer(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        updatePlayer(dt);updateAimAssist(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         if(state.roundTime<=0)endRound(false);
