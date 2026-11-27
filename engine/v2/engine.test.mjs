@@ -15,6 +15,17 @@ test('V2 startup resolves the render canvas declared by its HTML entrypoint', ()
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
 });
+test('playable runtime includes bot combat, player damage, reload and fullscreen controls', () => {
+  assert.ok(runtime.includes('function updateBotAI()'));
+  assert.ok(runtime.includes('state.playerHitbox'));
+  assert.ok(runtime.includes("state.hp=Math.max(0,state.hp-8)"));
+  assert.ok(runtime.includes("$('reload').addEventListener"));
+  assert.ok(runtime.includes("if(e.code==='KeyF')toggleFullscreen()"));
+  assert.ok(runtime.includes('function toggleFullscreen()'));
+  assert.ok(html.includes('id="reload"'));
+  assert.ok(html.includes('id="fullscreen"'));
+  assert.ok(html.includes('./engine.js?v=20261127-4'));
+});
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
   assert.ok(Math.abs(adaptiveScale(12, .9, true) - .925) < 1e-9);
