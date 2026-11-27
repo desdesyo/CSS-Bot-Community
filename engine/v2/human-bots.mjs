@@ -88,18 +88,38 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
       mesh.receiveShadows = !isMobile;
       // Skinned shadow casters are disproportionately expensive on mobile GPUs.
       if (!isMobile && shadowGen && mesh.getTotalVertices() > 100) shadowGen.addShadowCaster(mesh);
-      const material = mesh.material;
-      if (material?.albedoColor && !tintedMaterials.has(material)) {
-        tintedMaterials.add(material);
-        const tint = team === "enemy"
-          ? new B.Color3(1.0,0.94,0.88)
-          : new B.Color3(0.86,0.94,1.0);
-        material.albedoColor = material.albedoColor.multiply(tint);
+      const meshMaterials=[mesh.material,...(mesh.material?.subMaterials||[])].filter(Boolean);
+      for(const material of meshMaterials){
+        if(material?.albedoColor && !tintedMaterials.has(material)){
+          tintedMaterials.add(material);
+          const tint=team==="enemy"?new B.Color3(1.0,.94,.88):new B.Color3(.86,.94,1.0);
+          material.albedoColor=material.albedoColor.multiply(tint);
+        }
+        // Preserve source GLB texture resolution while improving oblique detail.
+        const textureSlots=["albedoTexture","bumpTexture","metallicTexture","ambientTexture","emissiveTexture","opacityTexture","lightmapTexture"];
+        for(const slot of textureSlots){
+          const texture=material?.[slot];
+          if(!texture)continue;
+          texture.anisotropicFilteringLevel=Math.min(isMobile?8:16,scene.getEngine().getCaps().maxAnisotropy||1);
+          if(texture.updateSamplingMode)texture.updateSamplingMode(B.Texture.TRILINEAR_SAMPLINGMODE);
+        }
       }
     }
     if (node.getChildMeshes) {
       node.isPickable = false;
     }
+  }
+
+  // Report embedded texture dimensions so source quality can be distinguished from GPU scaling.
+  if(id===1){
+    const textureReport=[];
+    for(const node of instance.rootNodes)for(const mesh of node.getChildMeshes?.(false)||[]){
+      for(const material of [mesh.material,...(mesh.material?.subMaterials||[])].filter(Boolean)){
+        const tex=material.albedoTexture;
+        if(tex){const size=tex.getSize?.()||{};textureReport.push({material:material.name,width:size.width||0,height:size.height||0,anisotropy:tex.anisotropicFilteringLevel||1});}
+      }
+    }
+    console.info("[SOLO] Soldier GLB texture quality",textureReport);
   }
 
   const animationGroups = {};
