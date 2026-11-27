@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -159,7 +159,7 @@ function reload(){
   if(!state.started||state.reloading||state.ammo===30||state.reserve===0||state.playerDead)return;
   state.reloading=true;$('reload').disabled=true;$('reload').textContent='RELOADING…';
   window.setTimeout(()=>{
-    if(!state.started)return;
+    if(!state.started){state.reloading=false;$('reload').disabled=false;$('reload').textContent='RELOAD · R';return;}
     const n=Math.min(30-state.ammo,state.reserve);state.ammo+=n;state.reserve-=n;state.reloading=false;
     $('ammo').textContent=state.ammo+' / '+state.reserve;$('reload').disabled=false;$('reload').textContent='RELOAD · R';
   },1250);
@@ -195,8 +195,9 @@ function updatePlayer(dt) {
   const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
   const yaw=camera.rotation.y;
   // Babylon cameras look down local -Z; movement must use the same forward vector.
-  camera.position.x+=(-Math.sin(yaw)*forward+Math.cos(yaw)*strafe)/len*speed;
-  camera.position.z+=(-Math.cos(yaw)*forward-Math.sin(yaw)*strafe)/len*speed;
+  const movement=cameraRelativeMovement(yaw,forward/len,strafe/len);
+  camera.position.x+=movement.x*speed;
+  camera.position.z+=movement.z*speed;
   if(weaponRoot){
     const moving=Math.min(1,Math.hypot(forward,strafe));
     weaponRoot.position.y=-.29+Math.sin(state.simTime*10)*.012*moving;
@@ -246,6 +247,7 @@ async function boot() {
       if(state.started) {
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
+        $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
         if(state.roundTime<=0)endRound(state.kills>0);
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
         if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
