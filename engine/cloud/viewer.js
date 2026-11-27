@@ -5,7 +5,7 @@ const say = text => { status.textContent = text; };
 function sendSignal(message) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message)); }
 function sendInput() {
   if (!channel || channel.readyState !== 'open') return;
-  channel.send(JSON.stringify({ x: move.x, y: move.y, lookX: look.x, lookY: look.y, fire, reload, jump, weapon }));
+  channel.send(JSON.stringify({ x: move.x, y: move.y, lookX: look.x, lookY: look.y, fire, reload, jump, weapon, sprint: held.has('ShiftLeft') || held.has('ShiftRight') }));
   look.x = look.y = 0; reload = jump = false; weapon = '';
 }
 async function connect() {
