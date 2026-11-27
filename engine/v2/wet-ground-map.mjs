@@ -410,7 +410,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     inner.material=iron;inner.isPickable=false;
     box('arcade threshold worn stone',ax,.08,az,span,.14,1.05,trim,false);
     for(const sideSign of [-1,1]){
-      const wallLamp=box('arcade amber wall sconce',ax+sideSign*1.72,2.55,az,.12,.42,.2,glow,false);
+      const wallLamp=box('arcade amber wall sconce',ax+sideSign*1.72,2.55,az,.12,.42,.2,amber,false);
       wallLamp.isPickable=false;
     }
   }
