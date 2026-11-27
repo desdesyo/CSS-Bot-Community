@@ -6,7 +6,7 @@ const cloudHost = new URLSearchParams(location.search).get('cloudHost') === '1';
 import { adaptiveScale, moveToward } from './engine-core.mjs';
 import { buildExpandedDust2 } from './dust2-map.mjs';
 import { DUST2_EXPANDED, isDust2Blocked } from './dust2-layout.mjs';
-const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:mobile?0.68:1.25, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[],  keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, fireMouse:false, fireTouch:false, touchStickActive:false, reloading:false, weaponKick:0, muzzleFlash:null, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, gamepad:{index:-1,buttons:[],sprint:false,jumpVelocity:0,jumpOffset:0,aim:false,fire:false}, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:105,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
+const state = { started:false, hp:100, ammo:30, reserve:90, fps:0, scale:cloudHost?1:(mobile?0.68:1.25), frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[],  keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, fireMouse:false, fireTouch:false, touchStickActive:false, reloading:false, weaponKick:0, muzzleFlash:null, playerHitbox:null, weapon:'rifle', wheelOpen:false, lastGamepadL1:false, gamepad:{index:-1,buttons:[],sprint:false,jumpVelocity:0,jumpOffset:0,aim:false,fire:false}, weapons:{rifle:{name:'ВИНТОВКА',ammo:30,reserve:90,damage:34,rate:105,range:95},pistol:{name:'ПИСТОЛЕТ',ammo:12,reserve:48,damage:42,rate:300,range:65},grenade:{name:'ГРАНАТА',ammo:1,reserve:2,damage:0,rate:700,range:0},knife:{name:'НОЖ',ammo:0,reserve:0,damage:55,rate:420,range:2.4}} };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function isMapSolid(mesh) {
   if(!mesh||!mesh.isPickable||mesh===state.playerHitbox)return false;
@@ -476,7 +476,7 @@ async function boot() {
   try {
     if(!window.BABYLON)throw new Error('Babylon.js CDN недоступен');
     const B=window.BABYLON;
-    const targetDpr=mobile?1:1.5,deviceDpr=Math.min(window.devicePixelRatio||1,targetDpr);
+    const targetDpr=cloudHost?1:(mobile?1:1.5),deviceDpr=Math.min(window.devicePixelRatio||1,targetDpr);
     engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:!mobile,powerPreference:'high-performance',audioEngine:false},false);
     engine.setHardwareScalingLevel(1/Math.min(deviceDpr,targetDpr*state.scale));
     scene=new B.Scene(engine);scene.clearColor=new B.Color4(.12,.16,.17,1);scene.ambientColor=new B.Color3(.18,.18,.17);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new B.Color3(.22,.25,.24);
@@ -511,7 +511,7 @@ async function boot() {
       state.frameSamples.push(dt*1000);
       if(now-state.sampleAt>=2000){
         state.frameSamples.sort((a,b)=>a-b);const p95=state.frameSamples[Math.min(state.frameSamples.length-1,Math.floor(state.frameSamples.length*.95))]||16.7;
-        const next=adaptiveScale(p95,state.scale,mobile);
+        const next=cloudHost?1:adaptiveScale(p95,state.scale,mobile);
         if(Math.abs(next-state.scale)>=.02){state.scale=next;engine.setHardwareScalingLevel(1/Math.min(deviceDpr,targetDpr*state.scale))}
         state.fps=Math.round(1000/(state.frameSamples.reduce((a,b)=>a+b,0)/Math.max(1,state.frameSamples.length)));
         $('fps').textContent=state.fps+' FPS';$('quality').textContent=(mobile?'MOBILE':'DESKTOP')+' · SCALE '+Math.round(state.scale*100)+'% · P95 '+Math.round(p95)+'ms';
