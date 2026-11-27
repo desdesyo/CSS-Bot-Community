@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptiveScale, moveToward } from './engine-core.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+const runtime = readFileSync(fileURLToPath(new URL('./engine.js', import.meta.url)), 'utf8');
+
+test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
+  assert.match(html, /<canvas\\b[^>]*id=["']renderCanvas["']/i);
+  assert.match(runtime, /const canvas = \\$\\('renderCanvas'\\)/);
+  assert.match(runtime, /new B\\.Engine\\(canvas,/);
+});
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
