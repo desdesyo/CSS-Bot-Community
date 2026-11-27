@@ -1,9 +1,9 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot } from './human-bots.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48} };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:90, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -11,10 +11,10 @@ function mat(name, color, roughness=0.8, metallic=0) {
   return m;
 }
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
-let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot;
-function box(name, x,y,z, sx,sy,sz, material, cast=true) {
+let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[];
+function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
-  m.position.set(x,y,z); m.material=material; m.receiveShadows=true;
+  m.position.set(x,y,z); m.material=material; m.receiveShadows=true; m.checkCollisions=!!collide;
   if(cast) shadowGen.addShadowCaster(m);
   return m;
 }
@@ -24,15 +24,15 @@ function buildMap() {
   box('back wall',0,3,-44,112,6,1.2,concrete);box('left wall',-56,3,0,1.2,6,90,concrete);box('right wall',56,3,0,1.2,6,90,concrete);box('front wall',0,3,44,112,6,1.2,concrete);
   // Industrial lanes, cover and sightline breaks.
   for(const [x,z,w,d] of [[-22,-18,18,2],[22,-18,18,2],[-22,17,18,2],[22,17,18,2],[0,-30,2,18],[0,30,2,18],[-39,0,2,22],[39,0,2,22]]) box('partition',x,2.2,z,w,4.4,d,concrete);
-  const prototype=box('crate prototype',0,1,0,2.4,2,2.4,crateMat);
+  const prototype=box('crate prototype',0,1,0,2.4,2,2.4,crateMat,true,false);
   for(const [x,z,s] of [[-12,-9,1],[12,-9,1],[-12,10,1],[12,10,1],[-31,-22,1],[31,-22,1],[-31,22,1],[31,22,1],[-3,0,1],[3,0,1]]) {
-    const c=prototype.createInstance('crate');c.position.set(x,1,z);c.scaling.set(s,1,s);c.receiveShadows=true;
+    const c=prototype.createInstance('crate');c.position.set(x,1,z);c.scaling.set(s,1,s);c.receiveShadows=true;c.checkCollisions=true;
   }
   prototype.isVisible=false;
-  for(const x of [-48,-32,-16,0,16,32,48]) box('overhead beam',x,5.7,-5,0.22,.22,72,dark,false);
-  for(const z of [-36,-24,24,36]) box('warning stripe',0,.025,z,90,.035,.16,yellow,false);
+  for(const x of [-48,-32,-16,0,16,32,48]) box('overhead beam',x,5.7,-5,0.22,.22,72,dark,false,false);
+  for(const z of [-36,-24,24,36]) box('warning stripe',0,.025,z,90,.035,.16,yellow,false,false);
   for(const x of [-42,42]) {
-    const lamp=box('industrial lamp',x,5.25,0,4,.12,1.2,yellow,false);
+    const lamp=box('industrial lamp',x,5.25,0,4,.12,1.2,yellow,false,false);
     const light=new BABYLON.PointLight('work light',new BABYLON.Vector3(x,5,0),scene);light.diffuse=new BABYLON.Color3(.82,.72,.52);light.intensity=mobile?.35:.65;light.range=18;
   }
   // Distinct tactical zones and low cover to force readable movement.
@@ -411,8 +411,12 @@ function updatePlayer(dt) {
   const yaw=camera.rotation.y;
   // Babylon cameras look down local -Z; movement must use the same forward vector.
   const movement=cameraRelativeMovement(yaw,forward/len,strafe/len);
-  camera.position.x+=movement.x*speed;
-  camera.position.z+=movement.z*speed;
+  const before={x:camera.position.x,z:camera.position.z};
+  const resolved=moveWithAabbCollisions(camera.position,{x:movement.x*speed,z:movement.z*speed},collisionBoxes,.36,1.72,.10);
+  camera.position.x=resolved.x;camera.position.z=resolved.z;
+  state.lastMove={requested:{x:+(movement.x*speed).toFixed(4),z:+(movement.z*speed).toFixed(4)},actual:{x:+(camera.position.x-before.x).toFixed(4),z:+(camera.position.z-before.z).toFixed(4)},blockedX:resolved.blockedX,blockedZ:resolved.blockedZ,blockedBy:resolved.blockedBy};
+  if((resolved.blockedX||resolved.blockedZ)&&!state.lastMoveWasBlocked)gameLogEvent('player-collision',state.lastMove);
+  state.lastMoveWasBlocked=!!(resolved.blockedX||resolved.blockedZ);
   if(weaponRoot){
     const moving=Math.min(1,Math.hypot(forward,strafe));
     weaponRoot.position.y=-.27+Math.sin(state.simTime*10)*.012*moving;
@@ -444,23 +448,25 @@ function start() {
 const GAME_LOG_KEY='solo_engine_v2_gameplay_logs_v1';
 const GAME_LOG_BRANCH='feature/solo-engine-v2';
 const GAME_LOG_LIMIT=1200;
-let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
-let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0};
-try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-250):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
-function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-250),frameMs:gameLogFrameMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
+let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
+let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
+try{const saved=JSON.parse(localStorage.getItem(GAME_LOG_KEY)||'null');if(saved){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-250):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})}}}catch(e){}
+function persistGameLog(){try{localStorage.setItem(GAME_LOG_KEY,JSON.stringify({records:gameLogRecords.slice(-GAME_LOG_LIMIT),events:gameLogEvents.slice(-250),frameMs:gameLogFrameMs.slice(-240),renderMs:gameLogRenderMs.slice(-240),performance:gameLogPerf,startedAt:gameLogStartedAt}))}catch(e){console.warn('Gameplay log local save failed',e)}}
 function gameLogEvent(type,detail={}){if(!gameLogRecording)return;gameLogEvents.push({t:Math.round(performance.now()),wall:new Date().toISOString(),type,detail});if(gameLogEvents.length>250)gameLogEvents.shift();if(gameLogEvents.length%5===0)persistGameLog()}
 function captureGameplayLog(dt,now){
  if(!gameLogRecording)return;
- const ms=dt*1000;gameLogPerf.frames++;
+ const ms=Math.max(0,dt*1000),renderMs=Math.max(0,state.lastRenderMs||0);gameLogPerf.frames++;
  if(ms>50)gameLogPerf.hitches50++;if(ms>100)gameLogPerf.hitches100++;if(ms>250)gameLogPerf.hitches250++;
+ gameLogPerf.maxFrameMs=Math.max(gameLogPerf.maxFrameMs,ms);gameLogPerf.maxRenderMs=Math.max(gameLogPerf.maxRenderMs,renderMs);
  gameLogFrameMs.push(+ms.toFixed(2));if(gameLogFrameMs.length>240)gameLogFrameMs.shift();
+ gameLogRenderMs.push(+renderMs.toFixed(2));if(gameLogRenderMs.length>240)gameLogRenderMs.shift();
  if(now-gameLogLastSample<500)return;gameLogLastSample=now;
  const bots=state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2),rotation:+b.root.rotation.y.toFixed(3),waypoint:b.index}));
- gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,canvas:{width:canvas.width,height:canvas.height}},frameMs:+ms.toFixed(2)});
+ gameLogRecords.push({t:Math.round(now-gameLogStartedAt),wall:new Date().toISOString(),playing:state.started,player:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),hp:state.hp,dead:state.playerDead},weapon:{slot:state.weaponSlot,ammo:state.weaponAmmo[state.weaponSlot],reserve:state.weaponReserve[state.weaponSlot],reloading:state.reloading,firing:state.firing},round:{time:+state.roundTime.toFixed(2),kills:state.kills},bots,projectiles:state.projectiles.length,renderer:{fps:state.fps,scale:state.scale,hardwareScaling:engine.getHardwareScalingLevel(),renderMs:+renderMs.toFixed(2),canvas:{width:canvas.width,height:canvas.height}},movement:state.lastMove,frameMs:+ms.toFixed(2)});
  if(gameLogRecords.length>GAME_LOG_LIMIT)gameLogRecords.shift();
  if(now-gameLogLastPersist>5000){gameLogLastPersist=now;persistGameLog()}
 }
-function startGameplayLog(){gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
+function startGameplayLog(){gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});persistGameLog();$('logsQuick').textContent='■ ОТПРАВИТЬ ЛОГИ';$('logsQuick').title='Остановить запись и отправить в GitHub';}
 function encodeGameplayLog(value){const bytes=new TextEncoder().encode(value);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}
 function savedGameplayToken(){try{return localStorage.getItem('solo_github_log_token')||''}catch(e){return ''}}
 async function stopAndUploadGameplayLog(){
@@ -470,12 +476,12 @@ async function stopAndUploadGameplayLog(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json';
- const payload={app:'SOLO Engine V2',format:1,session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null},events:gameLogEvents,records:gameLogRecords};
+ const payload={app:'SOLO Engine V2',format:2,session,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:Math.round(performance.now()-gameLogStartedAt),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},events:gameLogEvents,records:gameLogRecords};
  gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='ОТПРАВКА…';
  try{
   const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO Engine V2 gameplay diagnostics',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
   const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
-  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];persistGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';alert('Логи успешно отправлены в GitHub: '+path);
+  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];persistGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';alert('Логи успешно отправлены в GitHub: '+path);
  }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
  finally{gameLogUploading=false;btn.disabled=false}
 }
@@ -492,7 +498,7 @@ function collectIssueSceneContext(){
   if(d<18)visibleMeshes.push({name:mesh.name,type:mesh.getClassName?.()||'Mesh',distance:+d.toFixed(2),position:{x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2)},visible:mesh.isVisible,visibility:mesh.visibility,material:mesh.material?.name||null,materialAlpha:mesh.material?.alpha??null,checkCollisions:!!mesh.checkCollisions,enabled:mesh.isEnabled()});
  }
  visibleMeshes.sort((a,b)=>a.distance-b.distance);
- return {camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
+ return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,lastMove:state.lastMove,colliders:collisionBoxes.slice(0,80).map(c=>({name:c.name,min:{x:c.minX,y:c.minY,z:c.minZ},max:{x:c.maxX,y:c.maxY,z:c.maxZ}}))},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,80),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)}})),scene:{meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null,engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight()},canvas:{width:canvas.width,height:canvas.height}}};
 }
 async function captureIssueScreenshot(){
  try{
@@ -520,7 +526,7 @@ async function submitIssueReport(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
- const report={app:'SOLO Engine V2',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40)}};
+ const report={app:'SOLO Engine V2',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40),performance:{frames:gameLogPerf.frames,frameMs:gameLogFrameMs.slice(-120),renderMs:gameLogRenderMs.slice(-120)}}};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
@@ -554,6 +560,7 @@ async function boot() {
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.blurKernel=mobile?8:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     buildMap();
+    collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
     buildBots();buildPlayerWeapon();initInput();
@@ -562,7 +569,7 @@ async function boot() {
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);
     let last=performance.now();
     engine.runRenderLoop(()=>{
-      const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
+      const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
       if(state.started) {
         updatePlayer(dt);updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
@@ -571,7 +578,8 @@ async function boot() {
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
         if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true);
       }
-      state.frameSamples.push(dt*1000);
+      captureGameplayLog(rawDt,now);
+      state.frameSamples.push(Math.min(250,rawDt*1000));
       if(now-state.sampleAt>=2000){
         state.frameSamples.sort((a,b)=>a-b);const p95=state.frameSamples[Math.min(state.frameSamples.length-1,Math.floor(state.frameSamples.length*.95))]||16.7;
         const next=adaptiveScale(p95,state.scale,mobile);
@@ -580,7 +588,7 @@ async function boot() {
         $('fps').textContent=state.fps+' FPS';$('quality').textContent=(mobile?'MOBILE':'DESKTOP')+' · SCALE '+Math.round(state.scale*100)+'% · P95 '+Math.round(p95)+'ms';
         state.frameSamples.length=0;state.sampleAt=now;
       }
-      scene.render();
+      const renderStarted=performance.now();scene.render();state.lastRenderMs=performance.now()-renderStarted;
     });
   } catch(error) { console.error(error);status.textContent='Ошибка запуска: '+error.message;$('quality').textContent='ENGINE ERROR'; }
 }
