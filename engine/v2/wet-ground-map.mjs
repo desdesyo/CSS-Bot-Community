@@ -8,7 +8,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const mat = (name, hex, roughness=.88, metallic=0) => {
     const m = new B.PBRMaterial(name, scene);
     const color = C.FromHexString(hex);
-    m.albedoColor=color; m.roughness=mobile?Math.max(.24,roughness):roughness; m.metallic=metallic;
+    m.albedoColor=color; m.roughness=roughness; m.metallic=metallic;
     m.environmentIntensity=mobile?.8:1.15; m.directIntensity=1.05; m.emissiveIntensity=1;
     if(m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.18;m.clearCoat.roughness=.28;}
     return m;
@@ -265,18 +265,18 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const diagonalCut=B.MeshBuilder.CreateGround('diagonal market cut-through',{width:7.2,height:23,subdivisions:1},scene);
   diagonalCut.position.set(-29,.052,7);diagonalCut.rotation.y=-.43;diagonalCut.material=cobble;diagonalCut.receiveShadows=true;
   for(const side of [-1,1]){
-    const x=-29+side*3.45;
     for(let i=0;i<5;i++){
-      const z=-3+i*5;
+      const z=-3+i*5,centerX=-29+(z-7)*Math.sin(-.43);
+      const x=centerX+side*3.45;
       box('market passage canopy post',x,2.05,z,.16,4.1,.16,iron,true);
-      box('market passage canopy rib',-29,4.18,z,7.1,.12,.12,iron,false);
+      box('market passage canopy rib',centerX,4.18,z,7.1,.12,.12,iron,false).rotation.y=-.43;
     }
   }
   const canopyGlass=mat('market passage rain glass','#6b8790',.18,.26);
   canopyGlass.alpha=.32;canopyGlass.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
   for(let i=0;i<4;i++){
     const panel=B.MeshBuilder.CreateBox('market passage glass canopy panel',{width:1.65,height:.045,depth:4.8},scene);
-    panel.position.set(-29,4.25,-1+i*5);panel.rotation.z=-.025;panel.material=canopyGlass;panel.isPickable=false;
+    const z=-1+i*5;panel.position.set(-29+(z-7)*Math.sin(-.43),4.25,z);panel.rotation.y=-.43;panel.rotation.z=-.025;panel.material=canopyGlass;panel.isPickable=false;
   }
   // East-side loading court with a recessed service entrance and stacked crates.
   floor('east loading court wet stone',31,-6,10,13,.045,stone);
