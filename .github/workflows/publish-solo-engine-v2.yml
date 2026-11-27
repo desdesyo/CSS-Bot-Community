@@ -64,6 +64,38 @@ jobs:
             test -s "dist/engine/v2/assets/${clip}.glb"
           done
           echo "Downloaded six rigged soldier models and three Biped animation clips."
+          python3 - <<'PY'
+          import json, pathlib, struct
+          root = pathlib.Path("dist/engine/v2/assets")
+          def read_glb(path):
+              data = path.read_bytes()
+              magic, version, total = struct.unpack_from("<4sII", data, 0)
+              assert magic == b"glTF" and version == 2 and total == len(data), f"Invalid GLB: {path.name}"
+              offset = 12
+              while offset + 8 <= len(data):
+                  size, kind = struct.unpack_from("<I4s", data, offset)
+                  offset += 8
+                  chunk = data[offset:offset + size]
+                  offset += size
+                  if kind == b"JSON":
+                      return json.loads(chunk.decode("utf-8").rstrip("\\x00 "))
+              raise AssertionError(f"Missing JSON chunk: {path.name}")
+          model_names = ["military-male-01", "military-male-02", "military-male-03", "military-male-04", "military-female-01", "military-female-02"]
+          skeleton_names = None
+          for name in model_names:
+              doc = read_glb(root / f"{name}.glb")
+              assert doc.get("meshes") and doc.get("skins"), f"Not a skinned character: {name}"
+              joints = {doc["nodes"][i]["name"] for i in doc["skins"][0]["joints"]}
+              assert len(joints) == 80, f"Expected 80-bone rig in {name}, got {len(joints)}"
+              skeleton_names = skeleton_names or joints
+              assert len(joints & skeleton_names) == 80, f"Skeleton mismatch in {name}"
+          for name in ["m_idle_neutral_01", "m_walk_neutral_01", "m_run_neutral_01"]:
+              doc = read_glb(root / f"{name}.glb")
+              assert doc.get("animations"), f"Missing animation group: {name}"
+              targets = {doc["nodes"][c["target"]["node"]]["name"] for a in doc["animations"] for c in a["channels"]}
+              assert len(targets & skeleton_names) >= 60, f"Animation cannot retarget to soldier skeleton: {name}"
+          print("GLB validation passed: 6 skinned 80-bone soldiers + 3 compatible motion clips.")
+          PY
           touch dist/.nojekyll
           test -s dist/index.html
           test -s dist/engine/v2/index.html
