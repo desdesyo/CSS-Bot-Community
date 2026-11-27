@@ -187,7 +187,7 @@ test('knife attacks clear firearm recoil and use a dedicated melee swing', async
 
 test('an allied field developer bot starts automatic QA recording and reports every five rounds', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /developerRole:'field-developer'/);
+  assert.match(engine, /developerRole:null/);
   assert.match(engine, /fieldDeveloper\.developerRole='field-developer'/);
   assert.match(engine, /startDeveloperRecorder\(\)/);
   assert.match(engine, /uploadEveryRounds:5/);
