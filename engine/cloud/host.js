@@ -16,7 +16,6 @@ async function makePeer() {
   if (!canvas?.captureStream) throw new Error('Canvas captureStream недоступен в этом браузере');
   stream = canvas.captureStream(60);
   pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-  for (const track of stream.getVideoTracks()) { const sender=pc.addTrack(track, stream); try { const params=sender.getParameters(); params.encodings=params.encodings?.length?params.encodings:[{}]; params.encodings[0].maxBitrate=16000000; params.encodings[0].maxFramerate=60; await sender.setParameters(params); } catch {} }
   pc.onicecandidate = e => { if (e.candidate) send({ type: 'ice', candidate: e.candidate }); };
   pc.onconnectionstatechange = () => say('WebRTC: ' + pc.connectionState);
   pc.ondatachannel = e => {
@@ -31,6 +30,8 @@ async function handleOffer(description) {
   await makePeer();
   await pc.setRemoteDescription(description);
   for (const candidate of pendingIce.splice(0)) await pc.addIceCandidate(candidate);
+  // Attach the captured GPU-rendered canvas to the recv-only video transceiver offered by the player.
+  for (const track of stream.getVideoTracks()) { const sender=pc.addTrack(track, stream); try { const params=sender.getParameters(); params.encodings=params.encodings?.length?params.encodings:[{}]; params.encodings[0].maxBitrate=16000000; params.encodings[0].maxFramerate=60; await sender.setParameters(params); } catch {} }
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
   send({ type: 'answer', description: pc.localDescription });
