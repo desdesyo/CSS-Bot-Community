@@ -35,12 +35,14 @@ function buildMap() {
     wall(name+' south wall',cx,y,cz+d/2,w,h,t,m);
     if(door==='inward'&&cx<0){
       wall(name+' west wall',cx-w/2,y,cz,t,h,d,m);
-      wall(name+' east jamb north',cx+w/2,y,cz-d/2+1.7,t,h,d/2-1.7,m);
-      wall(name+' east jamb south',cx+w/2,y,cz+d/2-1.7,t,h,d/2-1.7,m);
+      const segment=(d-3.4)/2,offset=(d+3.4)/4;
+      wall(name+' east jamb north',cx+w/2,y,cz-offset,t,h,segment,m);
+      wall(name+' east jamb south',cx+w/2,y,cz+offset,t,h,segment,m);
     }else if(door==='inward'&&cx>0){
       wall(name+' east wall',cx+w/2,y,cz,t,h,d,m);
-      wall(name+' west jamb north',cx-w/2,y,cz-d/2+1.7,t,h,d/2-1.7,m);
-      wall(name+' west jamb south',cx-w/2,y,cz+d/2-1.7,t,h,d/2-1.7,m);
+      const segment=(d-3.4)/2,offset=(d+3.4)/4;
+      wall(name+' west jamb north',cx-w/2,y,cz-offset,t,h,segment,m);
+      wall(name+' west jamb south',cx-w/2,y,cz+offset,t,h,segment,m);
     }else{
       wall(name+' west wall',cx-w/2,y,cz,t,h,d,m);
       wall(name+' east wall',cx+w/2,y,cz,t,h,d,m);
@@ -87,7 +89,7 @@ function makeBot(id, team, x,z, waypoints) {
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
   root.position.set(x,0,z);
   const weapons=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:125,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1});
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:125,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1});
   return root;
 }
 function buildBots() {
@@ -288,7 +290,7 @@ function updateBotAI() {
       bot.weapons.pistol.setEnabled(bot.activeWeapon==='pistol');
       bot.weapons.knife.setEnabled(bot.activeWeapon==='knife');
       const wp=bot.waypoints[bot.index];
-      if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){bot.index=(bot.index+1)%bot.waypoints.length;bot.navPath=[];bot.navGoal=null;}
+      if(Math.hypot(wp[0]-bot.root.position.x,wp[1]-bot.root.position.z)<1.0){if(bot.index<bot.waypoints.length-1)bot.index++;else if(bot.faction==='CT')bot.index=0;bot.navPath=[];bot.navGoal=null;}
       const goal={x:wp[0],z:wp[1]};
       if(!bot.navGoal||Math.hypot(bot.navGoal.x-goal.x,bot.navGoal.z-goal.z)>.1||now>bot.repathAt){
         bot.navPath=findPathAStar(bot.root.position,goal,collisionBoxes,.38,1.5);bot.navIndex=0;bot.navGoal=goal;bot.repathAt=now+2500;
