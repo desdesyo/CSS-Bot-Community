@@ -4,6 +4,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
+import { buildWetStreetMap } from './wet-street-map.mjs';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -645,11 +646,11 @@ function drawMinimap(){
   const px=x=>pad+(x+56)*scale,py=z=>pad+(z+46)*scale;
   ctx.clearRect(0,0,size,size);ctx.fillStyle='#101a20e8';ctx.fillRect(0,0,size,size);
   ctx.strokeStyle='#8b9a91';ctx.lineWidth=1;ctx.strokeRect(pad,pad,spanX*scale,spanZ*scale);
-  ctx.strokeStyle='#ffffff18';ctx.beginPath();ctx.moveTo(px(0),pad);ctx.lineTo(px(0),size-pad);ctx.moveTo(pad,py(0));ctx.lineTo(size-pad,py(0));ctx.stroke();
+  ctx.fillStyle='#071b2c';ctx.fillRect(px(-53),py(-4.8),106*scale,9.6*scale);ctx.fillStyle='#5b6670';for(const bx of [-20,20])ctx.fillRect(px(bx-4),py(-7.5),8*scale,15*scale);ctx.strokeStyle='#ffffff18';ctx.beginPath();ctx.moveTo(px(0),pad);ctx.lineTo(px(0),size-pad);ctx.moveTo(pad,py(0));ctx.lineTo(size-pad,py(0));ctx.stroke();
   // Collision silhouettes give the player an actual top-down map, not just radar dots.
   ctx.fillStyle='#9aa69b55';
   for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
-  ctx.fillStyle='#d6b36e';ctx.fillRect(px(-4),py(19),8*scale,8*scale);ctx.fillStyle='#1b2020';ctx.font='bold 9px system-ui';ctx.fillText('A',px(0)-3,py(23)+4);
+  ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('MOKRY POL',px(-5),py(-39));
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
@@ -706,7 +707,7 @@ const GAME_LOG_LIMIT=1200;
 const GAME_LOG_EVENT_LIMIT=1200;
 const GAME_DEV_STATE_KEY='solo_engine_v2_field_developer_v1';
 const GAME_FIELD_ATLAS_KEY='solo_engine_v2_field_atlas_v1';
-const FIELD_MAP_ID='industrial-district-v1';
+const FIELD_MAP_ID='mokry-pol-rainy-quarter-v1';
 const FIELD_CELL_SIZE=3;
 let developerSessionRounds=0,developerForceUpload=false;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
@@ -896,13 +897,13 @@ async function boot() {
     const B=window.BABYLON;
     engine=new B.Engine(canvas,!mobile,{preserveDrawingBuffer:false,stencil:false,antialias:true,powerPreference:'high-performance',audioEngine:false},true);
     engine.setHardwareScalingLevel(1/state.scale);
-    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.12,.16,.17,1);scene.ambientColor=new B.Color3(.18,.18,.17);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new B.Color3(.22,.25,.24);
+    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.008,.025,.055,1);scene.ambientColor=new B.Color3(.045,.07,.11);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.009:.006;scene.fogColor=new B.Color3(.025,.065,.12);
     camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);camera.minZ=.08;camera.maxZ=180;camera.fov=1.08;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
-    const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.68;hemi.diffuse=new B.Color3(.77,.81,.83);hemi.groundColor=new B.Color3(.24,.25,.22);
-    const sun=new B.DirectionalLight('sun',new B.Vector3(-.45,-1,.3),scene);sun.position=new B.Vector3(24,38,-18);sun.intensity=2.2;
+    const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.42;hemi.diffuse=new B.Color3(.20,.34,.55);hemi.groundColor=new B.Color3(.035,.055,.085);
+    const sun=new B.DirectionalLight('moonlight',new B.Vector3(-.35,-1,.2),scene);sun.position=new B.Vector3(24,38,-18);sun.diffuse=new B.Color3(.22,.36,.62);sun.intensity=.34;
     shadowGen=new B.ShadowGenerator(mobile?512:2048,sun);shadowGen.useBlurExponentialShadowMap=!mobile;shadowGen.blurKernel=mobile?0:16;shadowGen.bias=.0005;shadowGen.normalBias=.02;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    buildMap();
+    buildWetStreetMap(B,scene,mobile,shadowGen);
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
