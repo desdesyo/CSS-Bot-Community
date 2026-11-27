@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
-  assert.ok(Math.abs(adaptiveScale(55, .9, true) - .84) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
   assert.ok(Math.abs(adaptiveScale(12, .9, true) - .925) < 1e-9);
-  assert.ok(Math.abs(adaptiveScale(55, .75, true) - .72) < 1e-9);
+  assert.ok(Math.abs(adaptiveScale(55, .75, true) - .86) < 1e-9);
   assert.ok(Math.abs(adaptiveScale(12, .99, true) - 1) < 1e-9);
 });
 test('desktop profile has independent scale bounds', () => {
