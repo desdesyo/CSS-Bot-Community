@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-0450-r2';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-0450-r3';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-0450-r2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs?v=20261128-0450-r2';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-0450-r2';
@@ -259,7 +259,7 @@ function createBotWeapon(root,id,team){
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
   state.playerTeam=team;
-  playerSpawn=getPlayerSpawn(team);
+  playerSpawn=findSafePlayerSpawn([getPlayerSpawn(team)],collisionBoxes,.36,1.72,0);
   for(const bot of state.bots) bot.root.dispose();
   state.bots.length=0;
   buildBots();
@@ -796,7 +796,7 @@ function start() {
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND '+String(state.roundNumber).padStart(2,'0');$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  if(!resuming){state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;}applyLearnedRoutesToBots();}
+  if(!resuming){playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0);if(!playerSpawn){status.textContent='Не удалось найти свободную точку появления. Матч не запущен.';overlay.style.display='flex';state.started=false;return;}state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;}applyLearnedRoutesToBots();}
   state.paused=false;state.started=true;overlay.style.display='none';
   // Diagnostics are player-controlled from the LOGS button.
   if(!resuming){camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000,alliesGuarding:true});}
@@ -1052,7 +1052,7 @@ async function boot() {
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.metadata?.soloCollisionBoxes||scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
     collisionIndex=buildCollisionSpatialIndex(collisionBoxes,8);navigationGrid=buildNavigationGrid(collisionBoxes,.38,1.5);
-    playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
+    playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0);
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
