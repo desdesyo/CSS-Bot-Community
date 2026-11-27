@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-20'));
+  assert.ok(html.includes('./engine.js?v=20261127-21'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .68, true) - .60) < 1e-9);
@@ -37,7 +37,10 @@ test('mobile build disables shadows, skips external rigged models, and uses chea
   assert.ok(runtime.includes("const cloudHost = new URLSearchParams(location.search).get('cloudHost') === '1'"));
   assert.ok(runtime.includes('shadowGen=mobile?null:new B.ShadowGenerator(cloudHost?4096:2048,sun)'));
   assert.ok(runtime.includes("if(mobile){$('loadState').textContent='Мобильный профиль: облегчённые бойцы без тяжёлых GLB-моделей.';return false;}"));
-  assert.ok(runtime.includes('function buildMapCollisionIndex()'));\n  assert.ok(runtime.includes('mapCollisionGrid.get(gx+\',\'+gz)'));\n  assert.ok(runtime.includes('m.metadata||{}),mapCollider:cast'));\n  assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
+  assert.ok(runtime.includes('function buildMapCollisionIndex()'));
+  assert.ok(runtime.includes("mapCollisionGrid.get(gx+','+gz)"));
+  assert.ok(runtime.includes('m.metadata||{}),mapCollider:cast'));
+  assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
   assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
   assert.ok(!html.includes('babylonjs.loaders.min.js'));
@@ -70,7 +73,6 @@ test('expanded map collision bounds keep players inside the map and block perime
 test('runtime uses the expanded Dust2 map and spawns the player at T spawn', () => {
   assert.ok(runtime.includes("buildExpandedDust2(BABYLON,scene,shadowGen,mat,box)"));
   assert.ok(runtime.includes("DUST2_EXPANDED.spawns.t"));
-  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
 });
 
 test('both team spawns and both bombsite centers are walkable', () => {
@@ -106,7 +108,6 @@ test('building wall collision blocks solid facade but leaves the entrance gap op
 
 test('runtime uses rendered mesh collision, sky, radar and breakable windows', () => {
   assert.ok(runtime.includes('function isMapSolid(mesh)'));
-  assert.ok(runtime.includes('return isDust2Blocked(x,z);'));
   assert.ok(runtime.includes('function buildSky(B)'));
   assert.ok(runtime.includes('function drawRadar()'));
   assert.ok(runtime.includes('metadata?.breakableWindow'));
@@ -265,4 +266,10 @@ test('sun disc is removed; directional sun and hemispheric fill provide stable g
   assert.ok(!runtime.includes('sun-disc'));
   assert.ok(runtime.includes("new B.DirectionalLight('sun'"));
   assert.ok(runtime.includes('hemi.intensity=.82'));
+});
+
+test('bot navigation respects the same physical map collision as the player',()=>{
+  assert.ok(runtime.includes('isPlayerBlocked(next.x,next.z,.25)'));
+  assert.ok(runtime.includes('else if(!isPlayerBlocked(next.x,current.z,.25))'));
+  assert.ok(runtime.includes('else if(!isPlayerBlocked(current.x,next.z,.25))'));
 });
