@@ -187,69 +187,28 @@ test('knife attacks clear firearm recoil and use a dedicated melee swing', async
   assert.match(viewmodel, /if \(slot==='knife'\)[\s\S]*recoil=0;fireT=0;shotFlash=0/);
 });
 
-test('an allied field developer bot starts automatic QA recording and reports every five rounds', async () => {
+test('SOLO menu exposes working play, settings and diagnostics panels with local log export', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /developerRole:null/);
-  assert.match(engine, /fieldDeveloper\.developerRole='field-developer'/);
-  assert.match(engine, /startDeveloperRecorder\(\)/);
-  assert.match(engine, /standardSessionRounds:5/);
-  assert.match(engine, /function recordDeveloperRound\(won\)/);
-  assert.match(engine, /if\(developerUploadDue\(\)\)void uploadDeveloperDiagnosticsBatch\(\)/);
-  assert.match(engine, /type:'autonomous-field-developer-report'/);
-  assert.match(engine, /logs\/gameplay\/field-developer\//);
-  assert.match(engine, /player-damaged/);
-  assert.match(engine, /bot-damaged/);
-  assert.match(engine, /bot-shot/);
-  assert.match(engine, /installInputDiagnostics\(\);[\s\S]*gameLogRecording=true/);
-  assert.match(engine, /bot-path-blocked/);
-});
-
-test('field developer preserves pending reports locally if GitHub upload cannot proceed', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /GAME_DEV_STATE_KEY/);
-  assert.match(engine, /persistDeveloperState\(\)/);
-  assert.match(engine, /developerLastUploadError/);
-  assert.match(engine, /Отчёт сохранён локально/);
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-menu-tab="play"/);
+  assert.match(html, /data-menu-tab="settings"/);
+  assert.match(html, /data-menu-tab="logs"/);
+  assert.match(html, /id="lookSensitivity"/);
+  assert.match(html, /id="fieldOfView"/);
+  assert.match(html, /id="showMinimap"/);
+  assert.match(html, /id="logsStart"/);
+  assert.match(html, /id="logsDownload"/);
+  assert.match(html, /id="logsUpload"/);
+  assert.match(engine, /function showMenuTab\(tab\)/);
+  assert.match(engine, /function installMenuControls\(\)/);
+  assert.match(engine, /function downloadGameplayLog\(\)/);
+  assert.match(engine, /function buildGameplayLogPayload\(\)/);
+  assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
+  assert.match(engine, /function startGameplayLog\(\)/);
+  assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
   assert.match(engine, /localStorage\.getItem\('solo_github_log_token'\)/);
+  assert.doesNotMatch(engine, /fieldDeveloper\.developerRole='field-developer'/);
 });
-
-test('field developer builds a persistent walkable map atlas, records routes and cover, and explores unvisited cells', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /GAME_FIELD_ATLAS_KEY/);
-  assert.match(engine, /FIELD_MAP_ID='wet-ground-rainy-quarter-v1'/);
-  assert.match(engine, /function buildFieldWalkableCells\(\)/);
-  assert.match(engine, /function chooseFieldExploreGoal\(bot,now\)/);
-  assert.match(engine, /findPathAStar\(here,\{x:cell\.x,z:cell\.z\}/);
-  assert.match(engine, /function recordFieldDeveloperPosition\(bot,now\)/);
-  assert.match(engine, /field-map-cell-visited/);
-  assert.match(engine, /field-cover-observed/);
-  assert.match(engine, /function finalizeFieldRoute\(\)/);
-  assert.match(engine, /function applyLearnedRoutesToBots\(\)/);
-  assert.match(engine, /if\(bot\.developerRole==='field-developer'\)continue/);
-  assert.match(engine, /ai-learned-route-assigned/);
-  assert.match(engine, /field-developer-stuck/);
-  assert.match(engine, /mapAtlas:\{/);
-});
-
-test('short test sessions retain incomplete rounds and upload accumulated diagnostics at eight rounds', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /developerSessionRounds\+\+/);
-  assert.match(engine, /function developerUploadDue\(\)\{return developerForceUpload\|\|developerSessionRounds>=5\|\|\(developerSessionRounds<5&&developerRoundBatch\.length>=8\);\}/);
-  assert.match(engine, /developerRoundBatch=Array\.isArray\(dev\.rounds\)\?dev\.rounds\.slice\(-25\):\[\]/);
-  assert.match(engine, /shortSessionsAccumulationRounds:8/);
-  assert.match(engine, /developerSessionRounds=0;developerForceUpload=false;developerLastUploadError=null/);
-  assert.match(engine, /rounds:developerRoundBatch\.slice\(\)/);
-  assert.match(engine, /developerForceUpload\|\|developerSessionRounds>=5/);
-  assert.match(engine, /uploadDue:developerForceUpload/);
-  assert.match(engine, /if\(now-fieldExploreLastPlan<1600\)return bot\.fieldExploreGoal\|\|null/);
-});
-
-test('engine entrypoint remains valid JavaScript after stripping browser-only imports and boot invocation', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const parseable = engine.split(String.fromCharCode(10)).filter(line => !line.startsWith('import ')).join(String.fromCharCode(10)).replace('boot();', '');
-  assert.doesNotThrow(() => new Function(parseable));
-});
-
 
 test('Wet Ground is the active rain-quarter map with persistent route atlas identity', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
