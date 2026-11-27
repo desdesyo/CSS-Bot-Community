@@ -275,6 +275,9 @@ test('photographic facade PBR maps are applied after procedural fallbacks and su
   assert.match(map, /weathered slate roof shingle albedo/);
   assert.match(map, /overlapping slate roof tile/);
   assert.match(map, /slate roof course seam/);
+  assert.match(map, /plane\.rotation\.z=-sideSign\*\.19/);
+  assert.match(map, /const tileY=h\+\.34\+\(w\*\.255-Math\.abs\(tileX-x\)\)\*\.193\+\.13/);
+  assert.match(map, /weathered dark timber doors/);
 });
 
 test('Wet Ground renderer enables image-based reflections for physically based materials', async () => {
