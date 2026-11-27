@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster } from './engine-core.mjs';
 const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -61,14 +61,7 @@ function buildBots() {
     [[42,0],[30,-10],[18,0],[30,12]],
     [[0,30],[-10,18],[0,8],[10,18]]
   ];
-  const enemyTeam=state.playerTeam==='CT'?'enemy':'ally';
-  const allyTeam=state.playerTeam==='CT'?'ally':'enemy';
-  const roster=[
-    [1,enemyTeam,-36,-30],[2,enemyTeam,36,-30],[3,enemyTeam,-44,8],
-    [4,enemyTeam,44,8],[5,enemyTeam,-18,-35],[6,enemyTeam,18,-35],
-    [7,allyTeam,-18,35],[8,allyTeam,18,35],[9,allyTeam,-42,0],
-    [10,allyTeam,42,0],[11,allyTeam,0,30]
-  ];
+  const roster=createTeamRoster(state.playerTeam);
   for(const [id,team,x,z] of roster) makeBot(id,team,x,z,routes[id-1]);
 }
 function setPlayerTeam(team) {
