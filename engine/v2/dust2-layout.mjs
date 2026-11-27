@@ -1,4 +1,13 @@
+const ARCHITECTURE = [
+{x:-91,z:-27,w:15,d:11,front:'south'},{x:-68,z:-27,w:13,d:10,front:'south'},
+{x:-91,z:19,w:16,d:10,front:'north'},{x:-94,z:-58,w:14,d:10,front:'south'},
+{x:-62,z:-58,w:13,d:10,front:'south'},{x:91,z:31,w:15,d:11,front:'north'},
+{x:68,z:31,w:14,d:10,front:'north'},{x:94,z:59,w:15,d:10,front:'north'},
+{x:61,z:59,w:13,d:10,front:'north'},{x:-35,z:-57,w:14,d:9,front:'south'},
+{x:35,z:57,w:14,d:9,front:'north'}
+];
 export const DUST2_EXPANDED = Object.freeze({
+  architecture:ARCHITECTURE,
   width:224, depth:184, halfWidth:112, halfDepth:92,
   spawns:{ct:{x:0,z:-77},t:{x:0,z:77}},
   sites:{A:{x:-78,z:0},B:{x:78,z:0}},
@@ -52,5 +61,16 @@ export function validateDust2Balance(layout=DUST2_EXPANDED){
 }
 export function isDust2Blocked(x,z,layout=DUST2_EXPANDED){
   if(Math.abs(x)>layout.halfWidth-2||Math.abs(z)>layout.halfDepth-2)return true;
-  return layout.blockers.some(([cx,cz,hw,hd])=>Math.abs(x-cx)<hw+.38&&Math.abs(z-cz)<hd+.38);
+  if(layout.blockers.some(([cx,cz,hw,hd])=>Math.abs(x-cx)<hw+.38&&Math.abs(z-cz)<hd+.38))return true;
+  for(const b of layout.architecture||[]){
+    const dx=x-b.x,dz=z-b.z,inside=Math.abs(dx)<b.w/2+.28&&Math.abs(dz)<b.d/2+.28;
+    if(!inside)continue;
+    const doorX=-b.w*.22,doorway=Math.abs(dx-doorX)<.76;
+    if(b.front==='south'&&Math.abs(dz-b.d/2)<.48&&!doorway)return true;
+    if(b.front==='north'&&Math.abs(dz+b.d/2)<.48&&!doorway)return true;
+    if(Math.abs(Math.abs(dx)-b.w/2)<.48)return true;
+    const rearZ=b.front==='south'?-b.d/2:b.d/2;
+    if(Math.abs(dz-rearZ)<.48)return true;
+  }
+  return false;
 }
