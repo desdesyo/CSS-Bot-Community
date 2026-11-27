@@ -337,3 +337,13 @@ test('Wet Ground adds grounded street interiors and outer rainy landscape withou
   assert.match(map, /dense wet street tree canopy/);
   assert.match(map, /rain-worn roadside boulder/);
 });
+
+test('Wet Ground primary facades face into the playable street and contain real window/door openings', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /front==='west'\?1:-1/);
+  assert.match(map, /facade masonry pier/);
+  assert.match(map, /deep-set window glass/);
+  assert.match(map, /recessed timber entrance door/);
+  assert.match(map, /wrought iron balcony rail/);
+  assert.match(map, /projecting horizontal floor band/);
+});
