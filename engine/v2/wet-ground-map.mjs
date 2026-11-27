@@ -561,7 +561,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const roadLine=mat('worn ivory road paint','#b9b7a9',.82);
   const curbStone=mat('cut granite curb faces','#69747a',.86);
   const sidewalkJoint=mat('dark sidewalk joint mortar','#202a31',.98);
-  const asphalt=(name,x,z,w,d)=>floor(name,x,.052,z,w,d,.052,roadAsphalt);
+  const asphalt=(name,x,z,w,d)=>floor(name,x,z,w,d,.052,roadAsphalt);
   const sidewalk=(name,x,z,w,d)=>{
     floor(name,x,.105,z,w,d,.11,stone);
     const across=Math.max(2,Math.floor(w/1.8)),along=Math.max(2,Math.floor(d/2.2));
@@ -598,7 +598,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   // Road deck finish and substantial masonry side profiles make each crossing read as a bridge.
   for(const [x,label] of [[-20,'west'],[0,'central'],[20,'east']]){
-    floor(label+' bridge dark asphalt deck',x,.19,0,6.2,14,.205,roadAsphalt);
+    floor(label+' bridge dark asphalt deck',x,0,6.2,14,.205,roadAsphalt);
     for(const side of [-1,1]){
       box(label+' bridge granite wheel curb',x+side*3.35,.39,0,.22,.24,14,curbStone,false);
       box(label+' bridge parapet capstone',x+side*6.48,.83,0,.48,.16,13.1,trim,false);
