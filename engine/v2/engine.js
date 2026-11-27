@@ -1,10 +1,10 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
-const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null };
+const state = { started:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0 };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const m = new BABYLON.PBRMaterial(name, scene);
@@ -12,7 +12,7 @@ function mat(name, color, roughness=0.8, metallic=0) {
   return m;
 }
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
-let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn={x:0,z:-41}, projectileMaterial;
+let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], playerSpawn=getPlayerSpawn('CT'), projectileMaterial;
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
   m.position.set(x,y,z); m.material=material; m.receiveShadows=true; m.checkCollisions=!!collide;
@@ -105,6 +105,28 @@ function buildMap() {
   }
   box('T landing sign',0,2.5,-42,5,1.1,.18,tMark,false,false);
   box('CT landing sign',0,2.5,42,5,1.1,.18,ctMark,false,false);
+  // NORTH DOCKS: freight rails, container gantry and fortified faction deployment compounds.
+  groundPatch('freight rail bed',0,-4,8,58,road);
+  for(const x of [-2.8,2.8])box('freight rail steel',x,.055,-4,.16,.09,58,metal,false,false);
+  for(let z=-31;z<=23;z+=4)box('rail sleeper',0,.035,z,6.2,.07,.28,roof,false,false);
+  for(const x of [-20,20]){
+    box('gantry crane left leg',x-2.2,4.4,-5,.55,8.8,.55,metal,false,false);
+    box('gantry crane right leg',x+2.2,4.4,-5,.55,8.8,.55,metal,false,false);
+    box('gantry crane crossbeam',x,8.9,-5,5.1,.55,.65,yellow,false,false);
+    box('gantry crane diagonal brace',x,6.2,-5,4.6,.22,.24,metal,false,false).rotation.z=.55;
+    box('gantry crane hoist cable',x,7,-5,.08,3.1,.08,metal,false,false);
+    box('gantry crane hook',x,5.35,-5,.55,.22,.35,yellow,false,false);
+  }
+  cargo(0,-5,5.5,7,2.8);
+  for(const sign of [-1,1]){
+    const center=sign*35;
+    for(const x of [-11.5,11.5])box((sign<0?'T':'CT')+' safe-zone side barricade',x,1.35,center,1.0,2.7,12,concrete,true,true);
+    box((sign<0?'T':'CT')+' safe-zone rear barricade',0,1.35,sign*41.5,23,2.7,1,concrete,true,true);
+    box((sign<0?'T':'CT')+' safe-zone gate west',-7.75,1.35,sign*29,7.5,2.7,1,concrete,true,true);
+    box((sign<0?'T':'CT')+' safe-zone gate east',7.75,1.35,sign*29,7.5,2.7,1,concrete,true,true);
+    for(const x of [-9,9])box((sign<0?'T':'CT')+' base floodlight',x,3.4,center, .18,6.8,.18,yellow,false,false);
+    box((sign<0?'T':'CT')+' base overhead sign',0,3.3,sign*40,8,.55,.22,metal,false,false);
+  }
   // Road markings, drains, lamps and roof equipment give the district scale.
   for(const z of [-31,-19,-7,5,17,29,39])box('broken lane marking',0,.025,z,.14,.035,3.2,yellow,false,false);
   for(const x of [-18,18])for(const z of [-26,0,28]){
@@ -223,7 +245,7 @@ function createBotWeapon(root,id,team){
 function setPlayerTeam(team) {
   if(state.started || (team!=='CT' && team!=='T')) return;
   state.playerTeam=team;
-  playerSpawn={x:TEAM_SPAWNS[team][5][0],z:TEAM_SPAWNS[team][5][1]};
+  playerSpawn=getPlayerSpawn(team);
   for(const bot of state.bots) bot.root.dispose();
   state.bots.length=0;
   buildBots();
@@ -241,7 +263,8 @@ function updateBotAI() {
       bot.reloadUntil=0;
     }
     const candidates=[];
-    if(bot.team==='enemy'&&!state.playerDead&&state.bots.filter(other=>other!==bot&&other.team==='enemy'&&other.alive&&other.target?.kind==='player').length<2)candidates.push({kind:'player',position:camera.position});
+    if(bot.team==='ally'&&now<state.spawnProtectedUntil){bot.target=null;bot.combatState='guard';bot.navPath=[];bot.navGoal=null;continue;}
+    if(bot.team==='enemy'&&!state.playerDead&&now>=state.spawnProtectedUntil&&state.bots.filter(other=>other!==bot&&other.team==='enemy'&&other.alive&&other.target?.kind==='player').length<2)candidates.push({kind:'player',position:camera.position});
     for(const other of state.bots)if(other.alive&&other.team!==bot.team)candidates.push({kind:'bot',bot:other,position:other.root.position});
     candidates.sort((a,b)=>BABYLON.Vector3.Distance(bot.root.position,a.position)-BABYLON.Vector3.Distance(bot.root.position,b.position));
     let chosen=null,chosenDistance=Infinity;
@@ -416,7 +439,7 @@ function updateBulletPhysics(dt) {
     if(hit?.hit&&hit.pickedMesh){
       const bot=state.bots.find(b=>hit.pickedMesh.parent===b.root);
       if(bot&&bot.alive&&bot.team!==p.ownerTeam)damageBot(bot,hit.pickedMesh.name.startsWith('head-')?Math.max(85,p.damage*2):p.damage,p.ownerId==='player');
-      if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'){
+      if(hit.pickedMesh.name==='player-hitbox'&&p.ownerTeam==='enemy'&&performance.now()>=state.spawnProtectedUntil){
         state.hp=Math.max(0,state.hp-(p.damage?Math.max(2,Math.round(p.damage*.22)):6));$('health').textContent='HP '+state.hp;
         if(state.hp===0)endRound(false);
       }
@@ -615,7 +638,7 @@ function start() {
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND 01';$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  state.started=true;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
+  state.started=true;state.spawnProtectedUntil=performance.now()+10000;overlay.style.display='none';camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000});
   if(!mobile)canvas.requestPointerLock?.();
 }
 
@@ -745,7 +768,7 @@ async function boot() {
     buildMap();
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
-    playerSpawn=findSafePlayerSpawn([{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]}],collisionBoxes,.36,1.72,0)||{x:TEAM_SPAWNS[state.playerTeam][5][0],z:TEAM_SPAWNS[state.playerTeam][5][1]};
+    playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0)||getPlayerSpawn(state.playerTeam);
     camera.position.set(playerSpawn.x,1.72,playerSpawn.z);
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
