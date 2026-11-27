@@ -89,11 +89,11 @@ export function buildWetStreetMap(B, scene, mobile, shadowGen) {
   // River-edge walls stop AI/player shortcuts through the canal; gaps align with bridges.
   const invisible=mat('canal collision barrier','#071a2a',1);
   if(invisible.alpha!==undefined)invisible.alpha=0;
-  for(const z of [-4.9,4.9]) for(const [x,w] of [[-39.5,27],[-2.5,27],[39.5,27]]){
+  for(const z of [-4.9,4.9]) for(const [x,w] of [[-38.5,29],[0,32],[38.5,29]]){
     const barrier=box('canal bank collision barrier',x,.95,z,w,1.9,.32,invisible,true,false);
     barrier.visibility=.001;
   }
-  for(const z of [-5.7,5.7]) box('rough stone canal retaining wall',0,.42,z,106,.85,.7,stone,true);
+  for(const z of [-5.7,5.7]) for(const [x,w] of [[-38.5,29],[0,32],[38.5,29]]) box('rough stone canal retaining wall',x,.42,z,w,.85,.7,stone,true);
   // Low-rise buildings: 2–3 floors, irregular facades, open doorways and service alleys.
   const building=(name,x,z,w,d,h,material,front)=>{
     const side=front==='west'?-1:1, face=x+side*(w/2+.07);
