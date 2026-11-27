@@ -11,7 +11,7 @@ const geometry = readFileSync(new URL('./dust2-map.mjs', import.meta.url), 'utf8
 
 test('V2 startup resolves the render canvas declared by its HTML entrypoint', () => {
   assert.ok(html.includes('<canvas id="renderCanvas"'));
-  assert.ok(html.includes('./engine.js?v=20261127-18'), 'runtime URL must change when deploying a cache-busting fix');
+  assert.ok(html.includes('./engine.js?v=20261127-19'), 'runtime URL must change when deploying a cache-busting fix');
   assert.ok(html.includes("window.addEventListener('error'"));
   assert.ok(runtime.includes("const canvas = $('renderCanvas')"));
   assert.ok(runtime.includes('new B.Engine(canvas,'));
@@ -25,7 +25,7 @@ test('playable runtime includes bot combat, player damage, reload and fullscreen
   assert.ok(runtime.includes('function toggleFullscreen()'));
   assert.ok(html.includes('id="reload"'));
   assert.ok(html.includes('id="fullscreen"'));
-  assert.ok(html.includes('./engine.js?v=20261127-18'));
+  assert.ok(html.includes('./engine.js?v=20261127-19'));
 });
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .68, true) - .60) < 1e-9);
