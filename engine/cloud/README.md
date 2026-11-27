@@ -79,3 +79,16 @@ A successful CI run verifies the signaling protocol and syntax. It does not prov
 The host page enters fullscreen when the host presses **ЗАПУСТИТЬ ИГРУ**. Configure the GPU host desktop display to **1920×1080 at 60 Hz**, use desktop Chrome/Chromium with hardware acceleration enabled, and keep the host tab foregrounded. The cloud-host render profile is pinned to scale 1.0 (no desktop supersampling or adaptive upscaling), so a 1920×1080 fullscreen viewport produces a 1920×1080 canvas capture. The host status reports the WebGL renderer and canvas dimensions; after a player joins it reports encoded frame dimensions, FPS and estimated bitrate. The viewer reports decoded dimensions/FPS and packet loss.
 
 A successful 1080p/60 test requires the host diagnostics to show 1920×1080 and approximately 60 FPS, and the Redmi viewer to show the same decoded dimensions and frame rate during sustained play. A local code/CI check is not a substitute for this end-to-end device test. The public Pages build does not provide a GPU host or WSS signaling service; those must be separately provisioned and configured.
+
+
+## One-command Kaggle GPU host
+
+From the repository root in a Kaggle GPU notebook, run:
+
+```bash
+bash engine/cloud/kaggle-gpu-host.sh
+```
+
+The bootstrap installs Chromium/Xvfb and cloudflared when missing, creates a random host token and room, starts the authenticated signaling relay, opens a temporary Cloudflare HTTPS/WSS tunnel, and launches the host page in a 1920×1080 Chromium kiosk with autostart. Share only the printed **Room** and **Signal** values with the player; never share the host URL or token. Keep the Kaggle session and notebook cell running. The quick tunnel and Kaggle runtime are temporary and disappear when the session ends.
+
+This script is a deployment bootstrap, not proof that Kaggle exposes WebGL/NVENC correctly. Verify the host page's reported GPU renderer and 1920×1080 canvas, then verify encoded FPS/bitrate and the viewer's decoded FPS on the Redmi 12. If WebRTC stays in ICE checking or fails to connect, a TURN relay is required; this prototype currently configures STUN only.
