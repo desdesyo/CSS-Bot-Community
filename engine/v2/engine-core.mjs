@@ -134,20 +134,39 @@ export function moveWithAabbCollisions(position, movement, colliders = [], radiu
 }
 
 
-/** Select the first spawn point that does not overlap a standing player's collision circle. */
+/** Resolve a spawn against actual world colliders. If the authored landing point is
+ * occupied, search outward in deterministic half-metre rings instead of spawning
+ * inside a facade/prop or silently falling back to the unsafe authored coordinate. */
 export function findSafePlayerSpawn(candidates, colliders = [], radius = 0.36, playerHeight = 1.72, footY = 0) {
   const clear = (point) => {
     if (!Number.isFinite(point?.x) || !Number.isFinite(point?.z)) return false;
+    if (point.x < -52 || point.x > 52 || point.z < -41 || point.z > 41) return false;
     for (const box of colliders) {
       if (box.maxY <= footY + 0.04 || box.minY >= footY + playerHeight - 0.04) continue;
       const nx = Math.max(box.minX, Math.min(point.x, box.maxX));
       const nz = Math.max(box.minZ, Math.min(point.z, box.maxZ));
       const dx = point.x - nx, dz = point.z - nz;
-      if (dx * dx + dz * dz < radius * radius) return false;
+      if (dx * dx + dz * dz < (radius + 0.12) * (radius + 0.12)) return false;
     }
     return true;
   };
-  for (const point of candidates || []) if (clear(point)) return { x: point.x, z: point.z };
+  const origins = (candidates || []).filter(p => Number.isFinite(p?.x) && Number.isFinite(p?.z));
+  for (const point of origins) if (clear(point)) return { x: point.x, z: point.z };
+  for (const origin of origins) {
+    for (let ring = 0.5; ring <= 14; ring += 0.5) {
+      const steps = Math.max(8, Math.ceil(2 * Math.PI * ring / 0.5));
+      const candidatesOnRing = [];
+      for (let i = 0; i < steps; i++) {
+        const angle = i * Math.PI * 2 / steps;
+        const point = { x: origin.x + Math.cos(angle) * ring, z: origin.z + Math.sin(angle) * ring };
+        if (clear(point)) candidatesOnRing.push(point);
+      }
+      if (candidatesOnRing.length) {
+        candidatesOnRing.sort((a,b) => a.x - b.x || a.z - b.z);
+        return candidatesOnRing[0];
+      }
+    }
+  }
   return null;
 }
 
