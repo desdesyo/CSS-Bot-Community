@@ -184,3 +184,27 @@ test('knife attacks clear firearm recoil and use a dedicated melee swing', async
   assert.match(viewmodel, /meleeT = 1; meleeHitPending = true/);
   assert.match(viewmodel, /if \(slot==='knife'\)[\s\S]*recoil=0;fireT=0;shotFlash=0/);
 });
+
+test('an allied field developer bot starts automatic QA recording and reports every five rounds', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /developerRole:'field-developer'/);
+  assert.match(engine, /fieldDeveloper\.developerRole='field-developer'/);
+  assert.match(engine, /startDeveloperRecorder\(\)/);
+  assert.match(engine, /uploadEveryRounds:5/);
+  assert.match(engine, /function recordDeveloperRound\(won\)/);
+  assert.match(engine, /if\(developerRoundBatch\.length>=5\)void uploadDeveloperDiagnosticsBatch\(\)/);
+  assert.match(engine, /type:'autonomous-field-developer-report'/);
+  assert.match(engine, /logs\/gameplay\/field-developer\//);
+  assert.match(engine, /player-damaged/);
+  assert.match(engine, /bot-damaged/);
+  assert.match(engine, /bot-shot/);
+});
+
+test('field developer preserves pending reports locally if GitHub upload cannot proceed', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /GAME_DEV_STATE_KEY/);
+  assert.match(engine, /persistDeveloperState\(\)/);
+  assert.match(engine, /developerLastUploadError/);
+  assert.match(engine, /Отчёт сохранён локально/);
+  assert.match(engine, /localStorage\.getItem\('solo_github_log_token'\)/);
+});
