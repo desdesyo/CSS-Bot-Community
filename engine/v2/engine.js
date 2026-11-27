@@ -910,9 +910,21 @@ async function boot() {
     // Real image-based lighting supplies physically plausible highlights to wet stone,
     // glazing and metal while the hand-authored sky remains the visible atmosphere.
     try {
-      scene.environmentTexture=B.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',scene);
-      scene.environmentTexture.gammaSpace=false;
+      const fallbackEnvironment=B.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',scene);
+      fallbackEnvironment.gammaSpace=false;
+      scene.environmentTexture=fallbackEnvironment;
       scene.environmentIntensity=mobile?.62:.88;
+      // A real 360-degree night-street panorama supplies the reflection and ambient-light
+      // character of wet European cobblestone streets; keep the compact studio map as fallback.
+      if(B.HDRCubeTexture){
+        const streetNightHdr=new B.HDRCubeTexture('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/cobblestone_street_night_1k.hdr',scene,mobile?64:128,false,true,false,true);
+        streetNightHdr.onLoadObservable.addOnce(()=>{
+          streetNightHdr.rotationY=.42;
+          scene.environmentTexture=streetNightHdr;
+          scene.environmentIntensity=mobile?.52:.72;
+          fallbackEnvironment.dispose();
+        });
+      }
     } catch(environmentError) {
       console.warn('SOLO environment reflections unavailable; direct lighting remains active.',environmentError);
     }
