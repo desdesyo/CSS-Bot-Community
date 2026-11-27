@@ -185,6 +185,13 @@ function findAssistedAimDirection(){
   // Gentle, short-range aim assist. It never acquires targets outside the centre cone or through walls.
   return BABYLON.Vector3.Lerp(forward,best.dir,.42).normalize();
 }
+function spawnBulletTracer(origin,direction,distance){
+  const start=origin.add(direction.scale(.55)),end=start.add(direction.scale(Math.max(2,distance)));
+  const bullet=BABYLON.MeshBuilder.CreateSphere('bullet-tracer',{diameter:.075,segments:8},scene);
+  const glow=new BABYLON.StandardMaterial('bullet-tracer-material-'+performance.now(),scene);glow.disableLighting=true;glow.emissiveColor=new BABYLON.Color3(1,.78,.32);bullet.material=glow;bullet.isPickable=false;
+  const speed=240,travel=Math.max(.045,Math.min(.34,distance/speed));let elapsed=0;
+  const obs=scene.onBeforeRenderObservable.add(()=>{elapsed+=Math.min(.04,engine.getDeltaTime()/1000);const k=Math.min(1,elapsed/travel);bullet.position.copyFrom(BABYLON.Vector3.Lerp(start,end,k));if(k>=1){scene.onBeforeRenderObservable.remove(obs);bullet.dispose();glow.dispose();}});
+}
 function showMuzzleFlash(){
   if(!state.muzzleFlash)return;
   state.muzzleFlash.setEnabled(true);
@@ -217,6 +224,7 @@ function fire() {
   const direction=findAssistedAimDirection();
   const ray=new BABYLON.Ray(camera.position.clone(),direction,w.range);
   const hit=scene.pickWithRay(ray,mesh=>isMapSolid(mesh)||mesh.name.startsWith('body-')||mesh.name.startsWith('head-'));
+  spawnBulletTracer(camera.position.clone(),direction,hit?.hit?hit.distance:w.range);
   showMuzzleFlash();
   state.recoilPitch=Math.min(.012,state.recoilPitch+(state.weapon==='rifle'?.0022:.0014));
   if(hit?.hit&&hit.pickedMesh) {
@@ -365,6 +373,8 @@ async function boot() {
       const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
       updateGamepad(dt);
       if(state.started) {
+        if(state.firing)fire();
+        if(state.recoilPitch){camera.rotation.x=Math.max(-1.35,Math.min(1.35,camera.rotation.x+state.recoilPitch));state.recoilPitch*=Math.exp(-dt*20);if(state.recoilPitch<.00008)state.recoilPitch=0;}
         updatePlayer(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;
         if(now-state.lastHud>100){drawRadar();state.lastHud=now;}
         if(state.aiAccumulator>=.125){state.aiAccumulator%=.125;updateBotAI()}
