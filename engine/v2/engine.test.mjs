@@ -41,7 +41,7 @@ test('mobile build disables shadows, skips external rigged models, and uses chea
   assert.ok(runtime.includes("mapCollisionGrid.get(gx+','+gz)"));
   assert.ok(runtime.includes('m.metadata||{}),mapCollider:cast'));
   assert.ok(!runtime.includes('return isDust2Blocked(x,z);'));
-  assert.ok(runtime.includes('scale:mobile?0.68:1.25'));
+  assert.ok(runtime.includes('scale:cloudHost?1:(mobile?0.68:1.25)'));
   assert.ok(runtime.includes('const targetDpr=mobile?1:1.5'));
   assert.ok(!html.includes('babylonjs.loaders.min.js'));
 });
@@ -288,4 +288,9 @@ test('cloud viewer reports received video dimensions and decoded frame rate',()=
   assert.ok(viewer.includes('framesDecoded'));
   assert.ok(viewer.includes('video.videoWidth'));
   assert.ok(viewer.includes('getStats()'));
+});
+
+test('cloud host pins render scale to native 1080p target instead of adaptive supersampling',()=>{
+  assert.ok(runtime.includes('const targetDpr=cloudHost?1:(mobile?1:1.5)'));
+  assert.ok(runtime.includes('const next=cloudHost?1:adaptiveScale(p95,state.scale,mobile)'));
 });
