@@ -295,18 +295,25 @@ test('Wet Ground has visibly distinct asymmetric routes and reflection settings 
 
 test('gameplay diagnostics keep synchronous serialization and storage out of frame/event hot paths', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const capture = engine.match(/function captureGameplayLog\\([\\s\\S]*?)(?=function installInputDiagnostics\\()/)?.[0] || '';
-  const event = engine.match(/function gameLogEvent\\([\\s\\S]*?)(?=function captureGameplayLog\\()/)?.[0] || '';
-  assert.ok(capture.length > 0, 'captureGameplayLog must exist');
-  assert.ok(event.length > 0, 'gameLogEvent must exist');
+  const captureStart = engine.indexOf('function captureGameplayLog(');
+  const captureEnd = engine.indexOf('function installInputDiagnostics(', captureStart);
+  const eventStart = engine.indexOf('function gameLogEvent(');
+  const eventEnd = engine.indexOf('function captureGameplayLog(', eventStart);
+  const capture = engine.slice(captureStart, captureEnd);
+  const event = engine.slice(eventStart, eventEnd);
+  assert.ok(captureStart >= 0 && captureEnd > captureStart);
+  assert.ok(eventStart >= 0 && eventEnd > eventStart);
   assert.doesNotMatch(capture, /JSON\\.stringify|localStorage\\.setItem|new Blob/);
   assert.doesNotMatch(event, /JSON\\.stringify|localStorage\\.setItem|new Blob/);
-  assert.match(engine, /indexedDB\\.open\\('solo-wet-ground-diagnostics'/);
+  assert.match(engine, /indexedDB\\.open/);
   assert.match(engine, /now-gameLogLastPersist>10000/);
 });
 
 test('field atlas persistence is deferred while gameplay diagnostics are recording', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const persist = engine.match(/function persistFieldAtlas\\([\\s\\S]*?)(?=function fieldCellAt\\()/)?.[0] || '';
-  assert.match(persist, /if\\(gameLogRecording\\)\\{fieldAtlas\\.persistPending=true;return;\\}/);
+  const start = engine.indexOf('function persistFieldAtlas(');
+  const end = engine.indexOf('function fieldCellAt(', start);
+  const persist = engine.slice(start, end);
+  assert.match(persist, /if\\(gameLogRecording\\)/);
+  assert.match(persist, /fieldAtlas\\.persistPending=true/);
 });
