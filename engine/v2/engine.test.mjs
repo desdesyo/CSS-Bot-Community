@@ -501,3 +501,13 @@ test('spectator and timed round result UI exists in the shipped page', async () 
   const source = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   for (const id of ['spectatorHud','spectatorLabel','spectatorPrev','spectatorNext','roundEnd','roundWinner','roundReason','roundCountdown']) assert.match(source, new RegExp('id="'+id+'"'));
 });
+
+
+test('map batches rendered wall colliders but preserves individual gameplay AABBs', async () => {
+  const source = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(source, /scene\.metadata\.soloCollisionBoxes=gameplayColliders/);
+  assert.match(source, /Wet Ground wall collision batch/);
+  assert.match(source, /mesh\.checkCollisions=false;mesh\.isPickable=true/);
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /scene\.metadata\?\.soloCollisionBoxes/);
+});
