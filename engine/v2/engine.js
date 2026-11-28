@@ -631,14 +631,14 @@ function initInput() {
   canvas.addEventListener('mousedown',e=>{if(!mobile&&e.button===0&&state.started){state.fireInputSource='desktop-mousedown';state.firing=true;fire()}});
   window.addEventListener('mouseup',e=>{if(e.button===0)state.firing=false});
   window.addEventListener('blur',()=>{state.keys.clear();state.firing=false});
-  const stick=$('stick'),nub=$('nub');let stickId=null,origin=null;
+  const stick=$('stick'),nub=$('nub');let stickId=null,origin=null,lastStickTrace=0;
   stick.addEventListener('pointerdown',e=>{stickId=e.pointerId;origin={x:e.clientX,y:e.clientY};stick.setPointerCapture(e.pointerId)});
-  stick.addEventListener('pointermove',e=>{if(e.pointerId!==stickId)return;const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);state.joy.x=dx/48*k;state.joy.y=dy/48*k;nub.style.transform='translate('+state.joy.x*38+'px,'+state.joy.y*38+'px)'});
+  stick.addEventListener('pointermove',e=>{if(e.pointerId!==stickId)return;const dx=e.clientX-origin.x,dy=e.clientY-origin.y,len=Math.max(1,Math.hypot(dx,dy)),k=Math.min(1,48/len);state.joy.x=dx/48*k;state.joy.y=dy/48*k;nub.style.transform='translate('+state.joy.x*38+'px,'+state.joy.y*38+'px)';const now=performance.now();if(now-lastStickTrace>120){lastStickTrace=now;gameLogEvent('movement-stick',{pointerType:e.pointerType,pointerId:e.pointerId,dx:+dx.toFixed(1),dy:+dy.toFixed(1),axisX:+state.joy.x.toFixed(2),axisY:+state.joy.y.toFixed(2)})}});
   const reset=()=>{stickId=null;state.joy.x=state.joy.y=0;nub.style.transform=''};
   stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
-  const look=$('look');let lookId=null,last=null;
+  const look=$('look');let lookId=null,last=null,lastLookTrace=0;
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
-  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.0095*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0095*state.lookSensitivity))});
+  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.0095*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0095*state.lookSensitivity));const now=performance.now();if(now-lastLookTrace>120){lastLookTrace=now;gameLogEvent('look-swipe',{pointerType:e.pointerType,pointerId:e.pointerId,dx:+dx.toFixed(1),dy:+dy.toFixed(1),yaw:+camera.rotation.y.toFixed(3),pitch:+camera.rotation.x.toFixed(3),sensitivity:state.lookSensitivity})}});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
@@ -889,7 +889,7 @@ function captureGameplayLog(dt,now){
 }
 function installInputDiagnostics(){
  if(inputTraceInstalled)return;inputTraceInstalled=true;
- const watched='#fire,#weaponBar [data-weapon],#renderCanvas,#reload';
+ const watched='#fire,#look,#stick,#weaponBar [data-weapon],#renderCanvas,#reload';
  for(const type of ['pointerdown','pointerup','pointercancel','click','mousedown','mouseup','touchstart','touchend'])document.addEventListener(type,e=>{
   const target=e.target?.closest?.(watched);if(!target)return;
   gameLogEvent('input-event',{type,target:target.id||target.dataset.weapon||target.tagName,pointerType:e.pointerType||null,pointerId:Number.isFinite(e.pointerId)?e.pointerId:null,button:Number.isFinite(e.button)?e.button:null,detail:e.detail??null,x:Number.isFinite(e.clientX)?Math.round(e.clientX):null,y:Number.isFinite(e.clientY)?Math.round(e.clientY):null,isTrusted:e.isTrusted,defaultPrevented:e.defaultPrevented,buttons:e.buttons??null});
@@ -905,7 +905,7 @@ function updateLogStatus(){
  const start=$('logsStart');if(start)start.textContent=gameLogRecording?'ОСТАНОВИТЬ ЗАПИСЬ':'НАЧАТЬ ЗАПИСЬ';
 }
 function buildGameplayLogPayload(){
- return {app:'SOLO: Wet Ground',format:4,session:gameLogSession?.id||null,sessionMeta:gameLogSession,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogSession?.pageId===gameLogPageId?Math.max(0,Date.now()-gameLogSession.startedAtEpoch):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
+ return {app:'SOLO: Wet Ground',build:'2026-11-28-reportfix2',format:4,session:gameLogSession?.id||null,sessionMeta:gameLogSession,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogSession?.pageId===gameLogPageId?Math.max(0,Date.now()-gameLogSession.startedAtEpoch):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
 }
 function downloadGameplayLog(){
  const payload=buildGameplayLogPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -980,7 +980,7 @@ async function submitIssueReport(){
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
  const perfValues=issuePerformanceRing.map(s=>s.frameMs),renderValues=issuePerformanceRing.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',format:2,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-reportfix2',format:2,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
@@ -1003,6 +1003,8 @@ window.addEventListener('error',e=>{const item={wall:new Date().toISOString(),ty
 window.addEventListener('unhandledrejection',e=>{const item={wall:new Date().toISOString(),type:'unhandled-rejection',reason:String(e.reason?.stack||e.reason).slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('unhandled-rejection',item)});
 window.addEventListener('webglcontextlost',e=>{const item={wall:new Date().toISOString(),type:'webgl-context-lost'};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('webgl-context-lost',{status:'lost'})},true);
 window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
+window.addEventListener('gamepadconnected',e=>gameLogEvent('gamepad-connected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null,mapping:e.gamepad?.mapping||null}));
+window.addEventListener('gamepaddisconnected',e=>gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null}));
 document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
 
 async function boot() {
