@@ -25,6 +25,10 @@ The previous client is a 150 KB monolithic Three.js page with coupled rendering,
 
 The default-branch workflow publishes the exact V2 revision only after `SOLO Engine V2 source checks` succeeds. It downloads the six licensed soldier GLBs and three matching Biped clips into the Pages artifact, then deploys through the `github-pages` environment. The publisher workflow lives on `main` so GitHub Pages branch/environment policy is evaluated against the default branch while the tested game source remains isolated on `feature/solo-engine-v2`.
 
+## Map workbench
+
+A standalone 3D authoring viewer is available at [`map-workbench.html`](./map-workbench.html). It loads the same `buildWetGroundMap` function as the game and provides orbit/top-down views, fit-to-map, wireframe mode and object-category isolation. It does not start gameplay, spawn bots or modify the game HUD. Use it to inspect the shared level geometry and materials before launching a game build.
+
 ## Run
 Open `/engine/v2/` on the published Pages site or serve the repository root over HTTP. The engine loads Babylon.js from its official CDN; an internet connection is required.
 
