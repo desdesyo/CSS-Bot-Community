@@ -1075,3 +1075,11 @@ test('map report grid integration delegates validated bot-independent coverage',
   assert.match(pipeline,/source:'map-grid'/);
   assert.match(pipeline,/points\.length!==30/);
 });
+
+
+test('WET GROUND avoids overlapping inner sidewalks and outer terrain corner strips', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /narrow old-quarter cobblestone sidewalk',x,0,1\.35,82,\.04,cobble/);
+  assert.match(map, /north rain-soaked terrain shoulder',0,-56,90,26/);
+  assert.match(map, /south rain-soaked terrain shoulder',0,56,90,26/);
+});
