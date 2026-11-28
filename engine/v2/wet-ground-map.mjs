@@ -811,17 +811,39 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   if(glow.emissiveColor)glow.emissiveColor=new C(1,.48,.16);
   let lightCount=0;
   function lamp(x,z,wallMount=false){
+    const detail=(name,px,py,pz,w,h,d,material)=>box(name,px,py,pz,w,h,d,material,false);
     if(wallMount){
-      box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
-      box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
-      const bulb=box('warm lantern glass',x,3.45,z-.22,.2,.4,.08,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.38:.58;l.range=mobile?7.5:9.5;}
+      detail('forged wall lantern mounting plate',x,3.45,z,.52,.78,.09,lampMat);
+      detail('wall lamp projecting bracket',x,3.12,z-.24,.09,.12,.58,lampMat);
+      detail('wall lamp bracket scroll',x,3.0,z-.43,.07,.07,.32,lampMat);
+      detail('wall lantern upper cap',x,3.86,z-.25,.48,.1,.48,lampMat);
+      detail('wall lantern lower cap',x,3.04,z-.25,.4,.09,.4,lampMat);
+      detail('wall lantern rear frame',x,3.45,z-.25,.34,.62,.09,lampMat);
+      detail('wall lantern glowing glass',x,3.45,z-.31,.22,.43,.035,glow);
+      for(const side of [-1,1]){
+        detail('wall lantern vertical frame bar',x+side*.19,3.45,z-.31,.045,.65,.045,lampMat);
+        detail('wall lantern side glass',x+side*.205,3.45,z-.25,.025,.38,.18,glow);
+      }
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.38),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.38:.58;l.range=mobile?7.5:9.5;}
     }else{
-      cylinder('cast iron lamp post',x,2.4,z,.16,4.8,lampMat);
-      box('lantern cross arm',x,4.7,z,.85,.12,.12,lampMat,false);
-      box('lantern hood',x,5.05,z,.65,.18,.65,lampMat,false);
-      box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.46:.72;l.range=mobile?8.5:12.5;}
+      const pole=B.MeshBuilder.CreateCylinder('tapered cast iron lamp post',{height:4.8,diameterTop:.085,diameterBottom:.19,tessellation:12},scene);
+      pole.position.set(x,2.4,z);pole.material=lampMat;pole.isPickable=false;
+      const base=B.MeshBuilder.CreateCylinder('lamp post cast footing',{height:.28,diameterTop:.27,diameterBottom:.34,tessellation:12},scene);
+      base.position.set(x,.14,z);base.material=lampMat;base.isPickable=false;
+      for(const y of [.34,4.62]){const collar=B.MeshBuilder.CreateCylinder('lamp post turned collar',{height:.09,diameterTop:.21,diameterBottom:.21,tessellation:12},scene);collar.position.set(x,y,z);collar.material=trim;collar.isPickable=false;}
+      detail('lantern curved support arm',x,4.76,z,.11,.11,.78,lampMat);
+      detail('lantern arm elbow',x,4.86,z-.34,.14,.14,.14,lampMat);
+      detail('lantern upper roof',x,5.23,z-.42,.72,.13,.72,lampMat);
+      detail('lantern roof crown',x,5.32,z-.42,.24,.08,.24,trim);
+      detail('lantern lower tray',x,4.65,z-.42,.58,.09,.58,lampMat);
+      detail('lantern glowing central glass',x,4.94,z-.42,.34,.48,.34,glow);
+      for(const side of [-1,1]){
+        detail('lantern glass frame side',x+side*.22,4.94,z-.42,.055,.58,.055,lampMat);
+        detail('lantern glass frame front',x,4.94,z-.64,.48,.58,.045,lampMat);
+        detail('lantern glass frame rear',x,4.94,z-.20,.48,.58,.045,lampMat);
+        detail('lantern roof brace',x+side*.27,5.12,z-.42,.045,.16,.045,lampMat);
+      }
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.9,z-.42),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.46:.72;l.range=mobile?8.5:12.5;}
     }
   }
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
@@ -1338,6 +1360,34 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     part(name+' front chrome bumper',0,.42,-2.17,1.8,.13,.16,chrome);
     part(name+' rear chrome bumper',0,.42,2.17,1.8,.13,.16,chrome);
     part(name+' number plate',0,.65,-2.205,.62,.18,.025,trim);
+    // Fine exterior detailing: recessed grille, lamps, body seams, wheel arches and alloy rims.
+    part(name+' front grille surround',0,.77,-2.145,.92,.31,.045,spawnIron);
+    part(name+' front grille mesh',0,.77,-2.174,.76,.19,.018,rubber);
+    for(let slat=0;slat<5;slat++)part(name+' grille chrome slat',0,.695+slat*.037,-2.19,.72,.012,.012,chrome);
+    for(const side of [-1,1]){
+      part(name+' headlamp bezel',side*.62,.86,-2.17,.43,.27,.055,chrome);
+      part(name+' headlamp lens',side*.62,.86,-2.205,.34,.18,.025,spawnLamp);
+      part(name+' rear lamp housing',side*.64,.84,2.17,.37,.28,.055,spawnIron);
+      part(name+' rear lamp lens',side*.64,.84,2.205,.28,.19,.025,neonAmber);
+      part(name+' front wheel arch lip',side*.94,.39,-1.38,.07,.9,1.05,chrome);
+      part(name+' rear wheel arch lip',side*.94,.39,1.38,.07,.9,1.05,chrome);
+      for(const zz of [-1.38,1.38]){
+        const rim=B.MeshBuilder.CreateCylinder(name+' detailed alloy rim',{diameter:.245,height:.23,tessellation:20},scene);
+        rim.parent=root;rim.rotation.z=Math.PI/2;rim.position.set(side*1.105,.38,zz);rim.material=chrome;rim.isPickable=false;
+        const cap=B.MeshBuilder.CreateCylinder(name+' alloy centre cap',{diameter:.105,height:.24,tessellation:16},scene);
+        cap.parent=root;cap.rotation.z=Math.PI/2;cap.position.set(side*1.115,.38,zz);cap.material=trim;cap.isPickable=false;
+        for(let bolt=0;bolt<5;bolt++){
+          const a=bolt*Math.PI*2/5;
+          const lug=B.MeshBuilder.CreateSphere(name+' wheel lug nut',{diameter:.035,segments:6},scene);
+          lug.parent=root;lug.position.set(side*1.125,.38+Math.sin(a)*.075,zz+Math.cos(a)*.075);lug.material=spawnStone;lug.isPickable=false;
+        }
+      }
+      part(name+' side body rubbing strip',side*.974,.69,0,.025,.07,2.35,spawnIron);
+      for(const zMark of [-.88,.88])part(name+' door panel seam',side*.978,.94,zMark,.012,.42,.014,spawnIron);
+      part(name+' rearview mirror glass',side*1.065,1.62,-1.12,.018,.09,.19,chrome);
+    }
+    part(name+' front registration plate inset',0,.65,-2.224,.48,.105,.012,spawnStone);
+    part(name+' rear registration plate',0,.65,2.205,.62,.18,.025,trim);
     const collider=part(name+' invisible collision hull',0,.9,0,2.12,1.85,4.5,invisible);
     collider.checkCollisions=true;collider.isPickable=true;collider.visibility=0;collider.isVisible=true;
     root.computeWorldMatrix(true);
@@ -1384,10 +1434,16 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     }
     for(const [side,distance] of [[-1,3.0],[1,7.2]]){
       const x=side*6.9,lampZ=at(distance);
-      cylinder(label+' tapered streetlamp pole',x,3.0,lampZ,.13,6.0,spawnIron);
-      box(label+' streetlamp arm',x-side*.48,5.85,lampZ,.95,.09,.09,spawnIron,false);
-      box(label+' streetlamp head',x-side*.92,5.72,lampZ,.72,.18,.32,spawnIron,false);
-      box(label+' streetlamp diffuser',x-side*.92,5.61,lampZ,.54,.035,.23,spawnLamp,false);
+      const post=B.MeshBuilder.CreateCylinder(label+' tapered cast streetlamp pole',{height:6,diameterTop:.075,diameterBottom:.17,tessellation:12},scene);
+      post.position.set(x,3,lampZ);post.material=spawnIron;post.isPickable=false;
+      const footing=B.MeshBuilder.CreateCylinder(label+' streetlamp cast base',{height:.32,diameterTop:.25,diameterBottom:.38,tessellation:12},scene);
+      footing.position.set(x,.16,lampZ);footing.material=spawnIron;footing.isPickable=false;
+      for(const y of [.38,5.55]){const ring=B.MeshBuilder.CreateCylinder(label+' streetlamp turned collar',{height:.08,diameter:.21,tessellation:12},scene);ring.position.set(x,y,lampZ);ring.material=spawnStone;ring.isPickable=false;}
+      box(label+' curved streetlamp arm',x-side*.48,5.85,lampZ,.95,.09,.09,spawnIron,false);
+      box(label+' streetlamp head housing',x-side*.92,5.72,lampZ,.72,.18,.32,spawnIron,false);
+      box(label+' streetlamp roof cap',x-side*.92,5.83,lampZ,.78,.07,.38,spawnIron,false);
+      box(label+' streetlamp glass lens',x-side*.92,5.61,lampZ,.54,.035,.23,spawnLamp,false);
+      for(const dx of [-.29,.29])box(label+' streetlamp housing rim',x-side*.92+dx,5.69,lampZ,.035,.17,.36,spawnIron,false);
       // A small, fixed light budget keeps the storefront facades readable on phones too.
       if(!mobile || (distance===3.0 && side===-1)){
         const light=new B.PointLight(label+' warm spawn streetlight',new B.Vector3(x-side*.92,5.5,lampZ),scene);
