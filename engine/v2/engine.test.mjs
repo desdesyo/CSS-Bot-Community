@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
+  assert.match(engine, /build:'2026-11-28-capturefix1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -305,7 +305,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
+  assert.match(engine, /build:'2026-11-28-capturefix1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -691,12 +691,16 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /2026-11-28-mapoverview11/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
+  assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
+  assert.match(engine, /captureSource:'independent-world-coordinate-crop-from-shared-topdown-render'/);
+  assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
   assert.match(engine, /Wet Ground district foundation/);
   assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera/);
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
-  assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-gamepad-input1/);
+  assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
+  assert.match(engine, /2026-11-28-capturefix1/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -839,10 +843,10 @@ test('map visual report captures up to 30 time-stratified real bot observations 
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
   assert.match(engine, /const count=Math\.min\(30,valid\.length\)/);
-  assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
+  assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /kind:'30-independent-world-coordinate-crops-from-top-down-overview'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-gamepad-input1/);
+  assert.match(engine, /2026-11-28-capturefix1/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
@@ -860,7 +864,7 @@ test('map overview samples only real bot observations and never substitutes auth
   assert.match(engine, /const candidates=\[\.\.\.mapWalkSamples\]/);
   assert.match(engine, /source:'current-bot-position'/);
   assert.doesNotMatch(engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '', /baseWaypoints|authored-bot-route/);
-  assert.match(engine, /time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded/);
+  assert.match(engine, /time-stratified samples from real observed bot movement and current bot positions; each tile is an independent crop centered on its world coordinate; authored patrol routes excluded/);
   assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
 });
 
@@ -918,10 +922,13 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
 test('mobile START and fullscreen-change handling request landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
-  assert.ok(start.includes("document.documentElement.requestFullscreen({navigationUI:'hide'})"));
+  assert.ok(engine.includes('function requestGameFullscreen()'));\n  assert.ok(start.includes('requestGameFullscreen()'));
   assert.ok(engine.includes("screen.orientation.lock('landscape')"));
   assert.ok(engine.includes('orientationchange'));
   assert.ok(engine.includes('fullscreenchange'));
+  assert.match(engine, /function lockGameLandscape\(reason='user-action'\)/);
+  assert.match(engine, /lockGameLandscape\('orientation-change'\)/);
+  assert.match(engine, /fullscreen-recovery-button/);
 });
 
 test('mobile game requests landscape orientation after entering fullscreen and has no portrait-only HUD layout', async () => {
