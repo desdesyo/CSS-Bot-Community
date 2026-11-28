@@ -8,7 +8,7 @@ const results=[];const errors=[];
 try{
  for(const mode of ['desktop','mobile']){
   const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1});
-  page.on('pageerror',e=>errors.push(mode+': '+String(e?.stack||e)));
+  page.on('pageerror',e=>{const message=mode+': '+String(e?.stack||e);errors.push(message);page.evaluate(value=>{window.__SOLO_MAP_AUDIT_ERROR__=value},message).catch(()=>{});});
   page.on('console',m=>{if(m.type()==='error')errors.push(mode+': '+m.text())});
   const url='http://127.0.0.1:4173/engine/v2/map-runtime-audit.html'+(mode==='mobile'?'?mobile=1':'');
   await page.goto(url,{waitUntil:'commit',timeout:60000});
