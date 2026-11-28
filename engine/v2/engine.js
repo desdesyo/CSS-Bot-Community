@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
-import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix1';
+import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf1';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
@@ -637,7 +637,7 @@ function initInput() {
   stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
   const look=$('look');let lookId=null,last=null;
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
-  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
+  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.0095*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0095*state.lookSensitivity))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
@@ -652,7 +652,7 @@ function initInput() {
     const len=Math.hypot(ox,oy),k=Math.min(1,38/Math.max(1,len));
     state.fireStick.x=ox/38*k;state.fireStick.y=oy/38*k;
     fireNub.style.transform='translate('+state.fireStick.x*30+'px,'+state.fireStick.y*30+'px)';
-    if(!state.playerDead&&(Math.abs(dx)>1.5||Math.abs(dy)>1.5)){camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));}
+    if(!state.playerDead&&(Math.abs(dx)>.75||Math.abs(dy)>.75)){camera.rotation.y+=dx*.0095*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0095*state.lookSensitivity));}
   });
   const stopFire=e=>{
     if(e&&fireId!==null&&e.pointerId!==fireId)return;
