@@ -2,7 +2,8 @@
  * WET GROUND — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
+export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={}) {
+  const authoringMode=options.authoringMode===true;
   const mapStart=scene.meshes.length;
   const pendingTextureLoads=[];
   const textureAudit={requested:0,loaded:0,failed:0,entries:[]};
@@ -1426,7 +1427,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     groups.get(key).push(m);
   }
   const merged=[];
-  for(const [materialId,parts] of groups){
+  if(authoringMode){merged.push(...authored.filter(m=>!m.checkCollisions&&m.material&&m.getTotalVertices?.()>0));}
+  else for(const [materialId,parts] of groups){
     if(parts.length<2){merged.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
@@ -1697,7 +1699,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     colliderGroups.get(key).push(mesh);
   }
   const colliderBatches=[];
-  for(const [materialId,parts] of colliderGroups){
+  if(authoringMode)colliderKept.push(...colliders);
+  else for(const [materialId,parts] of colliderGroups){
     if(parts.length<2){colliderKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground wall collision batch '+materialId;joined.isPickable=true;joined.checkCollisions=false;joined.receiveShadows=true;colliderBatches.push(joined);}
@@ -1720,7 +1723,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     lateGroups.get(key).push(mesh);
   }
   const lateMerged=[];let lateMergedSourceMeshCount=0;
-  for(const [materialId,parts] of lateGroups){
+  if(authoringMode)lateKept.push(...Array.from(new Set(scene.meshes.slice(lateStaticStart))).filter(mesh=>mesh&&!mesh.isDisposed?.()&&!mesh.checkCollisions&&mesh.material&&mesh.getTotalVertices?.()>0&&!dynamicNames.some(name=>mesh.name.includes(name))&&!mesh.infiniteDistance));
+  else for(const [materialId,parts] of lateGroups){
     if(parts.length<2){lateKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);lateMergedSourceMeshCount+=parts.length;}
@@ -1736,6 +1740,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const isStaticBatch=name.startsWith('Wet Ground merged material ')
         ||name.startsWith('Wet Ground late static batch ')
         ||name.startsWith('Wet Ground wall collision batch ');
+      if(authoringMode)return mesh!==wetMirror&&!mesh.isDisposed?.()&&!mesh.name?.includes('rain impact ripple');
       if(!isStaticBatch)return false;
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
@@ -1753,9 +1758,11 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const staticMeshes=[...colliderBatches,...colliderKept,...merged,...lateMerged,...lateKept],materials=new Set();
   for(const mesh of staticMeshes){
     if(!mesh||mesh.isDisposed?.())continue;
-    mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();
-    if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
+    mesh.computeWorldMatrix(true);
+    if(!authoringMode)mesh.freezeWorldMatrix();
+    if(!authoringMode&&mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  if(authoringMode){scene.metadata=scene.metadata||{};scene.metadata.mapAuthoringObjects=staticMeshes.filter(mesh=>mesh&&!mesh.isDisposed?.()).map(mesh=>({name:mesh.name,position:mesh.position.asArray(),rotation:mesh.rotation.asArray(),scaling:mesh.scaling.asArray()}));}
+  return {name:'Wet Ground',theme:'rainy-blue-hour',authoringMode,riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:authoringMode?0:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
