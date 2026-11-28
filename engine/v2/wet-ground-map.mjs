@@ -1373,6 +1373,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
 
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
+  const sourceMeshCount=scene.meshes.length-mapStart;
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
   for(const m of authored){
     if(m.checkCollisions){colliders.push(m);continue;}
@@ -1713,5 +1714,5 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount:scene.meshes.length-mapStart,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
