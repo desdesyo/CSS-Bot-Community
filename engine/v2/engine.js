@@ -913,7 +913,7 @@ function updateLogStatus(){
  const start=$('logsStart');if(start)start.textContent=gameLogRecording?'ОСТАНОВИТЬ ЗАПИСЬ':'НАЧАТЬ ЗАПИСЬ';
 }
 function buildGameplayLogPayload(){
- return {app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview10',format:4,session:gameLogSession?.id||null,sessionMeta:gameLogSession,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogSession?.pageId===gameLogPageId?Math.max(0,Date.now()-gameLogSession.startedAtEpoch):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
+ return {app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview11',format:4,session:gameLogSession?.id||null,sessionMeta:gameLogSession,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogSession?.pageId===gameLogPageId?Math.max(0,Date.now()-gameLogSession.startedAtEpoch):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
 }
 function downloadGameplayLog(){
  const payload=buildGameplayLogPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -1053,38 +1053,33 @@ function sampleBotWalkLocations(now){
  for(const bot of state.bots){
   if(!bot.alive||!bot.root||bot.root.isDisposed?.())continue;
   const p=bot.root.position;
-  mapWalkSamples.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),botId:bot.id,team:bot.team,t:Math.round(now),source:'observed-bot-position'});
+  mapWalkSamples.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),botId:bot.id,team:bot.team,t:Date.now(),source:'observed-bot-position'});
  }
  if(mapWalkSamples.length>900)mapWalkSamples=mapWalkSamples.slice(-900);
 }
 function chooseMapSnapshotPoints(){
+ // Only positions that were actually observed in play are eligible. Authored
+ // patrol waypoints are useful navigation data, but are not evidence of traversal.
  const candidates=[...mapWalkSamples];
  for(const bot of state.bots){
   if(!bot.root?.isDisposed?.()){
-   const p=bot.root.position;candidates.push({x:p.x,z:p.z,botId:bot.id,team:bot.team,t:Date.now(),source:'current-bot-position'});
+   const p=bot.root.position;
+   candidates.push({x:p.x,z:p.z,botId:bot.id,team:bot.team,t:Date.now(),source:'current-bot-position'});
   }
-  for(const p of bot.baseWaypoints||[])candidates.push({x:p[0],z:p[1],botId:bot.id,team:bot.team,t:null,source:'authored-bot-route'});
  }
- const unique=[];
- for(const p of candidates){
-  if(!Number.isFinite(p.x)||!Number.isFinite(p.z))continue;
-  if(unique.some(q=>Math.hypot(q.x-p.x,q.z-p.z)<2.8))continue;
-  unique.push(p);
+ const valid=candidates.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.t)&&p.t>1e12)
+  .sort((a,b)=>a.t-b.t);
+ if(!valid.length)throw new Error('Пока нет реальных наблюдений позиций ботов. Дай игре поработать и повтори обзор.');
+ // Select evenly over the real observation timeline. Repeated coordinates are
+ // retained when bots did not move: the report then exposes the actual stuck state
+ // instead of silently filling the atlas with imaginary patrol-route locations.
+ const selected=[];
+ const count=Math.min(30,valid.length);
+ for(let i=0;i<count;i++){
+  const index=Math.min(valid.length-1,Math.floor((i+.5)*valid.length/count));
+  selected.push(valid[index]);
  }
- for(let i=unique.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[unique[i],unique[j]]=[unique[j],unique[i]];}
- if(!unique.length)throw new Error('Нет координат маршрутов ботов для локальных снимков');
- const selected=[unique.shift()];
- while(selected.length<30&&unique.length){
-  let bestIndex=0,bestScore=-1;
-  for(let i=0;i<unique.length;i++){
-   const p=unique[i],distance=Math.min(...selected.map(q=>Math.hypot(p.x-q.x,p.z-q.z)));
-   const score=distance+Math.random()*2.5;
-   if(score>bestScore){bestScore=score;bestIndex=i;}
-  }
-  selected.push(unique.splice(bestIndex,1)[0]);
- }
- while(selected.length<30)selected.push({...selected[selected.length%Math.max(1,selected.length)],source:'repeat-fallback'});
- return selected.slice(0,30).map((p,index)=>({...p,index:index+1}));
+ return selected.map((p,index)=>({...p,index:index+1}));
 }
 async function captureBotAreaContactSheet(points,onProgress=()=>{}){
  const tileWidth=320,tileHeight=240,columns=5,rows=6;
@@ -1110,7 +1105,7 @@ async function captureBotAreaContactSheet(points,onProgress=()=>{}){
    ctx.drawImage(image,x,y,tileWidth,tileHeight);
    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
    ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
-   tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:point.t?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
+   tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
    onProgress(i+1,points.length);
    if(i%2===1)await new Promise(resolve=>requestAnimationFrame(resolve));
   }finally{
@@ -1158,7 +1153,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
   const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview10',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview10',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');

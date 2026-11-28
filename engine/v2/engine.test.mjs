@@ -850,3 +850,20 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
   assert.match(manifest, /"name": "SOLO:WG"/);
   assert.match(manifest, /"short_name": "SOLO:WG"/);
 });
+
+
+test('map overview samples only real bot observations and never substitutes authored patrol routes', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /t:Date\.now\(\),source:'observed-bot-position'/);
+  assert.match(engine, /const candidates=\[\.\.\.mapWalkSamples\]/);
+  assert.match(engine, /source:'current-bot-position'/);
+  assert.doesNotMatch(engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '', /baseWaypoints|authored-bot-route/);
+  assert.match(engine, /time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded/);
+  assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
+});
+
+test('mobile wet reflections preserve texture resolution while reducing refresh work', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /new B\.Vector2\(mobile\?256:768,mobile\?256:768\)/);
+  assert.match(map, /wetMirror\.refreshRate=mobile\?48:2/);
+});
