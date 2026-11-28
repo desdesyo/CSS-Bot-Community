@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/solo-engine-v2
+      - fix/solo-report-controls
     paths:
       - "engine/v2/**"
       - ".github/workflows/solo-engine-v2-checks.yml"
