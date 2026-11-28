@@ -18,6 +18,44 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(!mobile&&m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.18;m.clearCoat.roughness=.28;}
     return m;
   };
+  // One shared GPU texture atlas for all small storefront and spawn-quarter lettering.
+  // Every sign uses a UV window into this atlas instead of allocating its own 512x128/768x192 texture.
+  const signAtlasLabels=['GROCERY','CAFE','PHARMACY','REPAIRS','ПРОДУКТЫ','МАСТЕРСКАЯ','ПЕКАРНЯ','АТЕЛЬЕ','АПТЕКА','КАФЕ','ЦВЕТЫ','МАГАЗИН'];
+  const signAtlasSize=mobile?1024:2048,signCellW=signAtlasSize/4,signCellH=signAtlasSize/4;
+  const signAtlasTexture=new B.DynamicTexture('shared storefront and street-sign atlas',{width:signAtlasSize,height:signAtlasSize},scene,false,B.Texture.TRILINEAR_SAMPLINGMODE);
+  const signAtlasCtx=signAtlasTexture.getContext(),signAtlasIndex=new Map(),signAtlasMaterials=new Map();
+  const signPalettes=[
+    ['#101b27','#ffd18a'],['#101b27','#75e8f2'],['#101b27','#ff716a'],['#101b27','#ffd18a'],
+    ['#182a33','#c59a62'],['#302a25','#8c6b51'],['#182a33','#c59a62'],['#302a25','#8c6b51'],
+    ['#182a33','#c59a62'],['#302a25','#8c6b51'],['#182a33','#c59a62'],['#302a25','#8c6b51']
+  ];
+  signAtlasLabels.forEach((label,index)=>{
+    const x=(index%4)*signCellW,y=Math.floor(index/4)*signCellH,[base,accent]=signPalettes[index];
+    signAtlasIndex.set(label,index);
+    signAtlasCtx.fillStyle=base;signAtlasCtx.fillRect(x,y,signCellW,signCellH);
+    signAtlasCtx.fillStyle=accent;signAtlasCtx.fillRect(x,y,signCellW,Math.max(3,signCellH*.045));signAtlasCtx.fillRect(x,y+signCellH-Math.max(3,signCellH*.045),signCellW,Math.max(3,signCellH*.045));
+    signAtlasCtx.strokeStyle='rgba(230,222,202,.62)';signAtlasCtx.lineWidth=Math.max(1,signCellW*.006);signAtlasCtx.strokeRect(x+5,y+5,signCellW-10,signCellH-10);
+    signAtlasCtx.fillStyle='#f0e6d2';signAtlasCtx.textAlign='center';signAtlasCtx.textBaseline='middle';
+    signAtlasCtx.font='bold '+Math.floor(signCellH*(label.length>10?.34:.43))+'px Arial';
+    signAtlasCtx.fillText(label,x+signCellW/2,y+signCellH*.49,signCellW-24);
+    if(index>=4){signAtlasCtx.font='bold '+Math.floor(signCellH*.105)+'px Arial';signAtlasCtx.fillStyle='#b9c6c5';signAtlasCtx.fillText('ОТКРЫТО  ·  24 ЧАСА',x+signCellW/2,y+signCellH*.79,signCellW-24);}
+  });
+  signAtlasTexture.update(false);signAtlasTexture.gammaSpace=true;
+  signAtlasTexture.wrapU=signAtlasTexture.wrapV=B.Texture.CLAMP_ADDRESSMODE;
+  signAtlasTexture.anisotropicFilteringLevel=mobile?2:4;
+  const makeSignAtlasMaterial=(label,base,accent)=>{
+    if(signAtlasMaterials.has(label))return signAtlasMaterials.get(label);
+    const index=signAtlasIndex.get(label);
+    if(index===undefined)throw new Error('Missing sign atlas slot: '+label);
+    const texture=signAtlasTexture.clone();
+    texture.name='shared sign atlas region '+label;
+    texture.uScale=.25;texture.vScale=.25;texture.uOffset=(index%4)*.25;texture.vOffset=Math.floor(index/4)*.25;
+    texture.wrapU=texture.wrapV=B.Texture.CLAMP_ADDRESSMODE;
+    const material=new B.StandardMaterial('shared atlas sign material '+label,scene);
+    material.diffuseTexture=texture;material.emissiveTexture=texture;material.disableLighting=true;material.backFaceCulling=false;
+    signAtlasMaterials.set(label,material);
+    return material;
+  };
   const plaster=mat('wet blue-gray plaster','#303f50',.92);
   const stone=mat('aged blue stone','#394653',.9);
   const brick=mat('dark wet brick','#343b45',.94);
@@ -743,13 +781,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ];
   for(const [x,z,w,signMat,label] of shopSigns){
     box('illuminated shop sign backing',x,3.55,z,w,.72,.16,iron,false);
-    const signTex=new B.DynamicTexture('legible storefront sign '+label,{width:512,height:128},scene,false);
-    const signCtx=signTex.getContext();signCtx.fillStyle='#101b27';signCtx.fillRect(0,0,512,128);
-    signCtx.fillStyle=label==='PHARMACY'?'#ff716a':label==='CAFE'?'#75e8f2':'#ffd18a';
-    signCtx.font='bold 58px Arial';signCtx.textAlign='center';signCtx.textBaseline='middle';signCtx.fillText(label,256,66);
-    signTex.update(false);
-    const signFace=new B.StandardMaterial('emissive readable sign '+label,scene);
-    signFace.diffuseTexture=signTex;signFace.emissiveTexture=signTex;signFace.disableLighting=true;
+    const signFace=makeSignAtlasMaterial(label,'#101b27',label==='PHARMACY'?'#ff716a':label==='CAFE'?'#75e8f2':'#ffd18a');
     const face=box('readable '+label+' storefront sign',x,3.56,z-.105,w-.24,.48,.035,signFace,false);
     face.isPickable=false;
     box('shop awning',x,2.85,z+.6,w+.45,.16,1.05,brick,false);
@@ -1212,20 +1244,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(spawnLamp.emissiveColor)spawnLamp.emissiveColor=new C(.95,.48,.16);
   const spawnAsphalt=mat('spawn quarter worn asphalt patches','#1a2935',.18,.08);
   const spawnStone=mat('spawn quarter pale worn kerb stone','#59636a',.82);
-  const spawnSign=(label,base,accent)=>{
-    const tex=new B.DynamicTexture('street sign '+label,{width:768,height:192},scene,false);
-    const ctx=tex.getContext();
-    ctx.fillStyle=base;ctx.fillRect(0,0,768,192);
-    ctx.fillStyle=accent;ctx.fillRect(0,0,768,9);ctx.fillRect(0,183,768,9);
-    ctx.strokeStyle='rgba(230,222,202,.62)';ctx.lineWidth=3;ctx.strokeRect(12,12,744,168);
-    ctx.fillStyle='#f0e6d2';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.font='bold 68px Arial';ctx.fillText(label,384,88);
-    ctx.font='bold 20px Arial';ctx.fillStyle='#b9c6c5';ctx.fillText('ОТКРЫТО  ·  24 ЧАСА',384,151);
-    tex.update(false);
-    const m=new B.StandardMaterial('illuminated enamel sign '+label,scene);
-    m.diffuseTexture=tex;m.emissiveTexture=tex;m.disableLighting=true;m.backFaceCulling=false;
-    return m;
-  };
+  const spawnSign=(label,base,accent)=>makeSignAtlasMaterial(label,base,accent);
   const makeSpawnCar=(name,x,z,paint)=>{
     const root=new B.TransformNode(name,scene);root.position.set(x,0,z);
     const part=(n,px,py,pz,w,h,d,m)=>{const q=B.MeshBuilder.CreateBox(n,{width:w,height:h,depth:d},scene);q.parent=root;q.position.set(px,py,pz);q.material=m;q.isPickable=false;return q;};
