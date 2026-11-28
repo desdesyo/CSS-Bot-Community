@@ -1050,3 +1050,13 @@ test('HUD engine cache key invalidates the prior mobile page module', async () =
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
  assert.match(html,/engine\.js\?v=20261128-capturefix3-hud1/);
 });
+
+test('diagnostics eye also hides recording menu and quality overlay, with map report below action row', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/body\.hud-clean #quality/);
+ assert.match(html,/body\.hud-clean #pane-logs/);
+ assert.match(html,/data-menu-tab="logs"/);
+ assert.match(html,/#mapOverviewQuick\{top:70px!important/);
+ assert.match(html,/#mapOverviewStatus\{top:100px!important/);
+ assert.match(html,/engine\.js\?v=20261128-capturefix3-hud2/);
+});
