@@ -2,7 +2,8 @@
  * WET GROUND — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
+export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={}) {
+  const authoringMode=options.authoringMode===true;
   const mapStart=scene.meshes.length;
   const pendingTextureLoads=[];
   const textureAudit={requested:0,loaded:0,failed:0,entries:[]};
@@ -223,9 +224,16 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     material.useAmbientInGrayScale=true;
     material.ambientTextureStrength=mobile?0:.72;
   };
-  plaster.albedoColor=new C(.72,.82,.92);
-  brick.albedoColor=new C(.78,.82,.88);
-  stone.albedoColor=new C(.78,.84,.9);
+  // Keep masonry subdued under the blue-hour ambient fill; lamp pools and wet
+  // specular response should provide the readable highlights, not a bright base albedo.
+  plaster.albedoColor=new C(.46,.54,.64);
+  brick.albedoColor=new C(.48,.53,.61);
+  stone.albedoColor=new C(.52,.58,.66);
+  for(const facadeMaterial of [plaster,brick,stone]){
+    facadeMaterial.roughness=.76;
+    facadeMaterial.environmentIntensity=mobile?.52:.72;
+    if(facadeMaterial.clearCoat){facadeMaterial.clearCoat.isEnabled=true;facadeMaterial.clearCoat.intensity=.24;facadeMaterial.clearCoat.roughness=.34;}
+  }
   // A compact second PBR layer gives the spawn quarter real surface relief:
   // mortar recesses, chipped stone edges, plaster pores, mineral streaks and
   // material-specific roughness. Mobile maps are deliberately capped at 512px.
@@ -350,6 +358,42 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   cobbleRough.uScale=1;cobbleRough.vScale=1;
   cobbleRough.anisotropicFilteringLevel=mobile?8:16;cobble.roughnessTexture=cobbleRough;
   cobbleTex.uScale=1;cobbleTex.vScale=1;cobbleTex.anisotropicFilteringLevel=mobile?8:16;
+
+  // Natural rain-darkened asphalt: fine aggregate, worn repair patches, hairline
+  // cracks and subtle tyre-polished tracks. Baked once; no per-frame shader cost.
+  const asphalt=mat('rain-darkened natural road asphalt','#252d35',.9,.12);
+  const makeAsphaltTexture=()=>{
+    const size=mobile?512:1024,tex=new B.DynamicTexture('fine-grain patched road asphalt albedo',{width:size,height:size},scene,false);
+    const ctx=tex.getContext(),rand=(()=>{let seed=294817;return()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);})();
+    ctx.fillStyle='#303840';ctx.fillRect(0,0,size,size);
+    for(let i=0;i<(mobile?5200:15000);i++){
+      const v=Math.floor(24+rand()*45),a=.12+rand()*.28,r=.35+rand()*1.1;
+      ctx.fillStyle='rgba('+v+','+(v+3)+','+(v+6)+','+a+')';
+      ctx.fillRect(rand()*size,rand()*size,r,r);
+    }
+    for(let i=0;i<34;i++){
+      const x=rand()*size,y=rand()*size,w=size*(.035+rand()*.12),h=size*(.018+rand()*.07);
+      ctx.fillStyle='rgba(8,13,18,'+(.08+rand()*.12)+')';ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle='rgba(91,99,103,.12)';ctx.lineWidth=1+rand()*2;ctx.strokeRect(x+2,y+2,w-4,h-4);
+    }
+    for(let i=0;i<18;i++){
+      let x=rand()*size,y=rand()*size;ctx.beginPath();ctx.moveTo(x,y);
+      for(let n=0;n<4;n++){x+=(rand()-.5)*size*.035;y+=size*(.008+rand()*.018);ctx.lineTo(x,y);}
+      ctx.strokeStyle='rgba(8,12,16,'+(.22+rand()*.22)+')';ctx.lineWidth=.7+rand()*1.3;ctx.stroke();
+    }
+    // Slightly smoother wheel paths, not bright painted lane markings.
+    for(const x of [.32,.68]){
+      const g=ctx.createLinearGradient((x-.035)*size,0,(x+.035)*size,0);
+      g.addColorStop(0,'rgba(115,127,133,0)');g.addColorStop(.5,'rgba(115,127,133,.09)');g.addColorStop(1,'rgba(115,127,133,0)');
+      ctx.fillStyle=g;ctx.fillRect((x-.035)*size,0,size*.07,size);
+    }
+    tex.update(false);tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    tex.anisotropicFilteringLevel=mobile?8:16;return tex;
+  };
+  asphalt.albedoTexture=makeAsphaltTexture();
+  asphalt.albedoColor=new C(.78,.84,.9);
+  asphalt.roughness=.72;
+  if(asphalt.clearCoat){asphalt.clearCoat.isEnabled=true;asphalt.clearCoat.intensity=.32;asphalt.clearCoat.roughness=.24;}
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
@@ -401,7 +445,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    const tileSize=material===cobble?2.4:material===stone?3.2:0;
+    const tileSize=material===cobble?2.4:material===stone?3.2:material===asphalt?8:0;
     if(tileSize>0){
       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/tileSize;uv[i+1]*=d/tileSize;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
@@ -418,12 +462,12 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     m.position.set(x,y,z);m.material=material;return m;
   };
   // Main cobbled street, short cross streets, and narrow side passages.
-  floor('main wet cobblestone street',0,0,10.4,82,.025);
-  floor('west lane cobblestones',-23,0,9,82,.03);
-  floor('east lane cobblestones',23,0,9,82,.03);
-  for(const z of [-27,-12,13,28]) floor('cross alley cobbles',0,z,52,5,.035);
-  for(const x of [-5.8,5.8]) floor('narrow old-quarter stone sidewalk',x,0,1.35,82,.07,stone);
-  for(const x of [-28.5,28.5]) floor('outer wet stone sidewalk',x,0,2.1,82,.07,stone);
+  floor('main wet asphalt road',0,0,10.4,82,.025,asphalt);
+  floor('west lane wet asphalt',-23,0,9,82,.03,asphalt);
+  floor('east lane wet asphalt',23,0,9,82,.03,asphalt);
+  for(const z of [-27,-12,13,28]) floor('cross alley wet asphalt',0,z,52,5,.035,asphalt);
+  for(const x of [-5.8,5.8]) floor('narrow old-quarter cobblestone sidewalk',x,0,1.35,82,.07,cobble);
+  for(const x of [-28.5,28.5]) floor('outer wet cobblestone sidewalk',x,0,2.1,82,.07,cobble);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
   const waterPlane=B.MeshBuilder.CreateGround('dark canal water',{width:106,height:9.4,subdivisions:1},scene);
@@ -469,8 +513,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     // Broad level landings and cobbled road aprons visibly connect both banks.
     floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
     floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
-    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,cobble);
-    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,cobble);
+    floor(label+' north bridge asphalt road approach',x,-13.2,16,7.2,.13,asphalt);
+    floor(label+' south bridge asphalt road approach',x,13.2,16,7.2,.13,asphalt);
     for(const z of [-16.4,16.4]){
       for(const side of [-1,1]){
         const edge=box(label+' approach edge stone',x+side*7.45,.13,z,.22,.18,1.2,trim,false);
@@ -649,10 +693,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   // Two continuous cross-streets plus short bank-side connectors form a legible
   // street grid. The canal remains a genuine barrier except at the three bridges.
-  floor('south district cross street',0,-20,72,6.2,.032,cobble);
-  floor('north district cross street',0,27,72,6.2,.032,cobble);
+  floor('south district cross street asphalt',0,-20,72,6.2,.032,asphalt);
+  floor('north district cross street asphalt',0,27,72,6.2,.032,asphalt);
   for(const side of [-1,1]){
-    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,cobble);
+    floor('canal bank east-west market connector asphalt',side*20,5.2,18,5.2,.034,asphalt);
     for(const z of [-23.5,-16.5,23.5,30.5]){
       floor('cross street granite pedestrian edge',side*20,z,18,.42,.072,stone);
     }
@@ -767,17 +811,39 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(glow.emissiveColor)glow.emissiveColor=new C(1,.48,.16);
   let lightCount=0;
   function lamp(x,z,wallMount=false){
+    const detail=(name,px,py,pz,w,h,d,material)=>box(name,px,py,pz,w,h,d,material,false);
     if(wallMount){
-      box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
-      box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
-      const bulb=box('warm lantern glass',x,3.45,z-.22,.2,.4,.08,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.34:.55;l.range=mobile?7:9;}
+      detail('forged wall lantern mounting plate',x,3.45,z,.52,.78,.09,lampMat);
+      detail('wall lamp projecting bracket',x,3.12,z-.24,.09,.12,.58,lampMat);
+      detail('wall lamp bracket scroll',x,3.0,z-.43,.07,.07,.32,lampMat);
+      detail('wall lantern upper cap',x,3.86,z-.25,.48,.1,.48,lampMat);
+      detail('wall lantern lower cap',x,3.04,z-.25,.4,.09,.4,lampMat);
+      detail('wall lantern rear frame',x,3.45,z-.25,.34,.62,.09,lampMat);
+      detail('wall lantern glowing glass',x,3.45,z-.31,.22,.43,.035,glow);
+      for(const side of [-1,1]){
+        detail('wall lantern vertical frame bar',x+side*.19,3.45,z-.31,.045,.65,.045,lampMat);
+        detail('wall lantern side glass',x+side*.205,3.45,z-.25,.025,.38,.18,glow);
+      }
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.38),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.38:.58;l.range=mobile?7.5:9.5;}
     }else{
-      cylinder('cast iron lamp post',x,2.4,z,.16,4.8,lampMat);
-      box('lantern cross arm',x,4.7,z,.85,.12,.12,lampMat,false);
-      box('lantern hood',x,5.05,z,.65,.18,.65,lampMat,false);
-      box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
+      const pole=B.MeshBuilder.CreateCylinder('tapered cast iron lamp post',{height:4.8,diameterTop:.085,diameterBottom:.19,tessellation:12},scene);
+      pole.position.set(x,2.4,z);pole.material=lampMat;pole.isPickable=false;
+      const base=B.MeshBuilder.CreateCylinder('lamp post cast footing',{height:.28,diameterTop:.27,diameterBottom:.34,tessellation:12},scene);
+      base.position.set(x,.14,z);base.material=lampMat;base.isPickable=false;
+      for(const y of [.34,4.62]){const collar=B.MeshBuilder.CreateCylinder('lamp post turned collar',{height:.09,diameterTop:.21,diameterBottom:.21,tessellation:12},scene);collar.position.set(x,y,z);collar.material=trim;collar.isPickable=false;}
+      detail('lantern curved support arm',x,4.76,z,.11,.11,.78,lampMat);
+      detail('lantern arm elbow',x,4.86,z-.34,.14,.14,.14,lampMat);
+      detail('lantern upper roof',x,5.23,z-.42,.72,.13,.72,lampMat);
+      detail('lantern roof crown',x,5.32,z-.42,.24,.08,.24,trim);
+      detail('lantern lower tray',x,4.65,z-.42,.58,.09,.58,lampMat);
+      detail('lantern glowing central glass',x,4.94,z-.42,.34,.48,.34,glow);
+      for(const side of [-1,1]){
+        detail('lantern glass frame side',x+side*.22,4.94,z-.42,.055,.58,.055,lampMat);
+        detail('lantern glass frame front',x,4.94,z-.64,.48,.58,.045,lampMat);
+        detail('lantern glass frame rear',x,4.94,z-.20,.48,.58,.045,lampMat);
+        detail('lantern roof brace',x+side*.27,5.12,z-.42,.045,.16,.045,lampMat);
+      }
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.9,z-.42),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.46:.72;l.range=mobile?8.5:12.5;}
     }
   }
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
@@ -1294,6 +1360,34 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     part(name+' front chrome bumper',0,.42,-2.17,1.8,.13,.16,chrome);
     part(name+' rear chrome bumper',0,.42,2.17,1.8,.13,.16,chrome);
     part(name+' number plate',0,.65,-2.205,.62,.18,.025,trim);
+    // Fine exterior detailing: recessed grille, lamps, body seams, wheel arches and alloy rims.
+    part(name+' front grille surround',0,.77,-2.145,.92,.31,.045,spawnIron);
+    part(name+' front grille mesh',0,.77,-2.174,.76,.19,.018,rubber);
+    for(let slat=0;slat<5;slat++)part(name+' grille chrome slat',0,.695+slat*.037,-2.19,.72,.012,.012,chrome);
+    for(const side of [-1,1]){
+      part(name+' headlamp bezel',side*.62,.86,-2.17,.43,.27,.055,chrome);
+      part(name+' headlamp lens',side*.62,.86,-2.205,.34,.18,.025,spawnLamp);
+      part(name+' rear lamp housing',side*.64,.84,2.17,.37,.28,.055,spawnIron);
+      part(name+' rear lamp lens',side*.64,.84,2.205,.28,.19,.025,neonAmber);
+      part(name+' front wheel arch lip',side*.94,.39,-1.38,.07,.9,1.05,chrome);
+      part(name+' rear wheel arch lip',side*.94,.39,1.38,.07,.9,1.05,chrome);
+      for(const zz of [-1.38,1.38]){
+        const rim=B.MeshBuilder.CreateCylinder(name+' detailed alloy rim',{diameter:.245,height:.23,tessellation:20},scene);
+        rim.parent=root;rim.rotation.z=Math.PI/2;rim.position.set(side*1.105,.38,zz);rim.material=chrome;rim.isPickable=false;
+        const cap=B.MeshBuilder.CreateCylinder(name+' alloy centre cap',{diameter:.105,height:.24,tessellation:16},scene);
+        cap.parent=root;cap.rotation.z=Math.PI/2;cap.position.set(side*1.115,.38,zz);cap.material=trim;cap.isPickable=false;
+        for(let bolt=0;bolt<5;bolt++){
+          const a=bolt*Math.PI*2/5;
+          const lug=B.MeshBuilder.CreateSphere(name+' wheel lug nut',{diameter:.035,segments:6},scene);
+          lug.parent=root;lug.position.set(side*1.125,.38+Math.sin(a)*.075,zz+Math.cos(a)*.075);lug.material=spawnStone;lug.isPickable=false;
+        }
+      }
+      part(name+' side body rubbing strip',side*.974,.69,0,.025,.07,2.35,spawnIron);
+      for(const zMark of [-.88,.88])part(name+' door panel seam',side*.978,.94,zMark,.012,.42,.014,spawnIron);
+      part(name+' rearview mirror glass',side*1.065,1.62,-1.12,.018,.09,.19,chrome);
+    }
+    part(name+' front registration plate inset',0,.65,-2.224,.48,.105,.012,spawnStone);
+    part(name+' rear registration plate',0,.65,2.205,.62,.18,.025,trim);
     const collider=part(name+' invisible collision hull',0,.9,0,2.12,1.85,4.5,invisible);
     collider.checkCollisions=true;collider.isPickable=true;collider.visibility=0;collider.isVisible=true;
     root.computeWorldMatrix(true);
@@ -1340,13 +1434,20 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     }
     for(const [side,distance] of [[-1,3.0],[1,7.2]]){
       const x=side*6.9,lampZ=at(distance);
-      cylinder(label+' tapered streetlamp pole',x,3.0,lampZ,.13,6.0,spawnIron);
-      box(label+' streetlamp arm',x-side*.48,5.85,lampZ,.95,.09,.09,spawnIron,false);
-      box(label+' streetlamp head',x-side*.92,5.72,lampZ,.72,.18,.32,spawnIron,false);
-      box(label+' streetlamp diffuser',x-side*.92,5.61,lampZ,.54,.035,.23,spawnLamp,false);
-      if(!mobile){
+      const post=B.MeshBuilder.CreateCylinder(label+' tapered cast streetlamp pole',{height:6,diameterTop:.075,diameterBottom:.17,tessellation:12},scene);
+      post.position.set(x,3,lampZ);post.material=spawnIron;post.isPickable=false;
+      const footing=B.MeshBuilder.CreateCylinder(label+' streetlamp cast base',{height:.32,diameterTop:.25,diameterBottom:.38,tessellation:12},scene);
+      footing.position.set(x,.16,lampZ);footing.material=spawnIron;footing.isPickable=false;
+      for(const y of [.38,5.55]){const ring=B.MeshBuilder.CreateCylinder(label+' streetlamp turned collar',{height:.08,diameter:.21,tessellation:12},scene);ring.position.set(x,y,lampZ);ring.material=spawnStone;ring.isPickable=false;}
+      box(label+' curved streetlamp arm',x-side*.48,5.85,lampZ,.95,.09,.09,spawnIron,false);
+      box(label+' streetlamp head housing',x-side*.92,5.72,lampZ,.72,.18,.32,spawnIron,false);
+      box(label+' streetlamp roof cap',x-side*.92,5.83,lampZ,.78,.07,.38,spawnIron,false);
+      box(label+' streetlamp glass lens',x-side*.92,5.61,lampZ,.54,.035,.23,spawnLamp,false);
+      for(const dx of [-.29,.29])box(label+' streetlamp housing rim',x-side*.92+dx,5.69,lampZ,.035,.17,.36,spawnIron,false);
+      // A small, fixed light budget keeps the storefront facades readable on phones too.
+      if(!mobile || (distance===3.0 && side===-1)){
         const light=new B.PointLight(label+' warm spawn streetlight',new B.Vector3(x-side*.92,5.5,lampZ),scene);
-        light.diffuse=new C(.95,.62,.36);light.intensity=.32;light.range=12;
+        light.diffuse=new C(.95,.62,.36);light.intensity=mobile?.24:.32;light.range=mobile?8:12;
       }
     }
     const bikeX=-4.35;
@@ -1426,7 +1527,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     groups.get(key).push(m);
   }
   const merged=[];
-  for(const [materialId,parts] of groups){
+  if(authoringMode){merged.push(...authored.filter(m=>!m.checkCollisions&&m.material&&m.getTotalVertices?.()>0));}
+  else for(const [materialId,parts] of groups){
     if(parts.length<2){merged.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
@@ -1697,7 +1799,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     colliderGroups.get(key).push(mesh);
   }
   const colliderBatches=[];
-  for(const [materialId,parts] of colliderGroups){
+  if(authoringMode)colliderKept.push(...colliders);
+  else for(const [materialId,parts] of colliderGroups){
     if(parts.length<2){colliderKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground wall collision batch '+materialId;joined.isPickable=true;joined.checkCollisions=false;joined.receiveShadows=true;colliderBatches.push(joined);}
@@ -1720,7 +1823,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     lateGroups.get(key).push(mesh);
   }
   const lateMerged=[];let lateMergedSourceMeshCount=0;
-  for(const [materialId,parts] of lateGroups){
+  if(authoringMode)lateKept.push(...Array.from(new Set(scene.meshes.slice(lateStaticStart))).filter(mesh=>mesh&&!mesh.isDisposed?.()&&!mesh.checkCollisions&&mesh.material&&mesh.getTotalVertices?.()>0&&!dynamicNames.some(name=>mesh.name.includes(name))&&!mesh.infiniteDistance));
+  else for(const [materialId,parts] of lateGroups){
     if(parts.length<2){lateKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);lateMergedSourceMeshCount+=parts.length;}
@@ -1736,6 +1840,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const isStaticBatch=name.startsWith('Wet Ground merged material ')
         ||name.startsWith('Wet Ground late static batch ')
         ||name.startsWith('Wet Ground wall collision batch ');
+      if(authoringMode)return mesh!==wetMirror&&!mesh.isDisposed?.()&&!mesh.name?.includes('rain impact ripple');
       if(!isStaticBatch)return false;
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
@@ -1753,9 +1858,11 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const staticMeshes=[...colliderBatches,...colliderKept,...merged,...lateMerged,...lateKept],materials=new Set();
   for(const mesh of staticMeshes){
     if(!mesh||mesh.isDisposed?.())continue;
-    mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();
-    if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
+    mesh.computeWorldMatrix(true);
+    if(!authoringMode)mesh.freezeWorldMatrix();
+    if(!authoringMode&&mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  if(authoringMode){scene.metadata=scene.metadata||{};scene.metadata.mapAuthoringObjects=staticMeshes.filter(mesh=>mesh&&!mesh.isDisposed?.()).map(mesh=>({name:mesh.name,position:mesh.position.asArray(),rotation:mesh.rotation.asArray(),scaling:mesh.scaling.asArray()}));}
+  return {name:'Wet Ground',theme:'rainy-blue-hour',authoringMode,riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:authoringMode?0:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
