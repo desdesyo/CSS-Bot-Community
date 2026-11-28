@@ -837,15 +837,16 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report captures up to 30 time-stratified real bot observations and includes tile coordinates', async () => {
+test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => { 
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
-  assert.match(engine, /source:'observed-bot-position'/);
-  assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /const count=Math\.min\(30,valid\.length\)/);
+  assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
+  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
+  assert.match(engine, /source:'independent-map-grid'/);
+  assert.match(engine, /team:'MAP'/);
   assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-independent-world-coordinate-crops-from-top-down-overview'/);
-  assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
+  assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
+  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
   assert.match(engine, /2026-11-28-capturefix1/);
 });
 
@@ -864,7 +865,7 @@ test('map overview samples only real bot observations and never substitutes auth
   assert.match(engine, /const candidates=\[\.\.\.mapWalkSamples\]/);
   assert.match(engine, /source:'current-bot-position'/);
   assert.doesNotMatch(engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '', /baseWaypoints|authored-bot-route/);
-  assert.match(engine, /time-stratified samples from real observed bot movement and current bot positions; each tile is an independent crop centered on its world coordinate; authored patrol routes excluded/);
+  assert.match(engine, /fixed 5x6 stratified grid over full world bounds; independent of bots, AI, patrol routes, movement samples and player activity/);
   assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
 });
 
