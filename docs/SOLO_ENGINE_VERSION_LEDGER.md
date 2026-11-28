@@ -135,3 +135,5 @@
 - Статус остаётся НЕРАБОЧАЯ до успешных автопроверок, публикации и подтверждения игроком реального запуска на устройстве.
 
 - Примечание по CI: первый запуск source checks после исправления завершился ошибкой на этапе unit tests. Выявлена устаревшая проверка cache key, которая всё ещё ожидала assetsfix1 после намеренного перехода на assetsfix2. Проверка обновлена; до повторного успешного CI и публикации версия остаётся НЕРАБОЧЕЙ.
+
+- Повторный результат после обновления устаревших cache assertions: commit e49eee82f9cdb71141eb77248d9f218f7a8c26e2. Source checks [46111757990](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46111757990) — успешно; prototype checks [46111758035](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46111758035) — успешно. Publish build [46111773904](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46111773904): unit tests и подготовка Pages artifact — успешно; deploy job завершился успешно. Эти результаты подтверждают прохождение автоматических проверок и публикацию, но не подтверждают запуск на телефоне игрока.
