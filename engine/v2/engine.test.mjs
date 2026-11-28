@@ -1018,7 +1018,7 @@ test('mobile menu uses modern cool-toned buttons and a taller scrollable card', 
 
 test('mobile HUD uses the orange-lit translucent blue sticks and preserves stick hit areas', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
- assert.match(html,/#stick\{border:1\.5px solid var\(--hud-orange\)!important;background:var\(--hud-blue\)!important/);
+ assert.match(html,/#stick\{border:1\.5px solid rgba\(255,145,48,.98\)!important;background:rgba\(112,151,173,.22\)!important/);
  assert.match(html,/#nub\{background:rgba\(139,174,194/);
  assert.match(html,/#fire\{background:rgba\(91,126,148/);
  assert.match(html,/--hud-orange:#ff861f/);
