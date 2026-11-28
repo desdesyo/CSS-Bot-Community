@@ -81,7 +81,6 @@ jobs:
           path: dist
 
   deploy:
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'feature/solo-engine-v2' || github.event.workflow_run.head_branch == 'fix/solo-report-controls')) }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
