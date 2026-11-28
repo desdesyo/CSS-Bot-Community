@@ -726,6 +726,11 @@ function updateAimAssist(dt) {
   camera.rotation.y+=yawDelta*strength;
   camera.rotation.x+=(pitch-camera.rotation.x)*strength;
 }
+function cameraForwardOnMap(){
+  const direction=camera.getDirection(BABYLON.Axis.Z);
+  const length=Math.hypot(direction.x,direction.z);
+  return length>1e-5?{x:direction.x/length,z:direction.z/length}:{x:Math.sin(camera.rotation.y),z:Math.cos(camera.rotation.y)};
+}
 function drawMinimap(){
   const canvas=$('minimap'),ctx=canvas?.getContext('2d');if(!ctx||!scene)return;
   const size=canvas.width,pad=8,spanX=112,spanZ=92,scale=(size-pad*2)/spanX;
@@ -741,8 +746,8 @@ function drawMinimap(){
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
-  const x=px(camera.position.x),y=py(camera.position.z),angle=camera.rotation.y;
-  ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI-angle);ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  const x=px(camera.position.x),y=py(camera.position.z),forward=cameraForwardOnMap();
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(forward.x,-forward.z));ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
   ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
 function updatePlayer(dt) {
@@ -750,9 +755,9 @@ function updatePlayer(dt) {
   const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
   const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
   const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
-  const yaw=camera.rotation.y;
-  // Babylon cameras look down local -Z; movement must use the same forward vector.
-  const movement=cameraRelativeMovement(yaw,forward/len,strafe/len);
+  // Use the camera's actual world-space forward vector for movement and the map arrow.
+  const forwardDirection=cameraForwardOnMap(),rightDirection={x:forwardDirection.z,z:-forwardDirection.x};
+  const movement={x:(forwardDirection.x*forward+rightDirection.x*strafe)/len,z:(forwardDirection.z*forward+rightDirection.z*strafe)/len};
   const before={x:camera.position.x,z:camera.position.z};
   const resolved=moveWithAabbCollisions(camera.position,{x:movement.x*speed,z:movement.z*speed},collisionBoxes,.36,1.72,.10,collisionIndex);
   camera.position.x=resolved.x;camera.position.z=resolved.z;
@@ -954,7 +959,7 @@ function collectIssueSceneContext(){
  const nearbyColliders=collisionBoxes.map(c=>{const dx=Math.max(c.minX-camera.position.x,0,camera.position.x-c.maxX),dz=Math.max(c.minZ-camera.position.z,0,camera.position.z-c.maxZ);return {c,d:Math.hypot(dx,dz)}}).filter(v=>v.d<18).sort((a,b)=>a.d-b.d).slice(0,24).map(({c,d})=>({name:c.name,distance:+d.toFixed(2),min:{x:+c.minX.toFixed(2),y:+c.minY.toFixed(2),z:+c.minZ.toFixed(2)},max:{x:+c.maxX.toFixed(2),y:+c.maxY.toFixed(2),z:+c.maxZ.toFixed(2)}}));
  const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()||[]).filter(Boolean).map(p=>({id:p.id.slice(0,100),mapping:p.mapping,connected:p.connected,axes:Array.from(p.axes||[]).map(v=>+v.toFixed(2)),buttons:Array.from(p.buttons||[]).map((b,i)=>b.pressed||b.value>.05?{index:i,pressed:b.pressed,value:+b.value.toFixed(2)}:null).filter(Boolean)})):[];
  const caps=engine.getCaps?.()||{};
- return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:{count:scene.textures.length,loaded:scene.textures.filter(t=>t.isReady?.()).length,sample:scene.textures.slice(0,24).map(t=>({name:t.name?.split('/').pop()?.slice(0,100)||null,width:t.getSize?.().width||0,height:t.getSize?.().height||0,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha}))}},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
+ return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},forward:cameraForwardOnMap(),fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:{count:scene.textures.length,loaded:scene.textures.filter(t=>t.isReady?.()).length,sample:scene.textures.slice(0,24).map(t=>({name:t.name?.split('/').pop()?.slice(0,100)||null,width:t.getSize?.().width||0,height:t.getSize?.().height||0,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha}))}},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
 }
 async function captureIssueScreenshot(){
  try{
@@ -969,23 +974,20 @@ async function captureIssueScreenshot(){
  return null;
 }
 function getMapOverviewBounds(){
+ // The playable foundation is authoritative; scanning all meshes included the giant sky dome.
+ const foundation=scene.getMeshByName('Wet Ground district foundation');
+ if(foundation&&!foundation.isDisposed?.()){
+  try{foundation.computeWorldMatrix(true);const b=foundation.getBoundingInfo().boundingBox,margin=4;return {minX:b.minimumWorld.x-margin,maxX:b.maximumWorld.x+margin,minZ:b.minimumWorld.z-margin,maxZ:b.maximumWorld.z+margin,maxY:32}}catch{}
+ }
  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,maxY=0;
  for(const mesh of scene.meshes){
   const name=String(mesh?.name||'');
   if(!mesh||mesh.isDisposed?.()||!mesh.isEnabled()||!mesh.isVisible||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain impact|rainfall/i.test(name)||mesh.isDescendantOf?.(camera))continue;
-  try{
-   mesh.computeWorldMatrix(true);
-   const box=mesh.getBoundingInfo().boundingBox;
-   const a=box.minimumWorld,b=box.maximumWorld;
-   if(!Number.isFinite(a.x+b.x+a.z+b.z))continue;
-   minX=Math.min(minX,a.x);maxX=Math.max(maxX,b.x);
-   minZ=Math.min(minZ,a.z);maxZ=Math.max(maxZ,b.z);
-   maxY=Math.max(maxY,b.y);
-  }catch{}
+  try{mesh.computeWorldMatrix(true);const box=mesh.getBoundingInfo().boundingBox,a=box.minimumWorld,b=box.maximumWorld;if(!Number.isFinite(a.x+b.x+a.z+b.z))continue;minX=Math.min(minX,a.x);maxX=Math.max(maxX,b.x);minZ=Math.min(minZ,a.z);maxZ=Math.max(maxZ,b.z);maxY=Math.max(maxY,b.y)}catch{}
  }
- if(!Number.isFinite(minX)||maxX-minX<5||maxZ-minZ<5)return {minX:-64,maxX:64,minZ:-48,maxZ:48,maxY:8};
- const pad=Math.max(5,Math.max(maxX-minX,maxZ-minZ)*.08);
- return {minX:minX-pad,maxX:maxX+pad,minZ:minZ-pad,maxZ:maxZ+pad,maxY:Math.max(0,maxY)};
+ if(!Number.isFinite(minX)||maxX-minX<5||maxZ-minZ<5)return {minX:-57,maxX:57,minZ:-46,maxZ:46,maxY:32};
+ const pad=Math.max(4,Math.max(maxX-minX,maxZ-minZ)*.05);
+ return {minX:minX-pad,maxX:maxX+pad,minZ:minZ-pad,maxZ:maxZ+pad,maxY:Math.min(40,Math.max(0,maxY))};
 }
 async function renderWithoutSkyAtmosphere(render){
  const skyMeshes=scene.meshes.filter(mesh=>mesh&&!mesh.isDisposed?.()&&(mesh.infiniteDistance||/sky|atmosphere/i.test(mesh.name||'')));
@@ -996,28 +998,27 @@ async function renderWithoutSkyAtmosphere(render){
 }
 async function captureMapOverviewScreenshot(){
  let overviewCamera=null;
+ const previousCamera=scene.activeCamera,previousCameras=scene.activeCameras;
  try{
   const width=1280,height=960,aspect=width/height,bounds=getMapOverviewBounds();
   const centerX=(bounds.minX+bounds.maxX)/2,centerZ=(bounds.minZ+bounds.maxZ)/2;
   const spanX=bounds.maxX-bounds.minX,spanZ=bounds.maxZ-bounds.minZ;
   const viewHeight=Math.max(spanZ,spanX/aspect,24),viewWidth=viewHeight*aspect;
-  const altitude=Math.max(90,bounds.maxY+Math.max(spanX,spanZ)*1.25);
+  const altitude=Math.max(75,bounds.maxY+Math.max(spanX,spanZ)*.6);
   overviewCamera=new BABYLON.FreeCamera('map-overview-capture-camera',new BABYLON.Vector3(centerX,altitude,centerZ),scene);
-  overviewCamera.upVector=new BABYLON.Vector3(0,0,1);
-  overviewCamera.setTarget(new BABYLON.Vector3(centerX,0,centerZ));
+  overviewCamera.upVector=new BABYLON.Vector3(0,0,1);overviewCamera.setTarget(new BABYLON.Vector3(centerX,0,centerZ));
   overviewCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-  overviewCamera.orthoLeft=-viewWidth/2;overviewCamera.orthoRight=viewWidth/2;
-  overviewCamera.orthoTop=viewHeight/2;overviewCamera.orthoBottom=-viewHeight/2;
-  overviewCamera.minZ=.1;overviewCamera.maxZ=altitude+Math.max(100,bounds.maxY+100);
-  overviewCamera.layerMask=0x0fffffff;
-  overviewCamera.fovMode=camera.fovMode;
+  overviewCamera.orthoLeft=-viewWidth/2;overviewCamera.orthoRight=viewWidth/2;overviewCamera.orthoTop=viewHeight/2;overviewCamera.orthoBottom=-viewHeight/2;
+  overviewCamera.minZ=.1;overviewCamera.maxZ=altitude+Math.max(100,bounds.maxY+100);overviewCamera.layerMask=0x0fffffff;overviewCamera.fovMode=camera.fovMode;
+  // Explicitly activate the capture camera; mobile render-target paths may otherwise use the FPS camera.
+  scene.activeCamera=overviewCamera;scene.activeCameras=null;overviewCamera.computeWorldMatrix(true);
   const create=BABYLON.Tools?.CreateScreenshotUsingRenderTargetAsync;
   if(typeof create!=='function')throw new Error('Babylon render-target screenshot API unavailable');
   const url=await renderWithoutSkyAtmosphere(()=>create(engine,overviewCamera,{width,height},'image/png'));
   if(url&&url.startsWith('data:image/png;base64,')&&url.length>10000)return {base64:url.split(',')[1],bounds:{...bounds,centerX,centerZ,viewWidth,viewHeight,altitude}};
   throw new Error('Overview render returned an empty image');
  }catch(error){console.warn('Map overview screenshot failed',error);throw error}
- finally{try{overviewCamera?.dispose()}catch{}}
+ finally{scene.activeCamera=previousCamera;scene.activeCameras=previousCameras;try{overviewCamera?.dispose()}catch{}}
 }
 function collectMapVisualAudit(){
  const materials=new Map(),meshSamples=[],meshKinds={};
@@ -1131,7 +1132,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
   const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview4',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview6',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   btn.textContent='ОТПРАВЛЯЮ ОБЩИЙ ВИД…';
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   btn.textContent='ОТПРАВЛЯЮ 30 ЗОН…';
