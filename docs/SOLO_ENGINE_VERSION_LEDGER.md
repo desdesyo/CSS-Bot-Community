@@ -221,3 +221,15 @@
 - GitHub Pages deployment: **успешно**, [run 46124339203](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46124339203); build job повторно выполнил engine tests (`# fail 0`) и checkout точного SHA `9fe044a1524307bd7a3464ba68de3a6459f0167c`.
 - Новая версия опубликована по адресу: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/?v=20261128-mapoverview10
 - Остаётся проверить на устройстве игрока: реальное качество мостовой после UV исправления и видимый статус кнопки. Новый map-overview отчёт после этой публикации ещё не получен.
+
+
+## 2026-11-28 — восстановление канонической публикации mapoverview10
+- Восстановленный прямой feature-branch publisher был диагностирован: source checks и regression tests прошли, но копирование опциональной папки `engine/cloud` ломало packaging, поскольку каталога нет. После условного копирования package job стал успешным.
+- Прямой feature-branch publisher затем упёрся в GitHub Actions runner provisioning (`runner_id=0`, `BlobNotFound` до первого шага deploy). Этот дублирующий workflow удалён, чтобы не создавать конкурирующие/ложно падающие Pages deployments.
+- Канонический путь публикации — `.github/workflows/publish-solo-engine-v2.yml` на `main`, который запускается после успешного `SOLO Engine V2 source checks` для feature-ветки и checkout-ит точный tested SHA.
+- Для кода `6bba2fced107fe2af263499c37a9f48a94030195`: SOLO Engine V2 source checks и prototype checks — **success**; canonical Pages publisher [run 46124608961](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46124608961) — build/deploy **success**. Build log подтверждает checkout точного SHA `6bba2fced107fe2af263499c37a9f48a94030195`, unit tests `89 pass / 0 fail`, загрузку шести rigged soldier models и трёх Biped animation clips.
+- Опубликованная версия: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/?v=20261128-mapoverview10
+- Последующий commit `2439c94f3f30191920cb5717ef23d59f5c9a5332` удаляет только дублирующий publisher workflow; игровые исходники совпадают с опубликованным SHA.
+- Карта: mapoverview10 содержит исправление world-scale UV tiling каменной поверхности, не меняющее геометрию, разрешение текстур или качество рендера. Это адресует сообщение «кривая текстура», но визуальное исправление ещё требует проверки игроком.
+- Ветка `logs/issues/` не содержит map-overview отчёта, отправленного после публикации mapoverview10. Самый свежий подтверждённый обзор остаётся старым mapoverview1 (его верхний снимок был сферой неба); отдельный issue report `2026-11-28T07-26-10-606Z-issue-mx036izy` содержит top-down PNG и описание «кривая текстура». Не утверждать, что новый контактный лист из 30 зон уже получен.
+- Статус: **РАБОЧАЯ — игрок ранее подтвердил исправление камеры; CI и Pages публикация mapoverview10 подтверждены; карта обновлена, визуальное качество после UV fix и новый 30-зонный обзор ещё не подтверждены игроком.**
