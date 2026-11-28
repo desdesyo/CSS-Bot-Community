@@ -1,0 +1,70 @@
+name: SOLO autonomous map photo audit
+
+on:
+  push:
+    branches: [feature/solo-engine-v2]
+    paths:
+      - "engine/v2/**"
+      - "tools/map-capture.mjs"
+      - ".github/workflows/solo-map-photo-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: solo-map-photo-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore licensed soldier GLBs from the last known-good Pages build
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: .previous-pages
+          run-id: 46135445052
+          github-token: ${{ github.token }}
+      - name: Extract runtime assets for real bot capture
+        run: |
+          mkdir -p .previous-pages/extracted engine/v2/assets
+          tar -xf .previous-pages/artifact.tar -C .previous-pages/extracted
+          test -s .previous-pages/extracted/engine/v2/assets/military-male-01.glb
+          cp -a .previous-pages/extracted/engine/v2/assets/. engine/v2/assets/
+      - name: Install browser automation
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Serve repository
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/solo-map-server.log 2>&1 &
+          echo $! >/tmp/solo-map-server.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/engine/v2/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/solo-map-server.log
+          exit 1
+      - name: Capture overview and real bot first-person views
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node tools/map-capture.mjs
+      - name: Upload photo audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solo-map-photo-audit-${{ github.run_number }}
+          path: artifacts/map-capture/
+          if-no-files-found: warn
+          retention-days: 14
