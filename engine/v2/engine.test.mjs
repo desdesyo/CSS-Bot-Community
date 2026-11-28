@@ -695,7 +695,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\},overviewBase64\)/);
-  assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
+  assert.match(engine, /ctx\.drawImage\(source,col\*tileWidth,row\*tileHeight,tileWidth,tileHeight,x,y,tileWidth,tileHeight\)/);
   assert.match(engine, /captureSource:'independent-world-crop-from-shared-topdown-render'/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
   assert.match(engine, /Wet Ground district foundation/);
