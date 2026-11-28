@@ -3,7 +3,8 @@ name: SOLO Engine V2 source checks
 on:
   push:
     branches:
-      - main\n      - feature/solo-engine-v2
+      - main
+      - feature/solo-engine-v2
       - fix/solo-report-controls
     paths:
       - "engine/v2/**"
