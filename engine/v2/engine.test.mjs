@@ -703,8 +703,8 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /2026-11-28-capturefix3/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
-  assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
-  assert.match(engine, /Add top-down map screenshot for/);
+  assert.match(engine, /topDownMapScreenshot:\{captured:false,format:'image\/png',path:null,error:mapCapture\.error,worldBounds:null\}/);
+  assert.match(engine, /Top-down capture skipped in bug report to keep the live render loop responsive/);
   assert.match(engine, /top-down-orthographic-render-target/);
   assert.match(engine, /function collectMapVisualAudit\(\)/);
   assert.match(engine, /materialUsage/);
