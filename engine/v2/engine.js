@@ -1252,11 +1252,11 @@ async function submitMapOverviewReport(){
  }
  issueReportBusy=true;btn.disabled=true;const issueBtn=$('issueQuick');if(issueBtn){issueBtn.disabled=true;issueBtn.title='Обзор карты формируется. Кнопка «Баг» снова заработает после завершения.';}
  try{
-  await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Снимаю всю карту сверху (1280×960)…');
+  await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Снимаю всю карту сверху (768×576)…');
   const capture=await captureMapOverviewScreenshot();
   await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 независимых точек по всей карте…');
   const points=chooseMapSnapshotPoints();
-  const contactSheet=await captureBotAreaContactSheet(points,(done,total)=>{
+  const contactSheet=await captureMapAreaContactSheet(points,(done,total)=>{
    btn.textContent='СНИМКИ '+done+'/'+total+'…';
    setMapOverviewStatus('Снимаю зоны карты: '+done+' из '+total+'. Не закрывай игру.','working');
   });
