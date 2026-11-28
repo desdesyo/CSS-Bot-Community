@@ -10,7 +10,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     const color = C.FromHexString(hex);
     m.albedoColor=color; m.roughness=roughness; m.metallic=metallic;
     m.environmentIntensity=mobile?.8:1.15; m.directIntensity=1.05; m.emissiveIntensity=1;
-    if(m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.18;m.clearCoat.roughness=.28;}
+    // Clearcoat adds another specular lobe to every PBR fragment. Keep it on desktop;
+    // mobile retains the full albedo/normal/roughness detail without this extra shader work.
+    if(!mobile&&m.clearCoat){m.clearCoat.isEnabled=true;m.clearCoat.intensity=.18;m.clearCoat.roughness=.28;}
     return m;
   };
   const plaster=mat('wet blue-gray plaster','#303f50',.92);
@@ -155,7 +157,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     bind('albedoTexture','diff',true);
     bind('bumpTexture','nor_gl',false);
     bind('roughnessTexture','rough',false);
-    bind('ambientTexture','ao',false);
+    // Ambient-occlusion is the fourth sampled map on each facade material.
+    // On phones it is omitted: baked albedo shading + normal + roughness retain
+    // the surface read while avoiding three extra texture fetches and allocations.
+    if(!mobile) bind('ambientTexture','ao',false);
+    else { material.ambientTexture=null; material.ambientTextureStrength=0; }
     material.ambientColor=new C(.34,.34,.34);
     material.useAmbientInGrayScale=true;
     material.ambientTextureStrength=.72;
