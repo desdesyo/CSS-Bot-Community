@@ -775,9 +775,10 @@ async function toggleFullscreen(){
     }else if(document.exitFullscreen){
       await document.exitFullscreen();
     }
-    // Never lock the device to portrait or landscape: let Android auto-rotate
-    // while fullscreen is active, including when the game is installed as a PWA.
-    try{screen.orientation?.unlock?.();}catch(error){}
+    if(document.fullscreenElement&&screen.orientation?.lock){
+      try{await screen.orientation.lock('landscape');gameLogEvent('orientation-locked',{orientation:screen.orientation.type||'landscape'});}
+      catch(error){gameLogEvent('orientation-lock-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
+    }else{try{screen.orientation?.unlock?.();}catch(error){}}
     if(engine){engine.resize();applyRenderScale();}
     const button=$('fullScreen');
     if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
@@ -809,7 +810,7 @@ function start() {
   // A real tap on START is the only reliable browser permission for fullscreen.
   // Request it synchronously inside this gesture; never try to force it on page load.
   if(mobile&&!document.fullscreenElement&&document.documentElement.requestFullscreen){
-    try{const fullscreenRequest=document.documentElement.requestFullscreen({navigationUI:'hide'});fullscreenRequest?.then(()=>{try{screen.orientation?.unlock?.();}catch(error){};refreshViewportAfterRotation();gameLogEvent('fullscreen-auto-start',{active:true,orientation:screen.orientation?.type||null});}).catch(error=>gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)}));}
+    try{const fullscreenRequest=document.documentElement.requestFullscreen({navigationUI:'hide'});fullscreenRequest?.then(async()=>{if(screen.orientation?.lock){try{await screen.orientation.lock('landscape');gameLogEvent('orientation-locked',{orientation:screen.orientation.type||'landscape'});}catch(error){gameLogEvent('orientation-lock-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}}refreshViewportAfterRotation();gameLogEvent('fullscreen-auto-start',{active:true,orientation:screen.orientation?.type||null});}).catch(error=>gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)}));}
     catch(error){gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
   }
   const resuming=state.paused&&!state.playerDead;
