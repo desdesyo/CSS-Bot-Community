@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-texture-stability-audit1'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-atlas1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -304,7 +304,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-texture-stability-audit1'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-atlas1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
