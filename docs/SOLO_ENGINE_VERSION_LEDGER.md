@@ -271,3 +271,20 @@
 - Clean release branch based on `main`: `feature/solo-engine-v2-worldfix1`; it contains only the V2 application files and version ledger, avoiding the unrelated 834-commit history of the long-lived development branch.
 - Release branch commits: map `3a48e24fe0b696e2f1993b6a90d3ca892a3ca9a9` plus follow-up cache/material updates copied into the release payload; engine `2c3efe29010d69582f604ca8a9029c357a8bd25b`; index `7864b37bae5907ebdc019d046bb48bc437e056c6`; regression tests `8006f268454aaaf577f6297f93ece33d65b3d9ea`.
 - Note: the exact final files were copied from the development branch after its latest worldfix2 commits. CI and Pages deployment must be confirmed on the clean release branch before asking the player to test.
+
+## 2026-11-28 — mobile HUD refresh + current map bug-fix baseline published
+
+- Player-requested mobile HUD implemented in `engine/v2/index.html`:
+  - translucent gray-blue touch controls with vivid thin orange glow;
+  - original joystick dimensions and touch zones preserved;
+  - graffiti-eye toggle hides Logs, Bug, and map-overview diagnostics while keeping fullscreen and pause;
+  - compact single-row stats, top-left game title removed, minimap raised, health and armor bars placed below it.
+- Armor remains an empty `—` indicator because the current game runtime has no armor gameplay variable; no fake armor value is shown.
+- Preserved current main map fixes: wet asphalt road surfaces, cobblestone pedestrian sidewalks with world-scale UVs, vehicle collision hulls, solid doors/windows, and rear-facade glazing.
+- Regression tests added for HUD styling, touch-zone dimensions, diagnostics toggle and cache invalidation.
+- Source checks + engine and map-report tests: [run 46161793330](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46161793330) passed on feature SHA `100a16ff1efdb96fa9467ca39b08a38dd7be4b21`.
+- Merged PR [#153](https://github.com/desdesyo/CSS-Bot-Community/pull/153) to main as `21d38ce317acf0e59fd64f8002f0d877ad2c6bf5`.
+- Main source checks: [run 46161865531](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46161865531) passed.
+- Pages publish: [run 46161865525](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46161865525) — build and deploy both succeeded from merged main SHA `21d38ce317acf0e59fd64f8002f0d877ad2c6bf5`.
+- Published test build: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-hud1
+- Player-device validation (layout, controls, actual FPS, map texture appearance) remains pending. No real-world device test is claimed.
