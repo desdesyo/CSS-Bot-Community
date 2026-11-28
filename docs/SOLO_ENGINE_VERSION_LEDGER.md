@@ -182,3 +182,6 @@
 - SOLO Engine prototype checks [run 46115710359](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46115710359) — **success**.
 - Первые проверки cache-busting выявили только устаревшие ожидания тестов по версии `touchfix2`; исправлены тесты так, чтобы проверять новый HTML cache key и сохранять отдельный ключ модели бойца. Финальные проверки на SHA `97d11a9` прошли.
 - GitHub Pages deployment для feature-ветки не выполнялся и пока не подтверждён. Не просить игрока проверять исправление по старой опубликованной ссылке до фактической публикации.
+
+- Publish SOLO Engine V2 [run 46115742091](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46115742091) — **build и deploy success**. Build log подтверждает checkout точного feature SHA `97d11a9ea24aa804c7142a2f50978537222125b2`; unit tests `# fail 0`; проверка GLB assets также успешна.
+- Опубликована версия с cache-busting: `https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-reportfix1`. Исправление опубликовано; проверка поведения на телефоне игрока ещё не получена.
