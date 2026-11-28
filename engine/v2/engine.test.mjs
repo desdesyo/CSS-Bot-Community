@@ -1,4 +1,5 @@
 import test from 'node:test';
+// Regression coverage for the wet-asphalt carriageway / cobblestone sidewalk split.
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
