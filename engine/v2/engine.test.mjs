@@ -679,8 +679,8 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(html, /id="mapOverviewQuick"/);
   assert.match(html, /id="mapOverviewStatus"/);
-  assert.match(html, /#mapOverviewQuick\\{position:fixed;left:12px;top:172px/);
-  assert.match(html, /#mapOverviewStatus\\{position:fixed;left:12px;top:214px/);
+  assert.ok(html.includes('#mapOverviewQuick{position:fixed;left:12px;top:172px'));
+  assert.ok(html.includes('#mapOverviewStatus{position:fixed;left:12px;top:214px'));
   assert.ok(engine.includes('/^(?:body|head)-\d+$/i.test(name)'));
   assert.match(engine, /function setMapOverviewStatus\(/);
   assert.match(engine, /requestAnimationFrame\(\(\)=>resolve\(\)\)/);
