@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, configureBotVisuals, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
 
 
 
@@ -39,7 +39,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
+  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -306,7 +306,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
+  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -970,7 +970,7 @@ test('player-provided screenshots are the visual review path; no capture mode is
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.doesNotMatch(engine, /MAP_CAPTURE_MODE/);
   assert.doesNotMatch(engine, /__SOLO_CAPTURE_API__/);
-  assert.match(engine, /2026-11-28-map-edit-roundfix1/);
+  assert.match(engine, /2026-11-28-hidden-bot-gameplay1/);
 });
 
 test('small shop and spawn signs share one pre-baked atlas instead of individual dynamic textures', async () => {
@@ -1000,12 +1000,31 @@ test('gamepad input is polled every render frame and maps standard axes and butt
  assert.match(engine,/gamepad-input-active/);
 });
 
-test('map-authoring mode cannot auto-win or auto-restart from an empty bot roster', async () => {
+test('production game keeps the full bot simulation while soldier meshes stay hidden', async () => {
  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(engine,/const MAP_EDIT_MODE=false/);
+ assert.match(engine,/const BOT_VISUALS_ENABLED=false/);
+ assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?humanBotAssets=await loadHumanBotAssets\(B,scene\);[\s\S]*?buildBots\(\)/);
  assert.match(engine,/if\(!MAP_EDIT_MODE\)state\.roundTime-=dt/);
- assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?const enemyBots=state\.bots\.filter\(b=>b\.team==='enemy'\);[\s\S]*?enemyBots\.length>0&&enemyBots\.every\(b=>!b\.alive\)/);
- assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?if\(state\.roundTime<=0\)endRound/);
- assert.doesNotMatch(engine,/state\.bots\.every\(b=>b\.team!=='enemy'\|\|!b\.alive\)/);
+ assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?updateBotAI\(\)[\s\S]*?updateSpectatorCamera\(\)/);
+ assert.match(engine,/configureBotVisuals\(root\.getChildMeshes\(false\),\[human\.body,human\.head\],BOT_VISUALS_ENABLED\)/);
+ assert.match(engine,/weaponRoot\?\.setEnabled\(false\)/);
+ assert.match(engine,/weaponRoot\?\.setEnabled\(true\)/);
+ assert.match(engine,/build:'2026-11-28-hidden-bot-gameplay1'/);
+});
+
+test('bot visual suppression preserves invisible pickable hitboxes and hides render meshes', () => {
+ const body={isVisible:true,visibility:0,isPickable:true};
+ const head={isVisible:true,visibility:0,isPickable:true};
+ const bodyMesh={isVisible:true,visibility:1,isPickable:false,receiveShadows:true};
+ const weaponMesh={isVisible:true,visibility:1,isPickable:false,receiveShadows:true};
+ const result=configureBotVisuals([body,head,bodyMesh,weaponMesh],[body,head],false);
+ assert.deepEqual(result,{visible:0,hidden:2});
+ for(const hitbox of [body,head]){assert.equal(hitbox.isVisible,true);assert.equal(hitbox.visibility,0);assert.equal(hitbox.isPickable,true);}
+ for(const mesh of [bodyMesh,weaponMesh]){assert.equal(mesh.isVisible,false);assert.equal(mesh.visibility,0);assert.equal(mesh.isPickable,false);assert.equal(mesh.receiveShadows,false);}
+ const visible=configureBotVisuals([bodyMesh],[body,head],true);
+ assert.deepEqual(visible,{visible:1,hidden:0});
+ assert.equal(bodyMesh.isVisible,true);assert.equal(bodyMesh.visibility,1);
 });
 
 test('mobile menu uses modern cool-toned buttons and a taller scrollable card', async () => {
