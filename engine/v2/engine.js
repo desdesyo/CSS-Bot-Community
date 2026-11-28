@@ -1157,7 +1157,7 @@ async function submitMapOverviewReport(){
   const visualAudit=collectMapVisualAudit();
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
   const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
-  const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
+  const jsonPath='logs/30/'+stamp+'-'+id+'.json';
   const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview10',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
