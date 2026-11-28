@@ -686,7 +686,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function setMapOverviewStatus\(/);
   assert.match(engine, /requestAnimationFrame\(\(\)=>resolve\(\)\)/);
   assert.match(engine, /onProgress\(i\+1,points\.length\)/);
-  assert.match(engine, /2026-11-28-mapoverview10/);
+  assert.match(engine, /2026-11-28-mapoverview11/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /Wet Ground district foundation/);
@@ -831,12 +831,12 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report captures 30 spatially distributed bot-area snapshots and includes tile coordinates', async () => {
+test('map visual report captures up to 30 time-stratified real bot observations and includes tile coordinates', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /selected\.length<30/);
+  assert.match(engine, /const count=Math\.min\(30,valid\.length\)/);
   assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
