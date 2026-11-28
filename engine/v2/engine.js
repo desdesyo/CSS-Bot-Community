@@ -1219,7 +1219,7 @@ async function paintMapOverviewStatus(btn,label,message,state='working'){
 }
 async function submitMapOverviewReport(){
  const btn=$('mapOverviewQuick');
- if(issueReportBusy){btn.title='Другой отчёт ещё формируется или отправляется. Дождитесь завершения.';setMapOverviewStatus('Другой отчёт ещё отправляется. Подожди завершения.','warning');return;}
+ if(issueReportBusy){btn.title='Другой отчёт ещё формируется или отправляется. Дождитесь завершения.';setMapOverviewStatus('Другой отчёт ещё отправляется. Кнопка «Баг» временно заблокирована. Подожди завершения.','warning');return;}
  btn.textContent='ПОДГОТОВКА…';setMapOverviewStatus('Запрашиваю доступ к GitHub и готовлю снимок карты…','working');
  let token=savedGameplayToken();
  if(!token){
@@ -1229,7 +1229,7 @@ async function submitMapOverviewReport(){
   if(!token){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Отправка отменена: GitHub token пуст.';setMapOverviewStatus('Отменено: токен пуст.','warning');return;}
   try{localStorage.setItem('solo_github_log_token',token)}catch(e){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Не удалось сохранить GitHub token.';setMapOverviewStatus('Ошибка: не удалось сохранить GitHub token.','error');alert('Не удалось сохранить токен');return;}
  }
- issueReportBusy=true;btn.disabled=true;
+ issueReportBusy=true;btn.disabled=true;const issueBtn=$('issueQuick');if(issueBtn){issueBtn.disabled=true;issueBtn.title='Обзор карты формируется. Кнопка «Баг» снова заработает после завершения.';}
  try{
   await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Снимаю всю карту сверху (1280×960)…');
   const capture=await captureMapOverviewScreenshot();
@@ -1261,7 +1261,7 @@ async function submitMapOverviewReport(){
   btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Ошибка отправки: '+error.message;
   setMapOverviewStatus('ОШИБКА: '+String(error?.message||error).slice(0,180),'error');
   alert('Не удалось отправить обзор карты: '+error.message);
- }finally{issueReportBusy=false;btn.disabled=false;btn.setAttribute('aria-busy','false');}
+ }finally{issueReportBusy=false;btn.disabled=false;btn.setAttribute('aria-busy','false');if(issueBtn){issueBtn.disabled=false;issueBtn.title='Отметить баг';}}
 }
 
 async function uploadIssueFile(path,content,message,token){
@@ -1270,7 +1270,7 @@ async function uploadIssueFile(path,content,message,token){
  return result;
 }
 async function submitIssueReport(){
- if(issueReportBusy)return;
+ if(issueReportBusy){alert('Сейчас формируется другой отчёт. Дождись завершения обзора или отправки.');return;}
  const description=prompt('Что именно здесь не так? Например: невидимая стена, текстура, прозрачная стена, непроходимый проход. Можно оставить пустым.');
  if(description===null)return;
  // Request credentials while the click still has user activation. Mobile browsers may
@@ -1283,7 +1283,7 @@ async function submitIssueReport(){
   const topDownPath=mapCapture?.base64?'logs/bugs/'+stamp+'-'+id+'-topdown.png':null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-roundfix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
- issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
+ issueReportBusy=true;const btn=$('issueQuick'),mapBtn=$('mapOverviewQuick');btn.disabled=true;btn.textContent='СБОР…';if(mapBtn){mapBtn.disabled=true;mapBtn.title='Сначала дождись завершения отчёта об ошибке.';setMapOverviewStatus('Собираю отчёт об ошибке. Обзор карты временно заблокирован.','working');}
  try{
   const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add player issue report '+id,token);
@@ -1294,14 +1294,15 @@ async function submitIssueReport(){
   btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
   alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));
  }catch(error){console.error('Issue report upload failed',error);btn.textContent='↻ ПОВТОРИТЬ ОТЧЁТ';alert('Не удалось отправить отчёт: '+error.message)}
- finally{issueReportBusy=false;btn.disabled=false}
+ finally{issueReportBusy=false;btn.disabled=false;if(mapBtn){mapBtn.disabled=false;mapBtn.title='Сделать снимок всей карты сверху и отправить визуальный отчёт';setMapOverviewStatus('Готов к сбору общего вида и 30 снимков зон ботов.','info');}}
 }
 
-function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();$('logsQuick').textContent='● ЛОГИ';$('logsQuick').title='Запись остановлена';updateLogStatus();}else startGameplayLog();}
+function toggleGameplayRecording(){if(gameLogUploading)return;if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();$('logsQuick').textContent='● ЛОГИ';$('logsQuick').title='Запись остановлена. Используй «Отправить в GitHub» для загрузки.';updateLogStatus();}else startGameplayLog();}
+function handleGameplayLogs(){if(gameLogUploading)return;if(gameLogRecording||gameLogRecords.length||gameLogEvents.length){void stopAndUploadGameplayLog();return;}startGameplayLog();$('logsQuick').title='Запись идёт. Нажми ещё раз, чтобы остановить и отправить логи в GitHub.';}
 function showMenuTab(tab){for(const button of document.querySelectorAll('[data-menu-tab]'))button.classList.toggle('active',button.dataset.menuTab===tab);for(const pane of document.querySelectorAll('.menuPane'))pane.classList.toggle('active',pane.id==='pane-'+tab);if(tab==='logs')updateLogStatus();}
 function loadMenuSettings(){try{const s=JSON.parse(localStorage.getItem('solo_menu_settings_v1')||'{}');state.lookSensitivity=Math.max(.5,Math.min(2.5,Number(s.sensitivity)||1));const fov=Math.max(65,Math.min(100,Number(s.fov)||80));$('lookSensitivity').value=state.lookSensitivity;$('fieldOfView').value=fov;$('showMinimap').checked=s.minimap!==false;$('lookSensitivityValue').textContent=state.lookSensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=fov+'°';if(camera)camera.fov=fov*Math.PI/180;$('minimap').style.display=s.minimap===false?'none':'';}catch(e){}}
 function saveMenuSettings(){const settings={sensitivity:Number($('lookSensitivity').value),fov:Number($('fieldOfView').value),minimap:$('showMinimap').checked};state.lookSensitivity=settings.sensitivity;$('lookSensitivityValue').textContent=settings.sensitivity.toFixed(2)+'×';$('fieldOfViewValue').textContent=settings.fov+'°';if(camera)camera.fov=settings.fov*Math.PI/180;$('minimap').style.display=settings.minimap?'':'none';try{localStorage.setItem('solo_menu_settings_v1',JSON.stringify(settings))}catch(e){}}
-function installMenuControls(){installInputDiagnostics();document.querySelectorAll('[data-menu-tab]').forEach(b=>b.addEventListener('click',()=>showMenuTab(b.dataset.menuTab)));$('lookSensitivity').addEventListener('input',saveMenuSettings);$('fieldOfView').addEventListener('input',saveMenuSettings);$('showMinimap').addEventListener('change',saveMenuSettings);$('logsStart').addEventListener('click',handleGameplayLogs);$('logsDownload').addEventListener('click',downloadGameplayLog);$('logsUpload').addEventListener('click',()=>{if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();}void stopAndUploadGameplayLog();});loadMenuSettings();void restoreGameplayLog();updateLogStatus();}
+function installMenuControls(){installInputDiagnostics();document.querySelectorAll('[data-menu-tab]').forEach(b=>b.addEventListener('click',()=>showMenuTab(b.dataset.menuTab)));$('lookSensitivity').addEventListener('input',saveMenuSettings);$('fieldOfView').addEventListener('input',saveMenuSettings);$('showMinimap').addEventListener('change',saveMenuSettings);$('logsStart').addEventListener('click',toggleGameplayRecording);$('logsDownload').addEventListener('click',downloadGameplayLog);$('logsUpload').addEventListener('click',()=>{if(gameLogRecording){gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();}void stopAndUploadGameplayLog();});loadMenuSettings();void restoreGameplayLog();updateLogStatus();}
 window.addEventListener('error',e=>{const item={wall:new Date().toISOString(),type:'window-error',message:String(e.message||'').slice(0,500),source:String(e.filename||'').slice(-180),line:e.lineno||0,column:e.colno||0,stack:String(e.error?.stack||'').slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('window-error',item)});
 window.addEventListener('unhandledrejection',e=>{const item={wall:new Date().toISOString(),type:'unhandled-rejection',reason:String(e.reason?.stack||e.reason).slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('unhandled-rejection',item)});
 window.addEventListener('webglcontextlost',e=>{const item={wall:new Date().toISOString(),type:'webgl-context-lost'};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('webgl-context-lost',{status:'lost'})},true);
