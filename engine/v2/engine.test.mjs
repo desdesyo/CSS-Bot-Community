@@ -610,3 +610,9 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix1'));
 });
+
+
+test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('./engine.js?v=20261128-assetsfix1'));
+});
