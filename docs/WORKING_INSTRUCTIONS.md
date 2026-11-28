@@ -44,3 +44,13 @@
 - Always read the JSON and inspect its matching PNG. Check report `createdAt` and GitHub commit time; distinguish current report snapshot from attached gameplay recording.
 - Never treat IndexedDB-restored records from a previous page/session as current telemetry. A bug report may attach gameplay records only when the recording is active and belongs to the current page session. If absent, use the live scene context and screenshot and explicitly mark gameplay telemetry as not attached.
 - Do not infer freshness from report filename alone; compare the embedded session ID, page/session metadata, timestamps and record wall-clock times. Flag stale or repeated telemetry instead of presenting it as fresh.
+
+
+## QA report data policy
+- Полная схема кнопок и назначение каждого поля: `docs/QA_REPORT_SCHEMA.md`.
+- `Отметить баг` пишет пару JSON+PNG в `logs/issues/`; `Логи` после остановки и отправки пишет диагностический JSON в `logs/gameplay/`. Не путать эти два потока.
+- Issue report всегда получает ограниченные свежие кольцевые буферы событий, JS/WebGL ошибок и секундных performance-срезов текущей страницы, даже если ручная запись не была включена.
+- В issue report передавать только ближайшие 24 коллайдера и 40 видимых мешей, а не произвольные первые 80 элементов карты. Включать AI-состояние/цель/путь ботов, сенсорный ввод, gamepad, текстурные размеры и краткое покрытие field atlas.
+- Swipe и движение стика логировать не чаще одного среза на 120 мс. Не записывать каждый pointermove/кадр.
+- В ручном gameplay JSON сохранять подробную временную последовательность (до 1200 записей и событий), frame/render samples и field atlas для анализа AI/маршрутов.
+- Никогда не включать GitHub token, GPS/IP, контакты или данные других приложений в отчёты.
