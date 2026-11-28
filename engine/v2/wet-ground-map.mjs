@@ -466,7 +466,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   floor('west lane wet asphalt',-23,0,9,82,.03,asphalt);
   floor('east lane wet asphalt',23,0,9,82,.03,asphalt);
   for(const z of [-27,-12,13,28]) floor('cross alley wet asphalt',0,z,52,5,.035,asphalt);
-  for(const x of [-5.8,5.8]) floor('narrow old-quarter cobblestone sidewalk',x,0,1.35,82,.07,cobble);
+  for(const x of [-5.8,5.8]) floor('narrow old-quarter cobblestone sidewalk',x,0,1.35,82,.04,cobble);
   for(const x of [-28.5,28.5]) floor('outer wet cobblestone sidewalk',x,0,2.1,82,.07,cobble);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
@@ -1288,8 +1288,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     terrain.updateVerticesData(B.VertexBuffer.PositionKind,positions);terrain.convertToFlatShadedMesh();terrain.isPickable=false;
     return terrain;
   };
-  terrainStrip('north rain-soaked terrain shoulder',0,-56,150,26,7);
-  terrainStrip('south rain-soaked terrain shoulder',0,56,150,26,19);
+  terrainStrip('north rain-soaked terrain shoulder',0,-56,90,26,7);
+  terrainStrip('south rain-soaked terrain shoulder',0,56,90,26,19);
   terrainStrip('west rain-soaked terrain shoulder',-58,0,26,112,31);
   terrainStrip('east rain-soaked terrain shoulder',58,0,26,112,43);
   const tree=(x,z,scale=1)=>{
