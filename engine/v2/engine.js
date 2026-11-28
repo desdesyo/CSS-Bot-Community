@@ -1198,17 +1198,20 @@ async function captureMapAreaContactSheet(points,onProgress=()=>{}){
  const sheet=document.createElement('canvas');sheet.width=tileWidth*columns;sheet.height=tileHeight*rows;
  const ctx=sheet.getContext('2d');if(!ctx)throw new Error('Не удалось создать холст контактного листа');
  const tiles=[];
- for(let i=0;i<points.length;i++){
-  const point=points[i];let localCamera=null;
-  try{
-   const altitude=42,spanX=30,spanY=22.5;
-   localCamera=new BABYLON.FreeCamera('map-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
-   localCamera.upVector=new BABYLON.Vector3(0,0,1);
+ // Reuse one orthographic camera for all 30 tiles. Recreating/disposal of a
+ // Babylon camera per tile adds avoidable scene bookkeeping and GC pressure.
+ const altitude=42,spanX=30,spanY=22.5;
+ const localCamera=new BABYLON.FreeCamera('map-area-capture-reused',new BABYLON.Vector3(0,altitude,0),scene);
+ localCamera.upVector=new BABYLON.Vector3(0,0,1);
+ localCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+ localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
+ localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
+ localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
+ try{
+  for(let i=0;i<points.length;i++){
+   const point=points[i];
+   localCamera.position.set(point.x,altitude,point.z);
    localCamera.setTarget(new BABYLON.Vector3(point.x,0,point.z));
-   localCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-   localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
-   localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
-   localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
    // The render-target API uses localCamera directly; keep the gameplay camera active.
    localCamera.computeWorldMatrix(true);
    const url=await renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
@@ -1220,9 +1223,9 @@ async function captureMapAreaContactSheet(points,onProgress=()=>{}){
    tiles.push({index:i+1,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,nearbyBotObservation:point.botId!==null?{botId:point.botId,team:point.team,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null}:null,tile:{x,y,width:tileWidth,height:tileHeight}});
    onProgress(i+1,points.length);
    if(i%2===1)await new Promise(resolve=>requestAnimationFrame(resolve));
-  }finally{
-   try{localCamera?.dispose()}catch{}
   }
+ }finally{
+  try{localCamera.dispose()}catch{}
  }
  const data=sheet.toDataURL('image/png');
  if(!data.startsWith('data:image/png;base64,')||data.length<10000)throw new Error('Контактный лист снимков пуст');
