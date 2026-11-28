@@ -765,3 +765,15 @@ test('mobile thumb controls move inward and FIRE shifts farther left', async () 
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
   assert.match(html, /engine\.js\?v=20261128-mapoverview2/);
 });
+
+test('map visual report captures 30 spatially distributed bot-area snapshots and includes tile coordinates', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /function sampleBotWalkLocations\(now\)/);
+  assert.match(engine, /source:'observed-bot-position'/);
+  assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
+  assert.match(engine, /selected\.length<30/);
+  assert.match(engine, /function captureBotAreaContactSheet\(points\)/);
+  assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
+  assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
+  assert.match(engine, /2026-11-28-mapoverview3/);
+});
