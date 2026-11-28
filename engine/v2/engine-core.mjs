@@ -62,7 +62,7 @@ export const TEAM_SPAWNS = Object.freeze({
   // Six compact, mirrored landing positions. CT deploys beside the bombsite;
   // T deploys at the far end of the district and must cross the map.
   T: Object.freeze([[-6,-35],[-3,-37],[0,-35],[3,-37],[6,-35],[0,-40]]),
-  CT: Object.freeze([[-6,31],[-3,33],[0,31],[3,33],[6,31],[0,36]])
+  CT: Object.freeze([[-8,38],[-4,38],[0,39],[4,38],[8,38],[0,36]])
 });
 export const BOMB_SITE = Object.freeze({x:0,z:23});
 export function getPlayerSpawn(playerTeam = 'CT') {
