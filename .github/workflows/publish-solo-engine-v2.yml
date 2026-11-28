@@ -74,6 +74,7 @@ jobs:
           test -s dist/engine/v2/wet-ground-map.mjs
           test -s dist/engine/v2/human-bots.mjs
           echo "Published complete SOLO Engine V2 tree from merged main."
+          node tools/version-engine-modules.mjs dist/engine/v2 "$GITHUB_SHA"
           
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
