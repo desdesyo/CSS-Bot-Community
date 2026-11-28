@@ -575,15 +575,15 @@ test('issue reports split viewmodel, soldier and world mesh counts for performan
 
 test('mobile performance profile preserves reflection resolution while amortizing planar reflection renders', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /new B\\.Vector2\\(mobile\\?256:768,mobile\\?256:768\\)/);
-  assert.match(map, /wetMirror\\.refreshRate=mobile\\?12:2/);
-  assert.match(map, /wetMirror\\.level=mobile\\?\\.5:\\.64/);
+  assert.ok(map.includes('new B.Vector2(mobile?256:768,mobile?256:768)'));
+  assert.ok(map.includes('wetMirror.refreshRate=mobile?12:2'));
+  assert.ok(map.includes('wetMirror.level=mobile?.5:.64'));
 });
 
 test('HUD text updates are throttled without changing gameplay simulation or render scale', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /if\\(now-state\\.lastHud>=250\\)/);
-  assert.match(engine, /state\\.lastHud=now/);
-  assert.match(engine, /state\\.lastUpdateMs=performance\\.now\\(\\)-updateStarted/);
-  assert.match(engine, /updateMs:\\+\\(state\\.lastUpdateMs\\|\\|0\\)\\.toFixed\\(2\\)/);
+  assert.ok(engine.includes('if(now-state.lastHud>=250)'));
+  assert.ok(engine.includes('state.lastHud=now'));
+  assert.ok(engine.includes('state.lastUpdateMs=performance.now()-updateStarted'));
+  assert.ok(engine.includes('updateMs:+(state.lastUpdateMs||0).toFixed(2)'));
 });
