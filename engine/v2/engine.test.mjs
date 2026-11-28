@@ -830,3 +830,11 @@ test('map visual report captures 30 spatially distributed bot-area snapshots and
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
   assert.match(engine, /2026-11-28-mapoverview6/);
 });
+
+test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
+  const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
+  const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
+  assert.match(icon, /\.\.\/assets\/solo-menu-cover\.jpeg/);
+  assert.match(manifest, /"name": "SOLO:WG"/);
+  assert.match(manifest, /"short_name": "SOLO:WG"/);
+});
