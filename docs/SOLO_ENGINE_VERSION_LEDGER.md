@@ -115,3 +115,11 @@
 - Pages build/deploy: успешно, [run 46110564078](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110564078). Build log подтверждает checkout SHA `c1ab57a`, скачивание шести моделей и трёх клипов, успешную GLB-валидацию и включение всех шести моделей в артефакт Pages (9 711 776 байт).
 - Игроку нужно повторно открыть игру с обновлённым модулем; реальный запуск на устройстве пока не подтверждён.
 - Статус: **НЕРАБОЧАЯ до подтверждения игроком успешной загрузки сцены**. Не считать проблему окончательно закрытой только по CI/деплою.
+
+### Финальная публикация с обновлённым HTML cache key — 2026-11-28
+- Последний проверенный исходный SHA: `41d4d3ce193f787c8600493f957b684a872c8d29`.
+- В `index.html` обновлён URL движка до `engine.js?v=20261128-assetsfix1`, чтобы мобильный браузер гарантированно загрузил свежий engine.js, который в свою очередь импортирует исправленный `human-bots.mjs?v=20261128-assetsfix1`.
+- Regression test проверяет актуальный cache key; source checks [46110679104](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110679104) и prototype checks [46110679113](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110679113) — успешно.
+- Pages build/deploy [46110691992](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110691992) — успешно. Build checkout подтверждает SHA `41d4d3c`; шесть GLB и три клипа повторно скачаны, проверены и включены в Pages artifact (9 711 817 байт).
+- Финальный адрес с принудительным обновлением HTML: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-assetsfix1
+- Статус версии: **НЕРАБОЧАЯ до подтверждения игроком, что сцена запускается и модели отображаются на устройстве**. CI/деплой успешны, но реальная мобильная загрузка пока не подтверждена.
