@@ -73,12 +73,6 @@ export async function loadHumanBotAssets(B, scene) {
   const animations = {};
   const clipEntries = Object.entries(CLIPS);
   const clipResults = await loadBatch(clipEntries, 2).then(results => results.map((result, index) => result.status === "fulfilled" ? { status: "fulfilled", value: [clipEntries[index][0], result.value] } : result));
-  /*
-    const container = await load(file);
-    const group = container.animationGroups?.[0];
-    if (!group) throw new Error("Animation clip has no AnimationGroup: " + file);
-    return [name, group];
-  })); */
   for (const result of clipResults) {
     if (result.status === "fulfilled") animations[result.value[0]] = result.value[1];
     else console.warn("Optional soldier animation unavailable:", result.reason);
