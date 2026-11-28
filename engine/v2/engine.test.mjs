@@ -1050,3 +1050,20 @@ test('HUD engine cache key invalidates the prior mobile page module', async () =
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
  assert.match(html,/engine\.js\?v=20261128-capturefix3-hud1/);
 });
+
+
+test('sunset atmosphere and restored mobile thumb layout stay wired to the active build', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(engine, /colorCurvesEnabled=true/);
+  assert.match(engine, /low orange setting sun/);
+  assert.match(engine, /wet-ground-map\.mjs\?v=20261128-sunset1/);
+  assert.match(map, /sunDisc/);
+  assert.match(map, /#f08b4d/);
+  assert.match(map, /orange sunset sky atmosphere/);
+  assert.match(html, /mobile-touch-layout-restore-sunset1/);
+  assert.match(html, /#stick\{left:22px!important;bottom:max\(22px,env\(safe-area-inset-bottom\)\)!important\}/);
+  assert.match(html, /#fire\{right:18px!important;bottom:max\(24px,env\(safe-area-inset-bottom\)\)!important\}/);
+  assert.ok(html.includes('./engine.js?v=20261128-sunset1-touchrestore1'));
+});
