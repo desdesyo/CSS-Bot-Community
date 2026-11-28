@@ -237,7 +237,8 @@ test('spawn compounds keep both factions separated by a long approach', () => {
 test('renderer explicitly binds the FPS camera and initializes the minimap before the match', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.ok(engine.includes('scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0x0FFFFFFF'));
-  assert.ok(engine.includes('buildBots();buildPlayerWeapon();initInput();drawMinimap();'));
+  assert.ok(engine.includes('buildPlayerWeapon();initInput();drawMinimap();'));
+  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?buildBots\(\)/);
 });
 
 test('mobile HUD controls stay above the look touch surface', async () => {
@@ -979,7 +980,7 @@ test('map-authoring mode suspends all live bots but preserves soldier assets and
   assert.match(engine, /if\(MAP_EDIT_MODE\)\{state\.bots\.length=0/);
   assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?humanBotAssets=await loadHumanBotAssets\(B,scene\)/);
   assert.match(engine, /modelsRetained:true,assetsLoaded:false,aiDisabled:true/);
-  assert.match(engine, /buildBots\(\);buildPlayerWeapon\(\)/);
+  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?buildBots\(\)[\s\S]*?buildPlayerWeapon\(\);initInput\(\);drawMinimap\(\)/);
   assert.match(engine, /botAIEnabled:!MAP_EDIT_MODE/);
   assert.match(engine, /Set MAP_EDIT_MODE=false to restore the original 6v6 roster/);
   assert.match(engine, /createHumanBot\(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile\)/);
