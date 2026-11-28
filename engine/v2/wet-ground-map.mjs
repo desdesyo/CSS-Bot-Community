@@ -284,9 +284,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(roughRand()>.55){roughCtx.fillStyle='rgba(75,75,75,.28)';roughCtx.beginPath();roughCtx.ellipse(px+rw*.5,py+rh*.5,rw*.25,rh*.18,0,0,Math.PI*2);roughCtx.fill();}
   }
   cobbleRough.update(false);cobbleRough.gammaSpace=false;cobbleRough.wrapU=cobbleRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
-  cobbleRough.uScale=cobbleTex.uScale;cobbleRough.vScale=cobbleTex.vScale;
+  cobbleRough.uScale=1;cobbleRough.vScale=1;
   cobble.roughnessTexture=cobbleRough;
-  cobbleTex.uScale=mobile?7:10;cobbleTex.vScale=mobile?8:12;
+  cobbleTex.uScale=1;cobbleTex.vScale=1;
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,false);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
@@ -301,9 +301,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       normalCtx.fillStyle='rgba(116,128,250,.28)';normalCtx.fillRect(px2,py2,1.2,1.2);
     }
   }
-  normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=cobbleTex.uScale;normalTex.vScale=cobbleTex.vScale;normalTex.gammaSpace=false;
+  normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=1;normalTex.vScale=1;normalTex.gammaSpace=false;
   cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
-  loadScannedPbr(cobble,'cobblestone_pavement',mobile?4:7,mobile?.68:.9);
+  loadScannedPbr(cobble,'cobblestone_pavement',1,mobile?.68:.9);
   if(cobble.metallic!==undefined)cobble.metallic=.08;
 
   // Photo-oriented wet-surface pass: stronger clear coat, fine rain pitting,
@@ -338,7 +338,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    m.position.set(x,y,z);m.material=material;m.receiveShadows=true;return m;
+    if(material===cobble){
+       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
+       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/2.4;uv[i+1]*=d/2.4;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
+     }
+     m.position.set(x,y,z);m.material=material;m.receiveShadows=true;return m;
   };
   const box=(name,x,y,z,w,h,d,material,collide=true,cast=true)=>{
     const m=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
@@ -631,7 +635,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ]) building('outer quarter row',x,z,w,d,h,brick,x<0?'west':'east');
   // WALKABLE MASONRY ARCADES — arched thresholds frame existing alley gaps.
   // Their curved crowns are visual geometry only; the clear opening remains traversable.
-  const arcadeSites=[[-11,5,'west'],[11,5,'east'],[-31,-16,'west'],[31,16,'east']];
+  // Keep freestanding arcades on side-lane entrances, not in the main street sightline.
+   const arcadeSites=[[-31,-16,'west'],[31,16,'east']];
   for(const [ax,az,side] of arcadeSites){
     const span=4.2, crown=3.35, radius=span/2;
     for(const end of [-1,1]){
@@ -1307,7 +1312,8 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       wet.position.set(x,.071,at(distance));wet.rotation.x=Math.PI/2;wet.material=puddle;wet.isPickable=false;
     }
     // CT parked rain-dark sedan: grounded reference vehicle at the CT storefront curb.
-    if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',8.15,at(1.8),'#263b43');
+    // The old X=8.15 parking spot intersected the south biosecure airlock wall.
+     if(team==='CT')makeSpawnCar(label+' parked rain-dark sedan',22.0,at(1.8),'#263b43');
     const wire=B.MeshBuilder.CreateTube(label+' overhead bundled power cable',{
       path:[new B.Vector3(westFace,7.15,at(5.5)),new B.Vector3((westFace+eastFace)/2,6.65,at(4.2)),new B.Vector3(eastFace,7.15,at(5.5))],
       radius:.024,tessellation:6},scene);
