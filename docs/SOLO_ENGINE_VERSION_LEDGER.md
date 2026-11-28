@@ -197,3 +197,11 @@
 - Добавлена документация `docs/QA_REPORT_SCHEMA.md`; обновлены `docs/WORKING_INSTRUCTIONS.md`.
 - Финальный кодовый коммит `7a943af7b2600620d33ef275814aef684b3c8754`. Source checks [46116347147](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116347147) и prototype checks [46116347150](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116347150) — success. Publish [46116363140](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116363140) — build/deploy success; checkout SHA подтверждён, unit tests `# fail 0`.
 - Новая опубликованная версия: `https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-reportfix2`. Проверка на устройстве игрока ещё ожидается.
+
+
+## 2026-11-28 — исправление слайд-шоу при визуальном обзоре карты (mapoverview7)
+- Игрок сообщил: после запуска 30 кадров/снимков управление исчезло, игра переключилась на последовательность случайных видов сверху; кнопка отчёта не давала понятного подтверждения результата.
+- Корневая причина подтверждена исходниками: `captureMapOverviewScreenshot()` и `captureBotAreaContactSheet()` временно присваивали обзорную/локальную камеру в `scene.activeCamera` на время асинхронного рендеринга. Основной `engine.runRenderLoop()` продолжал работать параллельно и отображал эти временные камеры на игровом экране — отсюда слайд-шоу из 30 ракурсов. Это не режим наблюдения за ботами.
+- Исправление: render-target screenshot получает отдельную камеру напрямую; код больше не меняет `scene.activeCamera` и `scene.activeCameras` во время захвата. Игровая камера остаётся активной, временные камеры освобождаются в `finally`. Cache key повышен до `20261128-mapoverview7`.
+- Коммиты: engine `34e8de01ec7ce98b870b29b365611cfd69bdec33`; HTML cache-bust `4c3484576d5ff4eb25a67f66540ef8b3f384de60`.
+- Статус: **исправлено в feature-ветке, автоматические проверки и Pages deployment ещё не подтверждены; на устройстве игрока не проверено**. Не выдавать новую ссылку как опубликованную до проверки workflow.
