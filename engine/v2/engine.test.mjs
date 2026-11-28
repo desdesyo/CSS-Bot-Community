@@ -595,3 +595,18 @@ test('mobile performance release invalidates cached engine and wet-map modules',
   assert.ok(html.includes('./engine.js?v=20261128-perf1'));
   assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf1'));
 });
+
+
+test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two-at-a-time loading', async () => {
+  const bots = await readFile(new URL('./human-bots.mjs', import.meta.url), 'utf8');
+  assert.ok(bots.includes('new URL("./assets/", import.meta.url).href'));
+  assert.ok(bots.includes('const ASSET_TIMEOUT_MS = 90000'));
+  assert.ok(bots.includes('loadBatch(MODEL_FILES.map((file, index) => [index, file]), 2)'));
+  assert.ok(bots.includes('Math.min(concurrency, entries.length)'));
+  assert.ok(!bots.includes(')), 12000)'));
+});
+
+test('engine cache-busts the corrected soldier asset loader module', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix1'));
+});
