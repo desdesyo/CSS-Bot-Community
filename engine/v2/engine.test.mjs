@@ -305,7 +305,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
+  assert.match(engine, /build:'2026-11-28-map-report-pipeline2'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -487,8 +487,8 @@ test('field atlas persistence is deferred while gameplay diagnostics are recordi
 test('Wet Ground bridge mouths are wide, visible, and have continuous road approaches', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /low pale stone bridge parapet/);
-  assert.match(map, /north bridge road approach/);
-  assert.match(map, /south bridge road approach/);
+  assert.match(map, /north bridge asphalt road approach/);
+  assert.match(map, /south bridge asphalt road approach/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
   assert.match(map, /barrier\.isVisible=true/);
   assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
@@ -516,8 +516,8 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /\[\[-20,'west'\],\[0,'main'\],\[20,'east'\]\]/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
-  assert.match(map, /label\+' north bridge road approach'/);
-  assert.match(map, /label\+' south bridge road approach'/);
+  assert.match(map, /label\+' north bridge asphalt road approach'/);
+  assert.match(map, /label\+' south bridge asphalt road approach'/);
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
 
@@ -696,7 +696,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.match(engine, /2026-11-28-map-report-pipeline2/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -808,7 +808,7 @@ test('reflection pass draws only merged static world batches, not animated actor
 
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:material===asphalt\?8:0/);
   assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
   assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
@@ -843,7 +843,7 @@ test('map visual report builds 30 mobile-safe grid crops from one top-down rende
   assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
   assert.match(engine, /single-render-cpu-crops/);
   assert.match(engine, /mapAreaSnapshots:30/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.match(engine, /2026-11-28-map-report-pipeline2/);
 });
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
@@ -1074,4 +1074,12 @@ test('map report grid integration delegates validated bot-independent coverage',
   assert.match(pipeline,/const columns=5,rows=6,points=\[\]/);
   assert.match(pipeline,/source:'map-grid'/);
   assert.match(pipeline,/points\.length!==30/);
+});
+
+
+test('WET GROUND avoids overlapping inner sidewalks and outer terrain corner strips', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /narrow old-quarter cobblestone sidewalk',x,0,1\.35,82,\.04,cobble/);
+  assert.match(map, /north rain-soaked terrain shoulder',0,-56,90,26/);
+  assert.match(map, /south rain-soaked terrain shoulder',0,56,90,26/);
 });
