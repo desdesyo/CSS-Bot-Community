@@ -1,7 +1,45 @@
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
+
+
+test('issue report never attaches a restored gameplay segment from a previous page', () => {
+  const oldSession = { id:'old-session', pageId:'previous-page', startedAtEpoch:1000 };
+  const attachment = buildIssueLogAttachment({
+    recording:false,
+    session:oldSession,
+    pageId:'current-page',
+    records:[{ wall:'2026-11-28T05:37:53.000Z' }],
+    events:[{ type:'old-event' }],
+    performance:{ frames:999, frameMs:[16] }
+  });
+  assert.equal(attachment.attached,false);
+  assert.equal(attachment.reason,'no-active-recording-in-current-page');
+  assert.deepEqual(attachment.records,[]);
+  assert.deepEqual(attachment.events,[]);
+  assert.equal(attachment.performance,null);
+});
+
+test('issue report attaches only the active recording from this page and bounds its payload', () => {
+  const session = { id:'fresh-session', pageId:'current-page', startedAtEpoch:Date.now()-5000 };
+  const records = Array.from({length:45},(_,i)=>({i}));
+  const events = Array.from({length:55},(_,i)=>({i}));
+  const frameMs = Array.from({length:140},(_,i)=>i);
+  const attachment = buildIssueLogAttachment({
+    recording:true, session, pageId:'current-page', records, events,
+    performance:{frames:200,frameMs,renderMs:frameMs}
+  });
+  assert.equal(attachment.attached,true);
+  assert.equal(attachment.sessionId,'fresh-session');
+  assert.equal(attachment.source,'active-current-page');
+  assert.deepEqual(attachment.records,records.slice(-30));
+  assert.deepEqual(attachment.events,events.slice(-40));
+  assert.deepEqual(attachment.performance.frameMs,frameMs.slice(-120));
+  assert.deepEqual(attachment.performance.renderMs,frameMs.slice(-120));
+  assert.ok(attachment.durationMs>=5000);
+});
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
