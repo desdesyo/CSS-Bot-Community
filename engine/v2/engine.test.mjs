@@ -1,3 +1,4 @@
+// Full gameplay, mobile HUD and surface-overlap regression suite.
 import test from 'node:test';
 // Regression coverage for the wet-asphalt carriageway / cobblestone sidewalk split.
 import { readFile } from 'node:fs/promises';
