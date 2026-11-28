@@ -1166,17 +1166,6 @@ function collectMapVisualAudit(){
  const resourceInventory=performance.getEntriesByType?.('resource')?.filter(r=>/\.(?:jpe?g|png|webp|hdr|glb)(?:\?|$)|babylon(?:\.loaders)?\.min\.js/i.test(r.name)).slice(-120).map(r=>({url:r.name.slice(0,240),durationMs:+r.duration.toFixed(1),transferBytes:r.transferSize||0,decodedBodyBytes:r.decodedBodySize||0}))||[];
  return {botMode:{mapAuthoring:MAP_EDIT_MODE,activeBotCount:state.bots.length,botModelsRetained:true,botModelsLoaded:!!humanBotAssets,botAssetsLoadSkipped:MAP_EDIT_MODE,botAIEnabled:!MAP_EDIT_MODE},mapStats:window.__SOLO_MAP_STATS__||null,textureAudit:{count:textureInventory.length,gpuTextureCount:new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean)).size,loaded:textureInventory.filter(t=>t.ready).length,notReady:textureInventory.filter(t=>!t.ready).map(t=>t.name),estimatedBytes:Array.from(new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean))).reduce((sum,t)=>{const size=t.getSize?.()||{};return sum+Math.round((size.width||0)*(size.height||0)*4*(t.generateMipMaps?1.34:1));},0),duplicateUrls:Array.from(duplicateTextureUrls.entries()).filter(([,count])=>count>1).map(([url,count])=>({url,count})),scannedPbrLoad:window.__SOLO_TEXTURE_AUDIT__||null,inventory:textureInventory},resourceAudit:{tracked:resourceInventory.length,requests:resourceInventory},surfaceAudit:window.__SOLO_MAP_STATS__?.surfaceAudit||null,scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,textureCount:scene.textures.length},materialUsage:Array.from(materials,([name,v])=>({name,count:v.count,properties:v.example})).sort((a,b)=>b.count-a.count),meshNameGroups:meshKinds,meshSamples,truncatedMeshes:Math.max(0,scene.meshes.length-meshSamples.length)};
 }
-let mapWalkSamples=[],mapWalkSampleAt=0;
-function sampleBotWalkLocations(now){
- if(now-mapWalkSampleAt<2200)return;
- mapWalkSampleAt=now;
- for(const bot of state.bots){
-  if(!bot.alive||!bot.root||bot.root.isDisposed?.())continue;
-  const p=bot.root.position;
-  mapWalkSamples.push({x:+p.x.toFixed(2),z:+p.z.toFixed(2),botId:bot.id,team:bot.team,t:Date.now(),source:'observed-bot-position'});
- }
- if(mapWalkSamples.length>900)mapWalkSamples=mapWalkSamples.slice(-900);
-}
 function chooseMapSnapshotPoints(bounds=getMapOverviewBounds()){
  // A fixed 5x6 world-space grid makes the visual atlas independent of bot AI,
  // bot models, patrol routes, saved movement samples and player activity.
@@ -1193,7 +1182,7 @@ function chooseMapSnapshotPoints(bounds=getMapOverviewBounds()){
  }
  return points.map((point,index)=>({...point,index:index+1}));
 }
-async function captureBotAreaContactSheet(overviewCapture,points,onProgress=()=>{}){
+async function captureMapAreaContactSheet(overviewCapture,points,onProgress=()=>{}){
  // Reuse the already-rendered top-down map. Thirty extra WebGL render-target
  // captures caused mobile browsers to stall on the first tile (20 s timeout).
  // Each tile is an independent crop in world coordinates, with no camera swaps
@@ -1262,19 +1251,19 @@ async function submitMapOverviewReport(){
   const capture=await captureMapOverviewScreenshot();
   await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 независимых зон по всей карте…');
   const points=chooseMapSnapshotPoints(capture.bounds);
-  const contactSheet=await captureBotAreaContactSheet(capture,points,(done,total)=>{
+  const contactSheet=await captureMapAreaContactSheet(capture,points,(done,total)=>{
    btn.textContent='СНИМКИ '+done+'/'+total+'…';
    setMapOverviewStatus('Формирую независимые зоны карты: '+done+' из '+total+'. Не закрывай игру.','working');
   });
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   const visualAudit=collectMapVisualAudit();
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
-  const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
+  const atlasPath='logs/30/'+stamp+'-'+id+'-map-areas.png';
   const jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-capturefix2',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},mapAreaAtlas:{kind:'30-independent-map-grid-crops-from-top-down-overview',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 stratified grid over full world bounds; independent of bots, AI, patrol routes, movement samples and player activity',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-capturefix2',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of independent map regions for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},mapAreaAtlas:{kind:'30-independent-map-grid-crops-from-top-down-overview',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 stratified grid over full world bounds; independent of bots, AI, patrol routes, movement samples and player activity',tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
-  await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');
+  await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 независимых зон карты…');
   await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 independent map-area snapshots '+id,token);
   await paintMapOverviewStatus(btn,'ОТПРАВКА 3/3…','Загружаю JSON-аудит материалов, геометрии и координат…');
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add full map and independent map-area visual audit '+id,token);
@@ -1432,7 +1421,6 @@ async function boot() {
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
-      if(state.started)sampleBotWalkLocations(now);
       const updateStarted=performance.now();
       if(state.started) {
         pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
