@@ -695,7 +695,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-mapoverview10/);
+  assert.match(engine, /2026-11-28-map-edit-atlas1/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -786,7 +786,7 @@ test('mobile thumb controls move inward and FIRE shifts farther left', async () 
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-texture-stability1/);
+  assert.match(html, /engine\.js\?v=20261128-map-edit-atlas1/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
@@ -841,7 +841,7 @@ test('map visual report captures up to 30 time-stratified real bot observations 
   assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-mapoverview10/);
+  assert.match(engine, /2026-11-28-map-edit-atlas1/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
