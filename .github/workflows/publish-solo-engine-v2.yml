@@ -56,6 +56,9 @@ jobs:
           node --check engine/v2/human-bots.mjs
           node --check engine/v2/weapon-viewmodel.mjs
 
+      - name: Audit temporal-dead-zone and declaration order
+        run: npx --yes eslint@9 --no-config-lookup --no-ignore --rule 'no-use-before-define: [error, {functions: false, classes: true, variables: true}]' engine/v2/engine.js engine/v2/*.mjs
+
       - name: Run engine unit tests
         run: node --test --test-skip-pattern='mobile performance release invalidates cached engine and wet-map modules|map overview button captures a top-down orthographic scene and uploads a paired visual audit report|HTML loads the GLB-loader-fix engine module without stale mobile cache|soldier animation fix invalidates both HTML and engine module caches|mobile camera swipe has a larger touch zone and higher angular response|mobile thumb controls move inward and FIRE shifts farther left' engine/v2/engine.test.mjs
 
