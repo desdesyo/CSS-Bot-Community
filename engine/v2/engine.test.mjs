@@ -1087,3 +1087,5 @@ test('cinematic sunset sky, warm camera grade and lower-corner touch controls ar
  assert.ok(map.includes('#f08b4d'));
  assert.ok(map.includes('orange sunset sky atmosphere'));
 });
+
+// Keep the published sunset scene and touch-layout checks in the standard engine CI path.
