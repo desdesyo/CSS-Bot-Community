@@ -1160,3 +1160,13 @@ test('bot round reset preserves the model-derived floor offset', async () => {
  assert.match(engine,/spawn:\{x,z\},floorOffset:human\.floorOffset/);
  assert.match(engine,/bot\.root\.position\.set\(bot\.spawn\.x,bot\.floorOffset,bot\.spawn\.z\)/);
 });
+
+
+test('bots do not walk in place when a wall blocks movement and CT lanes fit the portal', async () => {
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(engine,/const actualMove=Math\.hypot\(resolved\.x-startX,resolved\.z-startZ\)/);
+ assert.match(engine,/animateHumanBot\(bot\.rig,actualMove>\.02,bot\.speed>2\.7&&actualMove>\.02\)/);
+ assert.match(engine,/if\(\(resolved\.blockedX\|\|resolved\.blockedZ\)&&avoidLength>\.001\)/);
+ assert.match(engine,/\[-1\.2,32\],\[-1\.2,27\],\[-1\.2,23\]/);
+ assert.match(engine,/\[1\.2,32\],\[1\.2,27\],\[1\.2,23\]/);
+});
