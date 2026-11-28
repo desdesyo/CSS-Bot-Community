@@ -4,6 +4,7 @@ const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mo
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
+import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf1';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
@@ -802,7 +803,8 @@ const FIELD_CELL_SIZE=3;
 let fieldAtlas={mapId:FIELD_MAP_ID,visitedCells:{},unreachableCells:[],activeRoute:[],routes:[],coverSamples:[],lastPersistAt:0};
 let fieldWalkableCells=null,fieldExploreLastPlan=0;
 try{const atlas=JSON.parse(localStorage.getItem(GAME_FIELD_ATLAS_KEY)||'null');if(atlas?.mapId===FIELD_MAP_ID){fieldAtlas={...fieldAtlas,...atlas};fieldAtlas.visitedCells=fieldAtlas.visitedCells||{};fieldAtlas.unreachableCells=Array.isArray(fieldAtlas.unreachableCells)?fieldAtlas.unreachableCells:[];fieldAtlas.activeRoute=Array.isArray(fieldAtlas.activeRoute)?fieldAtlas.activeRoute.slice(-700):[];fieldAtlas.routes=Array.isArray(fieldAtlas.routes)?fieldAtlas.routes.slice(-30):[];fieldAtlas.coverSamples=Array.isArray(fieldAtlas.coverSamples)?fieldAtlas.coverSamples.slice(-350):[];fieldAtlas.lastPersistAt=0;}}catch(e){}
-let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogLastSample=0,gameLogLastPersist=0;
+const gameLogPageId=globalThis.crypto?.randomUUID?.()||('page-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
+let gameLogRecording=false,gameLogUploading=false,gameLogRecords=[],gameLogEvents=[],gameLogFrameMs=[],gameLogRenderMs=[],gameLogStartedAt=0,gameLogSession=null,gameLogLastSample=0,gameLogLastPersist=0;
 let inputTraceInstalled=false;
 let gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};
 let gameLogDbPromise=null,gameLogPersistPending=false,gameLogPersistAgain=false,gameLogRestoring=false;
@@ -846,7 +848,7 @@ async function persistGameLog(){
  gameLogPersistPending=true;
  try{
   const db=await openGameLogDb();if(!db)return;
-  const snapshot={id:'active',records:gameLogRecords.slice(),events:gameLogEvents.slice(),frameMs:gameLogFrameMs.slice(),renderMs:gameLogRenderMs.slice(),performance:{...gameLogPerf},startedAt:gameLogStartedAt,savedAt:Date.now()};
+  const snapshot={id:'active',records:gameLogRecords.slice(),events:gameLogEvents.slice(),frameMs:gameLogFrameMs.slice(),renderMs:gameLogRenderMs.slice(),performance:{...gameLogPerf},startedAt:gameLogStartedAt,session:gameLogSession,savedAt:Date.now()};
   await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(snapshot);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('IndexedDB transaction aborted'));});
  }catch(e){console.warn('Async gameplay log persistence failed',e)}
  finally{gameLogPersistPending=false;if(gameLogPersistAgain){gameLogPersistAgain=false;void persistGameLog()}}
@@ -856,7 +858,7 @@ async function restoreGameplayLog(){
  try{
   const db=await openGameLogDb();if(!db)return;
   const saved=await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readonly'),request=tx.objectStore('sessions').get('active');request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error);});
-  if(saved&&!gameLogRecording){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-GAME_LOG_EVENT_LIMIT):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})};gameLogStartedAt=saved.startedAt||0;}
+  if(saved&&!gameLogRecording){gameLogRecords=Array.isArray(saved.records)?saved.records.slice(-GAME_LOG_LIMIT):[];gameLogEvents=Array.isArray(saved.events)?saved.events.slice(-GAME_LOG_EVENT_LIMIT):[];gameLogFrameMs=Array.isArray(saved.frameMs)?saved.frameMs.slice(-240):[];gameLogRenderMs=Array.isArray(saved.renderMs)?saved.renderMs.slice(-240):[];gameLogPerf={...gameLogPerf,...(saved.performance||{})};gameLogStartedAt=saved.startedAt||0;gameLogSession=saved.session||null;}
  }catch(e){console.warn('Gameplay log restore failed',e)}
  finally{gameLogRestoring=false;updateLogStatus()}
 }
@@ -887,7 +889,7 @@ function installInputDiagnostics(){
   gameLogEvent('input-event',{type,target:target.id||target.dataset.weapon||target.tagName,pointerType:e.pointerType||null,pointerId:Number.isFinite(e.pointerId)?e.pointerId:null,button:Number.isFinite(e.button)?e.button:null,detail:e.detail??null,x:Number.isFinite(e.clientX)?Math.round(e.clientX):null,y:Number.isFinite(e.clientY)?Math.round(e.clientY):null,isTrusted:e.isTrusted,defaultPrevented:e.defaultPrevented,buttons:e.buttons??null});
  },true);
 }
-function startGameplayLog(){installInputDiagnostics();gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});void persistGameLog();$('logsQuick').textContent='■ ЗАПИСЬ';$('logsQuick').title='Запись идёт';updateLogStatus();}
+function startGameplayLog(){installInputDiagnostics();gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];gameLogPerf={frames:0,hitches50:0,hitches100:0,hitches250:0,maxFrameMs:0,maxRenderMs:0};gameLogStartedAt=performance.now();gameLogSession={id:'v2-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),pageId:gameLogPageId,startedAtEpoch:Date.now()};gameLogLastSample=0;gameLogLastPersist=0;gameLogRecording=true;gameLogEvent('recording-start',{sessionId:gameLogSession.id,startedAt:new Date(gameLogSession.startedAtEpoch).toISOString(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},mobile});void persistGameLog();$('logsQuick').textContent='■ ЗАПИСЬ';$('logsQuick').title='Запись идёт';updateLogStatus();}
 function encodeGameplayLog(value){const bytes=new TextEncoder().encode(value);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}
 
 function updateLogStatus(){
@@ -897,7 +899,7 @@ function updateLogStatus(){
  const start=$('logsStart');if(start)start.textContent=gameLogRecording?'ОСТАНОВИТЬ ЗАПИСЬ':'НАЧАТЬ ЗАПИСЬ';
 }
 function buildGameplayLogPayload(){
- return {app:'SOLO: Wet Ground',format:3,session:'v2-'+Date.now().toString(36),branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogStartedAt?Math.max(0,Math.round(performance.now()-gameLogStartedAt)):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
+ return {app:'SOLO: Wet Ground',format:4,session:gameLogSession?.id||null,sessionMeta:gameLogSession,branch:GAME_LOG_BRANCH,createdAt:new Date().toISOString(),durationMs:gameLogSession?.pageId===gameLogPageId?Math.max(0,Date.now()-gameLogSession.startedAtEpoch):0,userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs,averageFrameMs:gameLogFrameMs.length?+(gameLogFrameMs.reduce((a,b)=>a+b,0)/gameLogFrameMs.length).toFixed(2):null,averageRenderMs:gameLogRenderMs.length?+(gameLogRenderMs.reduce((a,b)=>a+b,0)/gameLogRenderMs.length).toFixed(2):null},fieldAtlas:{...fieldAtlas,coverage:scene?fieldCoverageStats():null},events:gameLogEvents,records:gameLogRecords};
 }
 function downloadGameplayLog(){
  const payload=buildGameplayLogPayload(),blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
@@ -968,7 +970,7 @@ async function submitIssueReport(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
- const report={app:'SOLO: Wet Ground',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:{recording:gameLogRecording,records:gameLogRecords.slice(-30),events:gameLogEvents.slice(-40),performance:{...gameLogPerf,frameMs:gameLogFrameMs.slice(-120),renderMs:gameLogRenderMs.slice(-120)}}};
+ const report={app:'SOLO: Wet Ground',type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:state.roundTime,kills:state.kills,fps:state.fps,scale:state.scale},context,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
