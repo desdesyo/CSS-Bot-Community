@@ -583,7 +583,7 @@ test('mobile scene batches late-authored static map details without dropping dyn
 });
 test('bot movement passes eye height to the collision solver', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(source, /moveWithAabbCollisions\(\{x:bot\.root\.position\.x,y:1\.72,z:bot\.root\.position\.z\}/);
+  assert.match(source, /moveWithAabbCollisions\(\{x:startX,y:1\.72,z:startZ\}/);
 });
 test('spectator and timed round result UI exists in the shipped page', async () => {
   const source = await readFile(new URL('./index.html', import.meta.url), 'utf8');
@@ -703,7 +703,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-capturefix3/);
+  assert.match(engine, /2026-11-28-hidden-bot-gameplay2/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:false,format:'image\/png',path:null,error:mapCapture\.error,worldBounds:null\}/);
@@ -836,7 +836,7 @@ test('CT allies spawn outside the south biosecure wall and use its aligned entra
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const core = await readFile(new URL('./engine-core.mjs', import.meta.url), 'utf8');
   assert.match(core, /CT: Object\.freeze\(\[\[-8,38\],\[-4,38\],\[0,39\],\[4,38\],\[8,38\],\[0,36\]\]\)/);
-  assert.match(engine, /\[\[-8,38\],\[-6,36\],\[-4,34\],\[0,32\],\[0,27\],\[0,23\]\]/);
+  assert.match(engine, /\[\[-8,38\],\[-5,36\],\[-2\.8,34\],\[-1\.2,32\],\[-1\.2,27\],\[-1\.2,23\]\]/);
 });
 
 test('CT parked sedan no longer intersects the biosecure exterior wall', async () => {
@@ -998,7 +998,7 @@ test('gamepad input is polled every render frame and maps standard axes and butt
  assert.match(engine,/if\(rising\(2\)\)reload\(\)/);
  assert.match(engine,/if\(rising\(0\)\)selectWeapon\('rifle'/);
  assert.match(engine,/buttons\[7\].value/);
- assert.match(engine,/pollGamepadInput\(dt\);updatePlayer\(dt\)/);
+ assert.match(engine,/pollGamepadInput\(dt\);\s*if\(state\.started\)\{\s*updatePlayer\(dt\)/);
  assert.match(engine,/state\.gamepadMove\.y/);
  assert.match(engine,/gamepad-input-active/);
 });
