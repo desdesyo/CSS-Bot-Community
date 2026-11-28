@@ -1425,7 +1425,7 @@ async function boot() {
       start:()=>{if(!state.started)start();return {started:state.started,bots:state.bots.length};},
       setOverview:()=>{
         for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
-        camera.parent=null;camera.position.set(0,104,-.01);camera.setTarget(new B.Vector3(0,0,0));camera.rotation.set(0,0,0);
+        camera.parent=null;camera.position.set(0,104,-.01);camera.setTarget(new BABYLON.Vector3(0,0,0));camera.rotation.set(0,0,0);
         return {mode:'overview',bots:state.bots.length};
       },
       setBotView:(id)=>{
