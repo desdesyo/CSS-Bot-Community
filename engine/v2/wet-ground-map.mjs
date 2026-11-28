@@ -1634,11 +1634,17 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);}
     else lateKept.push(...parts);
   }
-  // The reflection target was assembled before the late scenery pass. Refresh its
-  // render list after batching so it references live meshes rather than disposed parts.
+  // Reflections need the finished static city, not hundreds of individual bot,
+  // weapon, particle and camera-owned meshes. Batching preserves the same materials,
+  // geometry and mirror resolution while making the reflection pass much cheaper.
   if(wetMirror){
     wetMirror.renderList=scene.meshes.filter(mesh=>{
-      if(!mesh||mesh===wetMirror||mesh.isDisposed?.()||mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('sky atmosphere'))return false;
+      if(!mesh||mesh===wetMirror||mesh.isDisposed?.())return false;
+      const name=mesh.name||'';
+      const isStaticBatch=name.startsWith('Wet Ground merged material ')
+        ||name.startsWith('Wet Ground late static batch ')
+        ||name.startsWith('Wet Ground wall collision batch ');
+      if(!isStaticBatch)return false;
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
   }
