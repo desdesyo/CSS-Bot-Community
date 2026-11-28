@@ -17,14 +17,14 @@ try {
   await page.waitForTimeout(5000);
   const overview = await page.evaluate(() => { const api=window.__SOLO_CAPTURE_API__;api.setOverview();return api.metrics(); });
   await page.waitForTimeout(1200);
-  await page.screenshot({ path: path.join(out, '01-overview.png'), fullPage: true });
+  await page.screenshot({ path: path.join(out, '01-overview.png'), fullPage: false, animations: 'disabled', timeout: 90000 });
   const roster = await page.evaluate(() => window.__SOLO_CAPTURE_API__.botRoster());
   const candidates = roster.filter(bot => bot.alive).slice(0, 3);
   const botViews = [];
   for (const bot of candidates) {
     const view = await page.evaluate(id => window.__SOLO_CAPTURE_API__.setBotView(id), bot.id);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(out, `bot-${String(bot.id).padStart(2,'0')}-${bot.team}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(out, `bot-${String(bot.id).padStart(2,'0')}-${bot.team}.png`), fullPage: false, animations: 'disabled', timeout: 90000 });
     botViews.push(view);
   }
   const report = {
