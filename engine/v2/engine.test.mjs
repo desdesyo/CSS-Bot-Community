@@ -1012,3 +1012,11 @@ test('gamepad input is polled every render frame and maps standard axes and butt
  assert.match(engine,/state\.gamepadMove\.y/);
  assert.match(engine,/gamepad-input-active/);
 });
+
+test('map-authoring mode cannot auto-win or auto-restart from an empty bot roster', async () => {
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(engine,/if\(!MAP_EDIT_MODE\)state\.roundTime-=dt/);
+ assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?const enemyBots=state\.bots\.filter\(b=>b\.team==='enemy'\);[\s\S]*?enemyBots\.length>0&&enemyBots\.every\(b=>!b\.alive\)/);
+ assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?if\(state\.roundTime<=0\)endRound/);
+ assert.doesNotMatch(engine,/state\.bots\.every\(b=>b\.team!=='enemy'\|\|!b\.alive\)/);
+});
