@@ -668,7 +668,7 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview9'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
   assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf5'));
 });
 
@@ -679,10 +679,13 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(html, /id="mapOverviewQuick"/);
   assert.match(html, /id="mapOverviewStatus"/);
+  assert.match(html, /#mapOverviewQuick\\{position:fixed;left:12px;top:172px/);
+  assert.match(html, /#mapOverviewStatus\\{position:fixed;left:12px;top:214px/);
+  assert.match(engine, /\^\(\?:body\|head\)-\\\\d\+\$/);
   assert.match(engine, /function setMapOverviewStatus\(/);
   assert.match(engine, /requestAnimationFrame\(\(\)=>resolve\(\)\)/);
   assert.match(engine, /onProgress\(i\+1,points\.length\)/);
-  assert.match(engine, /2026-11-28-mapoverview9/);
+  assert.match(engine, /2026-11-28-mapoverview10/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /Wet Ground district foundation/);
@@ -690,7 +693,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-mapoverview9/);
+  assert.match(engine, /2026-11-28-mapoverview10/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -721,7 +724,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview9'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
 });
 
 
@@ -744,7 +747,7 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview9'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
@@ -774,14 +777,14 @@ test('mobile camera swipe has a larger touch zone and higher angular response', 
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview9'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
 });
 
 test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-mapoverview9/);
+  assert.match(html, /engine\.js\?v=20261128-mapoverview10/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
@@ -836,7 +839,7 @@ test('map visual report captures 30 spatially distributed bot-area snapshots and
   assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-mapoverview9/);
+  assert.match(engine, /2026-11-28-mapoverview10/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
