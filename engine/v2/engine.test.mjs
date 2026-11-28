@@ -691,7 +691,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /2026-11-28-mapoverview11/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
-  assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
   assert.match(engine, /captureSource:'independent-world-coordinate-crop-from-shared-topdown-render'/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
@@ -840,18 +840,19 @@ test('main street arcades stay on side lanes rather than the main avenue', async
 test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /function sampleBotWalkLocations\(now\)/);
+  assert.ok(!engine.includes('sampleBotWalkLocations'));
+  assert.ok(!engine.includes('mapWalkSamples'));
   assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
   assert.match(engine, /const columns=5,rows=6,points=\[\]/);
   assert.match(engine, /source:'independent-map-grid'/);
   assert.match(engine, /team:'MAP'/);
-  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureBotAreaContactSheet'));
+  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
   assert.ok(!selector.includes('state.bots'));
   assert.ok(!selector.includes('mapWalkSamples'));
   assert.ok(!selector.includes('waypoints'));
   assert.ok(engine.includes('mapAreaSnapshots:contactSheet.tiles.length'));
   assert.ok(html.includes('engine.js?v=20261128-capturefix2'));
-  assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
   assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
   assert.match(engine, /2026-11-28-capturefix2/);
@@ -868,7 +869,7 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
 
 test('map overview point selection never depends on bot actors, movement history or authored routes', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureBotAreaContactSheet'));
+  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
   assert.match(selector, /const columns=5,rows=6,points=\[\]/);
   assert.match(selector, /source:'independent-map-grid'/);
   assert.ok(!selector.includes('state.bots'));
