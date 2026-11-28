@@ -1120,10 +1120,18 @@ async function captureBotAreaContactSheet(points){
  return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles};
 }
 async function submitMapOverviewReport(){
- if(issueReportBusy)return;
+ const btn=$('mapOverviewQuick');
+ if(issueReportBusy){btn.title='Другой отчёт ещё формируется или отправляется. Дождитесь завершения.';return;}
+ btn.textContent='ПОДГОТОВКА ОТЧЁТА…';btn.title='Подготовка общего вида карты и 30 снимков зон ботов.';
  let token=savedGameplayToken();
- if(!token){token=prompt('Для отправки визуального отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
- const btn=$('mapOverviewQuick');issueReportBusy=true;btn.disabled=true;
+ if(!token){
+  token=prompt('Для отправки визуального отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');
+  if(!token){btn.textContent='↻ ОБЗОР НЕ ОТПРАВЛЕН';btn.title='Отправка отменена: GitHub token не введён.';return;}
+  token=token.trim();
+  if(!token){btn.textContent='↻ ОБЗОР НЕ ОТПРАВЛЕН';btn.title='Отправка отменена: GitHub token пуст.';return;}
+  try{localStorage.setItem('solo_github_log_token',token)}catch(e){btn.textContent='↻ ОШИБКА СОХРАНЕНИЯ ТОКЕНА';btn.title='Не удалось сохранить GitHub token.';alert('Не удалось сохранить токен');return;}
+ }
+ issueReportBusy=true;btn.disabled=true;
  try{
   btn.textContent='ОБЩИЙ ВИД…';
   const capture=await captureMapOverviewScreenshot();
@@ -1136,7 +1144,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
   const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview7',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview8',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   btn.textContent='ОТПРАВЛЯЮ ОБЩИЙ ВИД…';
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   btn.textContent='ОТПРАВЛЯЮ 30 ЗОН…';
