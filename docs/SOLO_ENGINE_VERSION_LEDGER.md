@@ -233,3 +233,14 @@
 - Карта: mapoverview10 содержит исправление world-scale UV tiling каменной поверхности, не меняющее геометрию, разрешение текстур или качество рендера. Это адресует сообщение «кривая текстура», но визуальное исправление ещё требует проверки игроком.
 - Ветка `logs/issues/` не содержит map-overview отчёта, отправленного после публикации mapoverview10. Самый свежий подтверждённый обзор остаётся старым mapoverview1 (его верхний снимок был сферой неба); отдельный issue report `2026-11-28T07-26-10-606Z-issue-mx036izy` содержит top-down PNG и описание «кривая текстура». Не утверждать, что новый контактный лист из 30 зон уже получен.
 - Статус: **РАБОЧАЯ — игрок ранее подтвердил исправление камеры; CI и Pages публикация mapoverview10 подтверждены; карта обновлена, визуальное качество после UV fix и новый 30-зонный обзор ещё не подтверждены игроком.**
+
+
+## 2026-11-28 — map-authoring round-loop fix and mobile menu polish
+
+- Player-uploaded screenshot: [Screenshot_2026-11-28-17-24-15-325_com.yandex.browser.jpg](https://github.com/desdesyo/CSS-Bot-Community/blob/8c68319633439d9612d933a7a26336ea2de390a0/logs/Screenshot_2026-11-28-17-24-15-325_com.yandex.browser.jpg). The engine menu is visible; the uploaded image shows the warm brown primary button and a vertically cramped menu card on a mobile landscape viewport, not a runtime crash.
+- Root cause of repeated CT wins in map-authoring mode: `state.bots.every(...)` returns true for an empty roster. The same mode also allowed the round timer and player/team elimination rules to keep running despite having no active bot roster.
+- Fix: freeze round countdown and skip AI, enemy-elimination and team-elimination round rules while `MAP_EDIT_MODE` is enabled. Enemy elimination now additionally requires at least one enemy bot.
+- UI: modern cool-toned glass buttons; teal primary launch action; mobile menu card can use up to 82dvh and is vertically centered.
+- Added regression tests for empty-roster round handling and mobile menu styling/layout.
+- Implementation commits: engine `348b81c8f8aee521c40b27e4a31896f8fe89c59e`; regression tests `91b735e1b300117425c48664197540223e2fcab1`; menu `c5547bc9a089c52d2372a747c102e13599fcf6cb`.
+- Verification and Pages deployment: pending. Device behavior must still be confirmed by the player.
