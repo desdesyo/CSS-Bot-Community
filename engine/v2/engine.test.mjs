@@ -27,7 +27,7 @@ test('issue report prioritizes nearby collision geometry and captures AI/gamepad
   assert.match(engine, /navigator\.getGamepads/);
   assert.match(engine, /fieldAtlas:fieldCoverageStats\(\)/);
   assert.match(engine, /engineCaps:\{maxTextureSize/);
-  assert.match(engine, /textures:\{count:scene\.textures\.length/);
+  assert.match(engine, /textures:\(\(\)=>\{/);
 });
 
 
@@ -369,14 +369,15 @@ test('Wet Ground is a connected multi-street district, not a single spawn alley'
   assert.match(map, /mesh\.rotation\.y\+=Math\.PI\/2/);
 });
 
-test('photographic facade PBR maps are applied after procedural fallbacks and survive material freezing', async () => {
+test('photographic facade PBR maps load before static material freezing and preserve procedural fallbacks', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   const relief = map.indexOf('for(const [material,kind] of [[plaster');
   const scanned = map.indexOf("loadScannedPbr(plaster,'plastered_wall_05'");
   assert.ok(relief > 0 && scanned > relief, 'scanned maps must be attached after generated fallback relief');
   assert.match(map, /bind\('ambientTexture','ao',false\)/);
-  assert.match(map, /material\.unfreeze\?\.\(\)/);
-  assert.match(map, /material\.markAsDirty\?\.\(B\.Material\.TextureDirtyFlag\)/);
+  assert.match(map, /await Promise\.all\(pendingTextureLoads\)/);
+  assert.match(map, /fallback\.dispose\?\.\(\)/);
+  assert.doesNotMatch(map, /material\.unfreeze\?\.\(\)/);
   assert.match(map, /weathered slate roof shingle albedo/);
   assert.match(map, /overlapping slate roof tile/);
   assert.match(map, /slate roof course seam/);
@@ -725,7 +726,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
+  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
 });
 
 
@@ -917,7 +918,7 @@ test('mobile START and fullscreen-change handling request landscape orientation'
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
   assert.ok(start.includes("document.documentElement.requestFullscreen({navigationUI:'hide'})"));
-  assert.ok(engine.includes("screen.orientation?.lock('landscape')"));
+  assert.ok(engine.includes("screen.orientation.lock('landscape')"));
   assert.ok(engine.includes('orientationchange'));
   assert.ok(engine.includes('fullscreenchange'));
 });
