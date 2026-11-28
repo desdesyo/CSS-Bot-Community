@@ -833,7 +833,7 @@ test('map visual report captures 30 spatially distributed bot-area snapshots and
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
   assert.match(engine, /selected\.length<30/);
-  assert.match(engine, /function captureBotAreaContactSheet\\(points,onProgress=\\(\\)=>\\{\\}\\)/);
+  assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
   assert.match(engine, /2026-11-28-mapoverview8/);
