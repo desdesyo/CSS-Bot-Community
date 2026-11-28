@@ -887,10 +887,10 @@ test('mobile landscape report toolbar stays compact and clear of touch sticks an
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(html, /mobile-landscape-hud-fix/);
   assert.match(html, /orientation:landscape/);
-  assert.match(html, /#actions button\\{[^}]*font-size:8px/);
-  assert.match(html, /#minimap\\{top:48px;left:8px;width:92px;height:92px/);
+  assert.ok(html.includes('#actions button{min-width:0;padding:4px 6px;font-size:8px'));
+  assert.ok(html.includes('#minimap{top:48px;left:8px;width:92px;height:92px}'));
   assert.match(html, /aria-label="Отметить баг"/);
-  assert.match(engine, /screen\\.orientation\\?\\.unlock\\?\\.\(\)/);
+  assert.ok(engine.includes('screen.orientation?.unlock?.();'));
   assert.match(engine, /orientationchange/);
   assert.match(engine, /navigationUI:'hide'/);
   assert.match(engine, /fullscreenchange/);
@@ -898,9 +898,9 @@ test('mobile landscape report toolbar stays compact and clear of touch sticks an
 
 test('cobblestone maps use mipmaps and anisotropic filtering to prevent oblique-angle aliasing', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /photographic irregular wet cobblestone albedo',[^;]*true, B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
-  assert.match(map, /cobblestone variable roughness map',[^;]*true,B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
-  assert.match(map, /cobblestone micro normal',[^;]*true,B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
-  assert.match(map, /cobbleTex\\.anisotropicFilteringLevel=mobile\\?8:16/);
-  assert.match(map, /normalTex\\.anisotropicFilteringLevel=mobile\\?8:16/);
+  assert.ok(map.includes("photographic irregular wet cobblestone albedo', {width:size,height:size}, scene, true, B.Texture.TRILINEAR_SAMPLINGMODE"));
+  assert.ok(map.includes("cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE"));
+  assert.ok(map.includes("cobblestone micro normal',{width:normalSize,height:normalSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE"));
+  assert.ok(map.includes('cobbleTex.anisotropicFilteringLevel=mobile?8:16'));
+  assert.ok(map.includes('normalTex.anisotropicFilteringLevel=mobile?8:16'));
 });
