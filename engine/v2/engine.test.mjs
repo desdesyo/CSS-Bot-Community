@@ -1170,3 +1170,23 @@ test('bots do not walk in place when a wall blocks movement and CT lanes fit the
  assert.match(engine,/\[-1\.2,32\],\[-1\.2,27\],\[-1\.2,23\]/);
  assert.match(engine,/\[1\.2,32\],\[1\.2,27\],\[1\.2,23\]/);
 });
+
+
+test('gamepad connection swaps touch controls for an on-screen control legend', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(html,/body\.gamepad-connected #touch\{display:none!important\}/);
+ assert.match(html,/id="gamepadHint" hidden/);
+ assert.match(engine,/function setGamepadHudActive\(active\)/);
+ assert.match(engine,/pollGamepadInput\(dt\);\s*if\(state\.started\)/);
+ assert.match(engine,/setGamepadHudActive\(true\)/);
+ assert.match(engine,/setGamepadHudActive\(false\)/);
+});
+
+test('health and armor bars sit below the minimap and the map has no decorative text labels', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(html,/#playerBars\{top:160px;width:88px\}/);
+ assert.match(html,/<span id="armorValue">0<\/span>/);
+ assert.doesNotMatch(engine,/fillText\('(WET GROUND|BIOSECURE \/ SERVER|MAP)'/);
+});
