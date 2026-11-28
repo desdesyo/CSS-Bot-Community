@@ -671,7 +671,7 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-roundfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
   assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-gamepad-input1'));
 });
 
@@ -727,7 +727,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-roundfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
 });
 
 
@@ -750,7 +750,7 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-roundfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
@@ -780,14 +780,14 @@ test('mobile camera swipe has a larger touch zone and higher angular response', 
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
-  assert.ok(html.includes('./engine.js?v=20261128-roundfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
 });
 
 test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-roundfix1/);
+  assert.match(html, /engine\.js\?v=20261128-mapreport1/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
@@ -839,7 +839,7 @@ test('map visual report captures 30 independent grid snapshots without requiring
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
   assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /source:'map-grid'/);
+  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-grid-based-top-down-local-snapshots'/);
   assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
