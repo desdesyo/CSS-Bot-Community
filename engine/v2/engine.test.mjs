@@ -1019,8 +1019,8 @@ test('mobile menu uses modern cool-toned buttons and a taller scrollable card', 
 test('mobile HUD uses the orange-lit translucent blue sticks and preserves stick hit areas', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
  assert.match(html,/#stick\{border:1\.5px solid rgba\(255,145,48,.98\)!important;background:rgba\(112,151,173,.22\)!important/);
- assert.match(html,/#nub\{background:rgba\(139,174,194/);
- assert.match(html,/#fire\{background:rgba\(91,126,148/);
+ assert.match(html,/#nub\{z-index:1;background:rgba\(139,174,194,.34\)/);
+ assert.match(html,/#fire\{background:rgba\(91,126,148,.25\)!important/);
  assert.match(html,/--hud-orange:#ff861f/);
  assert.match(html,/width:118px;height:118px/);
  assert.match(html,/width:46px;height:46px/);
@@ -1048,7 +1048,7 @@ test('graffiti-eye toggle hides diagnostic controls but keeps fullscreen and pau
 });
 test('HUD engine cache key invalidates the prior mobile page module', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud2/);
+ assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
 });
 
 test('diagnostics eye also hides recording menu and quality overlay, with map report below action row', async () => {
@@ -1058,7 +1058,7 @@ test('diagnostics eye also hides recording menu and quality overlay, with map re
  assert.match(html,/data-menu-tab="logs"/);
  assert.match(html,/#mapOverviewQuick\{top:70px!important/);
  assert.match(html,/#mapOverviewStatus\{top:100px!important/);
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud2/);
+ assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
 });
 
 test('orange joystick glow is a luminous underlayer visible through translucent blue-gray stick shells', async () => {
