@@ -837,7 +837,8 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => { 
+test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
   assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
@@ -865,12 +866,14 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
 });
 
 
-test('map overview samples only real bot observations and never substitutes authored patrol routes', async () => {
+test('map overview point selection never depends on bot actors, movement history or authored routes', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /t:Date\.now\(\),source:'observed-bot-position'/);
-  assert.match(engine, /const candidates=\[\.\.\.mapWalkSamples\]/);
-  assert.match(engine, /source:'current-bot-position'/);
-  assert.doesNotMatch(engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '', /baseWaypoints|authored-bot-route/);
+  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureBotAreaContactSheet'));
+  assert.match(selector, /const columns=5,rows=6,points=\[\]/);
+  assert.match(selector, /source:'independent-map-grid'/);
+  assert.ok(!selector.includes('state.bots'));
+  assert.ok(!selector.includes('mapWalkSamples'));
+  assert.ok(!selector.includes('waypoints'));
   assert.match(engine, /fixed 5x6 stratified grid over full world bounds; independent of bots, AI, patrol routes, movement samples and player activity/);
   assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
 });
