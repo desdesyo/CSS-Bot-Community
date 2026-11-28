@@ -1371,7 +1371,7 @@ async function boot() {
       const fallbackEnvironment=B.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',scene);
       fallbackEnvironment.gammaSpace=false;
       scene.environmentTexture=fallbackEnvironment;
-      scene.environmentIntensity=mobile?.45:.62;
+      scene.environmentIntensity=mobile?.62:.88;
       // Resolve the optional HDR before showing the playable scene. This prevents a
       // second lighting/IBL swap while the player is already moving through the map.
       if(B.HDRCubeTexture){
@@ -1387,7 +1387,7 @@ async function boot() {
               settled=true;clearTimeout(timer);
               streetNightHdr.rotationY=.42;
               scene.environmentTexture=streetNightHdr;
-              scene.environmentIntensity=mobile?.35:.48;
+              scene.environmentIntensity=mobile?.52:.72;
               fallbackEnvironment.dispose();
               resolve('hdr');
             });
@@ -1403,7 +1403,7 @@ async function boot() {
     // false black-ceiling look and competed with the horizon gradient.
     const hemi=new B.HemisphericLight('warm dusk sky fill',new B.Vector3(0,1,0),scene);hemi.intensity=.78;hemi.diffuse=new B.Color3(.55,.43,.46);hemi.groundColor=new B.Color3(.12,.12,.19);
     const sun=new B.DirectionalLight('low orange setting sun',new B.Vector3(-.72,-.24,.65),scene);sun.position=new B.Vector3(36,16,-32);sun.diffuse=new B.Color3(1,.43,.19);sun.intensity=1.12;
-    const cityFill=new B.DirectionalLight('cool blue dusk skylight bounce',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.24,.32,.49);cityFill.intensity=.22;
+    const cityFill=new B.DirectionalLight('distant city sky bounce — cool blue dusk',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.24,.32,.49);cityFill.intensity=.22;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.usePercentageCloserFiltering=true;shadowGen.blurKernel=mobile?12:22;shadowGen.bias=.0003;shadowGen.normalBias=.014;shadowGen.darkness=.22;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     $('loadState').textContent='Загрузка и проверка текстур карты…';
