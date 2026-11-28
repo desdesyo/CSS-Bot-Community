@@ -1179,30 +1179,21 @@ function sampleBotWalkLocations(now){
  if(mapWalkSamples.length>900)mapWalkSamples=mapWalkSamples.slice(-900);
 }
 function chooseMapSnapshotPoints(){
- // Only positions that were actually observed in play are eligible. Authored
- // patrol waypoints are useful navigation data, but are not evidence of traversal.
- const candidates=[...mapWalkSamples];
- for(const bot of state.bots){
-  if(!bot.root?.isDisposed?.()){
-   const p=bot.root.position;
-   candidates.push({x:p.x,z:p.z,botId:bot.id,team:bot.team,t:Date.now(),source:'current-bot-position'});
+ // Map coverage is independent of bot presence. Sample a deterministic 5x6
+ // grid over the actual collision/map bounds; bot observations are optional metadata.
+ const bounds=getMapOverviewBounds();
+ const columns=5,rows=6,points=[];
+ for(let row=0;row<rows;row++){
+  for(let column=0;column<columns;column++){
+   const x=bounds.minX+(column+.5)*(bounds.maxX-bounds.minX)/columns;
+   const z=bounds.minZ+(row+.5)*(bounds.maxZ-bounds.minZ)/rows;
+   const nearby=mapWalkSamples.filter(p=>Math.hypot(p.x-x,p.z-z)<18).sort((p,q)=>Math.hypot(p.x-x,p.z-z)-Math.hypot(q.x-x,q.z-z))[0];
+   points.push({x,z,index:points.length+1,source:'map-grid',team:nearby?.team||'map',botId:nearby?.botId??null,t:nearby?.t??null});
   }
  }
- const valid=candidates.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.t)&&p.t>1e12)
-  .sort((a,b)=>a.t-b.t);
- if(!valid.length)throw new Error('Пока нет реальных наблюдений позиций ботов. Дай игре поработать и повтори обзор.');
- // Select evenly over the real observation timeline. Repeated coordinates are
- // retained when bots did not move: the report then exposes the actual stuck state
- // instead of silently filling the atlas with imaginary patrol-route locations.
- const selected=[];
- const count=Math.min(30,valid.length);
- for(let i=0;i<count;i++){
-  const index=Math.min(valid.length-1,Math.floor((i+.5)*valid.length/count));
-  selected.push(valid[index]);
- }
- return selected.map((p,index)=>({...p,index:index+1}));
+ return points;
 }
-async function captureBotAreaContactSheet(points,onProgress=()=>{}){
+async function captureMapAreaContactSheet(points,onProgress=()=>{}){
  const tileWidth=320,tileHeight=240,columns=5,rows=6;
  const sheet=document.createElement('canvas');sheet.width=tileWidth*columns;sheet.height=tileHeight*rows;
  const ctx=sheet.getContext('2d');if(!ctx)throw new Error('Не удалось создать холст контактного листа');
@@ -1211,7 +1202,7 @@ async function captureBotAreaContactSheet(points,onProgress=()=>{}){
   const point=points[i];let localCamera=null;
   try{
    const altitude=42,spanX=30,spanY=22.5;
-   localCamera=new BABYLON.FreeCamera('bot-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
+   localCamera=new BABYLON.FreeCamera('map-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
    localCamera.upVector=new BABYLON.Vector3(0,0,1);
    localCamera.setTarget(new BABYLON.Vector3(point.x,0,point.z));
    localCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
@@ -1225,8 +1216,8 @@ async function captureBotAreaContactSheet(points,onProgress=()=>{}){
    const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
    ctx.drawImage(image,x,y,tileWidth,tileHeight);
    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
-   ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
-   tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
+   ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  MAP AREA',x+10,y+21);
+   tiles.push({index:i+1,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,nearbyBotObservation:point.botId!==null?{botId:point.botId,team:point.team,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null}:null,tile:{x,y,width:tileWidth,height:tileHeight}});
    onProgress(i+1,points.length);
    if(i%2===1)await new Promise(resolve=>requestAnimationFrame(resolve));
   }finally{
@@ -1263,26 +1254,26 @@ async function submitMapOverviewReport(){
  try{
   await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Снимаю всю карту сверху (1280×960)…');
   const capture=await captureMapOverviewScreenshot();
-  await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 точек по маршрутам и позициям ботов…');
+  await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 независимых точек по всей карте…');
   const points=chooseMapSnapshotPoints();
   const contactSheet=await captureBotAreaContactSheet(points,(done,total)=>{
    btn.textContent='СНИМКИ '+done+'/'+total+'…';
-   setMapOverviewStatus('Снимаю зоны ботов: '+done+' из '+total+'. Не закрывай игру.','working');
+   setMapOverviewStatus('Снимаю зоны карты: '+done+' из '+total+'. Не закрывай игру.','working');
   });
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   const visualAudit=collectMapVisualAudit();
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
-  const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
+  const atlasPath='logs/30/'+stamp+'-'+id+'-map-areas.png';
   const jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-gamepad-input1',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-gamepad-input1',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and 30 independent map-grid snapshots, including bot-free sessions, for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},mapAreaAtlas:{kind:'30-grid-based-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 grid over actual map/collision bounds; does not require bots or bot movement',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
   if(capture.base64){await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);}
-  await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');
-  await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 bot-area snapshots '+id,token);
+  await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 независимых зон карты…');
+  await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 independent map-area snapshots '+id,token);
   await paintMapOverviewStatus(btn,'ОТПРАВКА 3/3…','Загружаю JSON-аудит материалов, геометрии и координат…');
-  const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add full map and bot-area visual audit '+id,token);
-  if(gameLogRecording)gameLogEvent('map-overview-report',{id,jsonPath,overviewPath,atlasPath,botAreaSnapshots:contactSheet.tiles.length,meshCount:visualAudit.scene.meshCount,materialCount:visualAudit.scene.materialCount});
+  const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add full map and independent map-area visual audit '+id,token);
+  if(gameLogRecording)gameLogEvent('map-overview-report',{id,jsonPath,overviewPath,atlasPath,mapAreaSnapshots:contactSheet.tiles.length,meshCount:visualAudit.scene.meshCount,materialCount:visualAudit.scene.materialCount});
   const commit=jsonResult.commit?.sha||'ok';
-  btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='Общий вид, 30 локальных снимков и JSON-аудит отправлены в GitHub';
+  btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='Общий вид, 30 независимых снимков карты и JSON-аудит отправлены в GitHub';
   setMapOverviewStatus((capture.base64?'Готово: 3 файла загружены. ':'Готово: 2 файла загружены; общий снимок пропущен. ')+'Commit '+commit.slice(0,10)+'.','success');
   alert('Визуальный отчёт отправлен в GitHub.\n'+jsonPath+'\n'+atlasPath+'\n'+(capture.base64?overviewPath:'Общий снимок пропущен: '+capture.error)+'\nCommit: '+commit);await restoreFullscreenLandscapeAfterReport();
  }catch(error){
