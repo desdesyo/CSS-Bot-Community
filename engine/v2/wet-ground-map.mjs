@@ -1362,7 +1362,27 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   const makeSpawnCar=(name,x,z,paint)=>{
     const root=new B.TransformNode(name,scene);root.position.set(x,0,z);
     const part=(n,px,py,pz,w,h,d,m)=>{const q=B.MeshBuilder.CreateBox(n,{width:w,height:h,depth:d},scene);q.parent=root;q.position.set(px,py,pz);q.material=m;q.isPickable=false;return q;};
-    const body=mat(name+' aged automotive paint',paint,.32,.48);
+    const body=mat(name+' layered automotive clearcoat paint',paint,.26,.62);
+    // Dedicated micro-flake paint texture: metallic grain, rain spotting and fine
+    // panel wear are visible on the car instead of a single flat colour swatch.
+    const paintTex=new B.DynamicTexture(name+' metallic automotive paint microtexture',{width:512,height:512},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
+    const paintCtx=paintTex.getContext();paintCtx.fillStyle=paint;paintCtx.fillRect(0,0,512,512);
+    let paintSeed=paint.charCodeAt(1)*193+paint.charCodeAt(3)*71;
+    const paintRand=()=>((paintSeed=(paintSeed*1664525+1013904223)>>>0)/4294967296);
+    for(let i=0;i<12500;i++){
+      const x=paintRand()*512,y=paintRand()*512,r=.35+paintRand()*1.25;
+      paintCtx.fillStyle=paintRand()>.48?'rgba(225,235,239,.16)':'rgba(4,10,15,.18)';
+      paintCtx.fillRect(x,y,r,r);
+    }
+    for(let i=0;i<38;i++){
+      const x=paintRand()*512,y=paintRand()*512;
+      paintCtx.strokeStyle='rgba(190,210,218,.10)';paintCtx.lineWidth=.5+paintRand();
+      paintCtx.beginPath();paintCtx.moveTo(x,y);paintCtx.lineTo(x+2+paintRand()*18,y+1+paintRand()*3);paintCtx.stroke();
+    }
+    paintTex.update(false);paintTex.wrapU=paintTex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    paintTex.uScale=paintTex.vScale=1.6;paintTex.anisotropicFilteringLevel=mobile?4:8;
+    body.albedoTexture=paintTex;
+    if(body.clearCoat){body.clearCoat.isEnabled=true;body.clearCoat.intensity=.72;body.clearCoat.roughness=.18;}
     const rubber=mat(name+' tire rubber','#0b1116',.94);
     const chrome=mat(name+' dull chrome','#78858a',.28,.76);
     // Sculpted body silhouette: hood, boot, raised shoulder line and distinct cabin.
