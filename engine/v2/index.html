@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#101820"><meta name="application-name" content="SOLO:WG"><meta name="apple-mobile-web-app-title" content="SOLO:WG"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="./icons/solo-wg.svg?v=20261128-cover1"><link rel="apple-touch-icon" href="./icons/solo-wg.svg?v=20261128-cover1"><title>SOLO:WG</title>
+<style>
+
+:root{color-scheme:dark}#minimap{position:fixed;left:12px;top:54px;width:144px;height:144px;border:1px solid #83918b;border-radius:7px;background:#101a20d9;z-index:2;pointer-events:none;box-shadow:0 3px 14px #0008}@media(pointer:coarse){#minimap{width:112px;height:112px;top:52px;left:8px}}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111820;color:#e8edf2;font:14px system-ui,sans-serif}#renderCanvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:0}#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 5px #000}#top{position:absolute;top:env(safe-area-inset-top,10px);left:12px;right:12px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-weight:800}#brand,#round,#stats span{background:#101a20d9;border:1px solid #64736d;border-radius:7px;padding:7px 10px}#brand{color:#e6bf7b;letter-spacing:2px}#stats{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;font-size:11px}#stats span{white-space:nowrap}#safeStatus{color:#b8e6c4;border-color:#5f9a70!important}#cross{position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-50%)}#cross:before,#cross:after{content:"";position:absolute;background:#f3f6e9;box-shadow:0 0 4px #000}#cross:before{width:2px;height:16px;left:7px}#cross:after{height:2px;width:16px;top:7px}#bottom{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#081116bb;padding:7px 12px;border-radius:6px;color:#c6d0d3;font-size:11px;white-space:nowrap}#overlay{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;align-items:center;justify-content:center;overflow-y:auto;overscroll-behavior:contain;background:#081116e8;z-index:20}#card{width:min(440px,calc(100vw - 24px));max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding:20px;border:1px solid #8c754f;background:linear-gradient(145deg,#202c2b,#111a1a);text-align:center;box-shadow:0 22px 80px #000b}#card p{margin:9px 0;line-height:1.35}#card h1{font-size:clamp(20px,5vw,28px)}@media(pointer:coarse){#card{padding:14px 16px}#card p:first-of-type{font-size:12px;line-height:1.28;margin:7px 0}#card #teamSelect{margin:9px 0!important}#card button{padding:11px 14px}#card>p:last-of-type{font-size:11px;margin:7px 0}}h1{color:#e4c28a;letter-spacing:4px;margin:0 0 10px}p{color:#c4cfd0;line-height:1.5}button{border:1px solid #b18e59;border-radius:5px;background:linear-gradient(#80633d,#58442c);color:#fff2d9;padding:12px 20px;font-weight:800;letter-spacing:1px}button.selected{outline:2px solid #e6c68f;background:linear-gradient(#a17a46,#705332)}#teamSelect button{min-width:90px}#actions{position:fixed;right:12px;top:58px;display:flex;gap:7px;z-index:12;pointer-events:auto}#actions button{padding:8px 10px;font-size:10px;background:#101a20d9;border-color:#64736d;pointer-events:auto;touch-action:manipulation}#logsQuick{border-color:#c69a5c!important;color:#f2d39d!important}#logsQuick:disabled,#issueQuick:disabled{opacity:.55}#issueQuick{border-color:#d17b69!important;color:#ffd0c5!important}#mapOverviewQuick{position:fixed;left:12px;top:172px;z-index:14;padding:10px 12px;background:#101a20ed;border:1px solid #79a99a;color:#c8f0df;pointer-events:auto;touch-action:manipulation;font-size:11px;box-shadow:0 3px 12px #0008}#mapOverviewQuick:disabled{opacity:.65}#mapOverviewStatus{position:fixed;left:12px;top:214px;z-index:14;max-width:min(82vw,390px);padding:7px 10px;border:1px solid #64736d;border-radius:6px;background:#101a20ed;color:#d7e6df;font:10px/1.35 ui-monospace,monospace;box-shadow:0 3px 12px #0008;overflow-wrap:anywhere;pointer-events:none}#mapOverviewStatus[data-state=working]{border-color:#79a99a;color:#c8f0df}#mapOverviewStatus[data-state=success]{border-color:#6fba88;color:#b8edc8}#mapOverviewStatus[data-state=warning]{border-color:#b18e59;color:#f2d39d}#mapOverviewStatus[data-state=error]{border-color:#d17b69;color:#ffd0c5}@media(min-width:700px){#mapOverviewQuick{top:auto;bottom:62px;left:14px}#mapOverviewStatus{top:auto;bottom:18px;left:14px}}#reload{position:fixed;right:22px;bottom:max(116px,calc(env(safe-area-inset-bottom) + 106px));z-index:12;pointer-events:auto;padding:12px 14px;background:#4b5960;border-color:#a8c0c5}#touch{display:none;z-index:5;position:fixed;inset:0;pointer-events:none}#stick{position:absolute;left:22px;bottom:max(22px,env(safe-area-inset-bottom));width:118px;height:118px;border:2px solid #dce9e877;border-radius:50%;background:#10202b66;pointer-events:auto;touch-action:none}#nub{position:absolute;left:34px;top:34px;width:46px;height:46px;border-radius:50%;background:#b6d7d0bb}#look{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none}#fire{position:absolute;right:18px;bottom:max(24px,env(safe-area-inset-bottom));width:94px;height:94px;border-radius:50%;background:#87372f;border:2px solid #e5a69f;pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;font-size:12px;box-shadow:0 3px 14px #0008;user-select:none}#fireNub{position:absolute;width:38px;height:38px;border-radius:50%;background:#f2b5a9a8;border:1px solid #ffe0d7aa;left:27px;top:27px;pointer-events:none}#fire.active{background:#b84a3d;border-color:#ffd0c5}#fireLabel{position:absolute;bottom:12px;pointer-events:none}#weaponBar{z-index:13;position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:6px;z-index:13;pointer-events:auto;background:#101a20d9;border:1px solid #64736d;border-radius:8px;padding:5px}#weaponBar button{padding:8px 11px;font-size:10px;min-width:58px;background:#202a2d;border-color:#65716d;pointer-events:auto;touch-action:manipulation}#weaponBar button.selected{background:#8b693d;border-color:#f0cc91;outline:1px solid #f0cc91}#weaponName{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);background:#101a20c9;border:1px solid #64736d;border-radius:5px;padding:5px 9px;font:800 10px system-ui;letter-spacing:1px;white-space:nowrap;z-index:2;pointer-events:none}#reload{touch-action:manipulation;pointer-events:auto}#reload:disabled{opacity:.45}#quality{position:absolute;left:12px;bottom:12px;color:#d7e2df;background:#101820aa;padding:4px 7px;border-radius:5px;font:10px ui-monospace,monospace}@media(pointer:coarse){#touch{display:block}#bottom{display:none}#stats{font-size:9px}#brand{font-size:10px}} 
+
+#card{width:min(620px,calc(100vw - 24px));border-radius:12px;text-align:left}
+#card h1{text-align:left;letter-spacing:3px}
+#menuLead{max-width:56ch;font-size:13px}
+#menuNav{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+#menuNav button{flex:1;min-width:100px;padding:10px 8px;background:#172326;border-color:#53615e;font-size:11px}
+#menuNav button.active{background:linear-gradient(#a17a46,#705332);border-color:#e6c68f}
+.menuPane{display:none;border:1px solid #53615e;border-radius:9px;padding:14px;background:#0d1718a8}
+.menuPane.active{display:block}
+.menuRow{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 0;color:#dce5df}
+.menuRow input[type=range]{width:min(220px,48%);accent-color:#d3ad70}
+.menuRow input[type=checkbox]{width:20px;height:20px;accent-color:#cba36b}
+.menuHint{font-size:11px;color:#9daead;margin:7px 0}
+#menuButtons{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+#menuButtons button{flex:1;min-width:125px}
+#logsStatus{padding:10px;border-radius:7px;background:#101d20;color:#c8d8d1;font:11px ui-monospace,monospace;overflow-wrap:anywhere}
+#logActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#logActions button{flex:1;min-width:125px}
+#loadState{font-size:12px;margin:8px 0}
+@media(pointer:coarse){#card{padding:14px}#menuNav button{min-width:80px;padding:9px 5px;font-size:10px}.menuPane{padding:10px}.menuRow{font-size:12px}}
+/* SOLO cinematic menu + matching loading screen */
+#overlay{isolation:isolate;align-items:flex-end;justify-content:flex-start;padding:calc(env(safe-area-inset-top,0px) + 24px) clamp(16px,5vw,72px) calc(env(safe-area-inset-bottom,0px) + 28px);background:#071016}
+#overlay::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(90deg,rgba(4,9,12,.82) 0%,rgba(4,9,12,.48) 42%,rgba(4,9,12,.12) 76%),linear-gradient(0deg,rgba(3,7,10,.72) 0%,transparent 62%),url("./assets/solo-menu-cover.jpeg");background-size:cover;background-position:center 44%;background-repeat:no-repeat;transform:scale(1.005)}
+#card{position:relative;z-index:1;width:min(560px,calc(100vw - 32px));max-height:100%;margin:0;border:1px solid rgba(207,181,137,.55);border-radius:12px;background:linear-gradient(145deg,rgba(15,24,27,.91),rgba(7,13,17,.88));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 24px 90px rgba(0,0,0,.58);text-align:left}
+#card h1{font-size:clamp(24px,4vw,38px);letter-spacing:3px;text-shadow:0 3px 20px #000}
+#menuLead{max-width:48ch;color:#d8e0df;text-shadow:0 2px 8px #000}
+#menuNav button{background:rgba(19,31,35,.88)}
+.menuPane{background:rgba(6,14,17,.68);border-color:rgba(177,195,187,.3)}
+#loadState{display:flex;align-items:center;gap:12px;min-height:36px;color:#e7d0a6}
+#overlay.is-loading{align-items:center;justify-content:flex-start}
+#overlay.is-loading #card{width:min(480px,calc(100vw - 32px));padding:28px;background:rgba(7,14,18,.82)}
+#overlay.is-loading #menuLead,#overlay.is-loading #menuNav,#overlay.is-loading #pane-settings,#overlay.is-loading #pane-logs,#overlay.is-loading #teamSelect,#overlay.is-loading .menuHint,#overlay.is-loading #menuButtons{display:none!important}
+#overlay.is-loading #pane-play{display:block;border:0;padding:0;background:transparent}
+#overlay.is-loading #loadState::before{content:"";width:18px;height:18px;flex:0 0 18px;border:2px solid rgba(221,197,154,.28);border-top-color:#e5c58d;border-radius:50%;animation:soloSpin .8s linear infinite}
+#overlay.is-loading #loadState::after{content:"";height:2px;position:absolute;left:28px;right:28px;bottom:18px;background:linear-gradient(90deg,transparent,#d9b77d,transparent);background-size:35% 100%;background-repeat:no-repeat;animation:soloLoad 1.6s ease-in-out infinite}
+#overlay.is-error #loadState::before{display:none}
+@keyframes soloSpin{to{transform:rotate(360deg)}}@keyframes soloLoad{from{background-position:-35% 0}to{background-position:135% 0}}
+@media(pointer:coarse){#overlay{align-items:flex-end;justify-content:center;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px)}#overlay::before{background-image:linear-gradient(0deg,rgba(3,7,10,.96) 0%,rgba(3,7,10,.74) 38%,rgba(3,7,10,.06) 82%),url("./assets/solo-menu-cover.jpeg");background-position:center 32%}#card{width:100%;max-height:min(66dvh,620px);padding:14px 16px}#overlay.is-loading{align-items:flex-end}#overlay.is-loading #card{width:100%;padding:20px 18px 28px}#overlay.is-loading #loadState::after{left:18px;right:18px;bottom:12px}}
+
+
+/* Explicit engine state wins over a stale loading class (mobile WebView recovery). */
+#overlay[data-engine-state="ready"] #loadState::before,#overlay[data-engine-state="ready"] #loadState::after,#overlay[data-engine-state="error"] #loadState::before,#overlay[data-engine-state="error"] #loadState::after{display:none!important}
+#overlay[data-engine-state="ready"] #menuLead,#overlay[data-engine-state="error"] #menuLead{display:block!important}
+#overlay[data-engine-state="ready"] #menuNav,#overlay[data-engine-state="error"] #menuNav,#overlay[data-engine-state="ready"] #teamSelect,#overlay[data-engine-state="error"] #teamSelect,#overlay[data-engine-state="ready"] #menuButtons,#overlay[data-engine-state="error"] #menuButtons{display:flex!important}
+#spectatorHud{position:fixed;left:50%;top:50px;transform:translateX(-50%);z-index:16;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #82949a;border-radius:8px;background:#0a141bdc;color:#e7eceb;font:800 11px system-ui;letter-spacing:.8px;pointer-events:auto;box-shadow:0 4px 20px #0008}
+#spectatorHud[hidden],#roundEnd[hidden]{display:none!important}
+#spectatorHud button{padding:7px 11px;background:#26363d;border-color:#83949a;font-size:12px}
+#spectatorLabel{white-space:nowrap}
+#roundEnd{position:fixed;inset:0;z-index:19;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(90deg,rgba(3,8,12,.88),rgba(4,10,15,.58),rgba(3,8,12,.88));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:none}
+#roundEndCard{width:min(560px,calc(100vw - 32px));padding:28px 32px;border-top:2px solid #caa36b;border-bottom:1px solid #65757a;background:linear-gradient(145deg,rgba(12,21,26,.94),rgba(5,11,15,.88));text-align:center;box-shadow:0 18px 70px #000a;animation:roundReveal .55s ease-out both}
+#roundWinner{margin:0 0 12px;color:#e8d1a6;font-size:clamp(24px,5vw,42px);letter-spacing:2.5px}
+#roundWinner[data-winner="T"]{color:#e0a08b}
+#roundReason{margin:0;color:#c4d0d0;font-size:13px;letter-spacing:1px}
+#roundCountdown{margin-top:25px;color:#d2b47e;font:800 12px ui-monospace,monospace;letter-spacing:2px}
+@keyframes roundReveal{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(pointer:coarse){#spectatorHud{top:48px;gap:5px;padding:6px 7px;font-size:9px}#spectatorHud button{padding:6px 9px}#roundEndCard{padding:24px 18px}}
+
+/* Modern cool-toned controls: keep the warm gold typography, remove brown button fills. */
+button{border:1px solid rgba(139,184,190,.62);border-radius:10px;background:linear-gradient(180deg,rgba(34,58,65,.96),rgba(19,35,41,.98));color:#e8f4f4;padding:12px 20px;font-weight:750;letter-spacing:.8px;box-shadow:0 3px 12px rgba(0,0,0,.24);transition:background .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}
+button:hover{border-color:#8dd4d7;background:linear-gradient(180deg,#315c63,#1c3c44);box-shadow:0 5px 18px rgba(22,151,160,.18)}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:2px solid #8de1e2;outline-offset:2px}
+button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78,#174b56);border-color:#83d7d9;outline:1px solid rgba(131,215,217,.5);color:#f2ffff}
+#start{background:linear-gradient(180deg,#278b91,#17616d);border-color:#8de1e2;color:#f5ffff;box-shadow:0 5px 18px rgba(25,148,158,.24)}
+#start:hover{background:linear-gradient(180deg,#35a0a5,#1d7480)}
+#startFullscreen{background:linear-gradient(180deg,#263b43,#172a31);border-color:#698d95;color:#dcebed}
+#menuNav button{background:rgba(20,39,45,.94);border-color:rgba(139,184,190,.42)}
+#menuNav button.active{background:linear-gradient(180deg,#286e78,#174b56);border-color:#83d7d9}
+#teamSelect button.selected{background:linear-gradient(180deg,#286e78,#174b56);border-color:#83d7d9;outline:1px solid rgba(131,215,217,.5)}
+@media(pointer:coarse){
+ #overlay{align-items:center!important;justify-content:center!important;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px)!important}
+ #card{max-height:min(82dvh,760px)!important;overflow-y:auto;overscroll-behavior:contain}
+ #overlay.is-loading{align-items:center!important}
+}
+
+</style>
+<style id="mobile-controls-touchfix2-reportfix2">@media (pointer:coarse){#stick{left:clamp(30px,4vw,44px)}#fire{right:clamp(76px,11vw,112px)}}</style>
+
+<style id="mobile-landscape-hud-fix">
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px){
+ #actions{top:38px;right:8px;left:auto;gap:4px;flex-wrap:nowrap;z-index:18}
+ #actions button{min-width:0;padding:4px 6px;font-size:8px;line-height:1;letter-spacing:0;border-radius:4px;white-space:nowrap;min-height:23px}
+ #minimap{top:48px;left:8px;width:92px;height:92px}
+ #mapOverviewQuick{top:146px;left:8px;bottom:auto;padding:6px 8px;font-size:9px;line-height:1.1}
+ #mapOverviewStatus{top:181px;left:8px;bottom:auto;max-width:132px;padding:4px 6px;font-size:8px;line-height:1.2}
+ #weaponBar{bottom:max(5px,env(safe-area-inset-bottom));gap:3px;padding:3px}
+ #weaponBar button{min-width:48px;padding:5px 7px;font-size:8px}
+ #weaponName{bottom:45px;font-size:8px;padding:3px 6px}
+}
+</style>
+
+<style id="mobile-report-controls-safezone-v2">
+@media (pointer:coarse) and (orientation:landscape) and (max-height:560px){
+ /* The overview controls used to sit directly over the left movement stick. */
+ #mapOverviewQuick{top:72px!important;right:8px!important;left:auto!important;bottom:auto!important;padding:5px 7px!important;font-size:8px!important;line-height:1!important;z-index:19!important}
+ #mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important;width:min(210px,42vw)!important;max-width:min(210px,42vw)!important;padding:4px 6px!important;font-size:7px!important;line-height:1.2!important;text-align:right!important;z-index:19!important}
+ #stick{left:clamp(24px,4vw,40px)!important;bottom:max(18px,env(safe-area-inset-bottom))!important}
+ #actions{top:38px!important;right:8px!important;left:auto!important;gap:3px!important}
+ #actions button{padding:3px 5px!important;font-size:7px!important;min-height:21px!important;line-height:1!important}
+}
+</style>
+</head>
+<body>
+<canvas id="renderCanvas" touch-action="none"></canvas>
+<div id="hud"><div id="top"><div id="brand">SOLO: WET GROUND</div><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
+<button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 снимков зон ботов</div><div id="actions"><button id="logsQuick" type="button" aria-label="Отправить игровой лог">● ЛОГ</button><button id="issueQuick" type="button" aria-label="Отметить баг">⚑ БАГ</button><button id="fullScreen" type="button" aria-label="Полноэкранный режим">⛶</button><button id="pause" type="button" aria-label="Пауза">Ⅱ</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
+<div id="spectatorHud" hidden><button id="spectatorPrev" type="button" aria-label="Предыдущий живой бот">◀</button><span id="spectatorLabel">НАБЛЮДЕНИЕ</span><span>Q / E</span><button id="spectatorNext" type="button" aria-label="Следующий живой бот">▶</button></div>
+<div id="roundEnd" hidden><div id="roundEndCard"><p style="margin:0 0 10px;color:#aab8b8;font:700 10px ui-monospace,monospace;letter-spacing:3px">SOLO · WET GROUND</p><h2 id="roundWinner">COUNTER-TERRORISTS WIN</h2><p id="roundReason">ROUND COMPLETE</p><div id="roundCountdown">СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5</div></div></div>
+<div id="overlay" class="is-loading"><div id="card">
+<h1>SOLO: WET GROUND</h1>
+<p id="menuLead">Ночной квартал после дождя. Подпольная биолаборатория и серверная — объект операции. CT удерживают комплекс, T пытаются уничтожить серверную.</p>
+<div id="menuNav"><button type="button" class="active" data-menu-tab="play">ИГРАТЬ</button><button type="button" data-menu-tab="settings">НАСТРОЙКИ</button><button type="button" data-menu-tab="logs">ДИАГНОСТИКА</button></div>
+<section id="pane-play" class="menuPane active">
+<p id="loadState">Загрузка графического ядра…</p>
+<div id="teamSelect" style="display:flex;gap:10px;justify-content:flex-start;margin:12px 0"><button id="selectCT" class="selected" type="button">CT</button><button id="selectT" type="button">T</button></div>
+<p class="menuHint">6 × 6 · 1 игрок + 5 союзников против 6 бойцов</p>
+<div id="menuButtons"><button id="startFullscreen" type="button">ПОЛНЫЙ ЭКРАН</button><button id="start" disabled>ЗАПУСК</button></div>
+</section>
+<section id="pane-settings" class="menuPane">
+<div class="menuRow"><label for="lookSensitivity">Чувствительность обзора</label><input id="lookSensitivity" type="range" min="0.5" max="2.5" step="0.05" value="1"><output id="lookSensitivityValue">1.00×</output></div>
+<div class="menuRow"><label for="fieldOfView">Поле зрения</label><input id="fieldOfView" type="range" min="65" max="100" step="1" value="80"><output id="fieldOfViewValue">80°</output></div>
+<div class="menuRow"><label for="showMinimap">Показывать мини-карту</label><input id="showMinimap" type="checkbox" checked></div>
+<p class="menuHint">Настройки сохраняются в этом браузере. Качество PBR-материалов и текстур не понижается.</p>
+</section>
+<section id="pane-logs" class="menuPane">
+<div id="logsStatus">Сборщик готов. Запись ещё не начата.</div>
+<p class="menuHint">Собираются FPS и frame time, лаги, положение игрока и ботов, стрельба, переключение оружия, сенсорный ввод, ошибки JS/WebGL и контекст сцены.</p>
+<div id="logActions"><button id="logsStart" type="button">НАЧАТЬ ЗАПИСЬ</button><button id="logsDownload" type="button">СКАЧАТЬ JSON</button><button id="logsUpload" type="button">ОТПРАВИТЬ В GITHUB</button></div>
+<p class="menuHint">Экспорт JSON работает без GitHub-токена. Для прямой отправки в репозиторий потребуется сохранённый Fine-grained token с Contents: Read and write.</p>
+</section>
+</div></div>
+<script type="module">
+const status=document.getElementById('loadState');
+const quality=document.getElementById('quality');
+const show=(message,detail='')=>{status.textContent=message;if(detail)quality.textContent=detail;};
+const loadScript=(src,timeout=14000)=>new Promise((resolve,reject)=>{
+ const script=document.createElement('script');let settled=false;
+ const timer=setTimeout(()=>finish(new Error('Тайм-аут загрузки '+src)),timeout);
+ const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);script.onload=script.onerror=null;if(error){script.remove();reject(error)}else resolve();};
+ script.src=src;script.onload=()=>finish();script.onerror=()=>finish(new Error('Не удалось загрузить '+src));
+ document.head.appendChild(script);
+});
+async function loadFirst(candidates,label){
+ let lastError;
+ for(const url of candidates){try{await loadScript(url);return url}catch(error){lastError=error;console.warn(label,error)}}
+ throw lastError||new Error(label+' недоступен');
+}
+try{
+ show('Загрузка графического ядра Babylon.js…','LOADING BABYLON RENDERER');
+ await loadFirst([
+  'https://cdn.babylonjs.com/babylon.js',
+  'https://cdn.jsdelivr.net/npm/babylonjs@7.54.3/babylon.js'
+ ],'Babylon.js');
+ show('Загрузка обязательного glTF-загрузчика для настоящих 3D-бойцов…','LOADING REQUIRED GLTF SUPPORT');
+ await loadFirst([
+  'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
+  'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
+ ],'Обязательный Babylon glTF loader');
+ show('Подготовка отражений и ночного освещения…','WAITING FOR VERIFIED TEXTURES AND NIGHT LIGHTING');
+ await import('./engine.js?v=20261128-roundfix1');
+}catch(error){
+ console.error('SOLO Engine bootstrap failed',error);
+ const failedOverlay=document.getElementById('overlay');
+ if(failedOverlay){failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');}
+ show('Не удалось загрузить графическое ядро: '+(error?.message||error),'BOOT ERROR · проверь интернет/CDN');
+}
+</script>
+</body></html>

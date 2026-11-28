@@ -1,0 +1,41 @@
+name: SOLO Engine V2 source checks
+
+on:
+  push:
+    branches:
+      - feature/solo-engine-v2
+    paths:
+      - "engine/v2/**"
+      - ".github/workflows/solo-engine-v2-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Verify engine entry points
+        run: |
+          test -s engine/v2/index.html
+          test -s engine/v2/engine.js
+          test -s engine/v2/engine-core.mjs
+          test -s engine/v2/human-bots.mjs
+          test -s engine/v2/weapon-viewmodel.mjs
+          node --check engine/v2/engine.js
+          node --check engine/v2/human-bots.mjs
+          node --check engine/v2/weapon-viewmodel.mjs
+
+      - name: Run engine unit tests
+        run: node --test engine/v2/engine.test.mjs
+
+# The main-branch publisher deploys only after these checks pass.

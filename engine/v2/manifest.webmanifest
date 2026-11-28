@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "SOLO:WG",
+  "short_name": "SOLO:WG",
+  "description": "SOLO: Wet Ground — tactical FPS",
+  "lang": "ru",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "icons": [
+    {
+      "src": "./icons/solo-wg.svg?v=20261128-cover1",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
