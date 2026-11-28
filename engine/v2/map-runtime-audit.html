@@ -14,7 +14,7 @@ camera.attachControl(canvas,true);camera.lowerRadiusLimit=12;camera.upperRadiusL
 const hemi=new B.HemisphericLight('audit-ambient',new B.Vector3(0,1,0),scene);hemi.intensity=.8;
 const key=new B.DirectionalLight('audit-key',new B.Vector3(-.45,-1,.35),scene);key.position=new B.Vector3(35,65,-35);key.intensity=.9;
 const shadows=new B.ShadowGenerator(mobile?512:1024,key);shadows.useBlurExponentialShadowMap=true;shadows.blurKernel=mobile?8:16;
-const result=await buildWetGroundMap(B,scene,mobile,shadows);
+let result;try{result=await buildWetGroundMap(B,scene,mobile,shadows);}catch(error){window.__SOLO_MAP_AUDIT_ERROR__=String(error?.stack||error);throw error;}
 engine.runRenderLoop(()=>scene.render());window.addEventListener('resize',()=>engine.resize());
 window.__SOLO_MAP_AUDIT__={engine,scene,result,mobile,metrics(){
  const active=scene.getActiveMeshes();
