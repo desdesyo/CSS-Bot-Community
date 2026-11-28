@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
-import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-assetsfix2';
+import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix1';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf1';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
@@ -152,7 +152,7 @@ function buildMap() {
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
   const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
-  root.position.set(x,0,z);
+  root.position.set(x,human.floorOffset,z);
   const weapons=createBotWeapon(root,id,team);
   state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,baseWaypoints:waypoints.map(p=>p.slice()),index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1,routeCompleted:false,stuckSince:0,lastProgressX:x,lastProgressZ:z,lastProgressAt:performance.now(),pathFailures:0});
   return root;
@@ -642,7 +642,7 @@ function initInput() {
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
     e.preventDefault();fireId=e.pointerId;fireButton.setPointerCapture(e.pointerId);
-    const r=fireButton.getBoundingClientRect();fireLast={x:r.left+r.width/2,y:r.top+r.height/2};
+    const r=fireButton.getBoundingClientRect();fireLast={x:e.clientX,y:e.clientY};
     state.fireInputSource='touch-fire-pointerdown';gameLogEvent('fire-control-down',{pointerType:e.pointerType,pointerId:e.pointerId,x:e.clientX,y:e.clientY});state.firing=true;fireButton.classList.add('active');fire();
   });
   fireButton.addEventListener('pointermove',e=>{
@@ -652,7 +652,7 @@ function initInput() {
     const len=Math.hypot(ox,oy),k=Math.min(1,38/Math.max(1,len));
     state.fireStick.x=ox/38*k;state.fireStick.y=oy/38*k;
     fireNub.style.transform='translate('+state.fireStick.x*30+'px,'+state.fireStick.y*30+'px)';
-    if(!state.playerDead){camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));}
+    if(!state.playerDead&&(Math.abs(dx)>1.5||Math.abs(dy)>1.5)){camera.rotation.y+=dx*.0042*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.0042*state.lookSensitivity));}
   });
   const stopFire=e=>{
     if(e&&fireId!==null&&e.pointerId!==fireId)return;

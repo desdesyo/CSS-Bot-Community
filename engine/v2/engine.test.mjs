@@ -592,7 +592,7 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
+  assert.ok(html.includes('./engine.js?v=20261128-touchfix1'));
   assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf1'));
 });
 
@@ -608,13 +608,13 @@ test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two
 
 test('engine cache-busts the corrected soldier asset loader module', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix2'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix1'));
 });
 
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
+  assert.ok(html.includes('./engine.js?v=20261128-touchfix1'));
 });
 
 
@@ -637,6 +637,33 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
-  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix2'));
+  assert.ok(html.includes('./engine.js?v=20261128-touchfix1'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix1'));
+});
+
+
+test('soldier GLB roots are grounded from measured mesh bounds', async () => {
+  const { computeGroundingOffset } = await import('./human-bots.mjs');
+  assert.ok(Math.abs(computeGroundingOffset(-0.72) - 0.755) < 1e-9);
+  assert.ok(Math.abs(computeGroundingOffset(0) - 0.035) < 1e-9);
+  assert.ok(Math.abs(computeGroundingOffset(Number.NaN) - 0.035) < 1e-9);
+  const bots = await readFile(new URL('./human-bots.mjs', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(bots, /mesh\.isDescendantOf\(root\)/);
+  assert.match(bots, /const floorOffset = computeGroundingOffset\(modelMinY\)/);
+  assert.match(engine, /root\.position\.set\(x,human\.floorOffset,z\)/);
+});
+
+test('FIRE touch pointer starts camera tracking at the finger, not button center', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /fireLast=\{x:e\.clientX,y:e\.clientY\}/);
+  assert.doesNotMatch(engine, /fireLast=\{x:r\.left\+r\.width\/2,y:r\.top\+r\.height\/2\}/);
+  assert.match(engine, /Math\.abs\(dx\)>1\.5\|\|Math\.abs\(dy\)>1\.5/);
+});
+
+test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
+  assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
+  assert.match(html, /engine\.js\?v=20261128-touchfix1/);
 });

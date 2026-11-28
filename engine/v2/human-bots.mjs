@@ -93,6 +93,8 @@ export async function loadHumanBotAssets(B, scene) {
   return { models, animations };
 }
 
+export function computeGroundingOffset(modelMinY, groundY = 0.035) { return Number.isFinite(modelMinY) ? groundY - modelMinY : groundY; }
+
 export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMobile = false) {
   const source = assets.models?.length ? assets.models[(id - 1) % assets.models.length] : null;
   if (!source) {
@@ -103,6 +105,17 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
     true
   );
   for (const node of instance.rootNodes) node.parent = root;
+  // Align each imported GLB by its actual lowest mesh bound; model exports may
+  // use different origins and otherwise place feet below the textured ground.
+  let modelMinY = Infinity;
+  for (const mesh of scene.meshes) {
+    if (!mesh || !mesh.isDescendantOf || !mesh.isDescendantOf(root) || !(mesh.getTotalVertices() > 0)) continue;
+    mesh.computeWorldMatrix(true);
+    const bounds = mesh.getBoundingInfo()?.boundingBox;
+    if (Number.isFinite(bounds?.minimumWorld?.y)) modelMinY = Math.min(modelMinY, bounds.minimumWorld.y);
+  }
+  const floorOffset = computeGroundingOffset(modelMinY);
+  if (id === 1) console.info("[SOLO] Soldier ground alignment", { modelMinY, floorOffset });
 
   const nodeByName = new Map();
   for (const node of instance.rootNodes) {
@@ -192,7 +205,7 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
 
   const rig = { root, skeleton, animationGroups, current:"", rightHand, leftHand };
   setAnimation(rig,"idle");
-  return { body, head, rig };
+  return { body, head, rig, floorOffset };
 }
 
 function setAnimation(rig,name) {
