@@ -85,7 +85,7 @@ jobs:
                   chunk = data[offset:offset + size]
                   offset += size
                   if kind == b"JSON":
-                      return json.loads(chunk.decode("utf-8").rstrip("\\x00 "))
+                      return json.loads(chunk.decode("utf-8").rstrip("\x00 "))
               raise AssertionError(f"Missing JSON chunk: {path.name}")
           model_names = ["military-male-01", "military-male-02", "military-male-03", "military-male-04", "military-female-01", "military-female-02"]
           skeleton_names = None
