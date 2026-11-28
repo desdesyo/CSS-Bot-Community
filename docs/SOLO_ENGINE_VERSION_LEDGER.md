@@ -175,3 +175,10 @@
 - Добавлены тесты на блокировку старого сеанса после reload и на корректное вложение текущей записи с ограничением размера.
 - Обновлён cache key до `20261128-reportfix1`.
 - Commit цепочки: `6b15aef` (helper), `a8d596a` (engine), `0954554` (tests), `283a1a8` (cache bust). Статус до CI/deploy: **НЕ ПРОВЕРЕНА**.
+
+### CI для исправления старого игрового отрезка
+- Финальный кодовый commit: `97d11a9ea24aa804c7142a2f50978537222125b2`.
+- SOLO Engine V2 source checks [run 46115710338](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46115710338) — **success**.
+- SOLO Engine prototype checks [run 46115710359](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46115710359) — **success**.
+- Первые проверки cache-busting выявили только устаревшие ожидания тестов по версии `touchfix2`; исправлены тесты так, чтобы проверять новый HTML cache key и сохранять отдельный ключ модели бойца. Финальные проверки на SHA `97d11a9` прошли.
+- GitHub Pages deployment для feature-ветки не выполнялся и пока не подтверждён. Не просить игрока проверять исправление по старой опубликованной ссылке до фактической публикации.
