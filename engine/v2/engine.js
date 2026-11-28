@@ -180,11 +180,11 @@ function buildBots() {
   // CT allies deploy outside the biosecure south wall, then enter through
   // the aligned outer airlock and server-chamber portal.
   const ctRoutes=[
-    [[-8,38],[-6,36],[-4,34],[0,32],[0,27],[0,23]],
-    [[-4,38],[-3,36],[-2,34],[0,32],[0,27],[0,23]],
+    [[-8,38],[-5,36],[-2.8,34],[-1.2,32],[-1.2,27],[-1.2,23]],
+    [[-4,38],[-2.8,36],[-1.9,34],[-.6,32],[-.6,27],[-.6,23]],
     [[0,39],[0,36],[0,34],[0,32],[0,27],[0,23]],
-    [[4,38],[3,36],[2,34],[0,32],[0,27],[0,23]],
-    [[8,38],[6,36],[4,34],[0,32],[0,27],[0,23]],
+    [[4,38],[2.8,36],[1.9,34],[.6,32],[.6,27],[.6,23]],
+    [[8,38],[5,36],[2.8,34],[1.2,32],[1.2,27],[1.2,23]],
     [[0,38],[0,36],[0,34],[0,32],[0,27],[0,23]]
   ];
   const roster=createTeamRoster(state.playerTeam);
@@ -459,11 +459,20 @@ function updateBotMotion(dt) {
       }
       const avoidLength=Math.hypot(avoidX,avoidZ);
       const steer=avoidLength>.001?Math.min(2.2,avoidLength*2.1)*dt:0;
-      const moveX=next.x-bot.root.position.x+(avoidX/Math.max(.001,avoidLength))*steer;
-      const moveZ=next.z-bot.root.position.z+(avoidZ/Math.max(.001,avoidLength))*steer;
-      // Collision helper queries the same spatial hash per swept substep, avoiding
-      // repeated scans of even the bot's prefiltered collider list.
-      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:moveX,z:moveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+      const startX=bot.root.position.x,startZ=bot.root.position.z;
+      const baseMoveX=next.x-startX,baseMoveZ=next.z-startZ;
+      const moveX=baseMoveX+(avoidX/Math.max(.001,avoidLength))*steer;
+      const moveZ=baseMoveZ+(avoidZ/Math.max(.001,avoidLength))*steer;
+      // Try the separation steer first, then retry the clean route step if the
+      // avoidance vector would push a soldier into a wall or doorway frame.
+      let resolved=moveWithAabbCollisions({x:startX,y:1.72,z:startZ},{x:moveX,z:moveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+      if((resolved.blockedX||resolved.blockedZ)&&avoidLength>.001){
+        const direct=moveWithAabbCollisions({x:startX,y:1.72,z:startZ},{x:baseMoveX,z:baseMoveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+        const steeredDistance=Math.hypot(resolved.x-startX,resolved.z-startZ);
+        const directDistance=Math.hypot(direct.x-startX,direct.z-startZ);
+        if(directDistance>steeredDistance+1e-4)resolved=direct;
+      }
+      const actualMove=Math.hypot(resolved.x-startX,resolved.z-startZ);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
         if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
@@ -480,7 +489,7 @@ function updateBotMotion(dt) {
           else if(bot.combatState!=='patrol')bot.combatSide=-(bot.combatSide||1);
         }
       }
-      animateHumanBot(bot.rig,dist>.25,bot.speed>2.7);
+      animateHumanBot(bot.rig,actualMove>.02,bot.speed>2.7&&actualMove>.02);
     }else animateHumanBot(bot.rig,false,false);
     let lookAt=null;
     if(bot.target?.kind==='player')lookAt=bot.target.position;
