@@ -160,8 +160,8 @@ test('spawn compounds keep both factions separated by a long approach', () => {
 
 test('renderer explicitly binds the FPS camera and initializes the minimap before the match', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /scene\\.activeCamera=camera;scene\\.activeCameras=null;camera\\.layerMask=0x0FFFFFFF/);
-  assert.match(engine, /buildBots\\(\\);buildPlayerWeapon\\(\\);initInput\\(\\);drawMinimap\\(\\);/);
+  assert.ok(engine.includes('scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0x0FFFFFFF'));
+  assert.ok(engine.includes('buildBots();buildPlayerWeapon();initInput();drawMinimap();'));
 });
 
 test('mobile HUD controls stay above the look touch surface', async () => {
