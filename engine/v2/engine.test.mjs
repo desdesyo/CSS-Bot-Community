@@ -487,8 +487,8 @@ test('field atlas persistence is deferred while gameplay diagnostics are recordi
 test('Wet Ground bridge mouths are wide, visible, and have continuous road approaches', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /low pale stone bridge parapet/);
-  assert.match(map, /north bridge road approach/);
-  assert.match(map, /south bridge road approach/);
+  assert.match(map, /north bridge asphalt road approach/);
+  assert.match(map, /south bridge asphalt road approach/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
   assert.match(map, /barrier\.isVisible=true/);
   assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
@@ -516,8 +516,8 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /\[\[-20,'west'\],\[0,'main'\],\[20,'east'\]\]/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
-  assert.match(map, /label\+' north bridge road approach'/);
-  assert.match(map, /label\+' south bridge road approach'/);
+  assert.match(map, /label\+' north bridge asphalt road approach'/);
+  assert.match(map, /label\+' south bridge asphalt road approach'/);
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
 
@@ -812,7 +812,7 @@ test('reflection pass draws only merged static world batches, not animated actor
 
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:material===asphalt\?8:0/);
   assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
   assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
