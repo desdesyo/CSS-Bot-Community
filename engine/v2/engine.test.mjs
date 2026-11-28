@@ -995,7 +995,10 @@ test('engine boot is guarded so duplicate module imports cannot create a second 
 
 test('map-authoring mode suspends all live bots but preserves soldier assets and reversible AI code', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /const MAP_CAPTURE_MODE=new URLSearchParams\(location\.search\)\.get\('capture'\)==='1'/);\n  assert.match(engine, /const MAP_EDIT_MODE=!MAP_CAPTURE_MODE/);\n  assert.match(engine, /window\.__SOLO_CAPTURE_API__=/);\n  assert.match(engine, /setBotView:\(id\)=>/);
+  assert.match(engine, /const MAP_CAPTURE_MODE=new URLSearchParams\(location\.search\)\.get\('capture'\)==='1'/);
+  assert.match(engine, /const MAP_EDIT_MODE=!MAP_CAPTURE_MODE/);
+  assert.match(engine, /window\.__SOLO_CAPTURE_API__=/);
+  assert.match(engine, /setBotView:\(id\)=>/);
   assert.match(engine, /if\(MAP_EDIT_MODE\)\{state\.bots\.length=0/);
   assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?humanBotAssets=await loadHumanBotAssets\(B,scene\)/);
   assert.match(engine, /modelsRetained:true,assetsLoaded:false,aiDisabled:true/);
