@@ -998,7 +998,6 @@ async function renderWithoutSkyAtmosphere(render){
 }
 async function captureMapOverviewScreenshot(){
  let overviewCamera=null;
- const previousCamera=scene.activeCamera,previousCameras=scene.activeCameras;
  try{
   const width=1280,height=960,aspect=width/height,bounds=getMapOverviewBounds();
   const centerX=(bounds.minX+bounds.maxX)/2,centerZ=(bounds.minZ+bounds.maxZ)/2;
@@ -1010,15 +1009,16 @@ async function captureMapOverviewScreenshot(){
   overviewCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
   overviewCamera.orthoLeft=-viewWidth/2;overviewCamera.orthoRight=viewWidth/2;overviewCamera.orthoTop=viewHeight/2;overviewCamera.orthoBottom=-viewHeight/2;
   overviewCamera.minZ=.1;overviewCamera.maxZ=altitude+Math.max(100,bounds.maxY+100);overviewCamera.layerMask=0x0fffffff;overviewCamera.fovMode=camera.fovMode;
-  // Explicitly activate the capture camera; mobile render-target paths may otherwise use the FPS camera.
-  scene.activeCamera=overviewCamera;scene.activeCameras=null;overviewCamera.computeWorldMatrix(true);
+  // Render-target capture receives its camera explicitly. Never replace scene.activeCamera:
+  // the live render loop runs concurrently and would otherwise show top-down capture frames.
+  overviewCamera.computeWorldMatrix(true);
   const create=BABYLON.Tools?.CreateScreenshotUsingRenderTargetAsync;
   if(typeof create!=='function')throw new Error('Babylon render-target screenshot API unavailable');
   const url=await renderWithoutSkyAtmosphere(()=>create(engine,overviewCamera,{width,height},'image/png'));
   if(url&&url.startsWith('data:image/png;base64,')&&url.length>10000)return {base64:url.split(',')[1],bounds:{...bounds,centerX,centerZ,viewWidth,viewHeight,altitude}};
   throw new Error('Overview render returned an empty image');
  }catch(error){console.warn('Map overview screenshot failed',error);throw error}
- finally{scene.activeCamera=previousCamera;scene.activeCameras=previousCameras;try{overviewCamera?.dispose()}catch{}}
+ finally{try{overviewCamera?.dispose()}catch{}}
 }
 function collectMapVisualAudit(){
  const materials=new Map(),meshSamples=[],meshKinds={};
@@ -1093,7 +1093,6 @@ async function captureBotAreaContactSheet(points){
  const tiles=[];
  for(let i=0;i<points.length;i++){
   const point=points[i];let localCamera=null;
-  const previousCamera=scene.activeCamera,previousCameras=scene.activeCameras;
   try{
    const altitude=42,spanX=30,spanY=22.5;
    localCamera=new BABYLON.FreeCamera('bot-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
@@ -1103,7 +1102,8 @@ async function captureBotAreaContactSheet(points){
    localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
    localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
    localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
-   scene.activeCamera=localCamera;scene.activeCameras=null;localCamera.computeWorldMatrix(true);
+   // The render-target API uses localCamera directly; keep the gameplay camera active.
+   localCamera.computeWorldMatrix(true);
    const url=await renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
    const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать снимок зоны '+(i+1)));img.src=url;});
    const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
@@ -1112,7 +1112,6 @@ async function captureBotAreaContactSheet(points){
    ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
    tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:point.t?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
   }finally{
-   scene.activeCamera=previousCamera;scene.activeCameras=previousCameras;
    try{localCamera?.dispose()}catch{}
   }
  }
@@ -1137,7 +1136,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
   const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview6',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview7',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   btn.textContent='ОТПРАВЛЯЮ ОБЩИЙ ВИД…';
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   btn.textContent='ОТПРАВЛЯЮ 30 ЗОН…';
