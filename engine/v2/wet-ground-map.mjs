@@ -358,6 +358,42 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   cobbleRough.uScale=1;cobbleRough.vScale=1;
   cobbleRough.anisotropicFilteringLevel=mobile?8:16;cobble.roughnessTexture=cobbleRough;
   cobbleTex.uScale=1;cobbleTex.vScale=1;cobbleTex.anisotropicFilteringLevel=mobile?8:16;
+
+  // Natural rain-darkened asphalt: fine aggregate, worn repair patches, hairline
+  // cracks and subtle tyre-polished tracks. Baked once; no per-frame shader cost.
+  const asphalt=mat('rain-darkened natural road asphalt','#252d35',.9,.12);
+  const makeAsphaltTexture=()=>{
+    const size=mobile?512:1024,tex=new B.DynamicTexture('fine-grain patched road asphalt albedo',{width:size,height:size},scene,false);
+    const ctx=tex.getContext(),rand=(()=>{let seed=294817;return()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);})();
+    ctx.fillStyle='#303840';ctx.fillRect(0,0,size,size);
+    for(let i=0;i<(mobile?5200:15000);i++){
+      const v=Math.floor(24+rand()*45),a=.12+rand()*.28,r=.35+rand()*1.1;
+      ctx.fillStyle='rgba('+v+','+(v+3)+','+(v+6)+','+a+')';
+      ctx.fillRect(rand()*size,rand()*size,r,r);
+    }
+    for(let i=0;i<34;i++){
+      const x=rand()*size,y=rand()*size,w=size*(.035+rand()*.12),h=size*(.018+rand()*.07);
+      ctx.fillStyle='rgba(8,13,18,'+(.08+rand()*.12)+')';ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle='rgba(91,99,103,.12)';ctx.lineWidth=1+rand()*2;ctx.strokeRect(x+2,y+2,w-4,h-4);
+    }
+    for(let i=0;i<18;i++){
+      let x=rand()*size,y=rand()*size;ctx.beginPath();ctx.moveTo(x,y);
+      for(let n=0;n<4;n++){x+=(rand()-.5)*size*.035;y+=size*(.008+rand()*.018);ctx.lineTo(x,y);}
+      ctx.strokeStyle='rgba(8,12,16,'+(.22+rand()*.22)+')';ctx.lineWidth=.7+rand()*1.3;ctx.stroke();
+    }
+    // Slightly smoother wheel paths, not bright painted lane markings.
+    for(const x of [.32,.68]){
+      const g=ctx.createLinearGradient((x-.035)*size,0,(x+.035)*size,0);
+      g.addColorStop(0,'rgba(115,127,133,0)');g.addColorStop(.5,'rgba(115,127,133,.09)');g.addColorStop(1,'rgba(115,127,133,0)');
+      ctx.fillStyle=g;ctx.fillRect((x-.035)*size,0,size*.07,size);
+    }
+    tex.update(false);tex.wrapU=tex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+    tex.anisotropicFilteringLevel=mobile?8:16;return tex;
+  };
+  asphalt.albedoTexture=makeAsphaltTexture();
+  asphalt.albedoColor=new C(.78,.84,.9);
+  asphalt.roughness=.72;
+  if(asphalt.clearCoat){asphalt.clearCoat.isEnabled=true;asphalt.clearCoat.intensity=.32;asphalt.clearCoat.roughness=.24;}
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
@@ -409,7 +445,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    const tileSize=material===cobble?2.4:material===stone?3.2:0;
+    const tileSize=material===cobble?2.4:material===stone?3.2:material===asphalt?8:0;
     if(tileSize>0){
       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/tileSize;uv[i+1]*=d/tileSize;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
@@ -426,12 +462,12 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     m.position.set(x,y,z);m.material=material;return m;
   };
   // Main cobbled street, short cross streets, and narrow side passages.
-  floor('main wet cobblestone street',0,0,10.4,82,.025);
-  floor('west lane cobblestones',-23,0,9,82,.03);
-  floor('east lane cobblestones',23,0,9,82,.03);
-  for(const z of [-27,-12,13,28]) floor('cross alley cobbles',0,z,52,5,.035);
-  for(const x of [-5.8,5.8]) floor('narrow old-quarter stone sidewalk',x,0,1.35,82,.07,stone);
-  for(const x of [-28.5,28.5]) floor('outer wet stone sidewalk',x,0,2.1,82,.07,stone);
+  floor('main wet asphalt road',0,0,10.4,82,.025,asphalt);
+  floor('west lane wet asphalt',-23,0,9,82,.03,asphalt);
+  floor('east lane wet asphalt',23,0,9,82,.03,asphalt);
+  for(const z of [-27,-12,13,28]) floor('cross alley wet asphalt',0,z,52,5,.035,asphalt);
+  for(const x of [-5.8,5.8]) floor('narrow old-quarter cobblestone sidewalk',x,0,1.35,82,.07,cobble);
+  for(const x of [-28.5,28.5]) floor('outer wet cobblestone sidewalk',x,0,2.1,82,.07,cobble);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
   const waterPlane=B.MeshBuilder.CreateGround('dark canal water',{width:106,height:9.4,subdivisions:1},scene);
@@ -477,8 +513,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     // Broad level landings and cobbled road aprons visibly connect both banks.
     floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
     floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
-    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,cobble);
-    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,cobble);
+    floor(label+' north bridge asphalt road approach',x,-13.2,16,7.2,.13,asphalt);
+    floor(label+' south bridge asphalt road approach',x,13.2,16,7.2,.13,asphalt);
     for(const z of [-16.4,16.4]){
       for(const side of [-1,1]){
         const edge=box(label+' approach edge stone',x+side*7.45,.13,z,.22,.18,1.2,trim,false);
@@ -657,10 +693,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   };
   // Two continuous cross-streets plus short bank-side connectors form a legible
   // street grid. The canal remains a genuine barrier except at the three bridges.
-  floor('south district cross street',0,-20,72,6.2,.032,cobble);
-  floor('north district cross street',0,27,72,6.2,.032,cobble);
+  floor('south district cross street asphalt',0,-20,72,6.2,.032,asphalt);
+  floor('north district cross street asphalt',0,27,72,6.2,.032,asphalt);
   for(const side of [-1,1]){
-    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,cobble);
+    floor('canal bank east-west market connector asphalt',side*20,5.2,18,5.2,.034,asphalt);
     for(const z of [-23.5,-16.5,23.5,30.5]){
       floor('cross street granite pedestrian edge',side*20,z,18,.42,.072,stone);
     }
