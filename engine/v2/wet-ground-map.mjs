@@ -464,13 +464,13 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     const m=B.MeshBuilder.CreateCylinder(name,{diameter,height,tessellation:8},scene);
     m.position.set(x,y,z);m.material=material;return m;
   };
-  // Main cobbled street, short cross streets, and narrow side passages.
-  floor('main wet cobblestone street',0,0,10.4,82,.025);
-  floor('west lane cobblestones',-23,0,9,82,.03);
-  floor('east lane cobblestones',23,0,9,82,.03);
-  for(const z of [-27,-12,13,28]) floor('cross alley cobbles',0,z,52,5,.035);
-  for(const x of [-5.8,5.8]) floor('narrow old-quarter stone sidewalk',x,0,1.35,82,.07,stone);
-  for(const x of [-28.5,28.5]) floor('outer wet stone sidewalk',x,0,2.1,82,.07,stone);
+  // Asphalt carriageways are clearly separated from raised cobblestone pedestrian walks.
+  floor('main rain-darkened asphalt street',0,0,10.4,82,.025,asphalt);
+  floor('west rain-darkened asphalt lane',-23,0,9,82,.03,asphalt);
+  floor('east rain-darkened asphalt lane',23,0,9,82,.03,asphalt);
+  for(const z of [-27,-12,13,28]) floor('cross alley asphalt carriageway',0,z,52,5,.035,asphalt);
+  for(const x of [-5.8,5.8]) floor('raised irregular cobblestone pedestrian sidewalk',x,0,1.35,82,.07,cobble);
+  for(const x of [-28.5,28.5]) floor('outer wet cobblestone pedestrian sidewalk',x,0,2.1,82,.07,cobble);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
   const waterPlane=B.MeshBuilder.CreateGround('dark canal water',{width:106,height:9.4,subdivisions:1},scene);
