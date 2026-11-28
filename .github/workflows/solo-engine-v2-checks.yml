@@ -6,6 +6,7 @@ on:
       - main
       - feature/solo-engine-v2
       - feature/wet-asphalt-map-20261128
+      - 'feature/**'
       - fix/solo-report-controls
     paths:
       - "engine/v2/**"
