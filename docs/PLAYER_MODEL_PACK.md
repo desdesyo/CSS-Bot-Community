@@ -1,33 +1,27 @@
 # CSSBC Player & Support Model Pack
 
-## Roster: 23 characters + Juggernaut
+The corrected target roster is **27 characters**, not the earlier 23-character draft.
 
-The source generator creates 24 separate model folders. The first 23 are the regular roster; Juggernaut is a separate special reinforcement.
+- 12 main playable characters: 6 Terrorists + 6 Counter-Terrorists.
+- Support A: 2 riflemen per faction (4 total).
+- Support B: 2 riflemen + 1 sniper per faction (6 total).
+- Support C: 2 elite reduced-health / high-firepower fighters per faction (4 total).
+- 1 separate Juggernaut.
 
-| Group | Model IDs |
-|---|---|
-| Terrorists (10) | `t_raider`, `t_insurgent`, `t_saboteur`, `t_rifleman`, `t_breacher`, `t_scout`, `t_veteran`, `t_militia`, `t_operative`, `t_demolition` |
-| CT (10) | `ct_assault`, `ct_recon`, `ct_pointman`, `ct_engineer`, `ct_marksman`, `ct_riot`, `ct_urban`, `ct_desert`, `ct_naval`, `ct_veteran` |
-| Support (3) | `support_medic`, `support_sniper`, `support_heavy` |
-| Special (1) | `juggernaut` |
+Total: 12 + 4 + 6 + 4 + 1 = **27**.
 
-Each model has its own QC/SMD source folder, color palette selection, headgear and equipment silhouette. The Juggernaut uses a larger scale and reinforced armour silhouette; gameplay limits and reinforcement timing remain controlled by the bot/gameplay systems, not by the model asset itself.
-
-## Generate and validate
+The original `generate_pack.py` is retained as a legacy low-poly blockout generator.
+Use the alternate armored generator for the new art direction:
 
 ```sh
-python tools/model_pack/generate_pack.py
-python -m unittest discover -s tools/model_pack -p "test_*.py" -v
+python tools/model_pack/generate_armored_pack.py
+python tools/model_pack/generate_armored_pack.py --output ./build/cssbc-27
 ```
 
-The generator produces 24 original low-poly character source sets: rigged reference SMD, idle SMD, cyclic walk SMD and QC compile script. It also produces 16x16 TGA swatch texture sources and matching VMT templates.
+See [PLAYER_MODEL_PACK_27.md](PLAYER_MODEL_PACK_27.md) for model IDs, visual direction,
+source-generation details and compile requirements.
 
-## Runtime conversion requirements
-
-The generated source is not a compiled runtime pack. Use a CS:S-compatible Source `vtex` to convert the TGA files to VTF and matching `studiomdl` to compile the QC files to MDL/VVD/VTX. Inspect all outputs in HLMV before use.
-
-Current animation coverage is idle and walk only. Crouch, run, jump, weapon-specific poses, reload, death, hitboxes, attachment points and the complete CS:S player animation contract remain to be implemented and verified against v34. The present procedural meshes are low-poly blockout assets, not final-quality human character sculpts. This source pack does not modify the user's installation.
-
-## Licensing
-
-All generated geometry and swatch textures are original CSSBC procedural assets. No Valve or third-party game assets are included.
+**Important:** generated SMD/QC/TGA/VMT files are source assets, not compiled CS:S v34
+runtime models. A matching `vtex` and `studiomdl`, HLMV inspection, complete player
+animation/attachment/hitbox contract and in-game v34 testing are still required.
+This source generator does not modify the user's game installation.

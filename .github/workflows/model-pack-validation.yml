@@ -1,0 +1,42 @@
+name: Model pack validation
+on:
+  pull_request:
+    paths:
+      - "tools/model_pack/**"
+      - "tests/test_armored_pack.py"
+      - "tests/test_reference_inspector.py"
+      - "tests/test_valvebiped_pack.py"
+      - ".github/workflows/model-pack-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/model_pack/**"
+      - "tests/test_armored_pack.py"
+      - "tests/test_reference_inspector.py"
+      - "tests/test_valvebiped_pack.py"
+      - ".github/workflows/model-pack-validation.yml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile model-pack tools
+        run: python -m py_compile tools/model_pack/generate_armored_pack.py tools/model_pack/inspect_v34_reference.py tools/model_pack/build_valvebiped_pack.py
+      - name: Run source-pack tests
+        run: python -m unittest discover -s tests -p "test_armored_pack.py" -v
+      - name: Run reference-inspector tests
+        run: python -m unittest discover -s tests -p "test_reference_inspector.py" -v
+      - name: Run ValveBiped tests
+        run: python -m unittest discover -s tests -p "test_valvebiped_pack.py" -v
+      - name: Generate all 27 source models
+        run: python tools/model_pack/generate_armored_pack.py --output /tmp/cssbc-model-pack
+      - name: Retarget all 27 models to ValveBiped
+        run: python tools/model_pack/build_valvebiped_pack.py --pack /tmp/cssbc-model-pack
+      - name: Verify final source pack
+        run: |
+          test "$(find /tmp/cssbc-model-pack -name '*.qc' | wc -l)" -eq 27
+          test "$(find /tmp/cssbc-model-pack -name 'model.smd' | wc -l)" -eq 27
+          grep -q 'ValveBiped.Bip01_Head1' /tmp/cssbc-model-pack/ct_assault/model.smd
