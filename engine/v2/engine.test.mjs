@@ -908,15 +908,11 @@ test('cobblestone maps use mipmaps and anisotropic filtering to prevent oblique-
 
 test('mobile landscape report controls never occupy the movement-stick safe zone', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(html, /mobile-report-controls-safezone-v2/);
+  assert.ok(html.includes('mobile-report-controls-safezone-v2'));
   assert.ok(html.includes('#mapOverviewQuick{top:72px!important;right:8px!important;left:auto!important;bottom:auto!important'));
-
   assert.ok(html.includes('#mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important'));
-
   assert.ok(html.includes('#stick{left:clamp(24px,4vw,40px)!important'));
-
 });
-
 test('mobile START requests fullscreen inside the trusted start gesture and unlocks orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()', engine.indexOf('function start()') + 1) > 0 ? engine.indexOf('function start()', engine.indexOf('function start()') + 1) : engine.length);
