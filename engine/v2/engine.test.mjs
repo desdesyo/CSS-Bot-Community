@@ -921,3 +921,12 @@ test('mobile START requests fullscreen inside the trusted start gesture and unlo
   assert.ok(engine.includes('orientationchange'));
   assert.ok(engine.includes('fullscreenchange'));
 });
+
+test('mobile game requests landscape orientation after entering fullscreen and has no portrait-only HUD layout', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(engine, /screen\.orientation\.lock\('landscape'\)/);
+  assert.doesNotMatch(engine, /screen\.orientation\?\.unlock\?\.\(\);\}catch\(error\)\{\}\s*;?refreshViewportAfterRotation/);
+  assert.doesNotMatch(html, /orientation:\s*portrait/);
+  assert.doesNotMatch(html, /@media\s*\([^)]*orientation:\s*portrait\)/);
+});
