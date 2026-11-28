@@ -845,9 +845,11 @@ test('map visual report creates 30 independent world-grid snapshots without bots
   assert.match(engine, /source:'independent-map-grid'/);
   assert.match(engine, /team:'MAP'/);
   const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureBotAreaContactSheet'));
-  assert.doesNotMatch(selector, /state\\.bots|mapWalkSamples|waypoints/);
-  assert.match(engine, /mapAreaSnapshots:contactSheet\\.tiles\\.length/);
-  assert.match(html, /engine\\.js\\?v=20261128-capturefix2/);
+  assert.ok(!selector.includes('state.bots'));
+  assert.ok(!selector.includes('mapWalkSamples'));
+  assert.ok(!selector.includes('waypoints'));
+  assert.ok(engine.includes('mapAreaSnapshots:contactSheet.tiles.length'));
+  assert.ok(html.includes('engine.js?v=20261128-capturefix2'));
   assert.match(engine, /function captureBotAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
   assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
