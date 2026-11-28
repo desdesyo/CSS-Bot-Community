@@ -262,3 +262,12 @@
 - Cache bust: `wet-ground-map.mjs?v=20261128-worldfix1`, `engine.js?v=20261128-worldfix1`.
 - Коммиты: map `12f6e21f3a33c5e0da92e9d3c6601ce947e628ae`; engine `d1e7e5a60d8c84c07ff95a5f6aa63cb17afe41a4`; HTML `03aaf91d5619c061e824c574782d7f5af2386623`.
 - Автоматические проверки, публикация Pages и проверка на Redmi 12 ещё не подтверждены. Не считать проблему зависания решённой до проверки игроком; не выдавать новую ссылку как опубликованную до успешного deploy.
+
+
+### worldfix1 release payload and regression gates
+- Final material/cache revision: `worldfix2`; map module and engine HTML cache keys are both updated.
+- Additional material fix: glazing, glass highlights, curtains and timber doors disable back-face culling so reverse-side surfaces remain visible.
+- Regression tests added to `engine/v2/engine.test.mjs`: vehicle collision hulls, solid door/window collision, rear-facade glazing, two-sided material visibility, and bug-report capture isolation.
+- Clean release branch based on `main`: `feature/solo-engine-v2-worldfix1`; it contains only the V2 application files and version ledger, avoiding the unrelated 834-commit history of the long-lived development branch.
+- Release branch commits: map `3a48e24fe0b696e2f1993b6a90d3ca892a3ca9a9` plus follow-up cache/material updates copied into the release payload; engine `2c3efe29010d69582f604ca8a9029c357a8bd25b`; index `7864b37bae5907ebdc019d046bb48bc437e056c6`; regression tests `8006f268454aaaf577f6297f93ece33d65b3d9ea`.
+- Note: the exact final files were copied from the development branch after its latest worldfix2 commits. CI and Pages deployment must be confirmed on the clean release branch before asking the player to test.
