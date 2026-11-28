@@ -696,7 +696,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\},overviewBase64\)/);
   assert.match(engine, /ctx\.drawImage\(source,col\*tileWidth,row\*tileHeight,tileWidth,tileHeight,x,y,tileWidth,tileHeight\)/);
-  assert.match(engine, /captureSource:'independent-world-crop-from-shared-topdown-render'/);
+  assert.match(engine, /capture:'crop-from-single-top-down-render'/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
   assert.match(engine, /Wet Ground district foundation/);
   assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera/);
@@ -712,9 +712,9 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function collectMapVisualAudit\(\)/);
   assert.match(engine, /materialUsage/);
   assert.match(engine, /type:'map-overview-visual-audit'/);
-  assert.match(engine, /const jsonPath='logs\/30\//);
-  assert.match(engine, /const overviewPath='logs\/30\//);
-  assert.match(engine, /const atlasPath='logs\/30\//);
+  assert.match(engine, /jsonPath='logs\/30\//);
+  assert.match(engine, /overviewPath='logs\/30\//);
+  assert.match(engine, /atlasPath='logs\/30\//);
 });
 
 test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two-at-a-time loading', async () => {
