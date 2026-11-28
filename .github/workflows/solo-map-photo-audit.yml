@@ -2,7 +2,7 @@ name: SOLO autonomous map photo audit
 
 on:
   push:
-    branches: [feature/solo-engine-v2]
+    branches: [feature/solo-engine-v2, "release/**"]
     paths:
       - "engine/v2/**"
       - "tools/map-capture.mjs"

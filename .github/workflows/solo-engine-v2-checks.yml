@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/solo-engine-v2
+      - "release/**"
       - fix/solo-report-controls
     paths:
       - "engine/v2/**"
