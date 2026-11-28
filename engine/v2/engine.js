@@ -1093,6 +1093,7 @@ async function captureBotAreaContactSheet(points){
  const tiles=[];
  for(let i=0;i<points.length;i++){
   const point=points[i];let localCamera=null;
+  const previousCamera=scene.activeCamera,previousCameras=scene.activeCameras;
   try{
    const altitude=42,spanX=30,spanY=22.5;
    localCamera=new BABYLON.FreeCamera('bot-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
@@ -1102,6 +1103,7 @@ async function captureBotAreaContactSheet(points){
    localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
    localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
    localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
+   scene.activeCamera=localCamera;scene.activeCameras=null;localCamera.computeWorldMatrix(true);
    const url=await renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
    const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать снимок зоны '+(i+1)));img.src=url;});
    const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
@@ -1109,7 +1111,10 @@ async function captureBotAreaContactSheet(points){
    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
    ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
    tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:point.t?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
-  }finally{try{localCamera?.dispose()}catch{}}
+  }finally{
+   scene.activeCamera=previousCamera;scene.activeCameras=previousCameras;
+   try{localCamera?.dispose()}catch{}
+  }
  }
  const data=sheet.toDataURL('image/png');
  if(!data.startsWith('data:image/png;base64,')||data.length<10000)throw new Error('Контактный лист снимков пуст');
