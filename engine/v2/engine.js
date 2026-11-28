@@ -757,18 +757,20 @@ function drawMinimap(){
   // Collision silhouettes give the player an actual top-down map, not just radar dots.
   ctx.fillStyle='#9aa69b55';
   for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
-  ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('WET GROUND',px(-5),py(-39));
-  ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.font='bold 7px system-ui';ctx.fillText('BIOSECURE / SERVER',px(-10),py(15));ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
+  ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
   const x=px(camera.position.x),y=py(camera.position.z),forward=cameraForwardOnMap();
   ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(forward.x,-forward.z));ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
-  ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
 function gamepadAxis(value){
  const n=Math.abs(value||0);if(n<.16)return 0;
  return Math.sign(value)*Math.min(1,(n-.16)/.84);
+}
+function setGamepadHudActive(active){
+ document.body.classList.toggle('gamepad-connected',!!active);
+ const hint=$('gamepadHint');if(hint)hint.hidden=!active;
 }
 function pollGamepadInput(dt){
  if(typeof navigator.getGamepads!=='function')return;
@@ -778,9 +780,9 @@ function pollGamepadInput(dt){
   if(state.gamepadIndex!==null)gameLogEvent('gamepad-input-lost',{index:state.gamepadIndex,id:state.gamepadId});
   state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=0;state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;
   if(state.firing&&state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}
-  state.gamepadButtons=[];return;
+  state.gamepadButtons=[];setGamepadHudActive(false);return;
  }
- if(state.gamepadIndex!==pad.index){state.gamepadIndex=pad.index;state.gamepadId=pad.id;gameLogEvent('gamepad-input-active',{index:pad.index,id:pad.id,mapping:pad.mapping,axes:pad.axes?.length||0,buttons:pad.buttons?.length||0});}
+ if(state.gamepadIndex!==pad.index){state.gamepadIndex=pad.index;state.gamepadId=pad.id;setGamepadHudActive(true);gameLogEvent('gamepad-input-active',{index:pad.index,id:pad.id,mapping:pad.mapping,axes:pad.axes?.length||0,buttons:pad.buttons?.length||0});}
  const axes=pad.axes||[],buttons=pad.buttons||[];
  const read=(index)=>gamepadAxis(axes[index]||0);
  state.gamepadMove.x=read(0);state.gamepadMove.y=read(1);
@@ -1353,8 +1355,8 @@ window.addEventListener('error',e=>{const item={wall:new Date().toISOString(),ty
 window.addEventListener('unhandledrejection',e=>{const item={wall:new Date().toISOString(),type:'unhandled-rejection',reason:String(e.reason?.stack||e.reason).slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('unhandled-rejection',item)});
 window.addEventListener('webglcontextlost',e=>{const item={wall:new Date().toISOString(),type:'webgl-context-lost'};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('webgl-context-lost',{status:'lost'})},true);
 window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
-window.addEventListener('gamepadconnected',e=>{state.gamepadIndex=e.gamepad?.index??null;state.gamepadId=e.gamepad?.id||null;gameLogEvent('gamepad-connected',{id:state.gamepadId,index:state.gamepadIndex,mapping:e.gamepad?.mapping||null,axes:e.gamepad?.axes?.length||0,buttons:e.gamepad?.buttons?.length||0});});
-window.addEventListener('gamepaddisconnected',e=>{if(state.gamepadIndex===e.gamepad?.index){state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;if(state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}}state.gamepadButtons=[];gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null});});
+window.addEventListener('gamepadconnected',e=>{state.gamepadIndex=e.gamepad?.index??null;state.gamepadId=e.gamepad?.id||null;setGamepadHudActive(true);gameLogEvent('gamepad-connected',{id:state.gamepadId,index:state.gamepadIndex,mapping:e.gamepad?.mapping||null,axes:e.gamepad?.axes?.length||0,buttons:e.gamepad?.buttons?.length||0});});
+window.addEventListener('gamepaddisconnected',e=>{if(state.gamepadIndex===e.gamepad?.index){state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;if(state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}}state.gamepadButtons=[];setGamepadHudActive(false);gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null});});
 document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
 
 async function boot() {
@@ -1457,8 +1459,9 @@ async function boot() {
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
       if(state.started)sampleBotWalkLocations(now);
       const updateStarted=performance.now();
+      pollGamepadInput(dt);
       if(state.started) {
-        pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
+        updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         if(now-state.lastHud>=250){
           $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
