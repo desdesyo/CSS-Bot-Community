@@ -305,7 +305,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
+  assert.match(engine, /build:'2026-11-28-map-report-pipeline2'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -487,8 +487,8 @@ test('field atlas persistence is deferred while gameplay diagnostics are recordi
 test('Wet Ground bridge mouths are wide, visible, and have continuous road approaches', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /low pale stone bridge parapet/);
-  assert.match(map, /north bridge road approach/);
-  assert.match(map, /south bridge road approach/);
+  assert.match(map, /north bridge asphalt road approach/);
+  assert.match(map, /south bridge asphalt road approach/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
   assert.match(map, /barrier\.isVisible=true/);
   assert.doesNotMatch(map, /bridge side parapet',railX,\.72,0,\.32,\.82/);
@@ -516,8 +516,8 @@ test('Wet Ground central avenue continues over the canal on a real bridge', asyn
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /\[\[-20,'west'\],\[0,'main'\],\[20,'east'\]\]/);
   assert.match(map, /\[\[-40\.5,25\],\[-10,4\],\[10,4\],\[40\.5,25\]\]/);
-  assert.match(map, /label\+' north bridge road approach'/);
-  assert.match(map, /label\+' south bridge road approach'/);
+  assert.match(map, /label\+' north bridge asphalt road approach'/);
+  assert.match(map, /label\+' south bridge asphalt road approach'/);
   assert.match(map, /riverCrossings:\[-20,0,20\]/);
 });
 
@@ -808,7 +808,7 @@ test('reflection pass draws only merged static world batches, not animated actor
 
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:material===asphalt\?8:0/);
   assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
   assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
@@ -833,18 +833,27 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report builds 30 mobile-safe grid crops from one top-down render without requiring bots', async () => {
+test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /function sampleBotWalkLocations\(now\)/);
-  assert.match(engine, /source:'observed-bot-position'/);
-  assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.ok(engine.includes('function captureMapAreaContactSheet(points,onProgress=()=>{},overviewBase64)'));
-  assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
-  assert.match(engine, /single-render-cpu-crops/);
-  assert.match(engine, /mapAreaSnapshots:30/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.ok(!engine.includes('sampleBotWalkLocations'));
+  assert.ok(!engine.includes('mapWalkSamples'));
+  assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
+  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
+  assert.match(engine, /source:'independent-map-grid'/);
+  assert.match(engine, /team:'MAP'/);
+  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
+  assert.ok(!selector.includes('state.bots'));
+  assert.ok(!selector.includes('mapWalkSamples'));
+  assert.ok(!selector.includes('waypoints'));
+  assert.ok(engine.includes('mapAreaSnapshots:contactSheet.tiles.length'));
+  assert.ok(html.includes('engine.js?v=20261128-capturefix3'));
+  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
+  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
+  assert.match(engine, /2026-11-28-capturefix3/);
 });
+
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
   const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
