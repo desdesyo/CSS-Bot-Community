@@ -662,8 +662,8 @@ test('FIRE touch pointer starts camera tracking at the finger, not button center
 });
 
 test('mobile camera swipe has a larger touch zone and higher angular response', async () => {
-  const engine = await read('engine.js');
-  const html = await read('index.html');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
