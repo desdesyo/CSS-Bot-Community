@@ -678,6 +678,11 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(html, /id="mapOverviewQuick"/);
+  assert.match(html, /id="mapOverviewStatus"/);
+  assert.match(engine, /function setMapOverviewStatus\(/);
+  assert.match(engine, /requestAnimationFrame\(\(\)=>resolve\(\)\)/);
+  assert.match(engine, /onProgress\(i\+1,points\.length\)/);
+  assert.match(engine, /2026-11-28-mapoverview9/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /Wet Ground district foundation/);
@@ -797,7 +802,8 @@ test('reflection pass draws only merged static world batches, not animated actor
 
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /uv\[i\]\*=w\/2\.4;uv\[i\+1\]\*=d\/2\.4/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
+  assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
   assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
 });
