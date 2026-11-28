@@ -17,8 +17,11 @@ try{
   if(!readiness.ready)throw new Error('Map runtime initialization failed: '+readiness.error);
   await page.waitForTimeout(5000);
   const metrics=await page.evaluate(()=>window.__SOLO_MAP_AUDIT__.metrics());
-  await page.screenshot({path:path.join(out,mode+'.png'),fullPage:false,animations:'disabled',timeout:90000});
-  results.push({mode,metrics});
+  await page.screenshot({path:path.join(out,mode+'-overview.png'),fullPage:false,animations:'disabled',timeout:90000});
+  await page.evaluate(()=>{const c=window.__SOLO_MAP_AUDIT__.camera;c.mode=window.B.Camera.PERSPECTIVE_CAMERA;c.alpha=-Math.PI/2;c.beta=.92;c.radius=72;c.target.set(0,3,0);});
+  await page.waitForTimeout(1200);
+  await page.screenshot({path:path.join(out,mode+'-street.png'),fullPage:false,animations:'disabled',timeout:90000});
+  results.push({mode,metrics,renderer:'Chromium SwiftShader software WebGL; FPS is a CI-only diagnostic, not a device benchmark'});
   await page.close();
  }
  const report={schema:'solo-map-runtime-audit-v1',capturedAt:new Date().toISOString(),branch:process.env.GITHUB_REF_NAME||null,commit:process.env.GITHUB_SHA||null,results,errors,result:errors.length?'failed':'passed'};
