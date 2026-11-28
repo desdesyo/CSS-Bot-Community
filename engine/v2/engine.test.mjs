@@ -1071,3 +1071,17 @@ test('orange joystick glow is a luminous underlayer visible through translucent 
  assert.match(html,/@keyframes hud-ember-pulse/);
  assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
 });
+
+
+test('Wet Ground visual overhaul adds sculpted vehicle bodywork, detailed lanterns and roof architecture', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /front sculpted hood/);
+  assert.match(map, /horizontal grille slat/);
+  assert.match(map, /wheel arch upper lip/);
+  assert.match(map, /tapered cast iron lamp shaft/);
+  assert.match(map, /four-sided lantern glass/);
+  assert.match(map, /lantern pyramidal cap/);
+  assert.match(map, /alternating dressed corner quoin/);
+  assert.match(map, /cornice corbel bracket/);
+  assert.match(map, /dormer pitched cap/);
+});
