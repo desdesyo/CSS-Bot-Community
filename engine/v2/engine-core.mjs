@@ -251,3 +251,55 @@ export function findPathAStar(start, target, colliders = [], radius = 0.42, cell
   }
   return smooth;
 }
+
+
+/**
+ * Repair renderer materials that no longer satisfy Babylon's Material contract.
+ * A single malformed material can abort the whole scene render loop.
+ */
+export function repairInvalidSceneMaterials(scene, B) {
+  if (!scene || !B?.StandardMaterial) return [];
+  const replacements = new WeakMap();
+  const repairs = [];
+  const normalize = (material, meshName, depth = 0) => {
+    if (!material || typeof material !== 'object' || depth > 4) return material;
+    if (Array.isArray(material.subMaterials)) {
+      for (let i = 0; i < material.subMaterials.length; i++) {
+        const sub = material.subMaterials[i];
+        const fixed = normalize(sub, meshName, depth + 1);
+        if (fixed !== sub) material.subMaterials[i] = fixed;
+      }
+    }
+    if (typeof material.needAlphaBlendingForMesh === 'function' && !material.isDisposed?.()) return material;
+    let safe = replacements.get(material);
+    if (!safe) {
+      safe = new B.StandardMaterial('solo-render-recovered-' + (material.name || 'material'), scene);
+      const source = Array.isArray(material.subMaterials)
+        ? material.subMaterials.find(Boolean) || material
+        : material;
+      safe.diffuseColor = source.diffuseColor || source.albedoColor || new B.Color3(.42, .46, .5);
+      safe.emissiveColor = source.emissiveColor || new B.Color3(0, 0, 0);
+      safe.specularColor = source.specularColor || new B.Color3(.12, .12, .12);
+      safe.alpha = Number.isFinite(source.alpha) ? source.alpha : 1;
+      safe.backFaceCulling = source.backFaceCulling ?? false;
+      safe.disableLighting = source.disableLighting ?? false;
+      safe.diffuseTexture = source.diffuseTexture || source.albedoTexture || null;
+      safe.emissiveTexture = source.emissiveTexture || null;
+      safe.bumpTexture = source.bumpTexture || null;
+      replacements.set(material, safe);
+    }
+    repairs.push({
+      mesh: meshName || 'unknown',
+      material: String(material.name || 'unnamed'),
+      className: String(material.getClassName?.() || material.constructor?.name || 'unknown')
+    });
+    return safe;
+  };
+  for (const mesh of scene.meshes || []) {
+    if (!mesh || !mesh.material) continue;
+    const original = mesh.material;
+    const fixed = normalize(original, mesh.name);
+    if (fixed !== original) mesh.material = fixed;
+  }
+  return repairs;
+}
