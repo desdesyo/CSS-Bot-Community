@@ -61,7 +61,7 @@ jobs:
           # Keep the documented /engine/v2/ URL and provide the same V2 at the site root.
           cp -R engine/v2/. dist/engine/v2/
           cp -R engine/v2/. dist/
-          cp -R engine/cloud/. dist/engine/cloud/
+          if [ -d engine/cloud ]; then cp -R engine/cloud/. dist/engine/cloud/; fi
           cp engine/play.html dist/legacy/index.html
           cp engine/import.html dist/legacy/import.html
           cp -R engine/client/. dist/legacy/client/
