@@ -833,19 +833,18 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report captures 30 independent grid snapshots without requiring bots', async () => {
+test('map visual report builds 30 mobile-safe grid crops from one top-down render without requiring bots', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
   assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /function captureMapAreaContactSheet\\(points,onProgress=\\(\\)=>\\{\\},overviewBase64\\)/);
+  assert.ok(engine.includes('function captureMapAreaContactSheet(points,onProgress=()=>{},overviewBase64)'));
   assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
-  assert.match(engine, /mapAreaSnapshots:30/);\n  assert.match(engine, /single-render-cpu-crops/);
+  assert.match(engine, /single-render-cpu-crops/);
+  assert.match(engine, /mapAreaSnapshots:30/);
   assert.match(engine, /2026-11-28-map-report-pipeline1/);
 });
-
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
   const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
