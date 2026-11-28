@@ -1430,10 +1430,9 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     wetMirror.mirrorPlane=new B.Plane(0,1,0,-.025);
     wetMirror.level=mobile?.5:.64;
     wetMirror.blurKernel=mobile?10:14;
-    // The reflection texture keeps its full authored resolution and material settings.
-    // On phones, refresh it every 12 frames instead of 4: reflections remain present,
-    // but the extra scene render is amortized over a longer interval.
-    wetMirror.refreshRate=mobile?12:2;
+    // Keep the full 256px reflection texture and blur quality on phones, but
+    // amortize the static-city reflection pass over 24 frames to reduce GPU spikes.
+    wetMirror.refreshRate=mobile?24:2;
     wetMirror.renderList=scene.meshes.slice(mapStart).filter(mesh=>{
       if(mesh.name.includes('water')||mesh.name.includes('puddle')||mesh.name.includes('cobblestone')||mesh.name.includes('canal bed')||mesh.name.includes('sky atmosphere'))return false;
       mesh.computeWorldMatrix(true);
