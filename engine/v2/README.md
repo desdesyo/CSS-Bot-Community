@@ -27,7 +27,7 @@ The default-branch workflow publishes the exact V2 revision only after `SOLO Eng
 
 ## Map workbench
 
-A standalone 3D authoring viewer is available at [`map-workbench.html`](./map-workbench.html). It loads the same `buildWetGroundMap` function as the game and provides orbit/top-down views, fit-to-map, wireframe mode and object-category isolation. It does not start gameplay, spawn bots or modify the game HUD. Use it to inspect the shared level geometry and materials before launching a game build.
+A standalone 3D authoring viewer/editor is available at [`map-workbench.html`](./map-workbench.html). It loads the same `buildWetGroundMap` function as the game in an unbatched authoring mode, with orbit/top-down views, wireframe mode, category isolation, object picking, position/rotation/scale gizmos, precise XYZ fields, undo/reset and JSON transform import/export. It does not start gameplay, spawn bots or modify the game HUD. Exported transforms are a separate JSON patch and are not yet automatically baked into the game map source.
 
 ## Run
 Open `/engine/v2/` on the published Pages site or serve the repository root over HTTP. The engine loads Babylon.js from its official CDN; an internet connection is required.
