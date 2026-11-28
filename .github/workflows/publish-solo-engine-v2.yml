@@ -63,12 +63,20 @@ jobs:
           cp -R engine/v2/. dist/engine/v2/
           mkdir -p dist/engine/v2/assets
           for model in military-male-01 military-male-02 military-male-03 military-male-04 military-female-01 military-female-02; do
-            curl --fail --location --retry 3 --retry-delay 2 "https://models.codelove.in/models/${model}.glb" -o "dist/engine/v2/assets/${model}.glb"
-            test -s "dist/engine/v2/assets/${model}.glb"
+            target="dist/engine/v2/assets/${model}.glb"
+            if ! curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://models.codelove.in/models/${model}.glb" -o "$target"; then
+              echo "Primary model host unavailable; restoring last published model: ${model}"
+              curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://desdesyo.github.io/CSS-Bot-Community/engine/v2/assets/${model}.glb" -o "$target"
+            fi
+            test -s "$target"
           done
           for clip in m_idle_neutral_01 m_walk_neutral_01 m_run_neutral_01; do
-            curl --fail --location --retry 3 --retry-delay 2 "https://models.codelove.in/animations/${clip}.glb" -o "dist/engine/v2/assets/${clip}.glb"
-            test -s "dist/engine/v2/assets/${clip}.glb"
+            target="dist/engine/v2/assets/${clip}.glb"
+            if ! curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://models.codelove.in/animations/${clip}.glb" -o "$target"; then
+              echo "Primary animation host unavailable; restoring last published clip: ${clip}"
+              curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://desdesyo.github.io/CSS-Bot-Community/engine/v2/assets/${clip}.glb" -o "$target"
+            fi
+            test -s "$target"
           done
           echo "Downloaded six rigged soldier models and three Biped animation clips."
           python3 - <<'PY'
