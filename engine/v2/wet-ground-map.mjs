@@ -660,6 +660,32 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
       for(let y=.7;y<h-1;y+=1.35)box(name+' pilaster stone joint',face+side*.3,y,zz,.035,.035,.34,iron,false);
     }
     box(name+' chimney',x+side*w*.25,h+.9,z-d*.2,.8,1.5,.8,stone,false);
+    box(name+' chimney crown',x+side*w*.25,h+1.68,z-d*.2,1.02,.16,1.02,trim,false);
+    for(const flue of [-.2,.2])box(name+' chimney flue opening',x+side*w*.25+flue,h+1.78,z-d*.2,.12,.04,.12,iron,false);
+    // Deep stone quoins, individual keystones and cast-iron facade details make
+    // each frontage read as masonry architecture instead of a textured game box.
+    for(const cornerZ of [z-d*.48,z+d*.48]){
+      for(let course=0;course<Math.floor(h/.72);course++){
+        const yy=.38+course*.72;
+        const quoin=box(name+' alternating dressed corner quoin',face+side*.22,yy,cornerZ,.34,.58,.38,trim,false);
+        quoin.rotation.y=(course%2)*.035;
+      }
+    }
+    for(const level of [2.72,5.44])if(level<h-.2){
+      for(let bracket=-Math.floor(d/2.2);bracket<=Math.floor(d/2.2);bracket++){
+        const bz=z+bracket*2.2;
+        box(name+' cornice corbel bracket',face+side*.38,level-.16,bz,.22,.32,.24,stone,false);
+      }
+    }
+    // Dormer windows punctuate the roofline; their small pitched caps catch highlights.
+    for(const dormerZ of [z-d*.28,z+d*.28]){
+      const dormerY=h+.78+w*.06;
+      box(name+' slate dormer cheek',x+side*w*.22,dormerY,dormerZ,.72,.82,.92,roof,false);
+      box(name+' dormer dark inset glazing',x+side*w*.22+side*.37,dormerY,dormerZ,.035,.52,.58,glass,false);
+      box(name+' dormer stone sill',x+side*w*.22+side*.4,dormerY-.34,dormerZ,.18,.12,.72,trim,false);
+      const dormerCap=box(name+' dormer pitched cap',x+side*w*.22,dormerY+.46,dormerZ,.98,.12,1.12,roof,false);
+      dormerCap.rotation.z=-side*.16;
+    }
     box(name+' rain gutter',x,h+.28,z+d/2,w+.5,.12,.12,iron,false);
     return {face};
   };
@@ -815,16 +841,35 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   let lightCount=0;
   function lamp(x,z,wallMount=false){
     if(wallMount){
-      box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
-      box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
-      const bulb=box('warm lantern glass',x,3.45,z-.22,.2,.4,.08,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.34:.55;l.range=mobile?7:9;}
+      box('wall lamp forged mounting plate',x,.0,z,.78,.16,.16,lampMat,false);
+      box('wall lantern curved bracket',x,3.82,z,.10,.72,.10,lampMat,false);
+      box('wall lantern housing',x,3.45,z,.48,.72,.48,lampMat,false);
+      for(const side of [-1,1])for(const front of [-1,1])
+        box('wall lantern amber glass panel',x+side*.19,3.45,z+front*.19,.025,.48,.025,glow,false);
+      box('wall lantern lower finial',x,3.02,z,.16,.12,.16,lampMat,false);
+      box('wall lantern peaked cap',x,3.86,z,.58,.12,.58,lampMat,false);
+      if(lightCount++<(mobile?5:12)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.59,.31);l.intensity=mobile?.38:.62;l.range=mobile?8:11;}
     }else{
-      cylinder('cast iron lamp post',x,2.4,z,.16,4.8,lampMat);
-      box('lantern cross arm',x,4.7,z,.85,.12,.12,lampMat,false);
-      box('lantern hood',x,5.05,z,.65,.18,.65,lampMat,false);
-      box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
+      const base=B.MeshBuilder.CreateCylinder('cast iron lamp flared footing',{diameterTop:.24,diameterBottom:.52,height:.38,tessellation:12},scene);
+      base.position.set(x,.19,z);base.material=lampMat;base.isPickable=false;
+      const shaft=B.MeshBuilder.CreateCylinder('tapered cast iron lamp shaft',{diameterTop:.105,diameterBottom:.23,height:4.35,tessellation:12},scene);
+      shaft.position.set(x,2.48,z);shaft.material=lampMat;shaft.isPickable=false;
+      for(const y of [.48,1.02,3.9,4.42]){
+        const collar=B.MeshBuilder.CreateCylinder('turned lamp post collar',{diameter:.29,height:.075,tessellation:12},scene);
+        collar.position.set(x,y,z);collar.material=spawnStone;collar.isPickable=false;
+      }
+      box('ornate lantern cross arm',x,4.72,z,.94,.11,.11,lampMat,false);
+      box('lantern lower frame',x,4.91,z,.62,.12,.62,lampMat,false);
+      box('lantern glowing core',x,5.22,z,.30,.48,.30,glow,false);
+      for(const side of [-1,1])for(const front of [-1,1])
+        box('four-sided lantern glass',x+side*.19,5.22,z+front*.19,.025,.42,.025,glow,false);
+      for(const side of [-1,1])box('lantern vertical iron mullion',x+side*.205,5.22,z,.035,.52,.035,lampMat,false);
+      for(const front of [-1,1])box('lantern vertical iron mullion',x,5.22,z+front*.205,.035,.52,.035,lampMat,false);
+      const cap=B.MeshBuilder.CreateCylinder('lantern pyramidal cap', {diameterTop:.12,diameterBottom:.72,height:.25,tessellation:4},scene);
+      cap.position.set(x,5.58,z);cap.rotation.y=Math.PI/4;cap.material=lampMat;cap.isPickable=false;
+      const finial=B.MeshBuilder.CreateSphere('lantern crown finial',{diameter:.16,segments:8},scene);
+      finial.position.set(x,5.78,z);finial.material=spawnStone;finial.isPickable=false;
+      if(lightCount++<(mobile?5:12)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,5.16,z),scene);l.diffuse=new C(1,.58,.29);l.intensity=mobile?.48:.78;l.range=mobile?9:14;}
     }
   }
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
@@ -1320,10 +1365,34 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     const body=mat(name+' aged automotive paint',paint,.32,.48);
     const rubber=mat(name+' tire rubber','#0b1116',.94);
     const chrome=mat(name+' dull chrome','#78858a',.28,.76);
-    part(name+' lower body',0,.72,0,1.92,1.05,4.25,body);
-    part(name+' cabin',0,1.48,-.12,1.72,.86,2.35,body);
-    part(name+' front windscreen',0,1.53,-1.31,1.58,.64,.045,spawnGlass);
-    part(name+' rear glass',0,1.53,1.08,1.52,.62,.045,spawnGlass);
+    // Sculpted body silhouette: hood, boot, raised shoulder line and distinct cabin.
+    part(name+' lower stamped unibody',0,.69,0,1.92,.82,4.18,body);
+    part(name+' front sculpted hood',0,1.055,-1.43,1.82,.22,1.18,body);
+    part(name+' rear boot lid',0,1.035,1.52,1.78,.18,.88,body);
+    part(name+' cabin',0,1.49,-.12,1.68,.82,2.28,body);
+    part(name+' front windscreen',0,1.55,-1.285,1.56,.61,.045,spawnGlass);
+    part(name+' rear glass',0,1.55,1.02,1.50,.59,.045,spawnGlass);
+    // Windshield pillars, roof rails and front/rear glass seals.
+    for(const side of [-1,1]){
+      part(name+' A pillar',side*.76,1.52,-1.16,.075,.72,.12,chrome);
+      part(name+' C pillar',side*.76,1.52,.88,.075,.72,.13,chrome);
+      part(name+' roof drip rail',side*.79,1.91,-.12,.045,.045,2.02,chrome);
+      part(name+' bonnet pressed crease',side*.48,1.17,-1.47,.025,.018,1.05,chrome);
+      part(name+' rocker panel',side*.91,.48,.02,.075,.22,2.72,body);
+    }
+    part(name+' dashboard silhouette',0,1.34,-.72,1.38,.16,.42,iron);
+    part(name+' rear parcel shelf',0,1.31,.84,1.34,.12,.35,iron);
+    part(name+' front grille surround',0,.79,-2.105,.92,.34,.055,chrome);
+    part(name+' dark radiator grille',0,.80,-2.145,.72,.22,.025,iron);
+    for(let slat=-2;slat<=2;slat++)part(name+' horizontal grille slat',0,.80+slat*.045,-2.164,.68,.012,.018,chrome);
+    part(name+' front registration plate',0,.54,-2.19,.58,.14,.025,trim);
+    part(name+' rear registration plate',0,.62,2.115,.58,.14,.025,trim);
+    for(const side of [-1,1]){
+      part(name+' front fog lamp',side*.72,.77,-2.12,.16,.12,.035,spawnLamp);
+      part(name+' rear reflector',side*.76,.72,2.12,.12,.12,.035,neonRed);
+      part(name+' wheel arch upper lip',side*.94,.55,-1.38,.055,.12,1.05,chrome);
+      part(name+' rear wheel arch upper lip',side*.94,.55,1.38,.055,.12,1.05,chrome);
+    }
     for(const side of [-1,1]){
       part(name+' side windows',side*.875,1.53,-.12,.035,.55,1.9,spawnGlass);
       part(name+' chrome door strip',side*.974,.73,-.05,.025,.055,2.25,chrome);
