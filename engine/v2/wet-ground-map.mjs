@@ -1733,5 +1733,5 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasSize,height:signAtlasSize},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
