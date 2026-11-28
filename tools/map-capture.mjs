@@ -72,7 +72,24 @@ try {
   stage('prepare-top-down-overview', { metrics: overview });
   const overviewCapture = await withTimeout(page.evaluate(() => window.__SOLO_CAPTURE_API__.setOverview()), 10000, 'Set overview camera');
   await page.waitForTimeout(1200);
-  const overviewBytes = await withTimeout(page.locator('#renderCanvas').screenshot({ timeout: 20000 }), 25000, 'Canvas overview screenshot');
+  // The canvas is continuously animated; locator.screenshot() waits for a stable element
+  // and therefore times out forever while WebGL keeps rendering. Capture its viewport
+  // rectangle directly instead of asking Playwright to wait for visual stability.
+  async function captureCanvas(label, filePath) {
+    const rect = await withTimeout(page.locator('#renderCanvas').evaluate(canvas => {
+      const r = canvas.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }), 5000, label + ' canvas bounds');
+    if (!rect.width || !rect.height) throw new Error(label + ': render canvas has no visible area.');
+    const bytes = await withTimeout(page.screenshot({
+      ...(filePath ? { path: filePath } : {}),
+      clip: rect,
+      animations: 'disabled',
+      timeout: 60000
+    }), 65000, label + ' screenshot');
+    return filePath ? (await fs.readFile(filePath)) : bytes;
+  }
+  const overviewBytes = await captureCanvas('Canvas overview');
   if (overviewCapture.mode !== 'orthographic-map-overview' || overviewBytes.length < 10000) {
     throw new Error('Orthographic overview capture is missing or unexpectedly small.');
   }
@@ -85,10 +102,8 @@ try {
   for (const bot of candidates) {
     const view = await withTimeout(page.evaluate(id => window.__SOLO_CAPTURE_API__.setBotView(id), bot.id), 15000, 'Set bot POV ' + bot.id);
     await page.waitForTimeout(350);
-    await withTimeout(page.locator('#renderCanvas').screenshot({
-      path: path.join(out, `bot-${String(bot.id).padStart(2, '0')}-${bot.team}.png`),
-      timeout: 30000
-    }), 35000, 'Bot screenshot ' + bot.id);
+    await captureCanvas('Bot screenshot ' + bot.id,
+      path.join(out, `bot-${String(bot.id).padStart(2, '0')}-${bot.team}.png`));
     botViews.push(view);
   }
 
