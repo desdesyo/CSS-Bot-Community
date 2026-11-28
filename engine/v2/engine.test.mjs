@@ -646,7 +646,7 @@ test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two
 
 test('engine cache-busts the corrected soldier asset loader module', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(engine.includes('./human-bots.mjs?v=20261128-reportfix1'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
 
@@ -676,7 +676,7 @@ test('soldier animation fix invalidates both HTML and engine module caches', asy
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.ok(html.includes('./engine.js?v=20261128-reportfix1'));
-  assert.ok(engine.includes('./human-bots.mjs?v=20261128-reportfix1'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
 
