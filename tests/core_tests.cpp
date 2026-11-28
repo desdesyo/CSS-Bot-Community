@@ -6,6 +6,7 @@
 #include "CSSBC_TacticalBrain.h"
 #include "CSSBC_TacticalRuntime.h"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 using namespace cssbc;
 struct FakeAdapter:IBotGameAdapter{int applied=0;bool ReadTacticalInput(int,TacticalInput&o)override{o.teammatesAlive=2;o.enemiesAlive=2;o.hasEnemySight=true;return true;}void ApplyBotGoal(int,BotGoal g,BotOrder o,float)override{assert(g==BotGoal::Attack);assert(o==BotOrder::Push||o==BotOrder::Cover);++applied;}};
@@ -23,7 +24,7 @@ int main(){
  assert(roster.Deploy(SupportTier::Juggernaut16000));assert(roster.Units().size()==1&&roster.Units()[0].role==SupportRole::Juggernaut);
  TeamMemory mem;mem.Publish({EventKind::PlateCracked,2,4,Plate::LeftArm,.9f,10.f,"left arm cracked"});assert(mem.Recent(11.f).size()==1);assert(mem.Recent(30.f,5.f).empty());
  JuggernautArmor combatArmor;CombatResolver combat;auto hit=combat.Resolve(combatArmor,Plate::Chest,100.f);
- assert(hit.armorDamage==72.f&&hit.healthDamage==28.f&&hit.broken);
+ assert(std::fabs(hit.armorDamage-72.f)<0.001f&&std::fabs(hit.healthDamage-28.f)<0.001f&&hit.broken);
  PlateLearning learn;learn.Observe(Plate::LeftArm,30.f,1.f);assert(learn.Confidence(Plate::LeftArm,2.f)>0.f);
  assert(learn.Confidence(Plate::LeftArm,40.f)<learn.Confidence(Plate::LeftArm,2.f));
  auto chosen=learn.Recommend(2.f,42u);assert((size_t)chosen<(size_t)Plate::Count);
