@@ -987,7 +987,7 @@ function collectIssueSceneContext(){
  const nearbyColliders=collisionBoxes.map(c=>{const dx=Math.max(c.minX-camera.position.x,0,camera.position.x-c.maxX),dz=Math.max(c.minZ-camera.position.z,0,camera.position.z-c.maxZ);return {c,d:Math.hypot(dx,dz)}}).filter(v=>v.d<18).sort((a,b)=>a.d-b.d).slice(0,24).map(({c,d})=>({name:c.name,distance:+d.toFixed(2),min:{x:+c.minX.toFixed(2),y:+c.minY.toFixed(2),z:+c.minZ.toFixed(2)},max:{x:+c.maxX.toFixed(2),y:+c.maxY.toFixed(2),z:+c.maxZ.toFixed(2)}}));
  const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()||[]).filter(Boolean).map(p=>({id:p.id.slice(0,100),mapping:p.mapping,connected:p.connected,axes:Array.from(p.axes||[]).map(v=>+v.toFixed(2)),buttons:Array.from(p.buttons||[]).map((b,i)=>b.pressed||b.value>.05?{index:i,pressed:b.pressed,value:+b.value.toFixed(2)}:null).filter(Boolean)})):[];
  const caps=engine.getCaps?.()||{};
- return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},forward:cameraForwardOnMap(),fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:{count:scene.textures.length,loaded:scene.textures.filter(t=>t.isReady?.()).length,sample:scene.textures.slice(0,24).map(t=>({name:t.name?.split('/').pop()?.slice(0,100)||null,width:t.getSize?.().width||0,height:t.getSize?.().height||0,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha}))}},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
+ return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},forward:cameraForwardOnMap(),fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:(()=>{const inventory=scene.textures.map(t=>{const size=t.getSize?.()||{},url=String(t.url||t._texture?.url||t.name||'').slice(0,220),width:size.width||0,height:size.height||0;return {name:String(t.name||'').split('/').pop().slice(0,120),url,width,height,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha,estimatedBytes:Math.round(width*height*4*(t.getInternalTexture?.()?.generateMipMaps?1.34:1))}});const urls=new Map();for(const item of inventory)if(/^https?:/i.test(item.url))urls.set(item.url,(urls.get(item.url)||0)+1);return {count:inventory.length,loaded:inventory.filter(t=>t.ready).length,notReady:inventory.filter(t=>!t.ready).map(t=>t.name),estimatedBytes:inventory.reduce((sum,t)=>sum+t.estimatedBytes,0),duplicateUrls:Array.from(urls.entries()).filter(([,count])=>count>1).map(([url,count])=>({url,count})),inventory,scannedPbrLoad:window.__SOLO_TEXTURE_AUDIT__||null}})()},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
 }
 async function captureIssueScreenshot(){
  try{
@@ -1219,7 +1219,7 @@ async function submitIssueReport(){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
   const topDownPath=mapCapture?.base64?'logs/bugs/'+stamp+'-'+id+'-topdown.png':null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-mobilehud-texturefix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-texture-stability-audit1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
@@ -1261,20 +1261,33 @@ async function boot() {
     scene.environmentIntensity=mobile?.9:1.15;
     // Real image-based lighting supplies physically plausible highlights to wet stone,
     // glazing and metal while the hand-authored sky remains the visible atmosphere.
+    let environmentReady=Promise.resolve('fallback');
     try {
       const fallbackEnvironment=B.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',scene);
       fallbackEnvironment.gammaSpace=false;
       scene.environmentTexture=fallbackEnvironment;
       scene.environmentIntensity=mobile?.62:.88;
-      // A real 360-degree night-street panorama supplies the reflection and ambient-light
-      // character of wet European cobblestone streets; keep the compact studio map as fallback.
+      // Resolve the optional HDR before showing the playable scene. This prevents a
+      // second lighting/IBL swap while the player is already moving through the map.
       if(B.HDRCubeTexture){
-        const streetNightHdr=new B.HDRCubeTexture('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/cobblestone_street_night_1k.hdr',scene,mobile?64:128,false,true,false,true);
-        streetNightHdr.onLoadObservable.addOnce(()=>{
-          streetNightHdr.rotationY=.42;
-          scene.environmentTexture=streetNightHdr;
-          scene.environmentIntensity=mobile?.52:.72;
-          fallbackEnvironment.dispose();
+        environmentReady=new Promise(resolve=>{
+          let settled=false;
+          const timer=setTimeout(()=>{settled=true;resolve('fallback-timeout')},8000);
+          let streetNightHdr=null;
+          const finishFallback=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve('fallback');};
+          try{
+            streetNightHdr=new B.HDRCubeTexture('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/cobblestone_street_night_1k.hdr',scene,mobile?64:128,false,true,false,true);
+            streetNightHdr.onLoadObservable.addOnce(()=>{
+              if(settled){streetNightHdr.dispose();return;}
+              settled=true;clearTimeout(timer);
+              streetNightHdr.rotationY=.42;
+              scene.environmentTexture=streetNightHdr;
+              scene.environmentIntensity=mobile?.52:.72;
+              fallbackEnvironment.dispose();
+              resolve('hdr');
+            });
+            streetNightHdr.onErrorObservable?.addOnce(finishFallback);
+          }catch(error){finishFallback();console.warn('SOLO HDR environment unavailable; using fallback.',error);}
         });
       }
     } catch(environmentError) {
@@ -1288,8 +1301,14 @@ async function boot() {
     const cityFill=new B.DirectionalLight('distant city sky bounce',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.27,.39,.48);cityFill.intensity=.24;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.usePercentageCloserFiltering=true;shadowGen.blurKernel=mobile?12:22;shadowGen.bias=.0003;shadowGen.normalBias=.014;shadowGen.darkness=.22;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
-    const mapBuildStats=buildWetGroundMap(B,scene,mobile,shadowGen);window.__SOLO_MAP_STATS__=mapBuildStats;
-    const glowLayer=new B.GlowLayer('wet quarter emissive glow',scene,{blurKernelSize:mobile?16:32});glowLayer.intensity=mobile?.32:.48;
+    $('loadState').textContent='Загрузка и проверка текстур карты…';
+    const mapBuildStats=await buildWetGroundMap(B,scene,mobile,shadowGen);window.__SOLO_MAP_STATS__=mapBuildStats;
+    await environmentReady;
+    // GlowLayer performs an additional full-screen render/blur pass. The Redmi-class
+    // mobile GPU is already fill/draw-call bound, so preserve emissive materials but
+    // skip this expensive post-process on touch devices.
+    const glowLayer=mobile?null:new B.GlowLayer('wet quarter emissive glow',scene,{blurKernelSize:32});
+    if(glowLayer)glowLayer.intensity=.48;
     window.__SOLO_GLOW_LAYER__=glowLayer;
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
     collisionBoxes=scene.metadata?.soloCollisionBoxes||scene.meshes.filter(m=>m&&m.checkCollisions&&m.isEnabled()&&m.isVisible).map(m=>{m.computeWorldMatrix(true);const b=m.getBoundingInfo().boundingBox;return {name:m.name,minX:b.minimumWorld.x,maxX:b.maximumWorld.x,minY:b.minimumWorld.y,maxY:b.maximumWorld.y,minZ:b.minimumWorld.z,maxZ:b.maximumWorld.z}});
@@ -1346,4 +1365,4 @@ async function boot() {
     });
   } catch(error) { console.error(error);const failedOverlay=$('overlay');if(failedOverlay){failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');}status.textContent='Ошибка запуска: '+error.message;$('quality').textContent='ENGINE ERROR'; }
 }
-boot();
+if(!window.__SOLO_BOOT_PROMISE__)window.__SOLO_BOOT_PROMISE__=boot();
