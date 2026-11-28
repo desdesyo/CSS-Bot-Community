@@ -81,6 +81,42 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
  #overlay.is-loading{align-items:center!important}
 }
 
+
+/* Mobile HUD refresh: orange menu-accent controls and compact tactical layout */
+:root{--hud-orange:#ff861f;--hud-blue:rgba(105,145,166,.24);--hud-blue-edge:rgba(150,183,199,.48)}
+#brand{display:none!important}
+#top{left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 5px);align-items:center;gap:5px}
+#stats{width:100%;display:flex;flex-wrap:nowrap;justify-content:flex-end;gap:4px;font-size:9px;min-width:0}
+#stats span{padding:5px 6px;border-radius:5px;background:rgba(9,17,23,.76);border-color:rgba(147,173,184,.3);font-size:9px}
+#round{order:0}#timer{order:1}#fps{order:2}#kills{order:3}#team{order:4}#health{display:none!important}#ammo{order:5}
+#minimap{top:43px!important;left:8px!important;width:104px!important;height:104px!important;border:1px solid rgba(255,134,31,.72);box-shadow:0 0 8px rgba(255,134,31,.16),0 3px 14px #0008}
+#playerBars{position:fixed;z-index:3;left:8px;top:151px;width:104px;display:grid;gap:4px;pointer-events:none;font:700 8px/1 system-ui,sans-serif;letter-spacing:.7px;text-shadow:0 1px 3px #000}
+.playerBar{height:7px;position:relative;overflow:hidden;border:1px solid rgba(170,193,202,.38);border-radius:5px;background:rgba(9,18,24,.76)}
+.playerBar>i{display:block;height:100%;width:100%;border-radius:4px}
+#hpFill{background:linear-gradient(90deg,#62b98e,#a4e6b9)}
+#armorFill{width:0;background:linear-gradient(90deg,#6c9fc0,#b2d8ee)}
+#playerBars .barLabel{display:flex;justify-content:space-between;color:#d9e5e8}
+#eyeToggle{position:fixed;z-index:22;right:8px;top:calc(env(safe-area-inset-top,0px) + 38px);width:34px;height:30px;padding:3px;border:1px solid rgba(255,134,31,.85);border-radius:7px;background:rgba(10,18,24,.86);color:#ff9a3d;font-size:17px;line-height:1;box-shadow:0 0 10px rgba(255,134,31,.22);pointer-events:auto;touch-action:manipulation}
+#eyeToggle[aria-pressed="true"]{background:rgba(255,134,31,.18);box-shadow:0 0 12px rgba(255,134,31,.38)}
+#stick{border:1.5px solid #ff861f!important;background:rgba(105,145,166,.20)!important;box-shadow:0 0 5px #ff861f,0 0 13px rgba(255,134,31,.45),inset 0 0 12px rgba(130,166,185,.13)}
+#nub{background:rgba(137,174,192,.48)!important;border:1px solid rgba(202,221,231,.58);box-shadow:inset 0 0 8px rgba(210,232,241,.22),0 1px 8px rgba(0,0,0,.25)}
+#fire{border-color:rgba(255,134,31,.78);box-shadow:0 0 7px rgba(255,134,31,.18),0 3px 14px #0008}
+#actions{top:calc(env(safe-area-inset-top,0px) + 74px);right:8px;left:auto;gap:4px}
+#actions button{padding:5px 7px;font-size:8px}
+#mapOverviewQuick{top:43px!important;left:120px!important;padding:5px 7px!important;font-size:8px!important}
+#mapOverviewStatus{top:72px!important;left:120px!important;max-width:calc(100vw - 170px)!important;font-size:7px!important}
+#weaponBar{bottom:max(8px,env(safe-area-inset-bottom));gap:4px;padding:4px}
+#weaponBar button{min-width:48px;padding:6px 8px;font-size:9px}
+#weaponName{bottom:48px}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:560px){
+ #top{top:4px}#stats span{padding:4px 5px;font-size:8px}
+ #minimap{top:34px!important;width:92px!important;height:92px!important}
+ #playerBars{top:130px;width:92px}
+ #eyeToggle{top:32px}
+ #actions{top:68px}
+}
+body.hud-clean #actions,body.hud-clean #mapOverviewQuick,body.hud-clean #mapOverviewStatus{display:none!important}
+body.hud-clean #eyeToggle{opacity:.92}
 </style>
 <style id="mobile-controls-touchfix2-reportfix2">@media (pointer:coarse){#stick{left:clamp(30px,4vw,44px)}#fire{right:clamp(76px,11vw,112px)}}</style>
 
@@ -110,8 +146,8 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
-<div id="hud"><div id="top"><div id="brand">SOLO: WET GROUND</div><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
-<button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 независимых зон карты</div><div id="actions"><button id="logsQuick" type="button" aria-label="Отправить игровой лог">● ЛОГ</button><button id="issueQuick" type="button" aria-label="Отметить баг">⚑ БАГ</button><button id="fullScreen" type="button" aria-label="Полноэкранный режим">⛶</button><button id="pause" type="button" aria-label="Пауза">Ⅱ</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
+<div id="hud"><div id="top"><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="playerBars" aria-label="Состояние игрока"><div class="barLabel"><span>ЗДОРОВЬЕ</span><span id="hpValue">100</span></div><div class="playerBar"><i id="hpFill"></i></div><div class="barLabel"><span>БРОНЯ</span><span id="armorValue">—</span></div><div class="playerBar"><i id="armorFill"></i></div></div><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
+<button id="eyeToggle" type="button" aria-label="Скрыть диагностические кнопки" aria-pressed="false" title="Показать или скрыть диагностику">◉</button><button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 независимых зон карты</div><div id="actions"><button id="logsQuick" type="button" aria-label="Отправить игровой лог">● ЛОГ</button><button id="issueQuick" type="button" aria-label="Отметить баг">⚑ БАГ</button><button id="fullScreen" type="button" aria-label="Полноэкранный режим">⛶</button><button id="pause" type="button" aria-label="Пауза">Ⅱ</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
 <div id="spectatorHud" hidden><button id="spectatorPrev" type="button" aria-label="Предыдущий живой бот">◀</button><span id="spectatorLabel">НАБЛЮДЕНИЕ</span><span>Q / E</span><button id="spectatorNext" type="button" aria-label="Следующий живой бот">▶</button></div>
 <div id="roundEnd" hidden><div id="roundEndCard"><p style="margin:0 0 10px;color:#aab8b8;font:700 10px ui-monospace,monospace;letter-spacing:3px">SOLO · WET GROUND</p><h2 id="roundWinner">COUNTER-TERRORISTS WIN</h2><p id="roundReason">ROUND COMPLETE</p><div id="roundCountdown">СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5</div></div></div>
 <div id="overlay" class="is-loading"><div id="card">
@@ -137,6 +173,9 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
 <p class="menuHint">Экспорт JSON работает без GitHub-токена. Для прямой отправки в репозиторий потребуется сохранённый Fine-grained token с Contents: Read and write.</p>
 </section>
 </div></div>
+<script>
+(()=>{const eye=document.getElementById('eyeToggle');if(!eye)return;eye.addEventListener('click',()=>{const hidden=document.body.classList.toggle('hud-clean');eye.setAttribute('aria-pressed',String(hidden));eye.setAttribute('aria-label',hidden?'Показать диагностические кнопки':'Скрыть диагностические кнопки');eye.textContent=hidden?'◉':'◎';});const hp=document.getElementById('health');const fill=document.getElementById('hpFill');const value=document.getElementById('hpValue');if(hp&&fill&&value){const sync=()=>{const m=hp.textContent.match(/(\\d+)/);if(m){const n=Math.max(0,Math.min(100,Number(m[1])));fill.style.width=n+'%';value.textContent=String(n);}};new MutationObserver(sync).observe(hp,{childList:true,characterData:true,subtree:true});sync();}})();
+</script>
 <script type="module">
 const status=document.getElementById('loadState');
 const quality=document.getElementById('quality');
