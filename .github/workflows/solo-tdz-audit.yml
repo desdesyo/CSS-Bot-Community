@@ -1,0 +1,34 @@
+name: SOLO Engine V2 temporal dead zone audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/v2/**"
+      - ".github/workflows/solo-tdz-audit.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "engine/v2/**"
+      - ".github/workflows/solo-tdz-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  declaration-order:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Parse every engine module
+        run: |
+          set -euo pipefail
+          find engine/v2 -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+      - name: Detect use-before-initialization of lexical bindings
+        run: npx --yes eslint@9 --no-config-lookup --no-ignore --rule 'no-use-before-define: [error, {functions: false, classes: true, variables: true}]' engine/v2/engine.js engine/v2/*.mjs
