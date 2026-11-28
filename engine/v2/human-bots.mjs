@@ -18,11 +18,50 @@ export async function loadHumanBotAssets(B, scene) {
   if (!B.SceneLoader || !B.SceneLoader.LoadAssetContainerAsync) {
     throw new Error("Критическая ошибка: Babylon glTF loader недоступен. Реальные 3D-модели бойцов не могут быть загружены.");
   }
-  const load = (file) => Promise.race([
-    B.SceneLoader.LoadAssetContainerAsync("./assets/", file, scene),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Asset timeout: " + file)), 12000))
-  ]);
-  const modelResults = await Promise.allSettled(MODEL_FILES.map(load));
+  // Resolve against this module, not document.location: GitHub Pages may serve the
+  // game through redirects or nested routes while the GLB pack stays beside this module.
+  const assetRoot = new URL("./assets/", import.meta.url).href;
+  const ASSET_TIMEOUT_MS = 90000;
+  const load = (file) => new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("Asset timeout after " + ASSET_TIMEOUT_MS + "ms: " + file + " (" + assetRoot + file + ")"));
+    }, ASSET_TIMEOUT_MS);
+    B.SceneLoader.LoadAssetContainerAsync(assetRoot, file, scene).then(value => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      console.info("[SOLO] Loaded soldier asset", file);
+      resolve(value);
+    }, error => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(file + " from " + assetRoot + ": " + (error?.message || error)));
+    });
+  });
+  // Limit concurrent GLB parsing to two. Six simultaneous skinned imports compete
+  // for mobile memory/CPU and previously all hit the short 12-second deadline.
+  const loadBatch = async (entries, concurrency = 2) => {
+    const results = new Array(entries.length);
+    let next = 0;
+    const worker = async () => {
+      while (true) {
+        const index = next++;
+        if (index >= entries.length) return;
+        try {
+          results[index] = { status: "fulfilled", value: await load(entries[index][1]) };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, entries.length) }, worker));
+    return results;
+  };
+  const modelResults = await loadBatch(MODEL_FILES.map((file, index) => [index, file]), 2);
   const failedModels = modelResults
     .map((result, index) => result.status === "rejected" ? MODEL_FILES[index] + ": " + result.reason?.message : null)
     .filter(Boolean);
@@ -32,12 +71,14 @@ export async function loadHumanBotAssets(B, scene) {
   const models = modelResults.map(result => result.value);
 
   const animations = {};
-  const clipResults = await Promise.allSettled(Object.entries(CLIPS).map(async ([name,file]) => {
+  const clipEntries = Object.entries(CLIPS);
+  const clipResults = await loadBatch(clipEntries, 2).then(results => results.map((result, index) => result.status === "fulfilled" ? { status: "fulfilled", value: [clipEntries[index][0], result.value] } : result));
+  /*
     const container = await load(file);
     const group = container.animationGroups?.[0];
     if (!group) throw new Error("Animation clip has no AnimationGroup: " + file);
     return [name, group];
-  }));
+  })); */
   for (const result of clipResults) {
     if (result.status === "fulfilled") animations[result.value[0]] = result.value[1];
     else console.warn("Optional soldier animation unavailable:", result.reason);
