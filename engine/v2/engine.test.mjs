@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
+  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -305,7 +305,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
+  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -842,7 +842,7 @@ test('map visual report captures 30 independent grid snapshots without requiring
   assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-grid-based-top-down-local-snapshots'/);
-  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
+  assert.match(engine, /mapAreaSnapshots:30/);
   assert.match(engine, /2026-11-28-gamepad-input1/);
 });
 
