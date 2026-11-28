@@ -1,11 +1,11 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-spawnfix1';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf2';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf3';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -170,13 +170,15 @@ function buildBots() {
     [[0,-40],[0,-31],[1,-21],[0,-11],[0,0],[0,12],[BOMB_SITE.x,BOMB_SITE.z]],
     [[-2,-36],[-2,-26],[2,-17],[7,-8],[7,3],[4,14],[1,22]]
   ];
+  // CT allies deploy outside the biosecure south wall, then enter through
+  // the aligned outer airlock and server-chamber portal.
   const ctRoutes=[
-    [[-8,31],[-10,26],[-9,20],[-4,17],[2,18],[8,22],[10,29]],
-    [[-3,33],[-6,28],[-6,22],[-2,18],[4,18],[9,23],[7,30]],
-    [[3,31],[6,27],[7,21],[3,17],[-3,17],[-9,22],[-8,29]],
-    [[6,33],[10,29],[11,24],[8,19],[3,18],[-3,21],[-5,29]],
-    [[0,36],[0,31],[-2,26],[-2,21],[2,19],[5,23],[3,30]],
-    [[-6,31],[-10,27],[-12,22],[-8,18],[-2,17],[5,19],[9,25]]
+    [[-8,38],[-6,36],[-4,34],[0,32],[0,27],[0,23]],
+    [[-4,38],[-3,36],[-2,34],[0,32],[0,27],[0,23]],
+    [[0,39],[0,36],[0,34],[0,32],[0,27],[0,23]],
+    [[4,38],[3,36],[2,34],[0,32],[0,27],[0,23]],
+    [[8,38],[6,36],[4,34],[0,32],[0,27],[0,23]],
+    [[0,38],[0,36],[0,34],[0,32],[0,27],[0,23]]
   ];
   const roster=createTeamRoster(state.playerTeam);
   for(const [id,team,x,z] of roster){
@@ -969,7 +971,8 @@ async function captureIssueScreenshot(){
 function getMapOverviewBounds(){
  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,maxY=0;
  for(const mesh of scene.meshes){
-  if(!mesh||mesh.isDisposed?.()||!mesh.isEnabled()||!mesh.isVisible||mesh.name==='skyBox'||mesh.isDescendantOf?.(camera))continue;
+  const name=String(mesh?.name||'');
+  if(!mesh||mesh.isDisposed?.()||!mesh.isEnabled()||!mesh.isVisible||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain/i.test(name)||mesh.isDescendantOf?.(camera))continue;
   try{
    mesh.computeWorldMatrix(true);
    const box=mesh.getBoundingInfo().boundingBox;
@@ -983,6 +986,13 @@ function getMapOverviewBounds(){
  if(!Number.isFinite(minX)||maxX-minX<5||maxZ-minZ<5)return {minX:-64,maxX:64,minZ:-48,maxZ:48,maxY:8};
  const pad=Math.max(5,Math.max(maxX-minX,maxZ-minZ)*.08);
  return {minX:minX-pad,maxX:maxX+pad,minZ:minZ-pad,maxZ:maxZ+pad,maxY:Math.max(0,maxY)};
+}
+async function renderWithoutSkyAtmosphere(render){
+ const skyMeshes=scene.meshes.filter(mesh=>mesh&&!mesh.isDisposed?.()&&(mesh.infiniteDistance||/sky|atmosphere/i.test(mesh.name||'')));
+ const previous=skyMeshes.map(mesh=>({mesh,visible:mesh.isVisible}));
+ for(const item of previous)item.mesh.isVisible=false;
+ try{return await render();}
+ finally{for(const item of previous)if(!item.mesh.isDisposed?.())item.mesh.isVisible=item.visible;}
 }
 async function captureMapOverviewScreenshot(){
  let overviewCamera=null;
@@ -1003,7 +1013,7 @@ async function captureMapOverviewScreenshot(){
   overviewCamera.fovMode=camera.fovMode;
   const create=BABYLON.Tools?.CreateScreenshotUsingRenderTargetAsync;
   if(typeof create!=='function')throw new Error('Babylon render-target screenshot API unavailable');
-  const url=await create(engine,overviewCamera,{width,height},'image/png');
+  const url=await renderWithoutSkyAtmosphere(()=>create(engine,overviewCamera,{width,height},'image/png'));
   if(url&&url.startsWith('data:image/png;base64,')&&url.length>10000)return {base64:url.split(',')[1],bounds:{...bounds,centerX,centerZ,viewWidth,viewHeight,altitude}};
   throw new Error('Overview render returned an empty image');
  }catch(error){console.warn('Map overview screenshot failed',error);throw error}
@@ -1011,7 +1021,7 @@ async function captureMapOverviewScreenshot(){
 }
 function collectMapVisualAudit(){
  const materials=new Map(),meshSamples=[],meshKinds={};
- const textureInfo=t=>t?{name:String(t.name||'').split('/').pop().slice(0,100),width:t.getSize?.().width||0,height:t.getSize?.().height||0,ready:!!t.isReady?.()}:null;
+ const textureInfo=t=>t?{name:String(t.name||'').split('/').pop().slice(0,100),width:t.getSize?.().width||0,height:t.getSize?.().height||0,ready:!!t.isReady?.(),uScale:+(t.uScale??1).toFixed(3),vScale:+(t.vScale??1).toFixed(3)}:null;
  const materialInfo=m=>{
   if(!m)return null;
   const p={name:m.name||'unnamed',type:m.getClassName?.()||'Material',alpha:m.alpha??1};
@@ -1022,8 +1032,9 @@ function collectMapVisualAudit(){
   return p;
  };
  for(const mesh of scene.meshes){
-  if(!mesh||mesh.isDisposed?.()||mesh.isDescendantOf?.(camera)||mesh.name==='player-hitbox')continue;
-  const name=String(mesh.name||'unnamed'),mat=mesh.material,matName=mat?.name||'no-material';
+  const name=String(mesh?.name||'unnamed');
+  if(!mesh||mesh.isDisposed?.()||mesh.isDescendantOf?.(camera)||mesh.name==='player-hitbox'||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain|puddle ripple/i.test(name))continue;
+  const mat=mesh.material,matName=mat?.name||'no-material';
   meshKinds[name.replace(/[0-9]+/g,'#')]=(meshKinds[name.replace(/[0-9]+/g,'#')]||0)+1;
   const prev=materials.get(matName)||{count:0,example:materialInfo(mat)};
   prev.count++;materials.set(matName,prev);
@@ -1090,7 +1101,7 @@ async function captureBotAreaContactSheet(points){
    localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
    localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
    localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
-   const url=await BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png');
+   const url=await renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
    const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать снимок зоны '+(i+1)));img.src=url;});
    const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
    ctx.drawImage(image,x,y,tileWidth,tileHeight);
@@ -1120,7 +1131,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
   const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview3',format:2,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview4',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   btn.textContent='ОТПРАВЛЯЮ ОБЩИЙ ВИД…';
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   btn.textContent='ОТПРАВЛЯЮ 30 ЗОН…';
@@ -1147,15 +1158,19 @@ async function submitIssueReport(){
  // suppress prompt() after an awaited screenshot operation.
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
- const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot(),stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
+ const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot();
+  const mapCapture=await captureMapOverviewScreenshot().catch(error=>({base64:null,error:String(error?.message||error)}));
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
+  const topDownPath=mapCapture?.base64?'logs/issues/'+stamp+'-'+id+'-topdown.png':null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-reportfix2',format:2,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-reportfix3',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add player issue report '+id,token);
   let imagePath=null;
   if(screenshot){imagePath='logs/issues/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
+   if(topDownPath)await uploadIssueFile(topDownPath,mapCapture.base64,'Add top-down map screenshot for '+id,token);
   if(gameLogRecording)gameLogEvent('issue-marker',{id,description:description.trim(),jsonPath,imagePath});
   btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
   alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));
