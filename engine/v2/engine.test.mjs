@@ -867,3 +867,16 @@ test('mobile wet reflections preserve texture resolution while reducing refresh 
   assert.match(map, /new B\.Vector2\(mobile\?256:768,mobile\?256:768\)/);
   assert.match(map, /wetMirror\.refreshRate=mobile\?48:2/);
 });
+
+
+test('bot separation uses a wider formation radius to prevent doorway queues', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /if\(separation<1\.8\)/);
+  assert.match(engine, /const strength=\(1\.8-separation\)\/1\.8/);
+  assert.match(engine, /Math\.min\(2\.2,avoidLength\*2\.1\)\*dt/);
+});
+
+test('bot path failure counters reset after real movement progress', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /if\(progress>\.18\)\{[^}]*bot\.pathFailures=0;/);
+});

@@ -444,14 +444,14 @@ function updateBotMotion(dt) {
         if(other===bot||!other.alive)continue;
         let sx=bot.root.position.x-other.root.position.x,sz=bot.root.position.z-other.root.position.z;
         let separation=Math.hypot(sx,sz);
-        if(separation<1.05){
+        if(separation<1.8){
           if(separation<.001){const angle=(bot.id-other.id)*2.399;sx=Math.cos(angle);sz=Math.sin(angle);separation=1;}
-          const strength=(1.05-separation)/1.05;
+          const strength=(1.8-separation)/1.8;
           avoidX+=sx/separation*strength;avoidZ+=sz/separation*strength;
         }
       }
       const avoidLength=Math.hypot(avoidX,avoidZ);
-      const steer=avoidLength>.001?Math.min(1.25,avoidLength*1.55)*dt:0;
+      const steer=avoidLength>.001?Math.min(2.2,avoidLength*2.1)*dt:0;
       const moveX=next.x-bot.root.position.x+(avoidX/Math.max(.001,avoidLength))*steer;
       const moveZ=next.z-bot.root.position.z+(avoidZ/Math.max(.001,avoidLength))*steer;
       // Collision helper queries the same spatial hash per swept substep, avoiding
@@ -463,7 +463,7 @@ function updateBotMotion(dt) {
         bot.blockedLogged=true;bot.navPath=[];bot.navGoal=null;bot.repathAt=0;bot.pathFailures=(bot.pathFailures||0)+1;
       }else bot.blockedLogged=false;
       const progress=Math.hypot(bot.root.position.x-(bot.lastProgressX??bot.root.position.x),bot.root.position.z-(bot.lastProgressZ??bot.root.position.z));
-      if(progress>.18){bot.lastProgressX=bot.root.position.x;bot.lastProgressZ=bot.root.position.z;bot.lastProgressAt=performance.now();bot.stuckSince=0;}
+      if(progress>.18){bot.lastProgressX=bot.root.position.x;bot.lastProgressZ=bot.root.position.z;bot.lastProgressAt=performance.now();bot.stuckSince=0;bot.pathFailures=0;}
       else if(dist>1.05&&performance.now()-(bot.lastProgressAt||0)>1450){
         if(!bot.stuckSince||performance.now()-bot.stuckSince>1200){
           bot.stuckSince=performance.now();bot.lastProgressAt=performance.now();bot.pathFailures=(bot.pathFailures||0)+1;
