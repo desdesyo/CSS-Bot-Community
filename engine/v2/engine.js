@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, configureBotVisuals, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-spawnfix1';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, configureBotVisuals, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-hidden-bot-gameplay1';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
