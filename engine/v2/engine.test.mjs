@@ -696,7 +696,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.match(engine, /2026-11-28-map-report-pipeline2/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -843,7 +843,7 @@ test('map visual report builds 30 mobile-safe grid crops from one top-down rende
   assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
   assert.match(engine, /single-render-cpu-crops/);
   assert.match(engine, /mapAreaSnapshots:30/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.match(engine, /2026-11-28-map-report-pipeline2/);
 });
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
