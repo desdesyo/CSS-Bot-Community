@@ -66,6 +66,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const curtain=mat('interior linen curtains','#626b6d',.92);
   const glassGlintMat=mat('rain-slick reflected sky on glazing','#7894a3',.09,.24);
   glassGlintMat.alpha=.28;glassGlintMat.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
+  // Window and door surfaces must remain visible from both sides of the facade.
+  glass.backFaceCulling=false;glassGlintMat.backFaceCulling=false;doorWood.backFaceCulling=false;curtain.backFaceCulling=false;
   const roof=mat('slate roofs','#202b39',.92);
   const doorWood=mat('weathered dark timber doors','#292722',.9);
   const tunnelCeiling=mat('rain-dark tunnel concrete ceiling','#26323b',.94);
@@ -528,6 +530,23 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
         box(name+' gutter bracket',x+edge*w*.52,h+.01,gz,.18,.08,.12,trim,false);
       }
     }
+    // The rear elevation also receives real window frames and glazing. Without this pass,
+    // the opposite side of each block looked like a blank wall when viewed from the back.
+    const rearFace=x-side*(w/2+.07),rearGlassX=rearFace-side*.055;
+    const rearFloors=Math.max(1,Math.ceil(h/2.75));
+    for(let level=0;level<rearFloors;level++){
+      const bottom=level*2.72,top=Math.min(h,bottom+2.72),floorHeight=top-bottom;
+      if(floorHeight<1.65)continue;
+      const windowY=bottom+Math.min(1.62,floorHeight-.78),windowH=Math.min(1.28,floorHeight-.72);
+      const windowZs=level===0?[z-d*.29,z+d*.29]:[z-d*.31,z,z+d*.31];
+      for(const zz of windowZs){
+        box(name+' rear elevation window shadow',rearFace,windowY,zz,.10,windowH+.2,1.5,iron,false);
+        box(name+' rear elevation window glass',rearGlassX,windowY,zz,.04,windowH-.12,1.32,glass,true);
+        box(name+' rear elevation window vertical frame',rearGlassX-side*.045,windowY,zz,.055,windowH+.08,.07,windowIron,false);
+        box(name+' rear elevation window horizontal frame',rearGlassX-side*.045,windowY,zz,.055,.06,1.42,windowIron,false);
+        box(name+' rear elevation window sill',rearFace-side*.12,windowY-windowH/2-.08,zz,.24,.14,1.58,trim,false);
+      }
+    }
     // Build a real inward-facing elevation with masonry piers and openings, not glazing pasted on blank walls.
     const floors=Math.max(1,Math.ceil(h/2.75));
     for(let level=0;level<floors;level++){
@@ -548,7 +567,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
         if(opening.type==='window'){
           const frameX=face+side*.14;
           box(name+' recessed window shadow',frameX,opening.centerY,opening.z,.09,opening.height+.18,opening.width+.18,iron,false);
-          box(name+' deep-set window glass',frameX+side*.055,opening.centerY,opening.z,.035,opening.height-.12,opening.width-.12,glass,false);
+          box(name+' deep-set window glass',frameX+side*.055,opening.centerY,opening.z,.035,opening.height-.12,opening.width-.12,glass,true);
           // Fine muntins, an offset curtain fold and a wet glass highlight give each opening depth.
           box(name+' central vertical window muntin',frameX+side*.105,opening.centerY,opening.z,.055,opening.height-.16,.045,windowIron,false);
           box(name+' horizontal window transom muntin',frameX+side*.105,opening.centerY+.12,opening.z,.055,.045,opening.width-.14,windowIron,false);
@@ -569,7 +588,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
           }
         }else{
           const doorX=face+side*.15;
-          box(name+' recessed timber entrance door',doorX,opening.centerY,opening.z,.075,opening.height-.08,opening.width-.12,doorWood,false);
+          box(name+' recessed timber entrance door',doorX,opening.centerY,opening.z,.075,opening.height-.08,opening.width-.12,doorWood,true);
           box(name+' entrance transom glass',doorX+side*.055,opening.centerY+opening.height*.34,opening.z,.035,.28,opening.width*.62,warmWindow,false);
           for(const dz of [-opening.width/2,opening.width/2])box(name+' carved stone door jamb',doorX+side*.12,opening.centerY,opening.z+dz,.24,opening.height+.12,.16,trim,false);
           box(name+' carved stone door lintel',doorX+side*.12,opening.centerY+opening.height/2+.06,opening.z,.26,.16,opening.width+.22,trim,false);
@@ -802,6 +821,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const wheel=B.MeshBuilder.CreateCylinder('van tire',{diameter:.76,height:.22,tessellation:16},scene);
       wheel.parent=root;wheel.rotation.z=Math.PI/2;wheel.position.set(xx,.42,zz);wheel.material=vanWheel;wheel.isPickable=false;
     }
+    const collider=part('van invisible collision hull',0,.92,0,2.28,1.9,4.55,invisible);
+    collider.checkCollisions=true;collider.isPickable=true;collider.visibility=0;collider.isVisible=true;
     root.computeWorldMatrix(true);
   };
   van(-31,-20,-.08);van(31,8,Math.PI+.04);
@@ -1029,7 +1050,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   // Old doors, lintels, wall stains and iron balcony details on street-facing elevations.
   for(const [x,z] of [[-12,-29],[12,-9],[-12,15],[12,34],[-33,-27],[33,18]]){
     box('weathered doorway stone frame',x,1.25,z,.18,2.5,2.3,trim,false);
-    box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,doorWood,false);
+    box('old timber door',x+(x<0?.12:-.12),1.1,z,.08,2.1,1.65,doorWood,true);
     cylinder('door handle',x+(x<0?.2:-.2),1.15,z+.55,.09,.09,amber);
   }
 
@@ -1059,7 +1080,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     for(const x of [-8.9,8.9])box('biosecure exterior end wall',x,2.65,z,5.2,5.3,.48,labWall,true);
     box('biosecure entry lintel',0,4.95,z,5.8,.55,.48,labWall,true);
     for(const x of [-2.15,2.15]){
-      box('airlock reinforced door leaf',x,1.45,z,.12,2.9,.16,labSteel,false);
+      box('airlock reinforced door leaf',x,1.45,z,.12,2.9,.16,labSteel,true);
       box('airlock red access indicator',x<0?-2.0:2.0,3.25,z-.28,.16,.22,.08,labRed,false);
     }
   }
@@ -1272,6 +1293,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     part(name+' front chrome bumper',0,.42,-2.17,1.8,.13,.16,chrome);
     part(name+' rear chrome bumper',0,.42,2.17,1.8,.13,.16,chrome);
     part(name+' number plate',0,.65,-2.205,.62,.18,.025,trim);
+    const collider=part(name+' invisible collision hull',0,.9,0,2.12,1.85,4.5,invisible);
+    collider.checkCollisions=true;collider.isPickable=true;collider.visibility=0;collider.isVisible=true;
     root.computeWorldMatrix(true);
   };
   const buildSpawnFragment=(team,z,westFace,eastFace,westShop,eastShop)=>{

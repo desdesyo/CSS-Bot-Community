@@ -246,12 +246,28 @@
 - Verification and Pages deployment: pending. Device behavior must still be confirmed by the player.
 
 
-## 2026-11-28 — round-loop fix and menu release published
+## 2026-11-28 — worldfix1 — ИЗМЕНЕНИЯ ВНЕСЕНЫ, ПРОВЕРКИ ОЖИДАЮТСЯ
 
-- Final development source SHA: `f8a6ee77baf959781d7849f197f347d3c97c4f16`.
-- Source checks: [46135425523](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135425523) — success.
-- Prototype server + client checks: [46135425511](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135425511) — success.
-- Pages build and deployment: [46135445052](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135445052) — build and deploy success. Build checked out the exact tested source SHA above.
-- Release payload merged to `main` through [PR #143](https://github.com/desdesyo/CSS-Bot-Community/pull/143), merge commit `b2413851235fa97a424658a93c1ac41d06e818c8`.
-- Published game URL: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html
-- Remaining player verification: confirm the round no longer auto-restarts in map-authoring mode and that the updated mobile menu fits the landscape viewport. No physical-device verification is claimed.
+- Новое сообщение игрока: машины, двери и окна пропускают игрока; окна с обратной стороны здания теряют визуальную форму; карта всё ещё выглядит сырой, хотя её общие очертания игроку уже нравятся. Не разрушать удачную композицию.
+- Исправления геометрии/коллизий в `engine/v2/wet-ground-map.mjs`:
+  - добавлены невидимые физические collision hull для обеих припаркованных фургонов и автомобилей спавн-кварталов; hull входят в существующий сборщик `soloCollisionBoxes`;
+  - створки входных и airlock-дверей теперь участвуют в коллизиях;
+  - оконные стёкла получают коллизию, чтобы игрок не проходил через закрытые окна;
+  - добавлены оконные рамы/стекло на обратных фасадах зданий, где ранее была глухая стена.
+- Исправление отчёта в `engine/v2/engine.js`:
+  - кнопка «Баг» больше не запускает дополнительный top-down render-target 1280×960 сразу после обычного скриншота;
+  - верхний вид и 30-зонный контактный лист остаются отдельной задачей кнопки «Обзор карты»;
+  - размер обычного скриншота ограничен 960×720, сохраняя пропорции экрана, чтобы уменьшить пиковую нагрузку мобильного GPU.
+- Игровые функции управления, камера, стрельба, боеприпасы, перезарядка и симуляция не изменялись. Механики ботов и их файлы не удалялись.
+- Cache bust: `wet-ground-map.mjs?v=20261128-worldfix1`, `engine.js?v=20261128-worldfix1`.
+- Коммиты: map `12f6e21f3a33c5e0da92e9d3c6601ce947e628ae`; engine `d1e7e5a60d8c84c07ff95a5f6aa63cb17afe41a4`; HTML `03aaf91d5619c061e824c574782d7f5af2386623`.
+- Автоматические проверки, публикация Pages и проверка на Redmi 12 ещё не подтверждены. Не считать проблему зависания решённой до проверки игроком; не выдавать новую ссылку как опубликованную до успешного deploy.
+
+
+### worldfix1 release payload and regression gates
+- Final material/cache revision: `worldfix2`; map module and engine HTML cache keys are both updated.
+- Additional material fix: glazing, glass highlights, curtains and timber doors disable back-face culling so reverse-side surfaces remain visible.
+- Regression tests added to `engine/v2/engine.test.mjs`: vehicle collision hulls, solid door/window collision, rear-facade glazing, two-sided material visibility, and bug-report capture isolation.
+- Clean release branch based on `main`: `feature/solo-engine-v2-worldfix1`; it contains only the V2 application files and version ledger, avoiding the unrelated 834-commit history of the long-lived development branch.
+- Release branch commits: map `3a48e24fe0b696e2f1993b6a90d3ca892a3ca9a9` plus follow-up cache/material updates copied into the release payload; engine `2c3efe29010d69582f604ca8a9029c357a8bd25b`; index `7864b37bae5907ebdc019d046bb48bc437e056c6`; regression tests `8006f268454aaaf577f6297f93ece33d65b3d9ea`.
+- Note: the exact final files were copied from the development branch after its latest worldfix2 commits. CI and Pages deployment must be confirmed on the clean release branch before asking the player to test.
