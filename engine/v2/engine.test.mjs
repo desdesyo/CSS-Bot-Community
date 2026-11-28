@@ -833,27 +833,18 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => {
-  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+test('map visual report builds 30 mobile-safe grid crops from one top-down render without requiring bots', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(!engine.includes('sampleBotWalkLocations'));
-  assert.ok(!engine.includes('mapWalkSamples'));
-  assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
-  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
-  assert.match(engine, /source:'independent-map-grid'/);
-  assert.match(engine, /team:'MAP'/);
-  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
-  assert.ok(!selector.includes('state.bots'));
-  assert.ok(!selector.includes('mapWalkSamples'));
-  assert.ok(!selector.includes('waypoints'));
-  assert.ok(engine.includes('mapAreaSnapshots:contactSheet.tiles.length'));
-  assert.ok(html.includes('engine.js?v=20261128-capturefix3'));
-  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
-  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-capturefix3/);
+  assert.match(engine, /function sampleBotWalkLocations\(now\)/);
+  assert.match(engine, /source:'observed-bot-position'/);
+  assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
+  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
+  assert.ok(engine.includes('function captureMapAreaContactSheet(points,onProgress=()=>{},overviewBase64)'));
+  assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
+  assert.match(engine, /single-render-cpu-crops/);
+  assert.match(engine, /mapAreaSnapshots:30/);
+  assert.match(engine, /2026-11-28-map-report-pipeline1/);
 });
-
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
   const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
