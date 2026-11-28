@@ -69,9 +69,10 @@ try {
 
   await page.waitForTimeout(1500);
   const overview = await page.evaluate(() => window.__SOLO_CAPTURE_API__.metrics());
-  stage('capture-top-down-overview', { metrics: overview });
-  const overviewCapture = await withTimeout(page.evaluate(() => window.__SOLO_CAPTURE_API__.captureOverview()), 90000, 'Top-down overview render');
-  const overviewBytes = Buffer.from(overviewCapture.base64 || '', 'base64');
+  stage('prepare-top-down-overview', { metrics: overview });
+  const overviewCapture = await withTimeout(page.evaluate(() => window.__SOLO_CAPTURE_API__.setOverview()), 10000, 'Set overview camera');
+  await page.waitForTimeout(1200);
+  const overviewBytes = await withTimeout(page.locator('#renderCanvas').screenshot({ timeout: 20000 }), 25000, 'Canvas overview screenshot');
   if (overviewCapture.mode !== 'orthographic-map-overview' || overviewBytes.length < 10000) {
     throw new Error('Orthographic overview capture is missing or unexpectedly small.');
   }
