@@ -1048,7 +1048,7 @@ test('graffiti-eye toggle hides diagnostic controls but keeps fullscreen and pau
 });
 test('HUD engine cache key invalidates the prior mobile page module', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
+ assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
 });
 
 test('diagnostics eye also hides recording menu and quality overlay, with map report below action row', async () => {
@@ -1058,7 +1058,7 @@ test('diagnostics eye also hides recording menu and quality overlay, with map re
  assert.match(html,/data-menu-tab="logs"/);
  assert.match(html,/#mapOverviewQuick\{top:70px!important/);
  assert.match(html,/#mapOverviewStatus\{top:100px!important/);
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
+ assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
 });
 
 test('orange joystick glow is a luminous underlayer visible through translucent blue-gray stick shells', async () => {
@@ -1069,5 +1069,21 @@ test('orange joystick glow is a luminous underlayer visible through translucent 
  assert.match(html,/#nub\{z-index:1;background:rgba\(139,174,194,.34\)/);
  assert.match(html,/#fireNub\{z-index:1;background:rgba\(143,180,199,.32\)/);
  assert.match(html,/@keyframes hud-ember-pulse/);
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
+ assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
+});
+
+
+test('cinematic sunset sky, warm camera grade and lower-corner touch controls are active', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ const map=await readFile(new URL('./wet-ground-map.mjs',import.meta.url),'utf8');
+ assert.ok(html.includes("await import('./engine.js?v=20261128-sunset1-touchrestore1')"));
+ assert.ok(html.includes('#stick{position:absolute;left:22px;bottom:max(22px,env(safe-area-inset-bottom))'));
+ assert.ok(html.includes('#fire{position:absolute;right:18px;bottom:max(24px,env(safe-area-inset-bottom))'));
+ assert.ok(engine.includes('colorCurvesEnabled=true'));
+ assert.ok(engine.includes('low orange setting sun'));
+ assert.ok(engine.includes("wet-ground-map.mjs?v=20261128-sunset1"));
+ assert.ok(map.includes('sunDisc'));
+ assert.ok(map.includes('#f08b4d'));
+ assert.ok(map.includes('orange sunset sky atmosphere'));
 });
