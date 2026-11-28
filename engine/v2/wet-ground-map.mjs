@@ -1,3 +1,5 @@
+import { partitionSurfaceRects } from './surface-grid.mjs?v=20261128-texturefix2';
+
 /**
  * WET GROUND — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
@@ -285,11 +287,12 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   if(water.albedoColor) water.albedoColor=new C(.035,.11,.18);
   if(water.emissiveColor) water.emissiveColor=new C(.008,.025,.05);
   const cobble=mat('Wet Ground wet cobblestone PBR','#43596b',.13,.16);
+  const cobbleRows=mobile?26:42,cobbleCols=mobile?18:28;
   const makeCobbleTexture = () => {
     const size=mobile?1024:2048, tex=new B.DynamicTexture('photographic irregular wet cobblestone albedo', {width:size,height:size}, scene, true, B.Texture.TRILINEAR_SAMPLINGMODE);
     const ctx=tex.getContext(),rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
     ctx.fillStyle='#101923';ctx.fillRect(0,0,size,size);
-    const rows=mobile?26:42,cols=mobile?18:28,cw=size/cols,ch=size/rows;
+    const rows=cobbleRows,cols=cobbleCols,cw=size/cols,ch=size/rows;
     for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
       const ox=(y%2)*cw*.48,px=x*cw+ox,py=y*ch;
       const inset=2+rand()*3,shade=31+Math.floor(rand()*26),points=[];
@@ -340,7 +343,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   const cobbleRough=new B.DynamicTexture('cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const roughCtx=cobbleRough.getContext();roughCtx.fillStyle='rgb(235,235,235)';roughCtx.fillRect(0,0,mobile?512:1024,mobile?512:1024);
   let roughSeed=77123;const roughRand=()=>((roughSeed=(roughSeed*1664525+1013904223)>>>0)/4294967296);
-  const roughW=mobile?512:1024,roughRows=mobile?18:28,roughCols=mobile?13:20,rw=roughW/roughCols,rh=roughW/roughRows;
+  const roughW=mobile?512:1024,roughRows=cobbleRows,roughCols=cobbleCols,rw=roughW/roughCols,rh=roughW/roughRows;
   for(let y=0;y<roughRows;y++)for(let x=0;x<roughCols;x++){
     const px=x*rw+(y%2)*rw*.46,py=y*rh,val=Math.floor(125+roughRand()*90);
     roughCtx.fillStyle='rgb('+val+','+val+','+val+')';roughCtx.fillRect(px+2,py+2,rw-4,rh-4);
@@ -354,20 +357,23 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
   const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
-  const normalRows=mobile?18:28,normalCols=mobile?13:20,nw=normalSize/normalCols,nh=normalSize/normalRows;
+  const normalRows=cobbleRows,normalCols=cobbleCols,nw=normalSize/normalCols,nh=normalSize/normalRows;
+  let normalSeed=93471;const normalRand=()=>((normalSeed=(normalSeed*1664525+1013904223)>>>0)/4294967296);
   for(let y=0;y<normalRows;y++)for(let x=0;x<normalCols;x++){
     const px=x*nw+(y%2)*nw*.46,py=y*nh;
     normalCtx.fillStyle='rgb(91,112,239)';normalCtx.fillRect(px+1,py+1,nw-2,nh-2);
     normalCtx.strokeStyle='rgb(91,112,239)';normalCtx.lineWidth=2;normalCtx.strokeRect(px+2,py+2,nw-4,nh-4);
     normalCtx.strokeStyle='rgb(164,144,250)';normalCtx.lineWidth=1.2;normalCtx.beginPath();normalCtx.moveTo(px+4,py+4);normalCtx.lineTo(px+nw*.7,py+4);normalCtx.stroke();
     for(let pit=0;pit<9;pit++){
-      const px2=px+4+Math.random()*(nw-8),py2=py+4+Math.random()*(nh-8);
+      const px2=px+4+normalRand()*(nw-8),py2=py+4+normalRand()*(nh-8);
       normalCtx.fillStyle='rgba(116,128,250,.28)';normalCtx.fillRect(px2,py2,1.2,1.2);
     }
   }
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=1;normalTex.vScale=1;normalTex.gammaSpace=false;
   normalTex.anisotropicFilteringLevel=mobile?8:16;cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
-  loadScannedPbr(cobble,'cobblestone_pavement',1,mobile?.68:.9);
+  // Keep cobblestone_pavement albedo, roughness and normal as one coherent procedural set.
+  // Do not load cobblestone_pavement channels independently: a partial download could misalign the relief.
+
   if(cobble.metallic!==undefined)cobble.metallic=.08;
 
   // Photo-oriented wet-surface pass: stronger clear coat, fine rain pitting,
@@ -446,14 +452,33 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   if(asphalt.clearCoat){asphalt.clearCoat.isEnabled=true;asphalt.clearCoat.intensity=mobile?.28:.46;asphalt.clearCoat.roughness=.16;}
   const ground=B.MeshBuilder.CreateGround('Wet Ground district foundation',{width:106,height:84,subdivisions:1},scene);
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
+  const asphaltRects=[],sidewalkRects=[];
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
+    if(material===asphalt){asphaltRects.push({name,x,z,w,d,y});return null;}
+    if(material===cobble&&/pedestrian sidewalk/i.test(name)){sidewalkRects.push({name,x,z,w,d,y});return null;}
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    const tileSize=material===cobble?2.4:material===stone?3.2:material===asphalt?4.2:0;
+    const tileSize=material===cobble?2.4:material===stone?3.2:0;
     if(tileSize>0){
       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/tileSize;uv[i+1]*=d/tileSize;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
     }
-     m.position.set(x,y,z);m.material=material;m.receiveShadows=true;return m;
+    m.position.set(x,y,z);m.material=material;m.receiveShadows=true;return m;
+  };
+  const buildSurfaceMesh=(name,rectangles,material,cutouts,tileSize)=>{
+    const cells=partitionSurfaceRects(rectangles,cutouts);
+    if(!cells.length)return null;
+    const positions=[],indices=[],uvs=[],normals=[];
+    for(const cell of cells){
+      const base=positions.length/3,{x0,x1,z0,z1,y}=cell;
+      positions.push(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1);
+      indices.push(base,base+2,base+1,base,base+3,base+2);
+      uvs.push(x0/tileSize,z0/tileSize,x1/tileSize,z0/tileSize,x1/tileSize,z1/tileSize,x0/tileSize,z1/tileSize);
+      normals.push(0,1,0,0,1,0,0,1,0,0,1,0);
+    }
+    const mesh=new B.Mesh(name,scene),data=new B.VertexData();
+    data.positions=positions;data.indices=indices;data.uvs=uvs;data.normals=normals;data.applyToMesh(mesh);
+    mesh.material=material;mesh.receiveShadows=true;mesh.isPickable=false;mesh.checkCollisions=false;
+    return mesh;
   };
   const box=(name,x,y,z,w,h,d,material,collide=true,cast=true)=>{
     const m=B.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
@@ -1443,6 +1468,11 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   buildSpawnFragment('T',-21,-8.43,8.43,'ЦВЕТЫ','МАГАЗИН');
 
   // Audit horizontal surfaces before merging so overlapping coplanar floors remain diagnosable.
+  // Build each connected ground material as one non-overlapping mesh. World-space UVs
+  // keep the pattern continuous through intersections instead of stacking coplanar planes.
+  buildSurfaceMesh('Wet Ground unified asphalt road network',asphaltRects,asphalt,[],4.2);
+  buildSurfaceMesh('Wet Ground unified cobblestone sidewalk network',sidewalkRects,cobble,asphaltRects,2.4);
+
   const surfaceCandidates=[];
   for(const mesh of scene.meshes.slice(mapStart)){
     if(!mesh||mesh.isDisposed?.()||!/(ground|floor|pavement|road|street|canal bed|sidewalk|market cut-through|moss growth|terrain)/i.test(mesh.name||''))continue;

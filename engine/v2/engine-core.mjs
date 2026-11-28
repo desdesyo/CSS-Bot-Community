@@ -12,6 +12,28 @@ export function advancePatrolIndex(index, length) {
   return ((Math.trunc(index) + 1) % length + length) % length;
 }
 
+export function configureBotVisuals(meshes = [], hitboxes = [], enabled = false) {
+  const hitboxSet = new Set(hitboxes.filter(Boolean));
+  let visible = 0, hidden = 0;
+  for (const mesh of meshes || []) {
+    if (!mesh) continue;
+    if (hitboxSet.has(mesh)) {
+      // Invisible hitboxes remain enabled and pickable for bullets/collision.
+      mesh.isVisible = true;
+      mesh.visibility = 0;
+      continue;
+    }
+    mesh.isVisible = !!enabled;
+    mesh.visibility = enabled ? 1 : 0;
+    if (!enabled) {
+      mesh.isPickable = false;
+      mesh.receiveShadows = false;
+      hidden++;
+    } else visible++;
+  }
+  return { visible, hidden };
+}
+
 export function selectNextLivingBot(bots, currentId = null, direction = 1) {
   const roster = (bots || []).slice().sort((a,b)=>a.id-b.id);
   if (!roster.length) return null;

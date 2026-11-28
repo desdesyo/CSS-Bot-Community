@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'feature/**'
+      - 'fix/**'
       - feature/solo-engine-v2
       - feature/wet-asphalt-map-20261128
       - fix/solo-report-controls
@@ -33,15 +34,19 @@ jobs:
           test -s engine/v2/index.html
           test -s engine/v2/engine.js
           test -s engine/v2/engine-core.mjs
+          test -s engine/v2/surface-grid.mjs
           test -s engine/v2/human-bots.mjs
           test -s engine/v2/weapon-viewmodel.mjs
           node --check engine/v2/engine.js
+          node --check engine/v2/engine-core.mjs
+          node --check engine/v2/wet-ground-map.mjs
+          node --check engine/v2/surface-grid.mjs
           node --check engine/v2/human-bots.mjs
           node --check engine/v2/weapon-viewmodel.mjs
           node --check engine/v2/map-report-pipeline.mjs
 
       - name: Run engine unit tests
-        run: node --test --test-skip-pattern='mobile performance release invalidates cached engine and wet-map modules|map overview button captures a top-down orthographic scene and uploads a paired visual audit report|HTML loads the GLB-loader-fix engine module without stale mobile cache|soldier animation fix invalidates both HTML and engine module caches|mobile camera swipe has a larger touch zone and higher angular response|mobile thumb controls move inward and FIRE shifts farther left' engine/v2/engine.test.mjs
+        run: node --test engine/v2/engine.test.mjs
 
       - name: Run map-report pipeline tests
         run: node --test engine/v2/map-report-pipeline.test.mjs

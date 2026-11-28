@@ -82,7 +82,7 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
 }
 
 </style>
-<style id="mobile-controls-touchfix2-reportfix2">@media (pointer:coarse){#stick{left:clamp(30px,4vw,44px)}#fire{right:clamp(76px,11vw,112px)}}</style>
+<style id="mobile-controls-touchfix3">@media (pointer:coarse){#stick{left:22px!important}#fire{right:18px!important}}</style>
 
 <style id="mobile-landscape-hud-fix">
 @media (pointer:coarse) and (orientation:landscape) and (max-height:520px){
@@ -102,7 +102,7 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
  /* The overview controls used to sit directly over the left movement stick. */
  #mapOverviewQuick{top:72px!important;right:8px!important;left:auto!important;bottom:auto!important;padding:5px 7px!important;font-size:8px!important;line-height:1!important;z-index:19!important}
  #mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important;width:min(210px,42vw)!important;max-width:min(210px,42vw)!important;padding:4px 6px!important;font-size:7px!important;line-height:1.2!important;text-align:right!important;z-index:19!important}
- #stick{left:clamp(24px,4vw,40px)!important;bottom:max(18px,env(safe-area-inset-bottom))!important}
+ #stick{left:22px!important;bottom:max(22px,env(safe-area-inset-bottom))!important}
  #actions{top:38px!important;right:8px!important;left:auto!important;gap:3px!important}
  #actions button{padding:3px 5px!important;font-size:7px!important;min-height:21px!important;line-height:1!important}
 }
@@ -131,7 +131,7 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
 #mapOverviewQuick{top:70px!important;right:8px!important;left:auto!important;bottom:auto!important;padding:5px 7px!important;font-size:8px!important;line-height:1.1!important;z-index:19!important}
 #mapOverviewStatus{top:100px!important;right:8px!important;left:auto!important;bottom:auto!important;width:min(205px,55vw)!important;max-width:min(205px,55vw)!important;padding:4px 6px!important;font-size:7px!important;line-height:1.2!important;text-align:right!important;z-index:19!important}
 /* Warm light source sits UNDER the translucent blue-gray control surface. */
-#stick,#fire{position:relative;isolation:isolate;overflow:hidden}
+#stick,#fire{isolation:isolate;overflow:hidden}body.gamepad-connected #touch{display:none!important}body.gamepad-connected #bottom{display:none!important}#gamepadHint{position:fixed;z-index:9;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:min(390px,68vw);padding:9px 13px;border:1px solid #e18a3b88;border-radius:12px;background:#101820e8;color:#ffd7ad;font:700 10px/1.45 system-ui,sans-serif;text-align:center;letter-spacing:.3px;pointer-events:none;box-shadow:0 0 18px #e18a3b22}#gamepadHint[hidden]{display:none!important}
 #stick{border:1.5px solid rgba(255,145,48,.98)!important;background:rgba(112,151,173,.22)!important;box-shadow:0 0 5px rgba(255,134,31,.72),0 0 15px rgba(255,119,20,.5),inset 0 0 13px rgba(150,184,202,.16)!important}
 #stick::before,#fire::before{content:"";position:absolute;z-index:0;inset:7%;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(255,151,48,.98) 0%,rgba(255,126,24,.84) 24%,rgba(255,105,12,.42) 48%,rgba(255,105,12,.12) 70%,transparent 100%);filter:blur(7px);opacity:.94;animation:hud-ember-pulse 2.8s ease-in-out infinite}
 #stick::after,#fire::after{content:"";position:absolute;z-index:0;inset:0;border-radius:50%;pointer-events:none;background:linear-gradient(145deg,rgba(255,255,255,.12),transparent 42%,rgba(12,28,38,.12));}
@@ -144,7 +144,7 @@ button.selected,#menuNav button.active{background:linear-gradient(180deg,#286e78
 body.hud-clean #logsQuick,body.hud-clean #issueQuick,body.hud-clean #mapOverviewQuick,body.hud-clean #mapOverviewStatus,body.hud-clean #quality,body.hud-clean #menuNav button[data-menu-tab="logs"],body.hud-clean #pane-logs{display:none!important}
 @media(pointer:coarse) and (orientation:landscape) and (max-height:560px){
  #minimap{top:39px!important;width:88px!important;height:88px!important}
- #playerBars{top:132px;width:88px}
+ #playerBars{top:160px;width:88px}
  #mapOverviewQuick{top:70px!important}
  #mapOverviewStatus{top:100px!important}
  #actions{top:37px!important}
@@ -153,7 +153,7 @@ body.hud-clean #logsQuick,body.hud-clean #issueQuick,body.hud-clean #mapOverview
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
-<div id="hud"><div id="top"><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="playerBars" aria-label="Здоровье и броня"><div class="barLabel"><span>ЗДОРОВЬЕ</span><span id="hpValue">100</span></div><div class="playerBar"><i id="hpFill"></i></div><div class="barLabel"><span>БРОНЯ</span><span id="armorValue">—</span></div><div class="playerBar"><i id="armorFill"></i></div></div><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
+<div id="hud"><div id="top"><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="playerBars" aria-label="Здоровье и броня"><div class="barLabel"><span>ЗДОРОВЬЕ</span><span id="hpValue">100</span></div><div class="playerBar"><i id="hpFill"></i></div><div class="barLabel"><span>БРОНЯ</span><span id="armorValue">0</span></div><div class="playerBar"><i id="armorFill"></i></div></div><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="gamepadHint" hidden aria-live="polite">ГЕЙМПАД · ЛЕВЫЙ СТИК — ДВИЖЕНИЕ · ПРАВЫЙ — ОБЗОР · RT — ОГОНЬ · X — ПЕРЕЗАРЯДКА · A/B/Y — ОРУЖИЕ · LB/RB — БЕГ</div><div id="quality">INITIALIZING RENDERER…</div></div>
 <button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 снимков зон ботов</div><div id="actions"><button id="logsQuick" type="button" aria-label="Отправить игровой лог">● ЛОГ</button><button id="issueQuick" type="button" aria-label="Отметить баг">⚑ БАГ</button><button id="eyeToggle" type="button" aria-label="Скрыть диагностические кнопки" aria-pressed="false" title="Показать или скрыть диагностику"><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12Q8 2 16 3Q25 2 30 12Q24 22 16 21Q7 22 2 12Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><circle cx="16" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="12" r="1.7" fill="currentColor"/><path d="M5 3 3 1M26 3l3-2M1 18l-1 2M29 18l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button id="fullScreen" type="button" aria-label="Полноэкранный режим">⛶</button><button id="pause" type="button" aria-label="Пауза">Ⅱ</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
 <div id="spectatorHud" hidden><button id="spectatorPrev" type="button" aria-label="Предыдущий живой бот">◀</button><span id="spectatorLabel">НАБЛЮДЕНИЕ</span><span>Q / E</span><button id="spectatorNext" type="button" aria-label="Следующий живой бот">▶</button></div>
 <div id="roundEnd" hidden><div id="roundEndCard"><p style="margin:0 0 10px;color:#aab8b8;font:700 10px ui-monospace,monospace;letter-spacing:3px">SOLO · WET GROUND</p><h2 id="roundWinner">COUNTER-TERRORISTS WIN</h2><p id="roundReason">ROUND COMPLETE</p><div id="roundCountdown">СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5</div></div></div>
@@ -212,7 +212,7 @@ try{
   'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
  ],'Обязательный Babylon glTF loader');
  show('Подготовка отражений и ночного освещения…','WAITING FOR VERIFIED TEXTURES AND NIGHT LIGHTING');
- await import('./engine.js?v=20261128-sunset1-touchrestore1');
+ await import('./engine.js?v=20261128-gameplay-texturefix2');
 }catch(error){
  console.error('SOLO Engine bootstrap failed',error);
  const failedOverlay=document.getElementById('overlay');

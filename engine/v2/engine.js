@@ -1,13 +1,14 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-spawnfix1';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, configureBotVisuals, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-hidden-bot-gameplay2';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { buildMapSnapshotGrid, validateMapSnapshotPoints, uploadReportFile } from './map-report-pipeline.mjs?v=20261128-reportfix1';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-sunset1';
-const MAP_EDIT_MODE=true; // Temporary map-authoring switch. Bot AI, models, routes and assets remain intact.
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-texturefix2';
+const MAP_EDIT_MODE=false; // Production gameplay stays enabled.
+const BOT_VISUALS_ENABLED=false; // Keep AI, hitboxes and spectator cameras active without drawing soldier meshes.
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, gamepadMove:{x:0,y:0}, gamepadLook:{x:0,y:0}, gamepadButtons:[], gamepadIndex:null, gamepadId:null, gamepadFire:false, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -154,10 +155,11 @@ function buildMap() {
 }
 function makeBot(id, team, x,z, waypoints) {
   const root=new BABYLON.TransformNode('bot-'+id,scene);
-  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile);
+  const human=createHumanBot(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile||!BOT_VISUALS_ENABLED);
   root.position.set(x,human.floorOffset,z);
   const weapons=createBotWeapon(root,id,team);
-  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},faction:z<0?'T':'CT',waypoints,baseWaypoints:waypoints.map(p=>p.slice()),index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1,routeCompleted:false,stuckSince:0,lastProgressX:x,lastProgressZ:z,lastProgressAt:performance.now(),pathFailures:0});
+  configureBotVisuals(root.getChildMeshes(false),[human.body,human.head],BOT_VISUALS_ENABLED);
+  state.bots.push({id,team,root,body:human.body,head:human.head,rig:human.rig,weapons,rifle:weapons.rifle,activeWeapon:'rifle',rightHand:human.rig.rightHand,ammo:30,reserve:90,pistolAmmo:12,pistolReserve:36,reloadUntil:0,meleeUntil:0,weaponKick:0,fireAt:0,deadAt:0,spawn:{x,z},floorOffset:human.floorOffset,faction:z<0?'T':'CT',waypoints,baseWaypoints:waypoints.map(p=>p.slice()),index:0,speed:team==='enemy'?2.05:1.9,phase:id*.73,health:100,alive:true,navPath:[],navIndex:0,navGoal:null,repathAt:0,target:null,combatState:'patrol',combatStrafeAt:0,combatSide:id%2?1:-1,routeCompleted:false,stuckSince:0,lastProgressX:x,lastProgressZ:z,lastProgressAt:performance.now(),pathFailures:0});
   return root;
 }
 function buildBots() {
@@ -178,11 +180,11 @@ function buildBots() {
   // CT allies deploy outside the biosecure south wall, then enter through
   // the aligned outer airlock and server-chamber portal.
   const ctRoutes=[
-    [[-8,38],[-6,36],[-4,34],[0,32],[0,27],[0,23]],
-    [[-4,38],[-3,36],[-2,34],[0,32],[0,27],[0,23]],
+    [[-8,38],[-5,36],[-2.8,34],[-1.2,32],[-1.2,27],[-1.2,23]],
+    [[-4,38],[-2.8,36],[-1.9,34],[-.6,32],[-.6,27],[-.6,23]],
     [[0,39],[0,36],[0,34],[0,32],[0,27],[0,23]],
-    [[4,38],[3,36],[2,34],[0,32],[0,27],[0,23]],
-    [[8,38],[6,36],[4,34],[0,32],[0,27],[0,23]],
+    [[4,38],[2.8,36],[1.9,34],[.6,32],[.6,27],[.6,23]],
+    [[8,38],[5,36],[2.8,34],[1.2,32],[1.2,27],[1.2,23]],
     [[0,38],[0,36],[0,34],[0,32],[0,27],[0,23]]
   ];
   const roster=createTeamRoster(state.playerTeam);
@@ -306,7 +308,7 @@ function cycleSpectator(direction=1){
 }
 function handlePlayerDeath(source='unknown'){
   if(state.playerDead||state.roundEnding)return;
-  state.playerDead=true;state.hp=0;state.firing=false;state.reloading=false;state.keys.clear();state.joy.x=state.joy.y=0;
+  state.playerDead=true;state.hp=0;state.firing=false;state.reloading=false;state.keys.clear();state.joy.x=state.joy.y=0;weaponRoot?.setEnabled(false);
   $('health').textContent='DEAD';gameLogEvent('player-died',{source,position:{x:+camera.position.x.toFixed(2),z:+camera.position.z.toFixed(2)},livingAllies:aliveAllies().length});
   if(aliveAllies().length)cycleSpectator(1);else endRound(false,'TEAM ELIMINATED');
 }
@@ -457,11 +459,20 @@ function updateBotMotion(dt) {
       }
       const avoidLength=Math.hypot(avoidX,avoidZ);
       const steer=avoidLength>.001?Math.min(2.2,avoidLength*2.1)*dt:0;
-      const moveX=next.x-bot.root.position.x+(avoidX/Math.max(.001,avoidLength))*steer;
-      const moveZ=next.z-bot.root.position.z+(avoidZ/Math.max(.001,avoidLength))*steer;
-      // Collision helper queries the same spatial hash per swept substep, avoiding
-      // repeated scans of even the bot's prefiltered collider list.
-      const resolved=moveWithAabbCollisions({x:bot.root.position.x,y:1.72,z:bot.root.position.z},{x:moveX,z:moveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+      const startX=bot.root.position.x,startZ=bot.root.position.z;
+      const baseMoveX=next.x-startX,baseMoveZ=next.z-startZ;
+      const moveX=baseMoveX+(avoidX/Math.max(.001,avoidLength))*steer;
+      const moveZ=baseMoveZ+(avoidZ/Math.max(.001,avoidLength))*steer;
+      // Try the separation steer first, then retry the clean route step if the
+      // avoidance vector would push a soldier into a wall or doorway frame.
+      let resolved=moveWithAabbCollisions({x:startX,y:1.72,z:startZ},{x:moveX,z:moveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+      if((resolved.blockedX||resolved.blockedZ)&&avoidLength>.001){
+        const direct=moveWithAabbCollisions({x:startX,y:1.72,z:startZ},{x:baseMoveX,z:baseMoveZ},collisionBoxes,.38,1.72,.07,collisionIndex);
+        const steeredDistance=Math.hypot(resolved.x-startX,resolved.z-startZ);
+        const directDistance=Math.hypot(direct.x-startX,direct.z-startZ);
+        if(directDistance>steeredDistance+1e-4)resolved=direct;
+      }
+      const actualMove=Math.hypot(resolved.x-startX,resolved.z-startZ);
       bot.root.position.x=resolved.x;bot.root.position.z=resolved.z;
       if((resolved.blockedX||resolved.blockedZ)&&dist>.8){
         if(!bot.blockedLogged)gameLogEvent('bot-path-blocked',{id:bot.id,team:bot.team,position:{x:+bot.root.position.x.toFixed(2),z:+bot.root.position.z.toFixed(2)},goal,blockedX:resolved.blockedX,blockedZ:resolved.blockedZ});
@@ -478,7 +489,7 @@ function updateBotMotion(dt) {
           else if(bot.combatState!=='patrol')bot.combatSide=-(bot.combatSide||1);
         }
       }
-      animateHumanBot(bot.rig,dist>.25,bot.speed>2.7);
+      animateHumanBot(bot.rig,actualMove>.02,bot.speed>2.7&&actualMove>.02);
     }else animateHumanBot(bot.rig,false,false);
     let lookAt=null;
     if(bot.target?.kind==='player')lookAt=bot.target.position;
@@ -746,18 +757,20 @@ function drawMinimap(){
   // Collision silhouettes give the player an actual top-down map, not just radar dots.
   ctx.fillStyle='#9aa69b55';
   for(const b of collisionBoxes){const x=px(b.minX),y=py(b.minZ),w=Math.max(1,(b.maxX-b.minX)*scale),h=Math.max(1,(b.maxZ-b.minZ)*scale);ctx.fillRect(x,y,w,h);}
-  ctx.fillStyle='#d6b36e';ctx.font='bold 8px system-ui';ctx.fillText('WET GROUND',px(-5),py(-39));
-  ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.font='bold 7px system-ui';ctx.fillText('BIOSECURE / SERVER',px(-10),py(15));ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
+  ctx.strokeStyle='#45d4df';ctx.lineWidth=1.4;ctx.strokeRect(px(-11.5),py(13),23*scale,22*scale);ctx.fillStyle='#45d4df';ctx.fillStyle='#e6b44f';ctx.fillRect(px(-1.8),py(22.2),3.6*scale,3.6*scale);
   ctx.fillStyle='#a75c4d';ctx.fillRect(px(-11),py(-41),22*scale,1.5*scale);
   ctx.fillStyle='#527b9c';ctx.fillRect(px(-11),py(33),22*scale,1.5*scale);
   for(const bot of state.bots){if(!bot.alive)continue;ctx.beginPath();ctx.fillStyle=bot.team==='ally'?'#73b9e8':'#ed7468';ctx.arc(px(bot.root.position.x),py(bot.root.position.z),2.7,0,Math.PI*2);ctx.fill();}
   const x=px(camera.position.x),y=py(camera.position.z),forward=cameraForwardOnMap();
   ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(forward.x,-forward.z));ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
-  ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
 function gamepadAxis(value){
  const n=Math.abs(value||0);if(n<.16)return 0;
  return Math.sign(value)*Math.min(1,(n-.16)/.84);
+}
+function setGamepadHudActive(active){
+ document.body.classList.toggle('gamepad-connected',!!active);
+ const hint=$('gamepadHint');if(hint)hint.hidden=!active;
 }
 function pollGamepadInput(dt){
  if(typeof navigator.getGamepads!=='function')return;
@@ -767,9 +780,9 @@ function pollGamepadInput(dt){
   if(state.gamepadIndex!==null)gameLogEvent('gamepad-input-lost',{index:state.gamepadIndex,id:state.gamepadId});
   state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=0;state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;
   if(state.firing&&state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}
-  state.gamepadButtons=[];return;
+  state.gamepadButtons=[];setGamepadHudActive(false);return;
  }
- if(state.gamepadIndex!==pad.index){state.gamepadIndex=pad.index;state.gamepadId=pad.id;gameLogEvent('gamepad-input-active',{index:pad.index,id:pad.id,mapping:pad.mapping,axes:pad.axes?.length||0,buttons:pad.buttons?.length||0});}
+ if(state.gamepadIndex!==pad.index){state.gamepadIndex=pad.index;state.gamepadId=pad.id;setGamepadHudActive(true);gameLogEvent('gamepad-input-active',{index:pad.index,id:pad.id,mapping:pad.mapping,axes:pad.axes?.length||0,buttons:pad.buttons?.length||0});}
  const axes=pad.axes||[],buttons=pad.buttons||[];
  const read=(index)=>gamepadAxis(axes[index]||0);
  state.gamepadMove.x=read(0);state.gamepadMove.y=read(1);
@@ -884,8 +897,8 @@ function start() {
   const resuming=state.paused&&!state.playerDead;
   state.roundEnding=false;$('roundEnd').hidden=true;
   if(state.playerDead){
-    state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.simTime=0;state.aiAccumulator=0;state.playerDead=false;state.reloading=false;state.spectatorBotId=null;$('spectatorHud').hidden=true;$('weaponBar').style.display='';for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
-    for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.waypoints=bot.baseWaypoints.map(p=>p.slice());bot.routeCompleted=false;bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,0,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navIndex=0;bot.navGoal=null;bot.repathAt=0;bot.combatState='patrol';bot.stuckSince=0;bot.lastProgressX=bot.spawn.x;bot.lastProgressZ=bot.spawn.z;bot.lastProgressAt=performance.now();bot.pathFailures=0;}
+    state.hp=100;state.weaponAmmo={rifle:30,pistol:12};state.weaponReserve={rifle:90,pistol:48};state.kills=0;state.roundTime=180;state.simTime=0;state.aiAccumulator=0;state.playerDead=false;state.reloading=false;state.spectatorBotId=null;weaponRoot?.setEnabled(true);$('spectatorHud').hidden=true;$('weaponBar').style.display='';for(const p of state.projectiles)p.mesh.dispose();state.projectiles.length=0;
+    for(const bot of state.bots){bot.health=100;bot.ammo=30;bot.reserve=90;bot.pistolAmmo=12;bot.pistolReserve=36;bot.reloadUntil=0;bot.fireAt=0;bot.meleeUntil=0;bot.target=null;bot.alive=true;bot.root.setEnabled(true);bot.waypoints=bot.baseWaypoints.map(p=>p.slice());bot.routeCompleted=false;bot.index=0;bot.deadAt=0;bot.root.position.set(bot.spawn.x,bot.floorOffset,bot.spawn.z);bot.root.rotation.set(0,0,0);bot.body.isPickable=true;bot.head.isPickable=true;bot.navPath=[];bot.navIndex=0;bot.navGoal=null;bot.repathAt=0;bot.combatState='patrol';bot.stuckSince=0;bot.lastProgressX=bot.spawn.x;bot.lastProgressZ=bot.spawn.z;bot.lastProgressAt=performance.now();bot.pathFailures=0;}
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND '+String(state.roundNumber).padStart(2,'0');$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
@@ -1166,7 +1179,7 @@ function collectMapVisualAudit(){
  const textureInventory=scene.textures.map(t=>{const size=t.getSize?.()||{},url=String(t.url||t._texture?.url||t.name||'').slice(0,220),width=size.width||0,height=size.height||0;return {name:String(t.name||'').split('/').pop().slice(0,120),url,width,height,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha,estimatedBytes:Math.round(width*height*4*(t.getInternalTexture?.()?.generateMipMaps?1.34:1))}});
  const duplicateTextureUrls=new Map();for(const item of textureInventory)if(/^https?:/i.test(item.url))duplicateTextureUrls.set(item.url,(duplicateTextureUrls.get(item.url)||0)+1);
  const resourceInventory=performance.getEntriesByType?.('resource')?.filter(r=>/\.(?:jpe?g|png|webp|hdr|glb)(?:\?|$)|babylon(?:\.loaders)?\.min\.js/i.test(r.name)).slice(-120).map(r=>({url:r.name.slice(0,240),durationMs:+r.duration.toFixed(1),transferBytes:r.transferSize||0,decodedBodyBytes:r.decodedBodySize||0}))||[];
- return {botMode:{mapAuthoring:MAP_EDIT_MODE,activeBotCount:state.bots.length,botModelsRetained:true,botModelsLoaded:!!humanBotAssets,botAssetsLoadSkipped:MAP_EDIT_MODE,botAIEnabled:!MAP_EDIT_MODE},mapStats:window.__SOLO_MAP_STATS__||null,textureAudit:{count:textureInventory.length,gpuTextureCount:new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean)).size,loaded:textureInventory.filter(t=>t.ready).length,notReady:textureInventory.filter(t=>!t.ready).map(t=>t.name),estimatedBytes:Array.from(new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean))).reduce((sum,t)=>{const size=t.getSize?.()||{};return sum+Math.round((size.width||0)*(size.height||0)*4*(t.generateMipMaps?1.34:1));},0),duplicateUrls:Array.from(duplicateTextureUrls.entries()).filter(([,count])=>count>1).map(([url,count])=>({url,count})),scannedPbrLoad:window.__SOLO_TEXTURE_AUDIT__||null,inventory:textureInventory},resourceAudit:{tracked:resourceInventory.length,requests:resourceInventory},surfaceAudit:window.__SOLO_MAP_STATS__?.surfaceAudit||null,scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,textureCount:scene.textures.length},materialUsage:Array.from(materials,([name,v])=>({name,count:v.count,properties:v.example})).sort((a,b)=>b.count-a.count),meshNameGroups:meshKinds,meshSamples,truncatedMeshes:Math.max(0,scene.meshes.length-meshSamples.length)};
+ return {botMode:{mapAuthoring:MAP_EDIT_MODE,activeBotCount:state.bots.length,botModelsRetained:true,botModelsLoaded:!!humanBotAssets,botAssetsLoadSkipped:MAP_EDIT_MODE,botAIEnabled:!MAP_EDIT_MODE,botVisualsEnabled:BOT_VISUALS_ENABLED,botMeshesRendered:BOT_VISUALS_ENABLED},mapStats:window.__SOLO_MAP_STATS__||null,textureAudit:{count:textureInventory.length,gpuTextureCount:new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean)).size,loaded:textureInventory.filter(t=>t.ready).length,notReady:textureInventory.filter(t=>!t.ready).map(t=>t.name),estimatedBytes:Array.from(new Set(scene.textures.map(t=>t.getInternalTexture?.()).filter(Boolean))).reduce((sum,t)=>{const size=t.getSize?.()||{};return sum+Math.round((size.width||0)*(size.height||0)*4*(t.generateMipMaps?1.34:1));},0),duplicateUrls:Array.from(duplicateTextureUrls.entries()).filter(([,count])=>count>1).map(([url,count])=>({url,count})),scannedPbrLoad:window.__SOLO_TEXTURE_AUDIT__||null,inventory:textureInventory},resourceAudit:{tracked:resourceInventory.length,requests:resourceInventory},surfaceAudit:window.__SOLO_MAP_STATS__?.surfaceAudit||null,scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,textureCount:scene.textures.length},materialUsage:Array.from(materials,([name,v])=>({name,count:v.count,properties:v.example})).sort((a,b)=>b.count-a.count),meshNameGroups:meshKinds,meshSamples,truncatedMeshes:Math.max(0,scene.meshes.length-meshSamples.length)};
 }
 let mapWalkSamples=[],mapWalkSampleAt=0;
 function sampleBotWalkLocations(now){
@@ -1318,7 +1331,7 @@ async function submitIssueReport(){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
   const topDownPath=null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-roundfix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:false,format:'image/png',path:null,error:mapCapture.error,worldBounds:null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-hidden-bot-gameplay2',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:false,format:'image/png',path:null,error:mapCapture.error,worldBounds:null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick'),mapBtn=$('mapOverviewQuick');btn.disabled=true;btn.textContent='СБОР…';if(mapBtn){mapBtn.disabled=true;mapBtn.title='Сначала дождись завершения отчёта об ошибке.';setMapOverviewStatus('Собираю отчёт об ошибке. Обзор карты временно заблокирован.','working');}
  try{
   const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
@@ -1342,8 +1355,8 @@ window.addEventListener('error',e=>{const item={wall:new Date().toISOString(),ty
 window.addEventListener('unhandledrejection',e=>{const item={wall:new Date().toISOString(),type:'unhandled-rejection',reason:String(e.reason?.stack||e.reason).slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('unhandled-rejection',item)});
 window.addEventListener('webglcontextlost',e=>{const item={wall:new Date().toISOString(),type:'webgl-context-lost'};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('webgl-context-lost',{status:'lost'})},true);
 window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
-window.addEventListener('gamepadconnected',e=>{state.gamepadIndex=e.gamepad?.index??null;state.gamepadId=e.gamepad?.id||null;gameLogEvent('gamepad-connected',{id:state.gamepadId,index:state.gamepadIndex,mapping:e.gamepad?.mapping||null,axes:e.gamepad?.axes?.length||0,buttons:e.gamepad?.buttons?.length||0});});
-window.addEventListener('gamepaddisconnected',e=>{if(state.gamepadIndex===e.gamepad?.index){state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;if(state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}}state.gamepadButtons=[];gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null});});
+window.addEventListener('gamepadconnected',e=>{state.gamepadIndex=e.gamepad?.index??null;state.gamepadId=e.gamepad?.id||null;setGamepadHudActive(true);gameLogEvent('gamepad-connected',{id:state.gamepadId,index:state.gamepadIndex,mapping:e.gamepad?.mapping||null,axes:e.gamepad?.axes?.length||0,buttons:e.gamepad?.buttons?.length||0});});
+window.addEventListener('gamepaddisconnected',e=>{if(state.gamepadIndex===e.gamepad?.index){state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;if(state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}}state.gamepadButtons=[];setGamepadHudActive(false);gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null});});
 document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
 
 async function boot() {
@@ -1439,15 +1452,16 @@ async function boot() {
       if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
       requestAnimationFrame(refreshViewportAfterRotation);
     });
-    const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='РЕЖИМ РАБОТЫ НАД КАРТОЙ · БОТЫ ВРЕМЕННО ОТКЛЮЧЕНЫ';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
+    const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent=MAP_EDIT_MODE?'РЕЖИМ РАБОТЫ НАД КАРТОЙ · БОТЫ ВРЕМЕННО ОТКЛЮЧЕНЫ':'БОЕВАЯ СЦЕНА ГОТОВА · 6 × 6';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
       if(state.started)sampleBotWalkLocations(now);
       const updateStarted=performance.now();
+      pollGamepadInput(dt);
       if(state.started) {
-        pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
+        updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         if(now-state.lastHud>=250){
           $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
