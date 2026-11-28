@@ -669,7 +669,7 @@ test('mobile performance release invalidates cached engine and wet-map modules',
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.ok(html.includes('./engine.js?v=20261128-mapoverview9'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf4'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf5'));
 });
 
 
@@ -690,7 +690,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-mapoverview8/);
+  assert.match(engine, /2026-11-28-mapoverview9/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -836,7 +836,7 @@ test('map visual report captures 30 spatially distributed bot-area snapshots and
   assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-mapoverview8/);
+  assert.match(engine, /2026-11-28-mapoverview9/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
