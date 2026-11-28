@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-0450-r4';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-1033-r5';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-0450-r4';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs?v=20261128-0450-r4';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-0450-r4';
@@ -19,6 +19,21 @@ const renderPixelRatio=Math.min(Math.max(1,window.devicePixelRatio||1),mobile?1.
 function applyRenderScale(){if(engine)engine.setHardwareScalingLevel(1/(state.scale*renderPixelRatio));}
 let engine, scene, camera, shadowGen, enemyMaterial, allyMaterial, humanBotAssets, botWeaponMaterials;
 let weaponGeometryRoot, rifleRoot, pistolRoot, knifeRoot, collisionBoxes=[], collisionIndex=null, navigationGrid=null, playerSpawn=getPlayerSpawn('CT'), projectileMaterial;
+let safeRenderFallbackActive=false;
+function activateSafeRenderFallback(error){
+  if(safeRenderFallbackActive||!scene)return false;
+  safeRenderFallbackActive=true;
+  recordRuntimeDiagnostic('renderer-safe-fallback-activated',{reason:String(error?.message||error),webgl:engine?.getCaps?.()?.maxTextureSize||null});
+  try{scene.postProcessesEnabled=false;}catch{}
+  try{if(scene.imageProcessingConfiguration)scene.imageProcessingConfiguration.isEnabled=false;}catch{}
+  try{window.__SOLO_GLOW_LAYER__?.dispose();window.__SOLO_GLOW_LAYER__=null;}catch{}
+  try{shadowGen?.dispose();shadowGen=null;}catch{}
+  try{for(const target of scene.customRenderTargets||[]){try{target.refreshRate=0;target.renderList=[];}catch{}}}catch{}
+  try{for(const system of scene.particleSystems||[]){try{system.stop();system.dispose();}catch{}}}catch{}
+  try{scene.environmentTexture=null;}catch{}
+  try{for(const light of scene.lights||[]){try{light.shadowEnabled=false;}catch{}}}catch{}
+  return true;
+}
 function box(name, x,y,z, sx,sy,sz, material, cast=true, collide=true) {
   const m = BABYLON.MeshBuilder.CreateBox(name,{width:sx,height:sy,depth:sz},scene);
   m.position.set(x,y,z); m.material=material; m.receiveShadows=!mobile; m.checkCollisions=!!collide; m.isPickable=!!collide;
@@ -1099,7 +1114,7 @@ async function boot() {
       }
       const renderStarted=performance.now();
       try{scene.render();state.lastRenderMs=performance.now()-renderStarted;if(renderFailureActive){renderFailureActive=false;recordRuntimeDiagnostic('render-recovered',{renderMs:+state.lastRenderMs.toFixed(2)});}}
-      catch(error){state.lastRenderMs=performance.now()-renderStarted;if(!renderFailureActive){renderFailureActive=true;recordRuntimeDiagnostic('scene-render-error',{message:String(error?.message||error),stack:error?.stack||null,meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null});$('quality').textContent='RENDER ERROR · ДИАГНОСТИКА СОХРАНЕНА';$('loadState').textContent='Ошибка отрисовки сцены: '+(error?.message||error);const failedOverlay=$('overlay');failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');failedOverlay.style.display='flex';}}
+      catch(error){state.lastRenderMs=performance.now()-renderStarted;recordRuntimeDiagnostic('scene-render-error',{message:String(error?.message||error),stack:error?.stack||null,meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null});if(activateSafeRenderFallback(error)){try{scene.render();state.lastRenderMs=performance.now()-renderStarted;recordRuntimeDiagnostic('renderer-safe-fallback-rendered',{renderMs:+state.lastRenderMs.toFixed(2)});return;}catch(retryError){recordRuntimeDiagnostic('renderer-safe-fallback-failed',{message:String(retryError?.message||retryError),stack:retryError?.stack||null});}}if(!renderFailureActive){renderFailureActive=true;$('quality').textContent='RENDER ERROR · ДИАГНОСТИКА СОХРАНЕНА';$('loadState').textContent='Ошибка отрисовки сцены: '+(error?.message||error);const failedOverlay=$('overlay');failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');failedOverlay.style.display='flex';}}
     });
     $('loadState').textContent='Карта отображается. Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
