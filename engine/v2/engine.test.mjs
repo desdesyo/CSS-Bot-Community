@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
+import { partitionSurfaceRects } from './surface-grid.mjs';
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, configureBotVisuals, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
 
 
@@ -39,7 +40,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay1'/);
+  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay2'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -306,7 +307,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay1'/);
+  assert.match(engine, /build:'2026-11-28-hidden-bot-gameplay2'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -672,8 +673,8 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-worldfix2'));
+  assert.ok(html.includes('./engine.js?v=20261128-gameplay-texturefix2'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-texturefix2'));
 });
 
 
@@ -732,7 +733,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
+  assert.ok(html.includes('./engine.js?v=20261128-gameplay-texturefix2'));
 });
 
 
@@ -755,7 +756,7 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
+  assert.ok(html.includes('./engine.js?v=20261128-gameplay-texturefix2'));
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
@@ -785,14 +786,15 @@ test('mobile camera swipe has a larger touch zone and higher angular response', 
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
-  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
+  assert.ok(html.includes('./engine.js?v=20261128-gameplay-texturefix2'));
 });
 
-test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
+test('mobile thumb controls remain anchored to the lower corners', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
-  assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-capturefix3/);
+  assert.match(html, /#stick\{left:22px!important;bottom:max\(22px,env\(safe-area-inset-bottom\)\)!important\}/);
+  assert.match(html, /#fire\{right:18px!important\}/);
+  assert.doesNotMatch(html, /#fire\{right:clamp\(76px/);
+  assert.match(html, /engine\.js\?v=20261128-gameplay-texturefix2/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
@@ -970,7 +972,7 @@ test('player-provided screenshots are the visual review path; no capture mode is
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.doesNotMatch(engine, /MAP_CAPTURE_MODE/);
   assert.doesNotMatch(engine, /__SOLO_CAPTURE_API__/);
-  assert.match(engine, /2026-11-28-hidden-bot-gameplay1/);
+  assert.match(engine, /2026-11-28-hidden-bot-gameplay2/);
 });
 
 test('small shop and spawn signs share one pre-baked atlas instead of individual dynamic textures', async () => {
@@ -1010,7 +1012,7 @@ test('production game keeps the full bot simulation while soldier meshes stay hi
  assert.match(engine,/configureBotVisuals\(root\.getChildMeshes\(false\),\[human\.body,human\.head\],BOT_VISUALS_ENABLED\)/);
  assert.match(engine,/weaponRoot\?\.setEnabled\(false\)/);
  assert.match(engine,/weaponRoot\?\.setEnabled\(true\)/);
- assert.match(engine,/build:'2026-11-28-hidden-bot-gameplay1'/);
+ assert.match(engine,/build:'2026-11-28-hidden-bot-gameplay2'/);
 });
 
 test('bot visual suppression preserves invisible pickable hitboxes and hides render meshes', () => {
@@ -1067,7 +1069,7 @@ test('graffiti-eye toggle hides diagnostic controls but keeps fullscreen and pau
 });
 test('HUD engine cache key invalidates the prior mobile page module', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
- assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
+ assert.match(html,/engine\.js\?v=20261128-gameplay-texturefix2/);
 });
 
 test('diagnostics eye also hides recording menu and quality overlay, with map report below action row', async () => {
@@ -1077,18 +1079,18 @@ test('diagnostics eye also hides recording menu and quality overlay, with map re
  assert.match(html,/data-menu-tab="logs"/);
  assert.match(html,/#mapOverviewQuick\{top:70px!important/);
  assert.match(html,/#mapOverviewStatus\{top:100px!important/);
- assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
+ assert.match(html,/engine\.js\?v=20261128-gameplay-texturefix2/);
 });
 
 test('orange joystick glow is a luminous underlayer visible through translucent blue-gray stick shells', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
  assert.match(html,/#stick::before,#fire::before\{content:"";position:absolute;z-index:0/);
  assert.match(html,/radial-gradient\(circle,rgba\(255,151,48,.98\) 0%,rgba\(255,126,24,.84\)/);
- assert.match(html,/#stick,#fire\{position:relative;isolation:isolate;overflow:hidden\}/);
+ assert.match(html,/#stick,#fire\{isolation:isolate;overflow:hidden\}/);
  assert.match(html,/#nub\{z-index:1;background:rgba\(139,174,194,.34\)/);
  assert.match(html,/#fireNub\{z-index:1;background:rgba\(143,180,199,.32\)/);
  assert.match(html,/@keyframes hud-ember-pulse/);
- assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
+ assert.match(html,/engine\.js\?v=20261128-gameplay-texturefix2/);
 });
 
 
@@ -1096,15 +1098,64 @@ test('cinematic sunset sky, warm camera grade and lower-corner touch controls ar
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
  const map=await readFile(new URL('./wet-ground-map.mjs',import.meta.url),'utf8');
- assert.ok(html.includes("await import('./engine.js?v=20261128-sunset1-touchrestore1')"));
+ assert.ok(html.includes("await import('./engine.js?v=20261128-gameplay-texturefix2')"));
  assert.ok(html.includes('#stick{position:absolute;left:22px;bottom:max(22px,env(safe-area-inset-bottom))'));
  assert.ok(html.includes('#fire{position:absolute;right:18px;bottom:max(24px,env(safe-area-inset-bottom))'));
  assert.ok(engine.includes('colorCurvesEnabled=true'));
  assert.ok(engine.includes('low orange setting sun'));
- assert.ok(engine.includes("wet-ground-map.mjs?v=20261128-sunset1"));
+ assert.ok(engine.includes("wet-ground-map.mjs?v=20261128-texturefix2"));
  assert.ok(map.includes('sunDisc'));
  assert.ok(map.includes('#f08b4d'));
  assert.ok(map.includes('orange sunset sky atmosphere'));
 });
 
 // Keep the published sunset scene and touch-layout checks in the standard engine CI path.
+
+
+test('road and sidewalk surfaces are partitioned without overlapping texture layers', async () => {
+ const map=await readFile(new URL('./wet-ground-map.mjs',import.meta.url),'utf8');
+ assert.match(map,/partitionSurfaceRects/);
+ assert.match(map,/Wet Ground unified asphalt road network/);
+ assert.match(map,/Wet Ground unified cobblestone sidewalk network/);
+ assert.match(map,/sidewalkRects,asphaltRects/);
+ assert.match(map,/surfaceAudit:\{horizontalSurfaceCount/);
+});
+
+test('cobblestone albedo, roughness and normal maps share the same stone grid', async () => {
+ const map=await readFile(new URL('./wet-ground-map.mjs',import.meta.url),'utf8');
+ assert.match(map,/const cobbleRows=mobile\?26:42,cobbleCols=mobile\?18:28/);
+ assert.match(map,/const rows=cobbleRows,cols=cobbleCols/);
+ assert.match(map,/roughRows=cobbleRows,roughCols=cobbleCols/);
+ assert.match(map,/normalRows=cobbleRows,normalCols=cobbleCols/);
+ assert.match(map,/let normalSeed=/);
+ assert.doesNotMatch(map,/loadScannedPbr\(cobble,/);
+});
+
+test('surface grid removes overlapping road cells and cuts sidewalk crossings', () => {
+ const roads=[{x:0,z:0,w:10,d:10,y:.03},{x:0,z:0,w:4,d:4,y:.04}];
+ const roadCells=partitionSurfaceRects(roads);
+ const area=roadCells.reduce((sum,c)=>sum+(c.x1-c.x0)*(c.z1-c.z0),0);
+ assert.equal(area,100);
+ assert.ok(roadCells.some(c=>c.x0<0&&c.x1>0&&c.z0<0&&c.z1>0&&c.y===.04));
+ for(let i=0;i<roadCells.length;i++)for(let j=i+1;j<roadCells.length;j++){
+  const a=roadCells[i],b=roadCells[j];
+  assert.ok(Math.min(a.x1,b.x1)<=Math.max(a.x0,b.x0)+1e-8 || Math.min(a.z1,b.z1)<=Math.max(a.z0,b.z0)+1e-8);
+ }
+ const sidewalk=partitionSurfaceRects([{x:0,z:0,w:2,d:10,y:.07}],[{x:0,z:0,w:2,d:2,y:.03}]);
+ assert.equal(sidewalk.reduce((sum,c)=>sum+(c.x1-c.x0)*(c.z1-c.z0),0),16);
+});
+
+test('mobile controls retain absolute lower-corner placement and orange glow', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/#stick,#fire\{isolation:isolate;overflow:hidden\}/);
+ assert.doesNotMatch(html,/#stick,#fire\{position:relative/);
+ assert.match(html,/#stick\{left:22px!important;bottom:max\(22px,env\(safe-area-inset-bottom\)\)!important\}/);
+ assert.match(html,/#fire\{right:18px!important\}/);
+ assert.match(html,/#stick::before,#fire::before/);
+});
+
+test('bot round reset preserves the model-derived floor offset', async () => {
+ const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+ assert.match(engine,/spawn:\{x,z\},floorOffset:human\.floorOffset/);
+ assert.match(engine,/bot\.root\.position\.set\(bot\.spawn\.x,bot\.floorOffset,bot\.spawn\.z\)/);
+});
