@@ -972,7 +972,7 @@ function getMapOverviewBounds(){
  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,maxY=0;
  for(const mesh of scene.meshes){
   const name=String(mesh?.name||'');
-  if(!mesh||mesh.isDisposed?.()||!mesh.isEnabled()||!mesh.isVisible||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain/i.test(name)||mesh.isDescendantOf?.(camera))continue;
+  if(!mesh||mesh.isDisposed?.()||!mesh.isEnabled()||!mesh.isVisible||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain impact|rainfall/i.test(name)||mesh.isDescendantOf?.(camera))continue;
   try{
    mesh.computeWorldMatrix(true);
    const box=mesh.getBoundingInfo().boundingBox;
@@ -1033,7 +1033,7 @@ function collectMapVisualAudit(){
  };
  for(const mesh of scene.meshes){
   const name=String(mesh?.name||'unnamed');
-  if(!mesh||mesh.isDisposed?.()||mesh.isDescendantOf?.(camera)||mesh.name==='player-hitbox'||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain|puddle ripple/i.test(name))continue;
+  if(!mesh||mesh.isDisposed?.()||mesh.isDescendantOf?.(camera)||mesh.name==='player-hitbox'||mesh.infiniteDistance||/sky|atmosphere|soldier-|bot-|weapon|projectile|viewmodel|rain impact|rainfall|puddle ripple/i.test(name))continue;
   const mat=mesh.material,matName=mat?.name||'no-material';
   meshKinds[name.replace(/[0-9]+/g,'#')]=(meshKinds[name.replace(/[0-9]+/g,'#')]||0)+1;
   const prev=materials.get(matName)||{count:0,example:materialInfo(mat)};
