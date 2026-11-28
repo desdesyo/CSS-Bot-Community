@@ -922,7 +922,8 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
 test('mobile START and fullscreen-change handling request landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
-  assert.ok(engine.includes('function requestGameFullscreen()'));\n  assert.ok(start.includes('requestGameFullscreen()'));
+  assert.ok(engine.includes('function requestGameFullscreen()'));
+  assert.ok(start.includes('requestGameFullscreen()'));
   assert.ok(engine.includes("screen.orientation.lock('landscape')"));
   assert.ok(engine.includes('orientationchange'));
   assert.ok(engine.includes('fullscreenchange'));
