@@ -1411,7 +1411,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   const merged=[];
   for(const [materialId,parts] of groups){
-    if(parts.length<2){merged.push(...parts);continue;}
+    if(mobile||parts.length<2){merged.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
     else merged.push(...parts);
@@ -1680,7 +1680,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   const colliderBatches=[];
   for(const [materialId,parts] of colliderGroups){
-    if(parts.length<2){colliderKept.push(...parts);continue;}
+    if(mobile||parts.length<2){colliderKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground wall collision batch '+materialId;joined.isPickable=true;joined.checkCollisions=false;joined.receiveShadows=true;colliderBatches.push(joined);}
     else colliderKept.push(...parts);
@@ -1708,7 +1708,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   const lateMerged=[];
   for(const [materialId,parts] of lateGroups){
-    if(parts.length<2){lateKept.push(...parts);continue;}
+    if(mobile||parts.length<2){lateKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);}
     else lateKept.push(...parts);
@@ -1728,5 +1728,5 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,mobileBatchingDisabled:mobile};
 }
