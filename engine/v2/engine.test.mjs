@@ -592,9 +592,9 @@ test('renderer explicitly owns the active camera and initializes the map HUD bef
 test('release URLs invalidate cached engine and dependency modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(html, /import\('\.\/engine\.js\?v=20261128-1200-r7'\)/);
+  assert.match(html, /import\('\.\/engine\.js\?v=20261128-1200-r8'\)/);
   for (const moduleName of ['engine-core.mjs','human-bots.mjs','weapon-viewmodel.mjs','wet-ground-map.mjs']) {
-    assert.ok(engine.includes("./"+moduleName+"?v=20261128-1200-r7"), 'missing cache version for '+moduleName);
+    assert.ok(engine.includes("./"+moduleName+"?v=20261128-1200-r8"), 'missing cache version for '+moduleName);
   }
 });
 
@@ -646,4 +646,22 @@ test('allied bots patrol during a short four-second spawn protection window', as
   assert.match(source, /state\.spawnProtectedUntil=performance\.now\(\)\+4000/);
   assert.match(source, /bot\.combatState='patrol';bot\.target=null;bot\.navPath=\[\]/);
   assert.match(source, /protectedMs:4000,alliesGuarding:false/);
+});
+
+test('mobile renderer preserves original scene meshes instead of merging map geometry', async () => {
+  const source = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(source, /if\(mobile\|\|parts\.length<2\)\{merged\.push\(\.\.\.parts\);continue;\}/);
+  assert.match(source, /if\(mobile\|\|parts\.length<2\)\{colliderKept\.push\(\.\.\.parts\);continue;\}/);
+  assert.match(source, /if\(mobile\|\|parts\.length<2\)\{lateKept\.push\(\.\.\.parts\);continue;\}/);
+  assert.match(source, /mobileBatchingDisabled:mobile/);
+});
+test('touch look direction matches mouse and fire-drag direction', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /camera\.rotation\.y\+=dx\*\.004\*state\.lookSensitivity/);
+  assert.doesNotMatch(source, /camera\.rotation\.y-=dx\*\.004\*state\.lookSensitivity/);
+});
+test('renderer leaves per-mesh layer masks intact', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /camera\.layerMask=0x0FFFFFFF/);
+  assert.doesNotMatch(source, /for\(const mesh of scene\.meshes\)\{if\(mesh\)mesh\.layerMask/);
 });
