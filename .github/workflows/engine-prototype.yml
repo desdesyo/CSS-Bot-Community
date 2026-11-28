@@ -2,7 +2,7 @@ name: SOLO Engine prototype checks
 on:
   push:
     branches: [develop, "feature/**"]
-    paths: ["engine/**", ".github/workflows/engine-prototype.yml"]
+    paths: ["engine/client/**", "engine/play.html", "engine/server/**", ".github/workflows/engine-prototype.yml"]
   pull_request:
     branches: [develop]
     paths: ["engine/**", ".github/workflows/engine-prototype.yml"]

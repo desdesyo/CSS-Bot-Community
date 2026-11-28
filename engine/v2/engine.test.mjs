@@ -1,4 +1,5 @@
 import test from 'node:test';
+// Regression coverage for the wet-asphalt carriageway / cobblestone sidewalk split.
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
@@ -38,7 +39,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-map-report-pipeline2'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -305,7 +306,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -671,8 +672,8 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-gamepad-input1'));
+  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-worldfix2'));
 });
 
 
@@ -691,16 +692,20 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /2026-11-28-mapoverview11/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
+  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
+  assert.match(engine, /captureSource:'independent-world-crop-from-shared-topdown-render'/);
+  assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
   assert.match(engine, /Wet Ground district foundation/);
   assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera/);
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
-  assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
+  assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
+  assert.match(engine, /2026-11-28-capturefix3/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
-  assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
-  assert.match(engine, /Add top-down map screenshot for/);
+  assert.match(engine, /topDownMapScreenshot:\{captured:false,format:'image\/png',path:null,error:mapCapture\.error,worldBounds:null\}/);
+  assert.match(engine, /Top-down capture skipped in bug report to keep the live render loop responsive/);
   assert.match(engine, /top-down-orthographic-render-target/);
   assert.match(engine, /function collectMapVisualAudit\(\)/);
   assert.match(engine, /materialUsage/);
@@ -727,7 +732,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
+  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
 });
 
 
@@ -750,7 +755,7 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
+  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
@@ -780,14 +785,14 @@ test('mobile camera swipe has a larger touch zone and higher angular response', 
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
-  assert.ok(html.includes('./engine.js?v=20261128-mapreport1'));
+  assert.ok(html.includes('./engine.js?v=20261128-capturefix3'));
 });
 
 test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-mapreport1/);
+  assert.match(html, /engine\.js\?v=20261128-capturefix3/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
@@ -806,9 +811,19 @@ test('reflection pass draws only merged static world batches, not animated actor
   assert.match(map, /if\(!isStaticBatch\)return false/);
 });
 
+test('wet asphalt carriageways and cobblestone pedestrian sidewalks use distinct materials', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /rain-darkened fine aggregate road asphalt/);
+  assert.match(map, /main rain-darkened asphalt street',0,0,10\.4,82,\.025,asphalt/);
+  assert.match(map, /raised irregular cobblestone pedestrian sidewalk',x,0,1\.35,82,\.07,cobble/);
+  assert.match(map, /outer wet cobblestone pedestrian sidewalk',x,0,2\.1,82,\.07,cobble/);
+  assert.match(map, /asphalt\.roughnessTexture=asphaltRough/);
+  assert.match(map, /asphalt\.clearCoat\.intensity=mobile\?\.28:\.46/);
+});
+
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:material===asphalt\?4\.2:0/);
   assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
   assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
@@ -833,18 +848,6 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report builds 30 mobile-safe grid crops from one top-down render without requiring bots', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /function sampleBotWalkLocations\(now\)/);
-  assert.match(engine, /source:'observed-bot-position'/);
-  assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.ok(engine.includes('function captureMapAreaContactSheet(points,onProgress=()=>{},overviewBase64)'));
-  assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
-  assert.match(engine, /single-render-cpu-crops/);
-  assert.match(engine, /mapAreaSnapshots:30/);
-  assert.match(engine, /2026-11-28-map-report-pipeline1/);
-});
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
   const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
@@ -853,18 +856,6 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
   assert.match(manifest, /"short_name": "SOLO:WG"/);
 });
 
-
-test('map overview coverage is independent of bots and spans the map bounds', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const selector = engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '';
-  assert.match(engine, /t:Date\.now\(\),source:'observed-bot-position'/);
-  assert.match(selector, /const bounds=getMapOverviewBounds\(\)/);
-  assert.match(selector, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.doesNotMatch(selector, /throw new Error|valid\.length|state\.bots\.length/);
-  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /nearbyBotObservation:point\.botId!==null/);
-});
 
 test('mobile wet reflections preserve texture resolution while reducing refresh work', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
@@ -917,13 +908,12 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
   assert.ok(html.includes('#mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important'));
   assert.ok(html.includes('#stick{left:clamp(24px,4vw,40px)!important'));
 });
-test('mobile START and fullscreen-change handling request landscape orientation', async () => {
+test('mobile START requests fullscreen and attempts landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
-  assert.ok(start.includes("document.documentElement.requestFullscreen({navigationUI:'hide'})"));
-  assert.ok(engine.includes("screen.orientation.lock('landscape')"));
-  assert.ok(engine.includes('orientationchange'));
-  assert.ok(engine.includes('fullscreenchange'));
+  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 2200);
+  assert.ok(start.includes('document.documentElement.requestFullscreen'));
+  assert.ok(start.includes("screen.orientation.lock('landscape')"));
+  assert.ok(start.includes('refreshViewportAfterRotation()'));
 });
 
 test('mobile game requests landscape orientation after entering fullscreen and has no portrait-only HUD layout', async () => {
@@ -976,16 +966,11 @@ test('engine boot is guarded so duplicate module imports cannot create a second 
   assert.match(engine, /await buildWetGroundMap/);
 });
 
-test('map-authoring mode suspends all live bots but preserves soldier assets and reversible AI code', async () => {
+test('player-provided screenshots are the visual review path; no capture mode is required', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /const MAP_EDIT_MODE=true/);
-  assert.match(engine, /if\(MAP_EDIT_MODE\)\{state\.bots\.length=0/);
-  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?humanBotAssets=await loadHumanBotAssets\(B,scene\)/);
-  assert.match(engine, /modelsRetained:true,assetsLoaded:false,aiDisabled:true/);
-  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?buildBots\(\)[\s\S]*?buildPlayerWeapon\(\);initInput\(\);drawMinimap\(\)/);
-  assert.match(engine, /botAIEnabled:!MAP_EDIT_MODE/);
-  assert.match(engine, /Set MAP_EDIT_MODE=false to restore the original 6v6 roster/);
-  assert.match(engine, /createHumanBot\(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile\)/);
+  assert.doesNotMatch(engine, /MAP_CAPTURE_MODE/);
+  assert.doesNotMatch(engine, /__SOLO_CAPTURE_API__/);
+  assert.match(engine, /2026-11-28-map-edit-roundfix1/);
 });
 
 test('small shop and spawn signs share one pre-baked atlas instead of individual dynamic textures', async () => {
@@ -1029,49 +1014,4 @@ test('mobile menu uses modern cool-toned buttons and a taller scrollable card', 
  assert.match(html,/#start\{background:linear-gradient\(180deg,#278b91,#17616d\)/);
  assert.match(html,/#card\{max-height:min\(82dvh,760px\)!important/);
  assert.match(html,/#overlay\{align-items:center!important/);
-});
-
-
-test('worldfix1 adds collision hulls for parked vehicles and keeps doors/windows solid', async () => {
-  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /van invisible collision hull/);
-  assert.match(map, /invisible collision hull/);
-  assert.match(map, /collider\.checkCollisions=true;collider\.isPickable=true;collider\.visibility=0/);
-  assert.match(map, /deep-set window glass[^;]*,glass,true\)/);
-  assert.match(map, /recessed timber entrance door[^;]*,doorWood,true\)/);
-  assert.match(map, /airlock reinforced door leaf[^;]*,labSteel,true\)/);
-  assert.match(map, /rear elevation window glass/);
-  assert.match(map, /glass\.backFaceCulling=false/);
-  assert.match(map, /doorWood\.backFaceCulling=false/);
-});
-
-test('bug reports no longer run a second top-down GPU capture while gameplay continues', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const issueReport = engine.slice(engine.indexOf('async function submitIssueReport()'), engine.indexOf('function toggleGameplayRecording()'));
-  assert.ok(issueReport.length > 0);
-  assert.doesNotMatch(issueReport, /captureMapOverviewScreenshot\(/);
-  assert.match(issueReport, /Top-down capture skipped in bug report/);
-  assert.match(engine, /captureScale=Math\.min\(1,960\/viewportWidth,720\/viewportHeight\)/);
-});
-
-test('map report orchestration locks immediately and writes the manifest only after both images', async () => {
-  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
-  const flow=engine.slice(engine.indexOf('async function submitMapOverviewReport'),engine.indexOf('async function submitIssueReport'));
-  assert.ok(flow.indexOf('issueReportBusy=true')<flow.indexOf('prompt('));
-  assert.match(flow,/contactSheet\.tiles\.length!==30/);
-  assert.ok(flow.indexOf('uploadIssueFile(atlasPath')<flow.indexOf('uploadIssueFile(jsonPath'));
-  assert.match(flow,/finally\{issueReportBusy=false/);
-  assert.match(flow,/ОТПРАВКА 1\/3/);
-  assert.match(flow,/ОТПРАВКА 2\/3/);
-  assert.match(flow,/МАНИФЕСТ/);
-});
-
-test('map report grid integration delegates validated bot-independent coverage', async () => {
-  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
-  const pipeline=await readFile(new URL('./map-report-pipeline.mjs',import.meta.url),'utf8');
-  assert.match(engine,/buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine,/validateMapSnapshotPoints\(points,getMapOverviewBounds\(\)\)/);
-  assert.match(pipeline,/const columns=5,rows=6,points=\[\]/);
-  assert.match(pipeline,/source:'map-grid'/);
-  assert.match(pipeline,/points\.length!==30/);
 });

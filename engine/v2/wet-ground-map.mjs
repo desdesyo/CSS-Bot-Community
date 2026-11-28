@@ -2,7 +2,8 @@
  * WET GROUND — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
+export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={}) {
+  const authoringMode=options.authoringMode===true;
   const mapStart=scene.meshes.length;
   const pendingTextureLoads=[];
   const textureAudit={requested:0,loaded:0,failed:0,entries:[]};
@@ -397,11 +398,57 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   water.bumpTexture=waterNormal;water.bumpTexture.level=mobile?.12:.2;
   if(water.clearCoat){water.clearCoat.isEnabled=true;water.clearCoat.intensity=.72;water.clearCoat.roughness=.055;}
   water.roughness=mobile?.095:.065;
+  // Wet asphalt is a distinct road material; sidewalks retain the irregular cobblestone PBR.
+  // Generate the texture once at map load: aggregate, repaired seams, tire-worn tracks and rain sheen.
+  const asphalt=mat('rain-darkened fine aggregate road asphalt','#263440',.28,.035);
+  const asphaltSize=mobile?1024:2048;
+  const asphaltTex=new B.DynamicTexture('wet asphalt aggregate albedo',{width:asphaltSize,height:asphaltSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
+  const asphaltCtx=asphaltTex.getContext();
+  asphaltCtx.fillStyle='#202b35';asphaltCtx.fillRect(0,0,asphaltSize,asphaltSize);
+  let asphaltSeed=51829;
+  const asphaltRand=()=>((asphaltSeed=(asphaltSeed*1664525+1013904223)>>>0)/4294967296);
+  // Fine and medium aggregate gives the road a granular, non-plastic surface.
+  for(let i=0;i<(mobile?42000:115000);i++){
+    const x=asphaltRand()*asphaltSize,y=asphaltRand()*asphaltSize;
+    const v=asphaltRand()>.52?118:7,a=.025+asphaltRand()*.16,r=.35+asphaltRand()*1.65;
+    asphaltCtx.fillStyle='rgba('+v+','+(v+5)+','+(v+9)+','+a+')';
+    asphaltCtx.fillRect(x,y,r,r);
+  }
+  // Subtle patch repairs and worn longitudinal wheel paths; no painted lane markings.
+  for(let i=0;i<18;i++){
+    const x=asphaltRand()*asphaltSize,y=asphaltRand()*asphaltSize,w=asphaltSize*(.035+asphaltRand()*.12),h=asphaltSize*(.018+asphaltRand()*.065);
+    asphaltCtx.fillStyle='rgba(7,13,19,'+(.08+asphaltRand()*.12)+')';
+    asphaltCtx.fillRect(x,y,w,h);
+    asphaltCtx.strokeStyle='rgba(125,145,157,.10)';asphaltCtx.lineWidth=1+asphaltRand()*2;asphaltCtx.strokeRect(x+2,y+2,w-4,h-4);
+  }
+  for(const laneX of [.28,.72]){
+    const sheen=asphaltCtx.createLinearGradient(laneX*asphaltSize-asphaltSize*.055,0,laneX*asphaltSize+asphaltSize*.055,0);
+    sheen.addColorStop(0,'rgba(110,143,164,0)');
+    sheen.addColorStop(.5,'rgba(125,158,178,.105)');
+    sheen.addColorStop(1,'rgba(110,143,164,0)');
+    asphaltCtx.fillStyle=sheen;asphaltCtx.fillRect(laneX*asphaltSize-asphaltSize*.055,0,asphaltSize*.11,asphaltSize);
+  }
+  asphaltTex.update(false);asphaltTex.wrapU=asphaltTex.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  asphaltTex.uScale=asphaltTex.vScale=1;asphaltTex.anisotropicFilteringLevel=mobile?8:16;
+  asphalt.albedoTexture=asphaltTex;asphalt.albedoColor=new C(.82,.9,.98);
+  const asphaltRough=new B.DynamicTexture('wet asphalt spatial roughness',{width:mobile?512:1024,height:mobile?512:1024},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
+  const asphaltRoughSize=mobile?512:1024,asphaltRoughCtx=asphaltRough.getContext();
+  asphaltRoughCtx.fillStyle='rgb(118,118,118)';asphaltRoughCtx.fillRect(0,0,asphaltRoughSize,asphaltRoughSize);
+  for(let i=0;i<(mobile?1800:5200);i++){
+    const x=asphaltRand()*asphaltRoughSize,y=asphaltRand()*asphaltRoughSize,v=Math.floor(72+asphaltRand()*145);
+    asphaltRoughCtx.fillStyle='rgba('+v+','+v+','+v+','+(.12+asphaltRand()*.35)+')';
+    asphaltRoughCtx.fillRect(x,y,1+asphaltRand()*5,1+asphaltRand()*4);
+  }
+  asphaltRough.update(false);asphaltRough.gammaSpace=false;
+  asphaltRough.wrapU=asphaltRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
+  asphaltRough.uScale=asphaltRough.vScale=1;asphalt.roughnessTexture=asphaltRough;
+  asphalt.roughness=.27;
+  if(asphalt.clearCoat){asphalt.clearCoat.isEnabled=true;asphalt.clearCoat.intensity=mobile?.28:.46;asphalt.clearCoat.roughness=.16;}
   const ground=B.MeshBuilder.CreateGround('Wet Ground district foundation',{width:106,height:84,subdivisions:1},scene);
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    const tileSize=material===cobble?2.4:material===stone?3.2:0;
+    const tileSize=material===cobble?2.4:material===stone?3.2:material===asphalt?4.2:0;
     if(tileSize>0){
       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/tileSize;uv[i+1]*=d/tileSize;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
@@ -417,13 +464,13 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     const m=B.MeshBuilder.CreateCylinder(name,{diameter,height,tessellation:8},scene);
     m.position.set(x,y,z);m.material=material;return m;
   };
-  // Main cobbled street, short cross streets, and narrow side passages.
-  floor('main wet cobblestone street',0,0,10.4,82,.025);
-  floor('west lane cobblestones',-23,0,9,82,.03);
-  floor('east lane cobblestones',23,0,9,82,.03);
-  for(const z of [-27,-12,13,28]) floor('cross alley cobbles',0,z,52,5,.035);
-  for(const x of [-5.8,5.8]) floor('narrow old-quarter stone sidewalk',x,0,1.35,82,.07,stone);
-  for(const x of [-28.5,28.5]) floor('outer wet stone sidewalk',x,0,2.1,82,.07,stone);
+  // Asphalt carriageways are clearly separated from raised cobblestone pedestrian walks.
+  floor('main rain-darkened asphalt street',0,0,10.4,82,.025,asphalt);
+  floor('west rain-darkened asphalt lane',-23,0,9,82,.03,asphalt);
+  floor('east rain-darkened asphalt lane',23,0,9,82,.03,asphalt);
+  for(const z of [-27,-12,13,28]) floor('cross alley asphalt carriageway',0,z,52,5,.035,asphalt);
+  for(const x of [-5.8,5.8]) floor('raised irregular cobblestone pedestrian sidewalk',x,0,1.35,82,.07,cobble);
+  for(const x of [-28.5,28.5]) floor('outer wet cobblestone pedestrian sidewalk',x,0,2.1,82,.07,cobble);
   // Canal runs across the old quarter. Two stone bridges are the only crossings.
   floor('canal bed',0,0,106,10,-.12,water);
   const waterPlane=B.MeshBuilder.CreateGround('dark canal water',{width:106,height:9.4,subdivisions:1},scene);
@@ -469,8 +516,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     // Broad level landings and cobbled road aprons visibly connect both banks.
     floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
     floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
-    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,cobble);
-    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,cobble);
+    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,asphalt);
+    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,asphalt);
     for(const z of [-16.4,16.4]){
       for(const side of [-1,1]){
         const edge=box(label+' approach edge stone',x+side*7.45,.13,z,.22,.18,1.2,trim,false);
@@ -649,10 +696,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   };
   // Two continuous cross-streets plus short bank-side connectors form a legible
   // street grid. The canal remains a genuine barrier except at the three bridges.
-  floor('south district cross street',0,-20,72,6.2,.032,cobble);
-  floor('north district cross street',0,27,72,6.2,.032,cobble);
+  floor('south district cross street',0,-20,72,6.2,.032,asphalt);
+  floor('north district cross street',0,27,72,6.2,.032,asphalt);
   for(const side of [-1,1]){
-    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,cobble);
+    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,asphalt);
     for(const z of [-23.5,-16.5,23.5,30.5]){
       floor('cross street granite pedestrian edge',side*20,z,18,.42,.072,stone);
     }
@@ -1426,7 +1473,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     groups.get(key).push(m);
   }
   const merged=[];
-  for(const [materialId,parts] of groups){
+  if(authoringMode){merged.push(...authored.filter(m=>!m.checkCollisions&&m.material&&m.getTotalVertices?.()>0));}
+  else for(const [materialId,parts] of groups){
     if(parts.length<2){merged.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground merged material '+materialId;joined.receiveShadows=true;joined.isPickable=false;merged.push(joined);}
@@ -1697,7 +1745,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     colliderGroups.get(key).push(mesh);
   }
   const colliderBatches=[];
-  for(const [materialId,parts] of colliderGroups){
+  if(authoringMode)colliderKept.push(...colliders);
+  else for(const [materialId,parts] of colliderGroups){
     if(parts.length<2){colliderKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground wall collision batch '+materialId;joined.isPickable=true;joined.checkCollisions=false;joined.receiveShadows=true;colliderBatches.push(joined);}
@@ -1720,7 +1769,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     lateGroups.get(key).push(mesh);
   }
   const lateMerged=[];let lateMergedSourceMeshCount=0;
-  for(const [materialId,parts] of lateGroups){
+  if(authoringMode)lateKept.push(...Array.from(new Set(scene.meshes.slice(lateStaticStart))).filter(mesh=>mesh&&!mesh.isDisposed?.()&&!mesh.checkCollisions&&mesh.material&&mesh.getTotalVertices?.()>0&&!dynamicNames.some(name=>mesh.name.includes(name))&&!mesh.infiniteDistance));
+  else for(const [materialId,parts] of lateGroups){
     if(parts.length<2){lateKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
     if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);lateMergedSourceMeshCount+=parts.length;}
@@ -1736,6 +1786,7 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
       const isStaticBatch=name.startsWith('Wet Ground merged material ')
         ||name.startsWith('Wet Ground late static batch ')
         ||name.startsWith('Wet Ground wall collision batch ');
+      if(authoringMode)return mesh!==wetMirror&&!mesh.isDisposed?.()&&!mesh.name?.includes('rain impact ripple');
       if(!isStaticBatch)return false;
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
@@ -1753,9 +1804,11 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const staticMeshes=[...colliderBatches,...colliderKept,...merged,...lateMerged,...lateKept],materials=new Set();
   for(const mesh of staticMeshes){
     if(!mesh||mesh.isDisposed?.())continue;
-    mesh.computeWorldMatrix(true);mesh.freezeWorldMatrix();
-    if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
+    mesh.computeWorldMatrix(true);
+    if(!authoringMode)mesh.freezeWorldMatrix();
+    if(!authoringMode&&mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  if(authoringMode){scene.metadata=scene.metadata||{};scene.metadata.mapAuthoringObjects=staticMeshes.filter(mesh=>mesh&&!mesh.isDisposed?.()).map(mesh=>({name:mesh.name,position:mesh.position.asArray(),rotation:mesh.rotation.asArray(),scaling:mesh.scaling.asArray()}));}
+  return {name:'Wet Ground',theme:'rainy-blue-hour',authoringMode,riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:authoringMode?0:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
