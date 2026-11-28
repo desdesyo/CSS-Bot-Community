@@ -583,9 +583,9 @@ test('renderer explicitly owns the active camera and initializes the map HUD bef
 test('release URLs invalidate cached engine and dependency modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(html, /import\('\.\/engine\.js\?v=20261128-0450-r4'\)/);
+  assert.match(html, /import\('\.\/engine\.js\?v=20261128-1033-r5'\)/);
   for (const moduleName of ['engine-core.mjs','human-bots.mjs','weapon-viewmodel.mjs','wet-ground-map.mjs']) {
-    assert.ok(engine.includes("./"+moduleName+"?v=20261128-0450-r4"), 'missing cache version for '+moduleName);
+    assert.ok(engine.includes("./"+moduleName+"?v=20261128-1033-r5"), 'missing cache version for '+moduleName);
   }
 });
 
@@ -608,4 +608,15 @@ test('diagnostic and issue-report controls remain available even when scene boot
   assert.ok(earlyControls > boot && earlyControls < modelLoad);
   assert.match(engine, /\$\('issueQuick'\)\.addEventListener\('click',submitIssueReport\)/);
   assert.match(engine, /startup:\{engineReady:!!engine,sceneReady:!!scene,cameraReady:!!camera/);
+});
+
+\ntest('renderer retries a failed frame with a reduced-cost safe pipeline', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /function activateSafeRenderFallback\(error\)/);
+  assert.match(source, /scene\.postProcessesEnabled=false/);
+  assert.match(source, /window\.__SOLO_GLOW_LAYER__\?\.dispose\(\)/);
+  assert.match(source, /shadowGen\?\.dispose\(\)/);
+  assert.match(source, /renderer-safe-fallback-activated/);
+  assert.match(source, /renderer-safe-fallback-rendered/);
+  assert.match(source, /scene\.render\(\);state\.lastRenderMs=performance\.now\(\)-renderStarted/);
 });
