@@ -1429,9 +1429,18 @@ async function boot() {
       start:()=>{if(!state.started)start();return {started:state.started,bots:state.bots.length};},
       setOverview:()=>{
         for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
-        weaponRoot?.setEnabled(true);
-        camera.parent=null;camera.position.set(0,104,-.01);camera.upVector.set(0,0,1);camera.setTarget(new BABYLON.Vector3(0,0,0));camera.rotation.set(0,0,0);
-        return {mode:'overview',bots:state.bots.length};
+        weaponRoot?.setEnabled(false);
+        const bounds=getMapOverviewBounds(),aspect=canvas.width/Math.max(1,canvas.height);
+        const centerX=(bounds.minX+bounds.maxX)/2,centerZ=(bounds.minZ+bounds.maxZ)/2;
+        const spanX=bounds.maxX-bounds.minX,spanZ=bounds.maxZ-bounds.minZ;
+        const viewHeight=Math.max(spanZ,spanX/aspect,24),viewWidth=viewHeight*aspect;
+        const altitude=Math.max(75,bounds.maxY+Math.max(spanX,spanZ)*.6);
+        camera.parent=null;camera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+        camera.orthoLeft=-viewWidth/2;camera.orthoRight=viewWidth/2;camera.orthoTop=viewHeight/2;camera.orthoBottom=-viewHeight/2;
+        camera.minZ=.1;camera.maxZ=altitude+Math.max(100,bounds.maxY+100);
+        camera.position.set(centerX,altitude,centerZ);camera.upVector.set(0,0,1);
+        camera.setTarget(new BABYLON.Vector3(centerX,0,centerZ));camera.rotation.set(0,0,0);
+        return {mode:'orthographic-map-overview',bots:state.bots.length,bounds:{...bounds,centerX,centerZ,viewWidth,viewHeight,altitude}};
       },
       captureOverview:async()=>{
         const shot=await captureMapOverviewScreenshot();
