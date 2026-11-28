@@ -77,6 +77,23 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   applySurface([m.polymer,m.polymerEdge],makeSurface('reinforced weapon polymer','polymer'),.12);
   applySurface([m.metal,m.metalDark,m.brass],makeSurface('brushed parkerized steel','metal'),.1);
 
+  // Use the engine's existing image-based lighting when available. Do not
+  // create a second reflection probe or an expensive per-frame render target.
+  const env=scene.environmentTexture||null;
+  if(env){
+    for(const mat of Object.values(m)){
+      mat.reflectionTexture=env;
+      mat.environmentIntensity=mat.metallic>.35?1.15:.55;
+    }
+  }
+  for(const mat of [m.polymer,m.polymerEdge,m.metal,m.metalDark]){
+    mat.usePhysicalLightFalloff=true;
+    mat.microSurface=mat.metallic>.35?.82:.58;
+    mat.clearCoat.isEnabled=true;
+    mat.clearCoat.intensity=mat.metallic>.35?.22:.12;
+    mat.clearCoat.roughness=.34;
+  }
+
   const node = (name, parent = root) => {
     const n = new B.TransformNode(name, scene);
     n.parent = parent;
@@ -93,7 +110,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     return mesh;
   };
   const sphere = (name, parent, pos, scale, mat, segments = 12) => {
-    const mesh = B.MeshBuilder.CreateSphere(name, { diameter:1, segments:Math.max(20,segments) }, scene);
+    const mesh = B.MeshBuilder.CreateSphere(name, { diameter:1, segments:Math.max(32,segments) }, scene);
     mesh.parent = parent;
     mesh.position.set(...pos);
     mesh.scaling.set(...scale);
@@ -107,7 +124,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
     const av = new B.Vector3(...a), bv = new B.Vector3(...b);
     const d = bv.subtract(av);
     const mesh = B.MeshBuilder.CreateCylinder(name, {
-      height:d.length(), diameterTop:rA*2, diameterBottom:rB*2, tessellation:sides
+      height:d.length(), diameterTop:rA*2, diameterBottom:rB*2, tessellation:Math.max(28,sides)
     }, scene);
     mesh.parent = parent;
     mesh.position.copyFrom(av.add(bv).scale(.5));
@@ -124,7 +141,7 @@ export function createWeaponViewmodel(B, scene, camera, mobile = false) {
   };
   const capsule = (name, parent, a, b, radius, mat) => {
     const av = new B.Vector3(...a), bv = new B.Vector3(...b), d = bv.subtract(av);
-    const mesh = B.MeshBuilder.CreateCapsule(name, { height:d.length()+radius*2, radius, tessellation:18, subdivisions:2 }, scene);
+    const mesh = B.MeshBuilder.CreateCapsule(name, { height:d.length()+radius*2, radius, tessellation:32, subdivisions:4 }, scene);
     mesh.parent = parent;
     mesh.position.copyFrom(av.add(bv).scale(.5));
     const dir = d.normalize(), axis = B.Vector3.Cross(B.Axis.Y, dir);
