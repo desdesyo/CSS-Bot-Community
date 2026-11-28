@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-map-edit-atlas3'/);
+  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -305,7 +305,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-map-edit-atlas3'/);
+  assert.match(engine, /build:'2026-11-28-gamepad-input1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
@@ -696,7 +696,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /create\(engine,overviewCamera/);
   assert.match(engine, /BABYLON\.Tools\.CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
-  assert.match(engine, /2026-11-28-map-edit-atlas3/);
+  assert.match(engine, /2026-11-28-gamepad-input1/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -842,7 +842,7 @@ test('map visual report captures up to 30 time-stratified real bot observations 
   assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-map-edit-atlas3/);
+  assert.match(engine, /2026-11-28-gamepad-input1/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
