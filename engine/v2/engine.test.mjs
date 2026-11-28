@@ -592,9 +592,9 @@ test('renderer explicitly owns the active camera and initializes the map HUD bef
 test('release URLs invalidate cached engine and dependency modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(html, /import\('\.\/engine\.js\?v=20261128-1115-r6'\)/);
+  assert.match(html, /import\('\.\/engine\.js\?v=20261128-1200-r7'\)/);
   for (const moduleName of ['engine-core.mjs','human-bots.mjs','weapon-viewmodel.mjs','wet-ground-map.mjs']) {
-    assert.ok(engine.includes("./"+moduleName+"?v=20261128-1115-r6"), 'missing cache version for '+moduleName);
+    assert.ok(engine.includes("./"+moduleName+"?v=20261128-1200-r7"), 'missing cache version for '+moduleName);
   }
 });
 
@@ -629,4 +629,21 @@ test('renderer retries a failed frame with a reduced-cost safe pipeline', async 
   assert.match(source, /renderer-safe-fallback-activated/);
   assert.match(source, /renderer-safe-fallback-rendered/);
   assert.match(source, /scene\.render\(\);state\.lastRenderMs=performance\.now\(\)-renderStarted/);
+});
+
+test('mobile world rendering forces a shared full camera layer mask', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /camera\.layerMask=0xFFFFFFFF/);
+  assert.match(source, /for\(const mesh of scene\.meshes\)\{if\(mesh\)mesh\.layerMask=0xFFFFFFFF;\}/);
+  assert.match(source, /scene\.activeCamera=camera;scene\.activeCameras=null;camera\.layerMask=0xFFFFFFFF/);
+});
+test('touch look direction is not horizontally inverted', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /camera\.rotation\.y-=dx\*\.004\*state\.lookSensitivity/);
+});
+test('allied bots patrol during a short four-second spawn protection window', async () => {
+  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(source, /state\.spawnProtectedUntil=performance\.now\(\)\+4000/);
+  assert.match(source, /bot\.combatState='patrol';bot\.target=null;bot\.navPath=\[\]/);
+  assert.match(source, /protectedMs:4000,alliesGuarding:false/);
 });
