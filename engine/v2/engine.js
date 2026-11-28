@@ -6,7 +6,8 @@ import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } fro
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-worldfix2';
-const MAP_EDIT_MODE=true; // Temporary map-authoring switch. Bot AI, models, routes and assets remain intact.
+const MAP_CAPTURE_MODE=new URLSearchParams(location.search).get('capture')==='1';
+const MAP_EDIT_MODE=!MAP_CAPTURE_MODE; // Keep normal map-authoring mode bot-free; CI capture boots the real 6v6 runtime.
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, gamepadMove:{x:0,y:0}, gamepadLook:{x:0,y:0}, gamepadButtons:[], gamepadIndex:null, gamepadId:null, gamepadFire:false, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -1418,6 +1419,30 @@ async function boot() {
     });
     const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='РЕЖИМ РАБОТЫ НАД КАРТОЙ · БОТЫ ВРЕМЕННО ОТКЛЮЧЕНЫ';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
+    // Read-only automation surface used by the CI photo-audit. It attaches the real
+    // render camera to a live bot root; no substitute character or guessed route is used.
+    window.__SOLO_CAPTURE_API__={
+      start:()=>{if(!state.started)start();return {started:state.started,bots:state.bots.length};},
+      setOverview:()=>{
+        for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
+        camera.parent=null;camera.position.set(0,104,-.01);camera.setTarget(new B.Vector3(0,0,0));camera.rotation.set(0,0,0);
+        return {mode:'overview',bots:state.bots.length};
+      },
+      setBotView:(id)=>{
+        const bot=state.bots.find(b=>b.id===Number(id)&&b.alive);
+        if(!bot)throw new Error('Live bot not found: '+id);
+        for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
+        for(const m of bot.root.getChildMeshes?.()||[])m.isVisible=false;
+        camera.parent=bot.root;camera.position.set(0,1.58,0);camera.rotation.set(0,0,0);
+        camera.minZ=.06;camera.fov=1.04;
+        return {mode:'bot-first-person',botId:bot.id,team:bot.team,x:bot.root.position.x,y:bot.root.position.y,z:bot.root.position.z};
+      },
+      botRoster:()=>state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,x:b.root.position.x,y:b.root.position.y,z:b.root.position.z})),
+      metrics:()=>({started:state.started,bots:state.bots.length,alive:state.bots.filter(b=>b.alive).length,meshes:scene.meshes.length,fps:state.fps,renderMs:state.lastRenderMs,updateMs:state.lastUpdateMs,canvas:{width:canvas.width,height:canvas.height}}),
+      errors:()=>({map:window.__SOLO_MAP_STATS__||null})
+    };
+    if(MAP_CAPTURE_MODE){$('loadState').textContent='CI PHOTO CAPTURE · REAL BOTS ENABLED';}
+
     let last=performance.now();
     engine.runRenderLoop(()=>{
       const now=performance.now(),rawDt=Math.max(0,(now-last)/1000),dt=Math.min(.05,rawDt);last=now;
