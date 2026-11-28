@@ -840,9 +840,9 @@ test('map visual report captures 30 independent grid snapshots without requiring
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
   assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
-  assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-grid-based-top-down-local-snapshots'/);
-  assert.match(engine, /mapAreaSnapshots:30/);
+  assert.match(engine, /function captureMapAreaContactSheet\\(points,onProgress=\\(\\)=>\\{\\},overviewBase64\\)/);
+  assert.match(engine, /kind:'30-grid-crops-from-single-high-resolution-top-down-render'/);
+  assert.match(engine, /mapAreaSnapshots:30/);\n  assert.match(engine, /single-render-cpu-crops/);
   assert.match(engine, /2026-11-28-map-report-pipeline1/);
 });
 
