@@ -5,9 +5,9 @@ import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, mo
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-map-edit-atlas3';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-gamepad-input1';
 const MAP_EDIT_MODE=true; // Temporary map-authoring switch. Bot AI, models, routes and assets remain intact.
-const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
+const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, gamepadMove:{x:0,y:0}, gamepadLook:{x:0,y:0}, gamepadButtons:[], gamepadIndex:null, gamepadId:null, gamepadFire:false, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
   const tint=BABYLON.Color3.FromHexString(color);
@@ -754,10 +754,50 @@ function drawMinimap(){
   ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(forward.x,-forward.z));ctx.fillStyle='#fff';ctx.strokeStyle='#101820';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(4.5,5);ctx.lineTo(0,3);ctx.lineTo(-4.5,5);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
   ctx.fillStyle='#d9e3df';ctx.font='bold 8px system-ui';ctx.fillText('MAP',size/2-9,7);
 }
+function gamepadAxis(value){
+ const n=Math.abs(value||0);if(n<.16)return 0;
+ return Math.sign(value)*Math.min(1,(n-.16)/.84);
+}
+function pollGamepadInput(dt){
+ if(typeof navigator.getGamepads!=='function')return;
+ const pads=Array.from(navigator.getGamepads()||[]).filter(p=>p&&p.connected);
+ let pad=state.gamepadIndex===null?pads[0]:pads.find(p=>p.index===state.gamepadIndex)||pads[0];
+ if(!pad){
+  if(state.gamepadIndex!==null)gameLogEvent('gamepad-input-lost',{index:state.gamepadIndex,id:state.gamepadId});
+  state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=0;state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;
+  if(state.firing&&state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}
+  state.gamepadButtons=[];return;
+ }
+ if(state.gamepadIndex!==pad.index){state.gamepadIndex=pad.index;state.gamepadId=pad.id;gameLogEvent('gamepad-input-active',{index:pad.index,id:pad.id,mapping:pad.mapping,axes:pad.axes?.length||0,buttons:pad.buttons?.length||0});}
+ const axes=pad.axes||[],buttons=pad.buttons||[];
+ const read=(index)=>gamepadAxis(axes[index]||0);
+ state.gamepadMove.x=read(0);state.gamepadMove.y=read(1);
+ state.gamepadLook.x=read(2);state.gamepadLook.y=read(3);
+ if(!state.playerDead&&state.started){
+  const lookScale=dt*2.7*state.lookSensitivity;
+  camera.rotation.y+=state.gamepadLook.x*lookScale;
+  camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+state.gamepadLook.y*lookScale));
+ }
+ const down=(index)=>!!buttons[index]&&(!!buttons[index].pressed||(buttons[index].value||0)>.5);
+ const was=(index)=>!!state.gamepadButtons[index];
+ const rising=(index)=>down(index)&&!was(index);
+ if(state.started&&!state.playerDead){
+  const trigger=!!buttons[7]&&(buttons[7].value||0)>.35;
+  if(trigger&&!state.gamepadFire){state.fireInputSource='gamepad-trigger';state.firing=true;fire();}
+  if(!trigger&&state.gamepadFire&&state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}
+  state.gamepadFire=trigger;
+  if(rising(2))reload();
+  if(rising(0))selectWeapon('rifle','gamepad-a');
+  if(rising(1))selectWeapon('pistol','gamepad-b');
+  if(rising(3))selectWeapon('knife','gamepad-y');
+  if(rising(4)||rising(5))state.keys.add('ShiftLeft');else if(!down(4)&&!down(5))state.keys.delete('ShiftLeft');
+ }
+ state.gamepadButtons=buttons.map(b=>!!b&&(!!b.pressed||(b.value||0)>.5));
+}
 function updatePlayer(dt) {
   if(state.playerDead||!state.started)return;
-  const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y;
-  const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x;
+  const forward=(state.keys.has('KeyW')?1:0)-(state.keys.has('KeyS')?1:0)-state.joy.y-state.gamepadMove.y;
+  const strafe=(state.keys.has('KeyD')?1:0)-(state.keys.has('KeyA')?1:0)+state.joy.x+state.gamepadMove.x;
   const len=Math.hypot(forward,strafe)||1, speed=(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')?6.3:4.6)*dt;
   // Use the camera's actual world-space forward vector for movement and the map arrow.
   const forwardDirection=cameraForwardOnMap(),rightDirection={x:forwardDirection.z,z:-forwardDirection.x};
@@ -1007,7 +1047,7 @@ function collectIssueSceneContext(){
  const nearbyColliders=collisionBoxes.map(c=>{const dx=Math.max(c.minX-camera.position.x,0,camera.position.x-c.maxX),dz=Math.max(c.minZ-camera.position.z,0,camera.position.z-c.maxZ);return {c,d:Math.hypot(dx,dz)}}).filter(v=>v.d<18).sort((a,b)=>a.d-b.d).slice(0,24).map(({c,d})=>({name:c.name,distance:+d.toFixed(2),min:{x:+c.minX.toFixed(2),y:+c.minY.toFixed(2),z:+c.minZ.toFixed(2)},max:{x:+c.maxX.toFixed(2),y:+c.maxY.toFixed(2),z:+c.maxZ.toFixed(2)}}));
  const gamepads=typeof navigator.getGamepads==='function'?Array.from(navigator.getGamepads()||[]).filter(Boolean).map(p=>({id:p.id.slice(0,100),mapping:p.mapping,connected:p.connected,axes:Array.from(p.axes||[]).map(v=>+v.toFixed(2)),buttons:Array.from(p.buttons||[]).map((b,i)=>b.pressed||b.value>.05?{index:i,pressed:b.pressed,value:+b.value.toFixed(2)}:null).filter(Boolean)})):[];
  const caps=engine.getCaps?.()||{};
- return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},forward:cameraForwardOnMap(),fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:collectRuntimeTextureAudit()},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
+ return {collision:{system:'swept-aabb-circle',playerRadius:.36,playerHeight:1.72,colliderCount:collisionBoxes.length,nearbyColliderCount:nearbyColliders.length,lastMove:state.lastMove,colliders:nearbyColliders},camera:{position:{x:+camera.position.x.toFixed(3),y:+camera.position.y.toFixed(3),z:+camera.position.z.toFixed(3)},rotation:{x:+camera.rotation.x.toFixed(4),y:+camera.rotation.y.toFixed(4),z:+camera.rotation.z.toFixed(4)},forward:cameraForwardOnMap(),fov:camera.fov,minZ:camera.minZ,maxZ:camera.maxZ},player:{hp:state.hp,dead:state.playerDead,weapon:state.weaponSlot},centerRay:{hit:!!hit?.hit,mesh:picked?.name||null,distance:hit?.distance??null,point:hit?.pickedPoint?{x:+hit.pickedPoint.x.toFixed(3),y:+hit.pickedPoint.y.toFixed(3),z:+hit.pickedPoint.z.toFixed(3)}:null},nearbyMeshes:visibleMeshes.slice(0,40),bots:state.bots.map(b=>({id:b.id,team:b.team,alive:b.alive,hp:b.health,position:{x:+b.root.position.x.toFixed(2),y:+b.root.position.y.toFixed(2),z:+b.root.position.z.toFixed(2)},state:b.combatState,target:b.target?.kind==='bot'?b.target.bot.id:b.target?.kind||null,navNodes:Math.max(0,(b.navPath?.length||0)-(b.navIndex||0)),goal:b.navGoal?{x:+b.navGoal.x.toFixed(2),z:+b.navGoal.z.toFixed(2)}:null,blocked:!!b.blockedLogged,stuckSince:b.stuckSince||0,pathFailures:b.pathFailures||0,weapon:b.activeWeapon})),input:{gamepad:{index:state.gamepadIndex,id:state.gamepadId,move:state.gamepadMove,look:state.gamepadLook,fire:state.gamepadFire,buttons:state.gamepadButtons},movement:{x:+(state.joy?.x||0).toFixed(2),y:+(state.joy?.y||0).toFixed(2)},look:{x:+(state.look?.x||0).toFixed(2),y:+(state.look?.y||0).toFixed(2)},fireStick:{x:+(state.fireStick?.x||0).toFixed(2),y:+(state.fireStick?.y||0).toFixed(2)},keys:Array.from(state.keys||[]),gamepads},runtime:{visibility:document.visibilityState,online:navigator.onLine,hardwareConcurrency:navigator.hardwareConcurrency||null,deviceMemory:navigator.deviceMemory||null,maxTouchPoints:navigator.maxTouchPoints||0,orientation:screen.orientation?.type||null,viewport:{width:canvas.clientWidth,height:canvas.clientHeight,dpr:devicePixelRatio},engineCaps:{maxTextureSize:caps.maxTextureSize||null,maxCubemapTextureSize:caps.maxCubemapTextureSize||null,maxAnisotropy:caps.maxAnisotropy||null},textures:collectRuntimeTextureAudit()},fieldAtlas:fieldCoverageStats(),scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,activeCamera:scene.activeCamera?.name||null,mapStats:window.__SOLO_MAP_STATS__||null,meshBreakdown,activeMeshes:scene.getActiveMeshes?.().length??null,particleSystems:scene.particleSystems?.length??0,renderFps:Math.round(engine.getFps?.()||0),engine:{width:engine.getRenderWidth(),height:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel()},canvas:{width:canvas.width,height:canvas.height}}};
 }
 async function captureIssueScreenshot(){
  try{
@@ -1204,7 +1244,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
   const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-atlas3',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-gamepad-input1',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');
@@ -1266,8 +1306,8 @@ window.addEventListener('error',e=>{const item={wall:new Date().toISOString(),ty
 window.addEventListener('unhandledrejection',e=>{const item={wall:new Date().toISOString(),type:'unhandled-rejection',reason:String(e.reason?.stack||e.reason).slice(0,1800)};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('unhandled-rejection',item)});
 window.addEventListener('webglcontextlost',e=>{const item={wall:new Date().toISOString(),type:'webgl-context-lost'};appendBoundedLog(issueRuntimeErrors,item,20);gameLogEvent('webgl-context-lost',{status:'lost'})},true);
 window.addEventListener('webglcontextrestored',()=>gameLogEvent('webgl-context-restored'),true);
-window.addEventListener('gamepadconnected',e=>gameLogEvent('gamepad-connected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null,mapping:e.gamepad?.mapping||null}));
-window.addEventListener('gamepaddisconnected',e=>gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null}));
+window.addEventListener('gamepadconnected',e=>{state.gamepadIndex=e.gamepad?.index??null;state.gamepadId=e.gamepad?.id||null;gameLogEvent('gamepad-connected',{id:state.gamepadId,index:state.gamepadIndex,mapping:e.gamepad?.mapping||null,axes:e.gamepad?.axes?.length||0,buttons:e.gamepad?.buttons?.length||0});});
+window.addEventListener('gamepaddisconnected',e=>{if(state.gamepadIndex===e.gamepad?.index){state.gamepadIndex=null;state.gamepadId=null;state.gamepadMove.x=state.gamepadMove.y=state.gamepadLook.x=state.gamepadLook.y=0;state.gamepadFire=false;if(state.fireInputSource==='gamepad-trigger'){state.firing=false;state.fireInputSource='';}}state.gamepadButtons=[];gameLogEvent('gamepad-disconnected',{id:e.gamepad?.id||null,index:e.gamepad?.index??null});});
 document.addEventListener('visibilitychange',()=>gameLogEvent('visibility',{state:document.visibilityState}));
 
 async function boot() {
@@ -1365,7 +1405,7 @@ async function boot() {
       if(state.started)sampleBotWalkLocations(now);
       const updateStarted=performance.now();
       if(state.started) {
-        updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         if(now-state.lastHud>=250){
           $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
