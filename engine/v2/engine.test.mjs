@@ -684,7 +684,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /scene\.activeCamera=overviewCamera;scene\.activeCameras=null/);
   assert.match(engine, /scene\.activeCamera=localCamera;scene\.activeCameras=null/);
   assert.match(engine, /scene\.activeCamera=previousCamera;scene\.activeCameras=previousCameras/);
-  assert.match(engine, /2026-11-28-mapoverview6/);
+  assert.match(engine, /20261128-mapoverview8/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
   assert.match(engine, /mesh\.infiniteDistance\|\|\/sky\|atmosphere\/i/);
   assert.match(engine, /topDownMapScreenshot:\{captured:!!topDownPath/);
@@ -829,7 +829,7 @@ test('map visual report captures 30 spatially distributed bot-area snapshots and
   assert.match(engine, /function captureBotAreaContactSheet\(points\)/);
   assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
   assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-mapoverview6/);
+  assert.match(engine, /20261128-mapoverview8/);
 });
 
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
