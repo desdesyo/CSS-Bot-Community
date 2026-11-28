@@ -1028,3 +1028,26 @@ test('mobile menu uses modern cool-toned buttons and a taller scrollable card', 
  assert.match(html,/#card\{max-height:min\(82dvh,760px\)!important/);
  assert.match(html,/#overlay\{align-items:center!important/);
 });
+
+
+test('worldfix1 adds collision hulls for parked vehicles and keeps doors/windows solid', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /van invisible collision hull/);
+  assert.match(map, /invisible collision hull/);
+  assert.match(map, /collider\.checkCollisions=true;collider\.isPickable=true;collider\.visibility=0/);
+  assert.match(map, /deep-set window glass[^;]*,glass,true\)/);
+  assert.match(map, /recessed timber entrance door[^;]*,doorWood,true\)/);
+  assert.match(map, /airlock reinforced door leaf[^;]*,labSteel,true\)/);
+  assert.match(map, /rear elevation window glass/);
+  assert.match(map, /glass\.backFaceCulling=false/);
+  assert.match(map, /doorWood\.backFaceCulling=false/);
+});
+
+test('bug reports no longer run a second top-down GPU capture while gameplay continues', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const issueReport = engine.slice(engine.indexOf('async function submitIssueReport()'), engine.indexOf('function toggleGameplayRecording()'));
+  assert.ok(issueReport.length > 0);
+  assert.doesNotMatch(issueReport, /captureMapOverviewScreenshot\(/);
+  assert.match(issueReport, /Top-down capture skipped in bug report/);
+  assert.match(engine, /captureScale=Math\.min\(1,960\/viewportWidth,720\/viewportHeight\)/);
+});
