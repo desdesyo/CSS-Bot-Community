@@ -587,3 +587,11 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
   assert.ok(engine.includes('state.lastUpdateMs=performance.now()-updateStarted'));
   assert.ok(engine.includes('updateMs:+(state.lastUpdateMs||0).toFixed(2)'));
 });
+
+
+test('mobile performance release invalidates cached engine and wet-map modules', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.ok(html.includes('./engine.js?v=20261128-perf1'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf1'));
+});
