@@ -222,7 +222,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   if(water.emissiveColor) water.emissiveColor=new C(.008,.025,.05);
   const cobble=mat('Wet Ground wet cobblestone PBR','#43596b',.13,.16);
   const makeCobbleTexture = () => {
-    const size=mobile?1024:2048, tex=new B.DynamicTexture('photographic irregular wet cobblestone albedo', {width:size,height:size}, scene, false);
+    const size=mobile?1024:2048, tex=new B.DynamicTexture('photographic irregular wet cobblestone albedo', {width:size,height:size}, scene, true, B.Texture.TRILINEAR_SAMPLINGMODE);
     const ctx=tex.getContext(),rand=(()=>{let s=81357;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);})();
     ctx.fillStyle='#101923';ctx.fillRect(0,0,size,size);
     const rows=mobile?26:42,cols=mobile?18:28,cw=size/cols,ch=size/rows;
@@ -273,7 +273,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   cobble.albedoTexture=cobbleTex;
   cobble.albedoColor=new C(.7,.8,.92);
   // Spatial roughness variation: polished traffic paths, porous stone crowns and dark mortar.
-  const cobbleRough=new B.DynamicTexture('cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,false);
+  const cobbleRough=new B.DynamicTexture('cobblestone variable roughness map',{width:mobile?512:1024,height:mobile?512:1024},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const roughCtx=cobbleRough.getContext();roughCtx.fillStyle='rgb(235,235,235)';roughCtx.fillRect(0,0,mobile?512:1024,mobile?512:1024);
   let roughSeed=77123;const roughRand=()=>((roughSeed=(roughSeed*1664525+1013904223)>>>0)/4294967296);
   const roughW=mobile?512:1024,roughRows=mobile?18:28,roughCols=mobile?13:20,rw=roughW/roughCols,rh=roughW/roughRows;
@@ -285,10 +285,10 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   }
   cobbleRough.update(false);cobbleRough.gammaSpace=false;cobbleRough.wrapU=cobbleRough.wrapV=B.Texture.WRAP_ADDRESSMODE;
   cobbleRough.uScale=1;cobbleRough.vScale=1;
-  cobble.roughnessTexture=cobbleRough;
-  cobbleTex.uScale=1;cobbleTex.vScale=1;
+  cobbleRough.anisotropicFilteringLevel=mobile?8:16;cobble.roughnessTexture=cobbleRough;
+  cobbleTex.uScale=1;cobbleTex.vScale=1;cobbleTex.anisotropicFilteringLevel=mobile?8:16;
   // A dedicated tangent-space normal texture gives individual cobbles raised edges and worn centers.
-  const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,false);
+  const normalSize=mobile?256:512,normalTex=new B.DynamicTexture('cobblestone micro normal',{width:normalSize,height:normalSize},scene,true,B.Texture.TRILINEAR_SAMPLINGMODE);
   const normalCtx=normalTex.getContext();normalCtx.fillStyle='rgb(128,128,255)';normalCtx.fillRect(0,0,normalSize,normalSize);
   const normalRows=mobile?18:28,normalCols=mobile?13:20,nw=normalSize/normalCols,nh=normalSize/normalRows;
   for(let y=0;y<normalRows;y++)for(let x=0;x<normalCols;x++){
@@ -302,7 +302,7 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     }
   }
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=1;normalTex.vScale=1;normalTex.gammaSpace=false;
-  cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
+  normalTex.anisotropicFilteringLevel=mobile?8:16;cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
   loadScannedPbr(cobble,'cobblestone_pavement',1,mobile?.68:.9);
   if(cobble.metallic!==undefined)cobble.metallic=.08;
 
