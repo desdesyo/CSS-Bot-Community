@@ -703,9 +703,9 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function collectMapVisualAudit\(\)/);
   assert.match(engine, /materialUsage/);
   assert.match(engine, /type:'map-overview-visual-audit'/);
-  assert.match(engine, /const jsonPath='logs\/issues\//);
-  assert.match(engine, /const overviewPath='logs\/issues\//);
-  assert.match(engine, /const atlasPath='logs\/issues\//);
+  assert.match(engine, /const jsonPath='logs\/30\//);
+  assert.match(engine, /const overviewPath='logs\/30\//);
+  assert.match(engine, /const atlasPath='logs\/30\//);
 });
 
 test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two-at-a-time loading', async () => {
