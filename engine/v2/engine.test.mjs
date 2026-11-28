@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex, repairInvalidSceneMaterials } from './engine-core.mjs';
 
 test('adaptive resolution reduces load on a slow mobile frame budget', () => {
   assert.ok(Math.abs(adaptiveScale(55, .9, true) - .86) < 1e-9);
@@ -654,4 +654,45 @@ test('renderer leaves per-mesh layer masks intact', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(source, /camera\.layerMask=0x0FFFFFFF/);
   assert.doesNotMatch(source, /for\(const mesh of scene\.meshes\)\{if\(mesh\)mesh\.layerMask/);
+});
+
+
+test('renderer repairs invalid Babylon materials and preserves visual properties', () => {
+  class StandardMaterial {
+    constructor(name, scene) { this.name=name; this.scene=scene; this.alpha=1; }
+    needAlphaBlendingForMesh() { return this.alpha < 1; }
+  }
+  class Color3 { constructor(r,g,b){this.r=r;this.g=g;this.b=b;} }
+  const color=new Color3(.2,.3,.4), texture={kind:'diffuse'};
+  const broken={name:'broken-pbr',albedoColor:color,alpha:.65,albedoTexture:texture};
+  const valid=new StandardMaterial('valid',null);
+  const scene={meshes:[{name:'facade',material:broken},{name:'road',material:valid}]};
+  const B={StandardMaterial,Color3};
+  const repaired=repairInvalidSceneMaterials(scene,B);
+  assert.equal(repaired.length,1);
+  assert.equal(repaired[0].mesh,'facade');
+  assert.notEqual(scene.meshes[0].material,broken);
+  assert.equal(scene.meshes[0].material.diffuseColor,color);
+  assert.equal(scene.meshes[0].material.diffuseTexture,texture);
+  assert.equal(scene.meshes[0].material.alpha,.65);
+  assert.equal(typeof scene.meshes[0].material.needAlphaBlendingForMesh,'function');
+  assert.equal(scene.meshes[1].material,valid);
+});
+
+test('renderer repairs invalid sub-materials inside Babylon multi-materials', () => {
+  class StandardMaterial {
+    constructor(name, scene) { this.name=name; this.scene=scene; this.alpha=1; }
+    needAlphaBlendingForMesh() { return this.alpha < 1; }
+  }
+  class Color3 { constructor(r,g,b){this.r=r;this.g=g;this.b=b;} }
+  const broken={name:'broken-sub',diffuseColor:new Color3(.1,.2,.3)};
+  const valid=new StandardMaterial('valid-sub',null);
+  const multi={name:'multi',subMaterials:[broken,valid],needAlphaBlendingForMesh(){return false;}};
+  const scene={meshes:[{name:'multi-mesh',material:multi}]};
+  const repaired=repairInvalidSceneMaterials(scene,{StandardMaterial,Color3});
+  assert.equal(repaired.length,1);
+  assert.equal(scene.meshes[0].material,multi);
+  assert.notEqual(multi.subMaterials[0],broken);
+  assert.equal(multi.subMaterials[1],valid);
+  assert.equal(typeof multi.subMaterials[0].needAlphaBlendingForMesh,'function');
 });
