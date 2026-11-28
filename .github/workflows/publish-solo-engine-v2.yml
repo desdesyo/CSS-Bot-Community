@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/publish-solo-engine-v2.yml"
+      - "engine/v2/**"
   workflow_run:
     workflows:
       - "SOLO Engine V2 source checks"
@@ -25,13 +26,13 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/solo-engine-v2') }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'feature/solo-engine-v2' || github.event.workflow_run.head_branch == 'fix/solo-report-controls')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out tested SOLO Engine V2 source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'feature/solo-engine-v2' }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -114,7 +115,7 @@ jobs:
           path: dist
 
   deploy:
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feature/solo-engine-v2') }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'feature/solo-engine-v2' || github.event.workflow_run.head_branch == 'fix/solo-report-controls')) }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
