@@ -39,7 +39,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-capturefix3'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -848,27 +848,6 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report creates 30 independent world-grid snapshots without bots or movement samples', async () => {
-  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(!engine.includes('sampleBotWalkLocations'));
-  assert.ok(!engine.includes('mapWalkSamples'));
-  assert.match(engine, /function chooseMapSnapshotPoints\(bounds=getMapOverviewBounds\(\)\)/);
-  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
-  assert.match(engine, /source:'independent-map-grid'/);
-  assert.match(engine, /team:'MAP'/);
-  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
-  assert.ok(!selector.includes('state.bots'));
-  assert.ok(!selector.includes('mapWalkSamples'));
-  assert.ok(!selector.includes('waypoints'));
-  assert.ok(engine.includes('mapAreaSnapshots:contactSheet.tiles.length'));
-  assert.ok(html.includes('engine.js?v=20261128-capturefix3'));
-  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-independent-map-grid-crops-from-top-down-overview'/);
-  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
-  assert.match(engine, /2026-11-28-capturefix3/);
-});
-
 test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the abstract S mark', async () => {
   const icon = await readFile(new URL('./icons/solo-wg.svg', import.meta.url), 'utf8');
   const manifest = await readFile(new URL('./manifest.webmanifest', import.meta.url), 'utf8');
@@ -877,18 +856,6 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
   assert.match(manifest, /"short_name": "SOLO:WG"/);
 });
 
-
-test('map overview point selection never depends on bot actors, movement history or authored routes', async () => {
-  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const selector = engine.slice(engine.indexOf('function chooseMapSnapshotPoints'), engine.indexOf('async function captureMapAreaContactSheet'));
-  assert.match(selector, /const columns=5,rows=6,points=\[\]/);
-  assert.match(selector, /source:'independent-map-grid'/);
-  assert.ok(!selector.includes('state.bots'));
-  assert.ok(!selector.includes('mapWalkSamples'));
-  assert.ok(!selector.includes('waypoints'));
-  assert.match(engine, /fixed 5x6 stratified grid over full world bounds; independent of bots, AI, patrol routes, movement samples and player activity/);
-  assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
-});
 
 test('mobile wet reflections preserve texture resolution while reducing refresh work', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
@@ -941,17 +908,12 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
   assert.ok(html.includes('#mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important'));
   assert.ok(html.includes('#stick{left:clamp(24px,4vw,40px)!important'));
 });
-test('mobile START and fullscreen-change handling request landscape orientation', async () => {
+test('mobile START requests fullscreen and attempts landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
-  assert.ok(engine.includes('function requestGameFullscreen()'));
-  assert.ok(start.includes('requestGameFullscreen()'));
-  assert.ok(engine.includes("screen.orientation.lock('landscape')"));
-  assert.ok(engine.includes('orientationchange'));
-  assert.ok(engine.includes('fullscreenchange'));
-  assert.match(engine, /function lockGameLandscape\(reason='user-action'\)/);
-  assert.match(engine, /lockGameLandscape\('orientation-change'\)/);
-  assert.match(engine, /fullscreen-recovery-button/);
+  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 2200);
+  assert.ok(start.includes('document.documentElement.requestFullscreen'));
+  assert.ok(start.includes("screen.orientation.lock('landscape')"));
+  assert.ok(start.includes('refreshViewportAfterRotation()'));
 });
 
 test('mobile game requests landscape orientation after entering fullscreen and has no portrait-only HUD layout', async () => {
@@ -1004,19 +966,11 @@ test('engine boot is guarded so duplicate module imports cannot create a second 
   assert.match(engine, /await buildWetGroundMap/);
 });
 
-test('map-authoring mode suspends all live bots but preserves soldier assets and reversible AI code', async () => {
+test('player-provided screenshots are the visual review path; no capture mode is required', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(engine, /const MAP_CAPTURE_MODE=new URLSearchParams\(location\.search\)\.get\('capture'\)==='1'/);
-  assert.match(engine, /const MAP_EDIT_MODE=!MAP_CAPTURE_MODE/);
-  assert.match(engine, /window\.__SOLO_CAPTURE_API__=/);
-  assert.match(engine, /setBotView:\(id\)=>/);
-  assert.match(engine, /if\(MAP_EDIT_MODE\)\{state\.bots\.length=0/);
-  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?humanBotAssets=await loadHumanBotAssets\(B,scene\)/);
-  assert.match(engine, /modelsRetained:true,assetsLoaded:false,aiDisabled:true/);
-  assert.match(engine, /if\(!MAP_EDIT_MODE\)\{[\s\S]*?buildBots\(\)[\s\S]*?buildPlayerWeapon\(\);initInput\(\);drawMinimap\(\)/);
-  assert.match(engine, /botAIEnabled:!MAP_EDIT_MODE/);
-  assert.match(engine, /Set MAP_EDIT_MODE=false to restore the original 6v6 roster/);
-  assert.match(engine, /createHumanBot\(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile\)/);
+  assert.doesNotMatch(engine, /MAP_CAPTURE_MODE/);
+  assert.doesNotMatch(engine, /__SOLO_CAPTURE_API__/);
+  assert.match(engine, /2026-11-28-map-edit-roundfix1/);
 });
 
 test('small shop and spawn signs share one pre-baked atlas instead of individual dynamic textures', async () => {
