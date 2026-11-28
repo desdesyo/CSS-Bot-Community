@@ -21,8 +21,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   // One shared GPU texture atlas for all small storefront and spawn-quarter lettering.
   // Every sign uses a UV window into this atlas instead of allocating its own 512x128/768x192 texture.
   const signAtlasLabels=['GROCERY','CAFE','PHARMACY','REPAIRS','ПРОДУКТЫ','МАСТЕРСКАЯ','ПЕКАРНЯ','АТЕЛЬЕ','АПТЕКА','КАФЕ','ЦВЕТЫ','МАГАЗИН'];
-  const signAtlasSize=mobile?1024:2048,signCellW=signAtlasSize/4,signCellH=signAtlasSize/4;
-  const signAtlasTexture=new B.DynamicTexture('shared storefront and street-sign atlas',{width:signAtlasSize,height:signAtlasSize},scene,false,B.Texture.TRILINEAR_SAMPLINGMODE);
+  const signAtlasWidth=mobile?1024:2048,signAtlasHeight=mobile?256:512,signCellW=signAtlasWidth/4,signCellH=signAtlasHeight/4;
+  const signAtlasTexture=new B.DynamicTexture('shared storefront and street-sign atlas',{width:signAtlasWidth,height:signAtlasHeight},scene,false,B.Texture.TRILINEAR_SAMPLINGMODE);
   const signAtlasCtx=signAtlasTexture.getContext(),signAtlasIndex=new Map(),signAtlasMaterials=new Map();
   const signPalettes=[
     ['#101b27','#ffd18a'],['#101b27','#75e8f2'],['#101b27','#ff716a'],['#101b27','#ffd18a'],
@@ -1733,5 +1733,5 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasSize,height:signAtlasSize},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,signAtlas:{gpuAtlasTextures:1,slots:signAtlasLabels.length,materials:signAtlasMaterials.size,width:signAtlasWidth,height:signAtlasHeight},surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
