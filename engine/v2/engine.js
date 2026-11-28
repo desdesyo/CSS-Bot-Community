@@ -5,7 +5,7 @@ import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, mo
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-texturefix1';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-texture-stability1';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -1072,7 +1072,10 @@ function collectMapVisualAudit(){
    meshSamples.push({name,type:mesh.getClassName?.()||'Mesh',enabled:mesh.isEnabled(),visible:mesh.isVisible,material:matName,bounds,vertices:mesh.getTotalVertices?.()||0,indices:mesh.getTotalIndices?.()||0});
   }
  }
- return {mapStats:window.__SOLO_MAP_STATS__||null,scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,textureCount:scene.textures.length},materialUsage:Array.from(materials,([name,v])=>({name,count:v.count,properties:v.example})).sort((a,b)=>b.count-a.count),meshNameGroups:meshKinds,meshSamples,truncatedMeshes:Math.max(0,scene.meshes.length-meshSamples.length)};
+ const textureInventory=scene.textures.map(t=>{const size=t.getSize?.()||{},url=String(t.url||t._texture?.url||t.name||'').slice(0,220),width=size.width||0,height=size.height||0;return {name:String(t.name||'').split('/').pop().slice(0,120),url,width,height,ready:!!t.isReady?.(),hasAlpha:!!t.hasAlpha,estimatedBytes:Math.round(width*height*4*(t.getInternalTexture?.()?.generateMipMaps?1.34:1))}});
+ const duplicateTextureUrls=new Map();for(const item of textureInventory)if(/^https?:/i.test(item.url))duplicateTextureUrls.set(item.url,(duplicateTextureUrls.get(item.url)||0)+1);
+ const resourceInventory=performance.getEntriesByType?.('resource')?.filter(r=>/\.(?:jpe?g|png|webp|hdr|glb)(?:\?|$)|babylon(?:\.loaders)?\.min\.js/i.test(r.name)).slice(-120).map(r=>({url:r.name.slice(0,240),durationMs:+r.duration.toFixed(1),transferBytes:r.transferSize||0,decodedBodyBytes:r.decodedBodySize||0}))||[];
+ return {mapStats:window.__SOLO_MAP_STATS__||null,textureAudit:{count:textureInventory.length,loaded:textureInventory.filter(t=>t.ready).length,notReady:textureInventory.filter(t=>!t.ready).map(t=>t.name),estimatedBytes:textureInventory.reduce((sum,t)=>sum+t.estimatedBytes,0),duplicateUrls:Array.from(duplicateTextureUrls.entries()).filter(([,count])=>count>1).map(([url,count])=>({url,count})),scannedPbrLoad:window.__SOLO_TEXTURE_AUDIT__||null,inventory:textureInventory},resourceAudit:{tracked:resourceInventory.length,requests:resourceInventory},surfaceAudit:window.__SOLO_MAP_STATS__?.surfaceAudit||null,scene:{meshCount:scene.meshes.length,materialCount:scene.materials.length,textureCount:scene.textures.length},materialUsage:Array.from(materials,([name,v])=>({name,count:v.count,properties:v.example})).sort((a,b)=>b.count-a.count),meshNameGroups:meshKinds,meshSamples,truncatedMeshes:Math.max(0,scene.meshes.length-meshSamples.length)};
 }
 let mapWalkSamples=[],mapWalkSampleAt=0;
 function sampleBotWalkLocations(now){
