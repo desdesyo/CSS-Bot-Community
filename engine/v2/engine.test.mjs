@@ -693,7 +693,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
-  assert.match(engine, /captureSource:'independent-world-coordinate-crop-from-shared-topdown-render'/);
+  assert.match(engine, /captureSource:'independent-world-crop-from-shared-topdown-render'/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
   assert.match(engine, /Wet Ground district foundation/);
   assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera/);
