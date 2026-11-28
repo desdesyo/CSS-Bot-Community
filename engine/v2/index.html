@@ -64,11 +64,28 @@
 @media(pointer:coarse){#spectatorHud{top:48px;gap:5px;padding:6px 7px;font-size:9px}#spectatorHud button{padding:6px 9px}#roundEndCard{padding:24px 18px}}
 </style>
 <style id="mobile-controls-touchfix2-reportfix2">@media (pointer:coarse){#stick{left:clamp(30px,4vw,44px)}#fire{right:clamp(76px,11vw,112px)}}</style>
+
+<style id="mobile-landscape-hud-fix">
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px){
+ #actions{top:38px;right:8px;left:auto;gap:4px;flex-wrap:nowrap;z-index:18}
+ #actions button{min-width:0;padding:4px 6px;font-size:8px;line-height:1;letter-spacing:0;border-radius:4px;white-space:nowrap;min-height:23px}
+ #minimap{top:48px;left:8px;width:92px;height:92px}
+ #mapOverviewQuick{top:146px;left:8px;bottom:auto;padding:6px 8px;font-size:9px;line-height:1.1}
+ #mapOverviewStatus{top:181px;left:8px;bottom:auto;max-width:132px;padding:4px 6px;font-size:8px;line-height:1.2}
+ #weaponBar{bottom:max(5px,env(safe-area-inset-bottom));gap:3px;padding:3px}
+ #weaponBar button{min-width:48px;padding:5px 7px;font-size:8px}
+ #weaponName{bottom:45px;font-size:8px;padding:3px 6px}
+}
+@media (pointer:coarse) and (orientation:portrait){
+ #actions{top:58px;right:8px;gap:4px}
+ #actions button{padding:5px 7px;font-size:8px;letter-spacing:0}
+}
+</style>
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
 <div id="hud"><div id="top"><div id="brand">SOLO: WET GROUND</div><div id="stats"><span id="round">ROUND 01</span><span id="timer">03:00</span><span id="kills">KILLS 0</span><span id="team">TEAM CT</span><span id="safeStatus" style="display:none">SAFE 10</span><span id="health">HP 100</span><span id="ammo">30 / 90</span><span id="fps">-- FPS</span></div></div><div id="cross"></div><canvas id="minimap" width="160" height="160" aria-label="Мини-карта"></canvas><div id="weaponName">M4 CARBINE</div><div id="weaponBar"><button type="button" data-weapon="rifle" class="selected">1 · M4</button><button type="button" data-weapon="pistol">2 · PISTOL</button><button type="button" data-weapon="knife">3 · KNIFE</button></div><div id="bottom">WASD — движение · Shift — бег · мышь — обзор · ЛКМ — огонь · R — перезарядка · F — полный экран · ESC — курсор</div><div id="quality">INITIALIZING RENDERER…</div></div>
-<button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 снимков зон ботов</div><div id="actions"><button id="logsQuick" type="button">● ЛОГИ</button><button id="issueQuick" type="button">⚑ ОТМЕТИТЬ БАГ</button><button id="fullScreen" type="button">FULLSCREEN</button><button id="pause" type="button">PAUSE</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
+<button id="mapOverviewQuick" type="button" title="Сделать снимок всей карты сверху и отправить визуальный отчёт">▦ ОБЗОР КАРТЫ</button><div id="mapOverviewStatus" role="status" aria-live="polite" data-state="info">Готов к сбору общего вида и 30 снимков зон ботов</div><div id="actions"><button id="logsQuick" type="button" aria-label="Отправить игровой лог">● ЛОГ</button><button id="issueQuick" type="button" aria-label="Отметить баг">⚑ БАГ</button><button id="fullScreen" type="button" aria-label="Полноэкранный режим">⛶</button><button id="pause" type="button" aria-label="Пауза">Ⅱ</button></div><button id="reload" type="button">RELOAD · R</button><div id="touch"><div id="stick"><div id="nub"></div></div><div id="look"></div><button id="fire" type="button"><span id="fireNub"></span><span id="fireLabel">FIRE</span></button></div>
 <div id="spectatorHud" hidden><button id="spectatorPrev" type="button" aria-label="Предыдущий живой бот">◀</button><span id="spectatorLabel">НАБЛЮДЕНИЕ</span><span>Q / E</span><button id="spectatorNext" type="button" aria-label="Следующий живой бот">▶</button></div>
 <div id="roundEnd" hidden><div id="roundEndCard"><p style="margin:0 0 10px;color:#aab8b8;font:700 10px ui-monospace,monospace;letter-spacing:3px">SOLO · WET GROUND</p><h2 id="roundWinner">COUNTER-TERRORISTS WIN</h2><p id="roundReason">ROUND COMPLETE</p><div id="roundCountdown">СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ 5</div></div></div>
 <div id="overlay" class="is-loading"><div id="card">
