@@ -670,8 +670,8 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-texture-stability1'));
+  assert.ok(html.includes('./engine.js?v=20261128-map-edit-atlas1'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-map-edit-atlas1'));
 });
 
 
@@ -726,7 +726,7 @@ test('engine cache-busts the corrected soldier asset loader module', async () =>
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
+  assert.ok(html.includes('./engine.js?v=20261128-map-edit-atlas1'));
 });
 
 
@@ -749,7 +749,7 @@ test('soldier animation cloning rejects AssetContainers and malformed values saf
 test('soldier animation fix invalidates both HTML and engine module caches', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
+  assert.ok(html.includes('./engine.js?v=20261128-map-edit-atlas1'));
   assert.ok(engine.includes('./human-bots.mjs?v=20261128-touchfix2'));
 });
 
@@ -779,7 +779,7 @@ test('mobile camera swipe has a larger touch zone and higher angular response', 
   assert.match(engine, /camera\.rotation\.y\+=dx\*\.0095\*state\.lookSensitivity/);
   assert.match(engine, /camera\.rotation\.x\+dy\*\.0095\*state\.lookSensitivity/);
   assert.match(html, /#look\{position:absolute;right:0;top:84px;bottom:102px;width:70%;pointer-events:auto;touch-action:none\}/);
-  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
+  assert.ok(html.includes('./engine.js?v=20261128-map-edit-atlas1'));
 });
 
 test('mobile thumb controls move inward and FIRE shifts farther left', async () => {
@@ -971,4 +971,27 @@ test('engine boot is guarded so duplicate module imports cannot create a second 
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /if\(!window\.__SOLO_BOOT_PROMISE__\)window\.__SOLO_BOOT_PROMISE__=boot\(\)/);
   assert.match(engine, /await buildWetGroundMap/);
+});
+
+test('map-authoring mode suspends all live bots but preserves soldier assets and reversible AI code', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /const MAP_EDIT_MODE=true/);
+  assert.match(engine, /if\(MAP_EDIT_MODE\)\{state\.bots\.length=0/);
+  assert.match(engine, /loadHumanBotAssets\(B,scene\)/);
+  assert.match(engine, /buildBots\(\);buildPlayerWeapon\(\)/);
+  assert.match(engine, /botAIEnabled:!MAP_EDIT_MODE/);
+  assert.match(engine, /Set MAP_EDIT_MODE=false to restore the original 6v6 roster/);
+  assert.match(engine, /createHumanBot\(BABYLON,scene,shadowGen,root,team,id,humanBotAssets,mobile\)/);
+});
+
+test('small shop and spawn signs share one pre-baked atlas instead of individual dynamic textures', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /shared storefront and street-sign atlas/);
+  assert.match(map, /const signAtlasLabels=\['GROCERY','CAFE','PHARMACY','REPAIRS','ПРОДУКТЫ','МАСТЕРСКАЯ','ПЕКАРНЯ','АТЕЛЬЕ','АПТЕКА','КАФЕ','ЦВЕТЫ','МАГАЗИН'\]/);
+  assert.match(map, /signAtlasTexture\.clone\(\)/);
+  assert.match(map, /texture\.uScale=\.25;texture\.vScale=\.25/);
+  assert.match(map, /makeSignAtlasMaterial\(label/);
+  assert.doesNotMatch(map, /new B\.DynamicTexture\('street sign '\+label/);
+  assert.doesNotMatch(map, /new B\.DynamicTexture\('legible storefront sign '\+label/);
+  assert.match(map, /signAtlas:\{gpuAtlasTextures:1,slots:signAtlasLabels\.length/);
 });
