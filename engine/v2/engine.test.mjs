@@ -592,7 +592,7 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-assetsfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
   assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf1'));
 });
 
@@ -608,13 +608,13 @@ test('soldier GLBs use module-relative URLs, a 90-second timeout and bounded two
 
 test('engine cache-busts the corrected soldier asset loader module', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix1'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix2'));
 });
 
 
 test('HTML loads the GLB-loader-fix engine module without stale mobile cache', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-assetsfix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
 });
 
 
