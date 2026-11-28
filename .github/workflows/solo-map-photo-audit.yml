@@ -20,7 +20,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
       - name: Checkout tested revision
         uses: actions/checkout@v4
@@ -56,15 +56,16 @@ jobs:
           cat /tmp/solo-map-server.log
           exit 1
       - name: Capture overview and real bot first-person views
+        timeout-minutes: 7
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SHA: ${{ github.sha }}
         run: node tools/map-capture.mjs
-      - name: Upload photo audit
+      - name: Upload photo audit and failure diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: solo-map-photo-audit-${{ github.run_number }}
           path: artifacts/map-capture/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
