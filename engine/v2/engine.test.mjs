@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-mobilehud-texturefix1'/);
+  assert.match(engine, /build:'2026-11-28-texture-stability-audit1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -669,8 +669,8 @@ test('HUD text updates are throttled without changing gameplay simulation or ren
 test('mobile performance release invalidates cached engine and wet-map modules', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.ok(html.includes('./engine.js?v=20261128-mapoverview10'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-texturefix1'));
+  assert.ok(html.includes('./engine.js?v=20261128-texture-stability1'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-texture-stability1'));
 });
 
 
@@ -913,11 +913,11 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
   assert.ok(html.includes('#mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important'));
   assert.ok(html.includes('#stick{left:clamp(24px,4vw,40px)!important'));
 });
-test('mobile START requests fullscreen inside the trusted start gesture and locks landscape orientation', async () => {
+test('mobile START and fullscreen-change handling request landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
   assert.ok(start.includes("document.documentElement.requestFullscreen({navigationUI:'hide'})"));
-  assert.ok(start.includes("screen.orientation?.lock('landscape')"));
+  assert.ok(engine.includes("screen.orientation?.lock('landscape')"));
   assert.ok(engine.includes('orientationchange'));
   assert.ok(engine.includes('fullscreenchange'));
 });
@@ -929,4 +929,45 @@ test('mobile game requests landscape orientation after entering fullscreen and h
   assert.doesNotMatch(engine, /screen\.orientation\?\.unlock\?\.\(\);\}catch\(error\)\{\}\s*;?refreshViewportAfterRotation/);
   assert.doesNotMatch(html, /orientation:\s*portrait/);
   assert.doesNotMatch(html, /@media\s*\([^)]*orientation:\s*portrait\)/);
+});
+
+test('scanned PBR textures finish before static materials freeze, avoiding runtime shader swaps', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(map, /export async function buildWetGroundMap/);
+  assert.match(map, /pendingTextureLoads\.push\(task\)/);
+  assert.match(map, /await Promise\.all\(pendingTextureLoads\)/);
+  assert.ok(map.indexOf('await Promise.all(pendingTextureLoads)') < map.indexOf('for(const mesh of staticMeshes)'));
+  assert.doesNotMatch(map, /material\.unfreeze\?\.\(\)/);
+  assert.doesNotMatch(map, /material\.markAsDirty\?\.\(B\.Material\.TextureDirtyFlag\)/);
+  assert.match(engine, /await buildWetGroundMap\(B,scene,mobile,shadowGen\)/);
+});
+
+test('late map batching includes static parented props and reports how many source meshes were absorbed', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(map, /if\(mesh\.parent\|\|mesh\.material\.alpha/);
+  assert.match(map, /lateMergedSourceMeshCount\+=parts\.length/);
+  assert.match(map, /potentialZFightPairs/);
+  assert.match(map, /potentialZFightPairCount/);
+});
+
+test('mobile rendering skips the expensive full-screen glow pass and waits for the HDR decision', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /const glowLayer=mobile\?null:new B\.GlowLayer/);
+  assert.match(engine, /await environmentReady/);
+  assert.match(engine, /fallback-timeout/);
+});
+
+test('runtime diagnostics include complete texture inventory, duplicate URLs and load timing', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /duplicateTextureUrls/);
+  assert.match(engine, /resourceAudit/);
+  assert.match(engine, /scannedPbrLoad:window\.__SOLO_TEXTURE_AUDIT__/);
+  assert.match(engine, /surfaceAudit:window\.__SOLO_MAP_STATS__\?\.surfaceAudit/);
+});
+
+test('engine boot is guarded so duplicate module imports cannot create a second scene', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /if\(!window\.__SOLO_BOOT_PROMISE__\)window\.__SOLO_BOOT_PROMISE__=boot\(\)/);
+  assert.match(engine, /await buildWetGroundMap/);
 });
