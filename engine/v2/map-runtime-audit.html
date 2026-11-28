@@ -18,7 +18,7 @@ const key=new B.DirectionalLight('audit-key',new B.Vector3(-.45,-1,.35),scene);k
 const shadows=new B.ShadowGenerator(mobile?512:1024,key);shadows.useBlurExponentialShadowMap=true;shadows.blurKernel=mobile?8:16;
 let result;try{result=await buildWetGroundMap(B,scene,mobile,shadows);}catch(error){window.__SOLO_MAP_AUDIT_ERROR__=String(error?.stack||error);throw error;}
 engine.runRenderLoop(()=>scene.render());window.addEventListener('resize',()=>engine.resize());
-window.__SOLO_MAP_AUDIT__={engine,scene,result,mobile,metrics(){
+window.__SOLO_MAP_AUDIT__={engine,scene,camera,result,mobile,metrics(){
  const active=scene.getActiveMeshes();
  return {mobile:this.mobile,fps:+engine.getFps().toFixed(1),meshCount:scene.meshes.length,activeMeshCount:active.length,totalVertices:scene.getTotalVertices(),sourceMeshCount:result.sourceMeshCount,staticMeshCount:result.staticMeshCount,mergedMaterialGroups:result.mergedMaterialGroups,lateMergedGroups:result.lateMergedGroups,lateMergedSourceMeshCount:result.lateMergedSourceMeshCount,textureAudit:result.textureAudit,signAtlas:result.signAtlas,surfaceAudit:result.surfaceAudit};
 }};
