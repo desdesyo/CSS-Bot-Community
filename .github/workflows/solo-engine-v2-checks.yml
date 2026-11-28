@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/solo-engine-v2
+      - feature/wet-asphalt-map-20261128
       - fix/solo-report-controls
     paths:
       - "engine/v2/**"
