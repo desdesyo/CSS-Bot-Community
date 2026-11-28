@@ -1282,7 +1282,7 @@ async function submitIssueReport(){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
   const topDownPath=mapCapture?.base64?'logs/bugs/'+stamp+'-'+id+'-topdown.png':null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-atlas3',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-roundfix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
   const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
@@ -1405,19 +1405,24 @@ async function boot() {
       if(state.started)sampleBotWalkLocations(now);
       const updateStarted=performance.now();
       if(state.started) {
-        pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;state.roundTime-=dt;
+        pollGamepadInput(dt);updatePlayer(dt);weaponViewmodel?.update(dt,Math.max(Math.hypot(state.joy.x,state.joy.y),Math.hypot(state.gamepadMove.x,state.gamepadMove.y),state.keys.has('KeyW')||state.keys.has('KeyA')||state.keys.has('KeyS')||state.keys.has('KeyD')?1:0,(state.keys.has('ShiftLeft')||state.keys.has('ShiftRight'))?1.25:0));resolvePlayerMeleeImpact();updateBulletPhysics(dt);updateBotMotion(dt);state.aiAccumulator+=dt;state.simTime+=dt;if(!MAP_EDIT_MODE)state.roundTime-=dt;
         if(state.firing&&now-state.lastShot>=105)fire();
         if(now-state.lastHud>=250){
           $('timer').textContent=String(Math.max(0,Math.ceil(state.roundTime/60))).padStart(2,'0')+':'+String(Math.max(0,Math.ceil(state.roundTime%60))).padStart(2,'0');
           const shieldSeconds=Math.max(0,Math.ceil((state.spawnProtectedUntil-now)/1000));$('safeStatus').textContent=shieldSeconds>0?'SAFE '+shieldSeconds:'';$('safeStatus').style.display=shieldSeconds>0?'inline-flex':'none';
           state.lastHud=now;
         }
-        if(state.roundTime<=0)endRound(state.playerTeam==='CT','TIME EXPIRED');
-        const aiTick=mobile?.32:.16;
-        if(state.aiAccumulator>=aiTick){state.aiAccumulator%=aiTick;updateBotAI()}
-        if(state.bots.every(b=>b.team!=='enemy'||!b.alive))endRound(true,'ALL ENEMIES ELIMINATED');
-        if(state.playerDead&&!aliveAllies().length&&!state.roundEnding)endRound(false,'TEAM ELIMINATED');
-        if(state.playerDead)updateSpectatorCamera();
+        // Map-authoring mode intentionally has no active roster: freeze round rules
+        // and never interpret Array.every([]) as an eliminated enemy team.
+        if(!MAP_EDIT_MODE){
+          if(state.roundTime<=0)endRound(state.playerTeam==='CT','TIME EXPIRED');
+          const aiTick=mobile?.32:.16;
+          if(state.aiAccumulator>=aiTick){state.aiAccumulator%=aiTick;updateBotAI()}
+          const enemyBots=state.bots.filter(b=>b.team==='enemy');
+          if(enemyBots.length>0&&enemyBots.every(b=>!b.alive))endRound(true,'ALL ENEMIES ELIMINATED');
+          if(state.playerDead&&!aliveAllies().length&&!state.roundEnding)endRound(false,'TEAM ELIMINATED');
+          if(state.playerDead)updateSpectatorCamera();
+        }
       }
       state.lastUpdateMs=performance.now()-updateStarted;
       if(state.roundEnding){const seconds=Math.max(0,Math.ceil((state.roundEndAt-now)/1000));$('roundCountdown').textContent=seconds>0?'СЛЕДУЮЩИЙ РАУНД ЧЕРЕЗ '+seconds:'ЗАГРУЗКА СЛЕДУЮЩЕГО РАУНДА';if(now>=state.roundEndAt){state.roundEnding=false;state.roundNumber++;$('roundEnd').hidden=true;start();}}
