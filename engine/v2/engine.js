@@ -6,7 +6,7 @@ import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } fro
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { buildMapSnapshotGrid, validateMapSnapshotPoints, uploadReportFile } from './map-report-pipeline.mjs?v=20261128-reportfix1';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-worldfix2';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-sunset1';
 const MAP_EDIT_MODE=true; // Temporary map-authoring switch. Bot AI, models, routes and assets remain intact.
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, gamepadMove:{x:0,y:0}, gamepadLook:{x:0,y:0}, gamepadButtons:[], gamepadIndex:null, gamepadId:null, gamepadFire:false, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
@@ -1352,11 +1352,17 @@ async function boot() {
     const B=window.BABYLON;
     engine=new B.Engine(canvas,true,{preserveDrawingBuffer:false,stencil:false,antialias:true,powerPreference:'high-performance',audioEngine:false},true);
     applyRenderScale();
-    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.045,.075,.105,1);scene.ambientColor=new B.Color3(.16,.19,.23);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.0028:.0022;scene.fogColor=new B.Color3(.105,.145,.18);
+    scene=new B.Scene(engine);scene.clearColor=new B.Color4(.055,.055,.105,1);scene.ambientColor=new B.Color3(.18,.16,.20);scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=mobile?.0025:.0020;scene.fogColor=new B.Color3(.24,.16,.21);
     scene.imageProcessingConfiguration.toneMappingEnabled=true;
     scene.imageProcessingConfiguration.toneMappingType=B.ImageProcessingConfiguration.TONEMAPPING_ACES;
-    scene.imageProcessingConfiguration.exposure=1.22;scene.imageProcessingConfiguration.contrast=1.12;
-    scene.imageProcessingConfiguration.vignetteEnabled=true;scene.imageProcessingConfiguration.vignetteWeight=.12;scene.imageProcessingConfiguration.vignetteColor=new B.Color4(.015,.03,.05,0);
+    scene.imageProcessingConfiguration.exposure=1.08;scene.imageProcessingConfiguration.contrast=1.16;
+    const sunsetCurves=new B.ColorCurves();
+    sunsetCurves.globalHue=20;sunsetCurves.globalDensity=8;sunsetCurves.globalSaturation=8;sunsetCurves.globalExposure=0;
+    sunsetCurves.highlightsHue=28;sunsetCurves.highlightsDensity=34;sunsetCurves.highlightsSaturation=22;sunsetCurves.highlightsExposure=8;
+    sunsetCurves.midtonesHue=24;sunsetCurves.midtonesDensity=10;sunsetCurves.midtonesSaturation=8;sunsetCurves.midtonesExposure=0;
+    sunsetCurves.shadowsHue=220;sunsetCurves.shadowsDensity=22;sunsetCurves.shadowsSaturation=18;sunsetCurves.shadowsExposure=-4;
+    scene.imageProcessingConfiguration.colorCurves=sunsetCurves;scene.imageProcessingConfiguration.colorCurvesEnabled=true;
+    scene.imageProcessingConfiguration.vignetteEnabled=true;scene.imageProcessingConfiguration.vignetteWeight=.16;scene.imageProcessingConfiguration.vignetteColor=new B.Color4(.015,.02,.055,0);
     scene.environmentIntensity=mobile?.9:1.15;
     // Real image-based lighting supplies physically plausible highlights to wet stone,
     // glazing and metal while the hand-authored sky remains the visible atmosphere.
@@ -1395,9 +1401,9 @@ async function boot() {
     camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0x0FFFFFFF;camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     // The map owns the textured skybox. A second giant solid sphere caused the
     // false black-ceiling look and competed with the horizon gradient.
-    const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.86;hemi.diffuse=new B.Color3(.42,.55,.72);hemi.groundColor=new B.Color3(.13,.16,.19);
-    const sun=new B.DirectionalLight('moonlight',new B.Vector3(-.35,-1,.2),scene);sun.position=new B.Vector3(24,38,-18);sun.diffuse=new B.Color3(.52,.64,.82);sun.intensity=.58;
-    const cityFill=new B.DirectionalLight('distant city sky bounce',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.27,.39,.48);cityFill.intensity=.24;
+    const hemi=new B.HemisphericLight('warm dusk sky fill',new B.Vector3(0,1,0),scene);hemi.intensity=.78;hemi.diffuse=new B.Color3(.55,.43,.46);hemi.groundColor=new B.Color3(.12,.12,.19);
+    const sun=new B.DirectionalLight('low orange setting sun',new B.Vector3(-.72,-.24,.65),scene);sun.position=new B.Vector3(36,16,-32);sun.diffuse=new B.Color3(1,.43,.19);sun.intensity=1.12;
+    const cityFill=new B.DirectionalLight('distant city sky bounce — cool blue dusk',new B.Vector3(.55,-.22,-.3),scene);cityFill.diffuse=new B.Color3(.24,.32,.49);cityFill.intensity=.22;
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.usePercentageCloserFiltering=true;shadowGen.blurKernel=mobile?12:22;shadowGen.bias=.0003;shadowGen.normalBias=.014;shadowGen.darkness=.22;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     $('loadState').textContent='Загрузка и проверка текстур карты…';
