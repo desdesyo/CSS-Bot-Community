@@ -806,6 +806,12 @@ function endRound(won,reason='ROUND COMPLETE'){
   startButton.disabled=true;
 }
 function start() {
+  // A real tap on START is the only reliable browser permission for fullscreen.
+  // Request it synchronously inside this gesture; never try to force it on page load.
+  if(mobile&&!document.fullscreenElement&&document.documentElement.requestFullscreen){
+    try{const fullscreenRequest=document.documentElement.requestFullscreen({navigationUI:'hide'});fullscreenRequest?.then(()=>{try{screen.orientation?.unlock?.();}catch(error){};refreshViewportAfterRotation();gameLogEvent('fullscreen-auto-start',{active:true,orientation:screen.orientation?.type||null});}).catch(error=>gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)}));}
+    catch(error){gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
+  }
   const resuming=state.paused&&!state.playerDead;
   state.roundEnding=false;$('roundEnd').hidden=true;
   if(state.playerDead){
