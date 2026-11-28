@@ -516,8 +516,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     // Broad level landings and cobbled road aprons visibly connect both banks.
     floor(label+' north bridge landing',x,-8.2,15.2,3.2,.17,stone);
     floor(label+' south bridge landing',x,8.2,15.2,3.2,.17,stone);
-    floor(label+' north bridge asphalt road approach',x,-13.2,16,7.2,.13,asphalt);
-    floor(label+' south bridge asphalt road approach',x,13.2,16,7.2,.13,asphalt);
+    floor(label+' north bridge road approach',x,-13.2,16,7.2,.13,asphalt);
+    floor(label+' south bridge road approach',x,13.2,16,7.2,.13,asphalt);
     for(const z of [-16.4,16.4]){
       for(const side of [-1,1]){
         const edge=box(label+' approach edge stone',x+side*7.45,.13,z,.22,.18,1.2,trim,false);
@@ -696,10 +696,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   };
   // Two continuous cross-streets plus short bank-side connectors form a legible
   // street grid. The canal remains a genuine barrier except at the three bridges.
-  floor('south district asphalt cross street',0,-20,72,6.2,.032,asphalt);
-  floor('north district asphalt cross street',0,27,72,6.2,.032,asphalt);
+  floor('south district cross street',0,-20,72,6.2,.032,asphalt);
+  floor('north district cross street',0,27,72,6.2,.032,asphalt);
   for(const side of [-1,1]){
-    floor('canal bank east-west asphalt market connector',side*20,5.2,18,5.2,.034,asphalt);
+    floor('canal bank east-west market connector',side*20,5.2,18,5.2,.034,asphalt);
     for(const z of [-23.5,-16.5,23.5,30.5]){
       floor('cross street granite pedestrian edge',side*20,z,18,.42,.072,stone);
     }
