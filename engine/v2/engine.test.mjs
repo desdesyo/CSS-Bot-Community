@@ -791,7 +791,7 @@ test('mobile thumb controls move inward and FIRE shifts farther left', async () 
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-roundfix1/);
+  assert.match(html, /engine\.js\?v=20261128-capturefix3/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
