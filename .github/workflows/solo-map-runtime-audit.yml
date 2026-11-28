@@ -1,0 +1,49 @@
+name: SOLO map runtime visual and performance audit
+on:
+  push:
+    branches: ["release/**"]
+    paths:
+      - "engine/v2/**"
+      - "tools/map-runtime-audit.mjs"
+      - ".github/workflows/solo-map-runtime-audit.yml"
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: solo-map-runtime-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser automation
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Serve game source
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/solo-map-audit.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/engine/v2/map-runtime-audit.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/solo-map-audit.log
+          exit 1
+      - name: Render desktop and mobile map, collect geometry and FPS metrics
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node tools/map-runtime-audit.mjs
+      - name: Upload visual and performance audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solo-map-runtime-audit-${{ github.run_number }}
+          path: artifacts/map-runtime-audit/
+          if-no-files-found: warn
+          retention-days: 14
