@@ -90,3 +90,10 @@
 - Лог build подтверждает checkout именно кодового SHA `864968001ee73180f9f8ad996974239532998df1`, а не старой версии из `main`.
 - Сборка опубликована по адресу: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html
 - Игрок ещё не проверил FPS после публикации; статус качества/производительности на устройстве остаётся **НЕ ПРОВЕРЕНА ИГРОКОМ**.
+
+### Финальная публикация с cache-busting — 2026-11-28
+- Для исключения старого JS-кэша на Android повышены версии URL модулей: `index.html → engine.js?v=20261128-perf1`, `engine.js → wet-ground-map.mjs?v=20261128-perf1`.
+- Кодовый SHA с оптимизацией и cache-busting: `2dff3a517611b143e1c5a491564c7b00a17625cb`.
+- Дополнительный regression-test SHA: `9c535138e738f4c0eb619fd08f64de59414d4b2a`; source checks [46110126976](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110126976) и prototype checks [46110126970](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110126970) — успешно.
+- Pages deployment для кодового SHA `2dff3a5`: [run 46110137203](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46110137203), build и deploy jobs — успешно; build log подтверждает checkout указанного SHA.
+- URL игры тот же; cache-busting встроен в загрузчик. FPS на Android после обновления не измерен — ожидается проверка игрока.
