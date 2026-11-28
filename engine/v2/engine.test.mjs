@@ -833,15 +833,16 @@ test('main street arcades stay on side lanes rather than the main avenue', async
   assert.doesNotMatch(map, /const arcadeSites=\[\[-11,5/);
 });
 
-test('map visual report captures up to 30 time-stratified real bot observations and includes tile coordinates', async () => {
+test('map visual report captures 30 independent grid snapshots without requiring bots', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /const count=Math\.min\(30,valid\.length\)/);
-  assert.match(engine, /function captureBotAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
-  assert.match(engine, /kind:'30-randomized-top-down-local-snapshots'/);
-  assert.match(engine, /botAreaSnapshots:contactSheet\.tiles\.length/);
+  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
+  assert.match(engine, /source:'map-grid'/);
+  assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /kind:'30-grid-based-top-down-local-snapshots'/);
+  assert.match(engine, /mapAreaSnapshots:contactSheet\.tiles\.length/);
   assert.match(engine, /2026-11-28-gamepad-input1/);
 });
 
@@ -854,14 +855,16 @@ test('SOLO:WG launcher icon is based on the actual loading-screen cover, not the
 });
 
 
-test('map overview samples only real bot observations and never substitutes authored patrol routes', async () => {
+test('map overview coverage is independent of bots and spans the map bounds', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const selector = engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '';
   assert.match(engine, /t:Date\.now\(\),source:'observed-bot-position'/);
-  assert.match(engine, /const candidates=\[\.\.\.mapWalkSamples\]/);
-  assert.match(engine, /source:'current-bot-position'/);
-  assert.doesNotMatch(engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '', /baseWaypoints|authored-bot-route/);
-  assert.match(engine, /time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded/);
-  assert.match(engine, /Number\.isFinite\(point\.t\)&&point\.t>1e12\?new Date\(point\.t\)\.toISOString\(\):null/);
+  assert.match(selector, /const bounds=getMapOverviewBounds\(\)/);
+  assert.match(selector, /const columns=5,rows=6,points=\[\]/);
+  assert.match(selector, /source:'map-grid'/);
+  assert.doesNotMatch(selector, /throw new Error|valid\.length|state\.bots\.length/);
+  assert.match(engine, /fixed 5x6 grid over actual map\/collision bounds; does not require bots or bot movement/);
+  assert.match(engine, /nearbyBotObservation:point\.botId!==null/);
 });
 
 test('mobile wet reflections preserve texture resolution while reducing refresh work', async () => {
