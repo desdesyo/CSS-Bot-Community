@@ -1117,7 +1117,7 @@ async function captureMapOverviewScreenshot(){
  const bounds=getMapOverviewBounds();
  const centerX=(bounds.minX+bounds.maxX)/2,centerZ=(bounds.minZ+bounds.maxZ)/2;
  const spanX=bounds.maxX-bounds.minX,spanZ=bounds.maxZ-bounds.minZ;
- const width=768,height=576,aspect=width/height;
+ const width=1280,height=960,aspect=width/height;
  const viewHeight=Math.max(spanZ,spanX/aspect,24),viewWidth=viewHeight*aspect;
  const altitude=Math.max(75,bounds.maxY+Math.max(spanX,spanZ)*.6);
  try{
@@ -1183,32 +1183,30 @@ function chooseMapSnapshotPoints(){
  const bounds=getMapOverviewBounds();
  return buildMapSnapshotGrid(bounds,mapWalkSamples);
 }
-async function captureMapAreaContactSheet(points,onProgress=()=>{}){
- const tileWidth=320,tileHeight=240,columns=5,rows=6;
+async function captureMapAreaContactSheet(points,onProgress=()=>{},overviewBase64){
+ const tileWidth=256,tileHeight=160,columns=5,rows=6;
  validateMapSnapshotPoints(points,getMapOverviewBounds());
+ if(!overviewBase64)throw new Error('Нет общего снимка карты: невозможно безопасно сформировать 30 зон.');
+ const source=new Image();
+ const sourceReady=new Promise((resolve,reject)=>{source.onload=resolve;source.onerror=()=>reject(new Error('Не удалось декодировать общий снимок для 30 зон.'));});
+ source.src='data:image/png;base64,'+overviewBase64;
+ await sourceReady;
+ if(source.naturalWidth<columns*tileWidth||source.naturalHeight<rows*tileHeight)throw new Error('Общий снимок слишком мал для 30 отдельных зон.');
  const sheet=document.createElement('canvas');sheet.width=tileWidth*columns;sheet.height=tileHeight*rows;
  const ctx=sheet.getContext('2d');if(!ctx)throw new Error('Не удалось создать холст контактного листа');
- const tiles=[],altitude=42,spanX=30,spanY=22.5;
- const localCamera=new BABYLON.FreeCamera('map-area-capture-reused',new BABYLON.Vector3(0,altitude,0),scene);
- localCamera.upVector=new BABYLON.Vector3(0,0,1);localCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
- localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
- localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
- try{
-  for(let i=0;i<points.length;i++){
-   const point=points[i];localCamera.position.set(point.x,altitude,point.z);localCamera.setTarget(new BABYLON.Vector3(point.x,0,point.z));localCamera.computeWorldMatrix(true);
-   const render=renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
-   let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Снимок зоны '+(i+1)+' превысил лимит 20 секунд')),20000);});
-   let url;try{url=await Promise.race([render,timeout]);}finally{clearTimeout(timer);}
-   if(!url?.startsWith('data:image/png;base64,'))throw new Error('Пустой снимок зоны '+(i+1));
-   const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать снимок зоны '+(i+1)));img.src=url;});
-   const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;ctx.drawImage(image,x,y,tileWidth,tileHeight);
-   ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  MAP AREA',x+10,y+21);
-   tiles.push({index:i+1,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,nearbyBotObservation:point.botId!==null?{botId:point.botId,team:point.team,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null}:null,tile:{x,y,width:tileWidth,height:tileHeight}});
-   onProgress(i+1,points.length);await new Promise(resolve=>requestAnimationFrame(resolve));
-  }
- }finally{try{localCamera.dispose()}catch{}}
+ const tiles=[];
+ for(let i=0;i<points.length;i++){
+  const point=points[i],col=i%columns,row=Math.floor(i/columns),x=col*tileWidth,y=row*tileHeight;
+  // One GPU readback for the full map; each zone is then cropped on CPU.
+  // This avoids 30 sequential render-target readbacks that time out on mobile GPUs.
+  ctx.drawImage(source,col*tileWidth,row*tileHeight,tileWidth,tileHeight,x,y,tileWidth,tileHeight);
+  ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  MAP AREA',x+10,y+21);
+  tiles.push({index:i+1,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,nearbyBotObservation:point.botId!==null?{botId:point.botId,team:point.team,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null}:null,tile:{x,y,width:tileWidth,height:tileHeight},capture:'crop-from-single-top-down-render'});
+  onProgress(i+1,points.length);
+  if(i%5===4)await new Promise(resolve=>requestAnimationFrame(resolve));
+ }
  const data=sheet.toDataURL('image/png');if(!data.startsWith('data:image/png;base64,')||data.length<10000)throw new Error('Контактный лист снимков пуст');
- return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles};
+ return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles,method:'single-render-cpu-crops'};
 }
 async function captureBotCameraViews(maxViews=3){
  const candidates=state.bots.filter(bot=>bot?.alive&&bot.root&&!bot.root.isDisposed?.()&&bot.root.position);
@@ -1273,25 +1271,25 @@ async function submitMapOverviewReport(){
   await paintMapOverviewStatus(btn,'СЕТКА 5×6…','Этап 2/6: рассчитываю и проверяю 30 независимых зон…');
   const points=chooseMapSnapshotPoints();validateMapSnapshotPoints(points,getMapOverviewBounds());
   await paintMapOverviewStatus(btn,'СНИМКИ 0/30…','Этап 3/6: снимаю 30 зон карты. Прогресс обновляется после каждой зоны.');
-  const contactSheet=await captureMapAreaContactSheet(points,(done,total)=>{if(btn)btn.textContent='СНИМКИ '+done+'/'+total+'…';setMapOverviewStatus('Этап 3/6: снимки зон карты — '+done+' из '+total+'.','working');});
+  const contactSheet=await captureMapAreaContactSheet(points,(done,total)=>{if(btn)btn.textContent='СНИМКИ '+done+'/'+total+'…';setMapOverviewStatus('Этап 3/6: формирую зоны из одного общего снимка — '+done+' из '+total+'.','working');},capture.base64);
   if(contactSheet.tiles.length!==30)throw new Error('Контактный лист неполный: '+contactSheet.tiles.length+'/30 зон.');
   await paintMapOverviewStatus(btn,'КАМЕРЫ БОТОВ…','Дополнительно снимаю до 3 точечных кадров с камер живых ботов…');
   const botCameraViews=await captureBotCameraViews(3);
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   await paintMapOverviewStatus(btn,'АУДИТ СЦЕНЫ…','Этап 4/6: проверяю геометрию, материалы, текстуры и объекты карты…');
   const visualAudit=collectMapVisualAudit(),overviewPath='logs/30/'+stamp+'-'+id+'.png',atlasPath='logs/30/'+stamp+'-'+id+'-map-areas.png',jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-report-pipeline1',format:4,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and 30 independent map-grid snapshots, including bot-free sessions, for accurate local environment generation.',pipeline:{version:1,expectedSnapshots:30,capturedSnapshots:30,stages:['github-preflight','overview-capture','grid-selection','30-zone-capture','visual-audit','image-upload','manifest-upload'],complete:false},capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},mapAreaAtlas:{kind:'30-grid-based-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 grid over actual map/collision bounds; does not require bots or bot movement',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},botCameraViews:{kind:'live-bot-first-person-camera',requested:3,captured:botCameraViews.length,selection:'up to three living bots spread across the available bot roster',items:botCameraViews.map((view,index)=>({botId:view.botId,team:view.team,world:view.world,yaw:view.yaw,width:view.width,height:view.height,path:'logs/bot-views/'+stamp+'-'+id+'-bot-'+(index+1)+'.png'}))},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-report-pipeline1',format:4,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and 30 independent map-grid snapshots, including bot-free sessions, for accurate local environment generation.',pipeline:{version:1,expectedSnapshots:30,capturedSnapshots:30,stages:['github-preflight','overview-capture','grid-selection','30-zone-cpu-crops','visual-audit','image-upload','manifest-upload'],complete:false},capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},mapAreaAtlas:{kind:'30-grid-crops-from-single-high-resolution-top-down-render',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 grid; 30 separate local crops from one high-resolution top-down GPU render; does not require bots or bot movement',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},botCameraViews:{kind:'live-bot-first-person-camera',requested:3,captured:botCameraViews.length,selection:'up to three living bots spread across the available bot roster',items:botCameraViews.map((view,index)=>({botId:view.botId,team:view.team,world:view.world,yaw:view.yaw,width:view.width,height:view.height,path:'logs/bot-views/'+stamp+'-'+id+'-bot-'+(index+1)+'.png'}))},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
   if(capture.base64){await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Этап 5/6: загружаю общий снимок с автоматическими повторами…');const result=await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);uploaded.push(overviewPath);report.capture.uploaded=true;report.capture.commit=result.commit?.sha||null;}else report.capture.uploaded=false;
   await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Этап 5/6: загружаю контактный лист 30 зон…');
   const atlasResult=await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 independent map-area snapshots '+id,token);uploaded.push(atlasPath);report.mapAreaAtlas.uploaded=true;report.mapAreaAtlas.commit=atlasResult.commit?.sha||null;
-  report.pipeline.complete=true;report.pipeline.completedAt=new Date().toISOString();report.pipeline.uploadedFiles=[...uploaded,jsonPath];
+  report.pipeline.complete=true;report.pipeline.completedAt=new Date().toISOString();
   for(let i=0;i<botCameraViews.length;i++){
    const view=botCameraViews[i],path='logs/bot-views/'+stamp+'-'+id+'-bot-'+(i+1)+'.png';
    await paintMapOverviewStatus(btn,'POV БОТА '+(i+1)+'/'+botCameraViews.length+'…','Загружаю точечные снимки с камер ботов в отдельный каталог…');
    await uploadIssueFile(path,view.base64,'Add bot POV visual sample '+id+' #'+(i+1),token);uploaded.push(path);
   }
   await paintMapOverviewStatus(btn,'МАНИФЕСТ…','Этап 6/6: публикую JSON-манифест последним — подтверждение полноты отчёта…');
-  const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add complete map and independent map-area visual audit '+id,token);uploaded.push(jsonPath);
+  report.pipeline.uploadedFiles=[...uploaded,jsonPath];const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add complete map and independent map-area visual audit '+id,token);uploaded.push(jsonPath);
   if(gameLogRecording)gameLogEvent('map-overview-report',{id,jsonPath,overviewPath:capture.base64?overviewPath:null,atlasPath,mapAreaSnapshots:30,botCameraSnapshots:botCameraViews.length,meshCount:visualAudit.scene.meshCount,materialCount:visualAudit.scene.materialCount,complete:true});
   const commit=jsonResult.commit?.sha||'ok';if(btn){btn.textContent='✓ ОТЧЁТ ОТПРАВЛЕН';btn.title='30 зон, общий вид, POV ботов (если боты живы) и манифест загружены в GitHub';}
   setMapOverviewStatus((capture.base64?'Общий вид загружен. ':'Общий вид пропущен. ')+'30/30 зон; POV ботов: '+botCameraViews.length+'. Commit '+String(commit).slice(0,10)+'.','success');
