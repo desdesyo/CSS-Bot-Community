@@ -1227,11 +1227,12 @@ async function captureBotCameraViews(maxViews=3){
   viewCamera.computeWorldMatrix(true);
   try{
    const render=renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,viewCamera,{width:640,height:360},'image/png'));
-   let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Тайм-аут POV-снимка бота '+bot.id)),12000);});
+   let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Тайм-аут POV-снимка бота '+bot.id)),6000);});
    let url;try{url=await Promise.race([render,timeout]);}finally{clearTimeout(timer);}
    if(!url?.startsWith('data:image/png;base64,'))throw new Error('Пустой POV-снимок бота '+bot.id);
    results.push({botId:bot.id,team:bot.team,world:{x:+pos.x.toFixed(2),y:+pos.y.toFixed(2),z:+pos.z.toFixed(2)},yaw:+yaw.toFixed(3),width:640,height:360,base64:url.split(',')[1]});
-  }finally{try{viewCamera.dispose()}catch{}}
+  }catch(error){console.warn('Bot POV capture skipped; map report continues',error);try{gameLogEvent('bot-camera-capture-skipped',{botId:bot.id,reason:String(error?.message||error)});}catch{}}
+  finally{try{viewCamera.dispose()}catch{}}
  }
  return results;
 }
