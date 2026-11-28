@@ -998,7 +998,7 @@ test('gamepad input is polled every render frame and maps standard axes and butt
  assert.match(engine,/if\(rising\(2\)\)reload\(\)/);
  assert.match(engine,/if\(rising\(0\)\)selectWeapon\('rifle'/);
  assert.match(engine,/buttons\[7\].value/);
- assert.match(engine,/pollGamepadInput\(dt\);\s*if\(state\.started\)\{\s*updatePlayer\(dt\)/);
+ assert.match(engine,/pollGamepadInput\(dt\);\s*if\(state\.started\)\s*\{\s*updatePlayer\(dt\)/);
  assert.match(engine,/state\.gamepadMove\.y/);
  assert.match(engine,/gamepad-input-active/);
 });
