@@ -2,8 +2,11 @@
  * WET GROUND — playable rain-soaked old-quarter level for SOLO Engine V2.
  * Geometry stays inside the existing navigation bounds (-53..53, -42..42).
  */
-export function buildWetGroundMap(B, scene, mobile, shadowGen) {
+export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const mapStart=scene.meshes.length;
+  const pendingTextureLoads=[];
+  const textureAudit={requested:0,loaded:0,failed:0,entries:[]};
+  const textureSlots=['albedoTexture','diffuseTexture','bumpTexture','normalTexture','roughnessTexture','ambientTexture','emissiveTexture','metallicTexture','opacityTexture'];
   const C = B.Color3;
   const mat = (name, hex, roughness=.88, metallic=0) => {
     const m = new B.PBRMaterial(name, scene);
@@ -134,37 +137,50 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const loadScannedPbr=(material,asset,repeat,normalLevel)=>{
     const resolution=mobile?'1k':'2k';
     const base='https://dl.polyhaven.org/file/ph-assets/Textures/jpg/'+resolution+'/'+asset+'/'+asset;
-    const fallbacks={albedoTexture:material.albedoTexture,bumpTexture:material.bumpTexture,roughnessTexture:material.roughnessTexture,ambientTexture:material.ambientTexture};
     const bind=(slot,suffix,gammaSpace)=>{
       const textureUrl=base+'_'+suffix+'_'+resolution+'.jpg';
-      const texture=new B.Texture(textureUrl,scene,false,false,B.Texture.TRILINEAR_SAMPLINGMODE,()=>{
+      textureAudit.requested++;
+      const started=Date.now();
+      let texture=null,settled=false,timer=0,resolveTask;
+      const task=new Promise(resolve=>{resolveTask=resolve;});
+      const finish=(status,error)=>{
+        if(settled){if(status==='loaded')texture?.dispose?.();return;}
+        settled=true;clearTimeout(timer);
+        if(status==='loaded'){
+          texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
+          texture.uScale=repeat;texture.vScale=repeat;
+          texture.anisotropicFilteringLevel=mobile?4:8;
+          if(slot==='bumpTexture')texture.level=normalLevel;
+          const fallback=material[slot];
+          material[slot]=texture;
+          if(fallback&&fallback!==texture&&!scene.materials.some(candidate=>textureSlots.some(key=>candidate?.[key]===fallback)))fallback.dispose?.();
+          textureAudit.loaded++;
+        }else{
+          texture?.dispose?.();
+          textureAudit.failed++;
+        }
+        textureAudit.entries.push({asset,slot,status,durationMs:Date.now()-started,error:error?String(error?.message||error).slice(0,180):null});
+        resolveTask(status);
+      };
+      try{
+        texture=new B.Texture(textureUrl,scene,false,false,B.Texture.TRILINEAR_SAMPLINGMODE,
+          ()=>queueMicrotask(()=>finish('loaded')),
+          error=>finish('failed',error));
         texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
-        texture.uScale=repeat;texture.vScale=repeat;
-        texture.anisotropicFilteringLevel=mobile?4:8;
-        if(slot==='bumpTexture')texture.level=normalLevel;
-        // Materials are frozen after the static atlas is built. Re-open only for this
-        // one-time asynchronous texture swap so Babylon recompiles the PBR shader.
-        material.unfreeze?.();
-        material[slot]=texture;
-        material.markAsDirty?.(B.Material.TextureDirtyFlag);
-      },()=>{
-        texture.dispose?.();
-        if(!material[slot])material[slot]=fallbacks[slot]??null;
-      });
-      texture.gammaSpace=gammaSpace;texture.wrapU=texture.wrapV=B.Texture.WRAP_ADDRESSMODE;
-      texture.uScale=repeat;texture.vScale=repeat;texture.anisotropicFilteringLevel=mobile?4:8;
+        texture.uScale=repeat;texture.vScale=repeat;texture.anisotropicFilteringLevel=mobile?4:8;
+        timer=setTimeout(()=>finish('timeout',new Error('Texture load timed out after 12000ms')),12000);
+      }catch(error){finish('failed',error);}
+      pendingTextureLoads.push(task);
     };
     bind('albedoTexture','diff',true);
     bind('bumpTexture','nor_gl',false);
     bind('roughnessTexture','rough',false);
-    // Ambient-occlusion is the fourth sampled map on each facade material.
-    // On phones it is omitted: baked albedo shading + normal + roughness retain
-    // the surface read while avoiding three extra texture fetches and allocations.
-    if(!mobile) bind('ambientTexture','ao',false);
-    else { material.ambientTexture=null; material.ambientTextureStrength=0; }
+    // AO is intentionally omitted on phones to avoid a fourth material texture fetch.
+    if(!mobile)bind('ambientTexture','ao',false);
+    else{material.ambientTexture=null;material.ambientTextureStrength=0;}
     material.ambientColor=new C(.34,.34,.34);
     material.useAmbientInGrayScale=true;
-    material.ambientTextureStrength=.72;
+    material.ambientTextureStrength=mobile?0:.72;
   };
   plaster.albedoColor=new C(.72,.82,.92);
   brick.albedoColor=new C(.78,.82,.88);
@@ -1336,6 +1352,26 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   buildSpawnFragment('T',-37.5,-6.93,8.43,'АПТЕКА','КАФЕ');
   buildSpawnFragment('T',-21,-8.43,8.43,'ЦВЕТЫ','МАГАЗИН');
 
+  // Audit horizontal surfaces before merging so overlapping coplanar floors remain diagnosable.
+  const surfaceCandidates=[];
+  for(const mesh of scene.meshes.slice(mapStart)){
+    if(!mesh||mesh.isDisposed?.()||!/(ground|floor|pavement|road|street|canal bed|sidewalk|market cut-through|moss growth|terrain)/i.test(mesh.name||''))continue;
+    try{
+      mesh.computeWorldMatrix(true);
+      const b=mesh.getBoundingInfo().boundingBox,a=b.minimumWorld,c=b.maximumWorld;
+      if(c.y-a.y>.16)continue;
+      surfaceCandidates.push({name:mesh.name,minX:a.x,maxX:c.x,minY:a.y,maxY:c.y,minZ:a.z,maxZ:c.z,y:(a.y+c.y)*.5});
+    }catch{}
+  }
+  const potentialZFightPairs=[];
+  for(let i=0;i<surfaceCandidates.length;i++)for(let j=i+1;j<surfaceCandidates.length;j++){
+    const a=surfaceCandidates[i],b=surfaceCandidates[j];
+    const overlapX=Math.min(a.maxX,b.maxX)-Math.max(a.minX,b.minX);
+    const overlapZ=Math.min(a.maxZ,b.maxZ)-Math.max(a.minZ,b.minZ);
+    if(Math.abs(a.y-b.y)<=.006&&overlapX>.8&&overlapZ>.8)
+      potentialZFightPairs.push({a:a.name,b:b.name,yA:+a.y.toFixed(4),yB:+b.y.toFixed(4),overlapX:+overlapX.toFixed(2),overlapZ:+overlapZ.toFixed(2)});
+  }
+
   // Merge all non-colliding static detail by material to keep mobile draw calls bounded.
   const authored=scene.meshes.slice(mapStart),groups=new Map(),colliders=[];
   for(const m of authored){
@@ -1634,16 +1670,16 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(!mesh||mesh.isDisposed?.()||mesh.checkCollisions||!mesh.material||mesh.getTotalVertices?.()===0)continue;
     if(dynamicNames.some(name=>mesh.name.includes(name))||mesh.infiniteDistance) {lateKept.push(mesh);continue;}
     // Keep parented parked-car parts and alpha/reflection surfaces intact.
-    if(mesh.parent||mesh.material.alpha<.999||mesh.material.reflectionTexture||mesh.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND){lateKept.push(mesh);continue;}
+    if(mesh.material.alpha<.999||mesh.material.reflectionTexture||mesh.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND){lateKept.push(mesh);continue;}
     const key=mesh.material.uniqueId;
     if(!lateGroups.has(key))lateGroups.set(key,[]);
     lateGroups.get(key).push(mesh);
   }
-  const lateMerged=[];
+  const lateMerged=[];let lateMergedSourceMeshCount=0;
   for(const [materialId,parts] of lateGroups){
     if(parts.length<2){lateKept.push(...parts);continue;}
     const joined=B.Mesh.MergeMeshes(parts,true,true,undefined,false,true);
-    if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);}
+    if(joined){joined.name='Wet Ground late static batch '+materialId;joined.isPickable=false;joined.receiveShadows=true;lateMerged.push(joined);lateMergedSourceMeshCount+=parts.length;}
     else lateKept.push(...parts);
   }
   // Reflections need the finished static city, not hundreds of individual bot,
@@ -1660,6 +1696,16 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
       try{mesh.computeWorldMatrix(true);return mesh.getBoundingInfo().boundingBox.maximumWorld.y>.35;}catch{return false;}
     });
   }
+  // Do not swap photographic maps while the match is already rendering. Wait once,
+  // keep procedural fallbacks for failed/slow requests, then freeze final materials.
+  await Promise.all(pendingTextureLoads);
+  const textureUrls=new Map();
+  for(const entry of textureAudit.entries){
+    const key=entry.asset+'/'+entry.slot;
+    textureUrls.set(key,(textureUrls.get(key)||0)+1);
+  }
+  textureAudit.duplicateRequests=Array.from(textureUrls.entries()).filter(([,count])=>count>1).map(([key,count])=>({key,count}));
+  window.__SOLO_TEXTURE_AUDIT__=textureAudit;
   const staticMeshes=[...colliderBatches,...colliderKept,...merged,...lateMerged,...lateKept],materials=new Set();
   for(const mesh of staticMeshes){
     if(!mesh||mesh.isDisposed?.())continue;
@@ -1667,5 +1713,5 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
     if(mesh.material&&!materials.has(mesh.material)){materials.add(mesh.material);mesh.material.freeze?.();}
     if(!mobile)shadowGen.addShadowCaster(mesh);
   }
-  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length};
+  return {name:'Wet Ground',theme:'rainy-blue-hour',riverCrossings:[-20,0,20],sourceMeshCount:scene.meshes.length-mapStart,staticMeshCount:staticMeshes.length,mergedMaterialGroups:groups.size+lateGroups.size,lateMergedGroups:lateMerged.length,lateMergedSourceMeshCount:lateMergedSourceMeshCount,textureAudit,surfaceAudit:{horizontalSurfaceCount:surfaceCandidates.length,potentialZFightPairCount:potentialZFightPairs.length,potentialZFightPairs:potentialZFightPairs.slice(0,80)}};
 }
