@@ -12,7 +12,7 @@
   "theme_color": "#101820",
   "icons": [
     {
-      "src": "./icons/solo-wg.svg",
+      "src": "./icons/solo-wg.svg?v=20261128-cover1",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
