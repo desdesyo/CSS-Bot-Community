@@ -5,6 +5,31 @@ import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
 import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs';
 
 
+
+test('issue report keeps a bounded always-on diagnostic ring without requiring recording', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /const issueEventRing=\[\],issueRuntimeErrors=\[\],issuePerformanceRing=\[\]/);
+  assert.match(engine, /appendBoundedLog\(issueEventRing,event,120\)/);
+  assert.match(engine, /appendBoundedLog\(issuePerformanceRing,[\s\S]*?,90\)/);
+  assert.match(engine, /recentEvents:issueEventRing\.slice\(-100\)/);
+  assert.match(engine, /runtimeErrors:issueRuntimeErrors\.slice\(-20\)/);
+  assert.match(engine, /recentPerformance/);
+  assert.match(engine, /installInputDiagnostics\(\);document\.querySelectorAll/);
+});
+
+test('issue report prioritizes nearby collision geometry and captures AI/gamepad diagnostics', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /nearbyColliders=collisionBoxes\.map/);
+  assert.match(engine, /\.slice\(0,24\)\.map\(\(\{c,d\}\)/);
+  assert.match(engine, /nearbyMeshes:visibleMeshes\.slice\(0,40\)/);
+  assert.match(engine, /state:b\.combatState,target:b\.target/);
+  assert.match(engine, /pathFailures:b\.pathFailures/);
+  assert.match(engine, /navigator\.getGamepads/);
+  assert.match(engine, /fieldAtlas:fieldCoverageStats\(\)/);
+  assert.match(engine, /engineCaps:\{maxTextureSize/);
+  assert.match(engine, /textures:\{count:scene\.textures\.length/);
+});
+
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
   const oldSession = { id:'old-session', pageId:'previous-page', startedAtEpoch:1000 };
   const attachment = buildIssueLogAttachment({
