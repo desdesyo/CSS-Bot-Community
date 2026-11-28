@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-map-report-pipeline1'/);
+  assert.match(engine, /build:'2026-11-28-map-report-pipeline2'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
