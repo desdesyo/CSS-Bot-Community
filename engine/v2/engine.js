@@ -1220,6 +1220,16 @@ async function paintMapOverviewStatus(btn,label,message,state='working'){
  btn.textContent=label;setMapOverviewStatus(message,state);
  await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
 }
+async function verifyMapReportGitHubAccess(token){
+ if(navigator.onLine===false)throw new Error('Нет подключения к сети. Снимки не запускались.');
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+ try{
+  const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/branches/'+encodeURIComponent(GAME_LOG_BRANCH),{method:'GET',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'},signal:controller.signal});
+  if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch{}throw new Error('GitHub не подтвердил доступ к репозиторию/ветке. Токен недействителен или не имеет доступа.');}
+  if(!response.ok)throw new Error('Проверка GitHub завершилась HTTP '+response.status+'. Снимки не запускались.');
+  return true;
+ }finally{clearTimeout(timer);}
+}
 async function submitMapOverviewReport(){
  const btn=$('mapOverviewQuick'),issueBtn=$('issueQuick');
  if(issueReportBusy){setMapOverviewStatus('Другой отчёт уже выполняется. Дождись завершения.','warning');return;}
@@ -1229,6 +1239,8 @@ async function submitMapOverviewReport(){
  let uploaded=[],token=savedGameplayToken();
  try{
   if(!token){token=prompt('Для отправки визуального отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)throw new Error('Отправка отменена: GitHub token не введён.');token=token.trim();if(!token)throw new Error('GitHub token пуст.');try{localStorage.setItem('solo_github_log_token',token)}catch{throw new Error('Не удалось сохранить GitHub token.');}}
+  await paintMapOverviewStatus(btn,'ПРОВЕРКА GITHUB…','Проверяю доступ к репозиторию до запуска тяжёлого захвата карты…');
+  await verifyMapReportGitHubAccess(token);
   await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Этап 1/6: снимаю общий вид карты сверху (768×576)…');
   const capture=await captureMapOverviewScreenshot();
   await paintMapOverviewStatus(btn,'СЕТКА 5×6…','Этап 2/6: рассчитываю и проверяю 30 независимых зон…');
@@ -1239,7 +1251,7 @@ async function submitMapOverviewReport(){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   await paintMapOverviewStatus(btn,'АУДИТ СЦЕНЫ…','Этап 4/6: проверяю геометрию, материалы, текстуры и объекты карты…');
   const visualAudit=collectMapVisualAudit(),overviewPath='logs/30/'+stamp+'-'+id+'.png',atlasPath='logs/30/'+stamp+'-'+id+'-map-areas.png',jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-report-pipeline1',format:4,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and 30 independent map-grid snapshots, including bot-free sessions, for accurate local environment generation.',pipeline:{version:1,expectedSnapshots:30,capturedSnapshots:30,stages:['overview-capture','grid-selection','30-zone-capture','visual-audit','image-upload','manifest-upload'],complete:false},capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},mapAreaAtlas:{kind:'30-grid-based-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 grid over actual map/collision bounds; does not require bots or bot movement',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-report-pipeline1',format:4,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and 30 independent map-grid snapshots, including bot-free sessions, for accurate local environment generation.',pipeline:{version:1,expectedSnapshots:30,capturedSnapshots:30,stages:['github-preflight','overview-capture','grid-selection','30-zone-capture','visual-audit','image-upload','manifest-upload'],complete:false},capture:{kind:'top-down-orthographic-render-target',width:capture.width,height:capture.height,worldBounds:capture.bounds,includesHud:false,captured:!!capture.base64,error:capture.error},mapAreaAtlas:{kind:'30-grid-based-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'fixed 5x6 grid over actual map/collision bounds; does not require bots or bot movement',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:!!capture.base64,format:'image/png',path:capture.base64?overviewPath:null,error:capture.error}};
   if(capture.base64){await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Этап 5/6: загружаю общий снимок с автоматическими повторами…');const result=await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);uploaded.push(overviewPath);report.capture.uploaded=true;report.capture.commit=result.commit?.sha||null;}else report.capture.uploaded=false;
   await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Этап 5/6: загружаю контактный лист 30 зон…');
   const atlasResult=await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 independent map-area snapshots '+id,token);uploaded.push(atlasPath);report.mapAreaAtlas.uploaded=true;report.mapAreaAtlas.commit=atlasResult.commit?.sha||null;
@@ -1255,7 +1267,8 @@ async function submitMapOverviewReport(){
  finally{issueReportBusy=false;if(btn){btn.disabled=false;btn.setAttribute('aria-busy','false');}if(issueBtn){issueBtn.disabled=false;issueBtn.title='Отметить баг';}}
 }
 async function uploadIssueFile(path,content,message,token){
- return uploadReportFile({apiUrl:'https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'},path,content,message,branch:GAME_LOG_BRANCH,retries:3,timeoutMs:20000});
+ try{return await uploadReportFile({apiUrl:'https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'},path,content,message,branch:GAME_LOG_BRANCH,retries:3,timeoutMs:20000});}
+ catch(error){if(/отклонил токен|Contents: Read and write/.test(String(error?.message))){try{localStorage.removeItem('solo_github_log_token')}catch{}}throw error;}
 }
 async function submitIssueReport(){
  if(issueReportBusy){alert('Сейчас формируется другой отчёт. Дождись завершения обзора или отправки.');return;}
