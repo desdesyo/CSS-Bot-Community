@@ -76,23 +76,15 @@ jobs:
           cp -R engine/client/. dist/client/
           cp -R engine/v2/. dist/engine/v2/
           mkdir -p dist/engine/v2/assets
+          # Keep the exact rigged soldier and animation files from the last successful Pages build.
+          # This avoids silently packaging a truncated or incompatible response from the external model host.
           for model in military-male-01 military-male-02 military-male-03 military-male-04 military-female-01 military-female-02; do
-            target="dist/engine/v2/assets/${model}.glb"
-            if ! curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://models.codelove.in/models/${model}.glb" -o "$target" || [[ "$(head -c 4 "$target" 2>/dev/null || true)" != "glTF" ]]; then
-              echo "Primary model host returned an unavailable or invalid GLB; restoring last known-good model: ${model}"
-              cp ".previous-pages/extracted/engine/v2/assets/${model}.glb" "$target"
-            fi
-            test -s "$target"
-            [[ "$(head -c 4 "$target")" == "glTF" ]]
+            cp ".previous-pages/extracted/engine/v2/assets/${model}.glb" "dist/engine/v2/assets/${model}.glb"
+            test -s "dist/engine/v2/assets/${model}.glb"
           done
           for clip in m_idle_neutral_01 m_walk_neutral_01 m_run_neutral_01; do
-            target="dist/engine/v2/assets/${clip}.glb"
-            if ! curl --fail --silent --show-error --location --retry 2 --retry-delay 2 "https://models.codelove.in/animations/${clip}.glb" -o "$target" || [[ "$(head -c 4 "$target" 2>/dev/null || true)" != "glTF" ]]; then
-              echo "Primary animation host returned an unavailable or invalid GLB; restoring last known-good clip: ${clip}"
-              cp ".previous-pages/extracted/engine/v2/assets/${clip}.glb" "$target"
-            fi
-            test -s "$target"
-            [[ "$(head -c 4 "$target")" == "glTF" ]]
+            cp ".previous-pages/extracted/engine/v2/assets/${clip}.glb" "dist/engine/v2/assets/${clip}.glb"
+            test -s "dist/engine/v2/assets/${clip}.glb"
           done
           echo "Downloaded six rigged soldier models and three Biped animation clips."
           python3 - <<'PY'
