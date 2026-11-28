@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-reportfix3'/);
+  assert.match(engine, /build:'2026-11-28-mobilehud-texturefix1'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -879,4 +879,28 @@ test('bot separation uses a wider formation radius to prevent doorway queues', a
 test('bot path failure counters reset after real movement progress', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(engine, /if\(progress>\.18\)\{[^}]*bot\.pathFailures=0;/);
+});
+
+
+test('mobile landscape report toolbar stays compact and clear of touch sticks and HUD', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(html, /mobile-landscape-hud-fix/);
+  assert.match(html, /orientation:landscape/);
+  assert.match(html, /#actions button\\{[^}]*font-size:8px/);
+  assert.match(html, /#minimap\\{top:48px;left:8px;width:92px;height:92px/);
+  assert.match(html, /aria-label="Отметить баг"/);
+  assert.match(engine, /screen\\.orientation\\?\\.unlock\\?\\.\(\)/);
+  assert.match(engine, /orientationchange/);
+  assert.match(engine, /navigationUI:'hide'/);
+  assert.match(engine, /fullscreenchange/);
+});
+
+test('cobblestone maps use mipmaps and anisotropic filtering to prevent oblique-angle aliasing', async () => {
+  const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  assert.match(map, /photographic irregular wet cobblestone albedo',[^;]*true, B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
+  assert.match(map, /cobblestone variable roughness map',[^;]*true,B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
+  assert.match(map, /cobblestone micro normal',[^;]*true,B\\.Texture\\.TRILINEAR_SAMPLINGMODE/);
+  assert.match(map, /cobbleTex\\.anisotropicFilteringLevel=mobile\\?8:16/);
+  assert.match(map, /normalTex\\.anisotropicFilteringLevel=mobile\\?8:16/);
 });
