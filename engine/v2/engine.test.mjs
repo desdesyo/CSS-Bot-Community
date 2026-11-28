@@ -1060,3 +1060,14 @@ test('diagnostics eye also hides recording menu and quality overlay, with map re
  assert.match(html,/#mapOverviewStatus\{top:100px!important/);
  assert.match(html,/engine\.js\?v=20261128-capturefix3-hud2/);
 });
+
+test('orange joystick glow is a luminous underlayer visible through translucent blue-gray stick shells', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/#stick::before,#fire::before\{content:"";position:absolute;z-index:0/);
+ assert.match(html,/radial-gradient\(circle,rgba\(255,151,48,.98\) 0%,rgba\(255,126,24,.84\)/);
+ assert.match(html,/#stick,#fire\{position:relative;isolation:isolate;overflow:hidden\}/);
+ assert.match(html,/#nub\{z-index:1;background:rgba\(139,174,194,.34\)/);
+ assert.match(html,/#fireNub\{z-index:1;background:rgba\(143,180,199,.32\)/);
+ assert.match(html,/@keyframes hud-ember-pulse/);
+ assert.match(html,/engine\.js\?v=20261128-capturefix3-hud3/);
+});
