@@ -224,9 +224,16 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
     material.useAmbientInGrayScale=true;
     material.ambientTextureStrength=mobile?0:.72;
   };
-  plaster.albedoColor=new C(.72,.82,.92);
-  brick.albedoColor=new C(.78,.82,.88);
-  stone.albedoColor=new C(.78,.84,.9);
+  // Keep masonry subdued under the blue-hour ambient fill; lamp pools and wet
+  // specular response should provide the readable highlights, not a bright base albedo.
+  plaster.albedoColor=new C(.46,.54,.64);
+  brick.albedoColor=new C(.48,.53,.61);
+  stone.albedoColor=new C(.52,.58,.66);
+  for(const facadeMaterial of [plaster,brick,stone]){
+    facadeMaterial.roughness=.76;
+    facadeMaterial.environmentIntensity=mobile?.52:.72;
+    if(facadeMaterial.clearCoat){facadeMaterial.clearCoat.isEnabled=true;facadeMaterial.clearCoat.intensity=.24;facadeMaterial.clearCoat.roughness=.34;}
+  }
   // A compact second PBR layer gives the spawn quarter real surface relief:
   // mortar recesses, chipped stone edges, plaster pores, mineral streaks and
   // material-specific roughness. Mobile maps are deliberately capped at 512px.
@@ -772,13 +779,13 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
       box('wall lamp bracket',x,.0,z,.65,.12,.12,lampMat,false);
       box('wall lantern housing',x,3.45,z,.38,.66,.38,lampMat,false);
       const bulb=box('warm lantern glass',x,3.45,z-.22,.2,.4,.08,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.34:.55;l.range=mobile?7:9;}
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm wall lantern',new B.Vector3(x,3.45,z-.25),scene);l.diffuse=new C(1,.67,.38);l.intensity=mobile?.38:.58;l.range=mobile?7.5:9.5;}
     }else{
       cylinder('cast iron lamp post',x,2.4,z,.16,4.8,lampMat);
       box('lantern cross arm',x,4.7,z,.85,.12,.12,lampMat,false);
       box('lantern hood',x,5.05,z,.65,.18,.65,lampMat,false);
       box('lantern glowing pane',x,4.88,z,.32,.48,.32,glow,false);
-      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.42:.68;l.range=mobile?8:12;}
+      if(lightCount++<(mobile?4:10)){const l=new B.PointLight('warm street lantern',new B.Vector3(x,4.6,z),scene);l.diffuse=new C(1,.64,.34);l.intensity=mobile?.46:.72;l.range=mobile?8.5:12.5;}
     }
   }
   for(const z of [-34,-20,16,31]){lamp(-5.65,z);lamp(5.65,z);}
@@ -1345,9 +1352,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
       box(label+' streetlamp arm',x-side*.48,5.85,lampZ,.95,.09,.09,spawnIron,false);
       box(label+' streetlamp head',x-side*.92,5.72,lampZ,.72,.18,.32,spawnIron,false);
       box(label+' streetlamp diffuser',x-side*.92,5.61,lampZ,.54,.035,.23,spawnLamp,false);
-      if(!mobile){
+      // A small, fixed light budget keeps the storefront facades readable on phones too.
+      if(!mobile || (distance===3.0 && side===-1)){
         const light=new B.PointLight(label+' warm spawn streetlight',new B.Vector3(x-side*.92,5.5,lampZ),scene);
-        light.diffuse=new C(.95,.62,.36);light.intensity=.32;light.range=12;
+        light.diffuse=new C(.95,.62,.36);light.intensity=mobile?.24:.32;light.range=mobile?8:12;
       }
     }
     const bikeX=-4.35;
