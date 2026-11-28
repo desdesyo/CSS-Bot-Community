@@ -35,3 +35,12 @@
 - Near-obstacle positions during combat or blocked movement are recorded as candidate cover points, including obstacle name, distance and a line-of-sight occlusion observation. This is training data, not an automatic proof that every point is good cover.
 - The atlas persists locally across reloads and is attached to each GitHub field-developer report: map coverage, visited/unreachable cells, route library, active route and cover samples. Keep bounded buffers (700 active route points, 30 routes, 350 cover samples).
 - Diagnostic upload policy: upload after 5 completed rounds in the current continuous play session. If a play session ends before 5 rounds, retain its reports; accumulate across short sessions and force upload at 8 pending rounds. Successful upload clears the pending round/log batch, never the persistent route atlas. Failed/missing GitHub credentials retain a bounded local queue and must be surfaced to the player.
+
+
+## Player QA report intake — fixed location and interpretation
+- The in-game **LOGS / Запись логов** and **MARK BUG / Отметить баг** buttons upload tester-generated reports to this repository and branch: `desdesyo/CSS-Bot-Community`, `feature/solo-engine-v2`.
+- Bug reports and their screenshots are stored in `logs/issues/` as paired `.json` and `.png` files. Gameplay recording exports are stored in `logs/gameplay/`.
+- When the player says “собери свежие логи”, “отправил свежий отчёт”, “проверь новый отчёт” or equivalent, immediately inspect the newest files in `logs/issues/` on the active branch. Do not ask the player to upload/attach the files again or search another repository.
+- Always read the JSON and inspect its matching PNG. Check report `createdAt` and GitHub commit time; distinguish current report snapshot from attached gameplay recording.
+- Never treat IndexedDB-restored records from a previous page/session as current telemetry. A bug report may attach gameplay records only when the recording is active and belongs to the current page session. If absent, use the live scene context and screenshot and explicitly mark gameplay telemetry as not attached.
+- Do not infer freshness from report filename alone; compare the embedded session ID, page/session metadata, timestamps and record wall-clock times. Flag stale or repeated telemetry instead of presenting it as fresh.
