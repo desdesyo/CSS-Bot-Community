@@ -306,7 +306,7 @@ test('SOLO menu exposes working play, settings and diagnostics panels with local
   assert.match(engine, /function installMenuControls\(\)/);
   assert.match(engine, /function downloadGameplayLog\(\)/);
   assert.match(engine, /function buildGameplayLogPayload\(\)/);
-  assert.match(engine, /build:'2026-11-28-capturefix3'/);
+  assert.match(engine, /build:'2026-11-28-map-edit-roundfix1'/);
   assert.match(engine, /localStorage\.setItem\('solo_menu_settings_v1'/);
   assert.match(engine, /function startGameplayLog\(\)/);
   assert.match(engine, /function stopAndUploadGameplayLog\(\)/);
