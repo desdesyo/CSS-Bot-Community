@@ -915,9 +915,9 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
 });
 test('mobile START requests fullscreen inside the trusted start gesture and unlocks orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()', engine.indexOf('function start()') + 1) > 0 ? engine.indexOf('function start()', engine.indexOf('function start()') + 1) : engine.length);
-  assert.match(start, /document\\.documentElement\\.requestFullscreen\\(\\{navigationUI:'hide'\\}\\)/);
-  assert.match(start, /screen\\.orientation\\?\\.unlock\\?\\.\\(\\)/);
-  assert.match(engine, /orientationchange/);
-  assert.match(engine, /fullscreenchange/);
+  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()') + 1800);
+  assert.ok(start.includes("document.documentElement.requestFullscreen({navigationUI:'hide'})"));
+  assert.ok(start.includes('screen.orientation?.unlock?.()'));
+  assert.ok(engine.includes('orientationchange'));
+  assert.ok(engine.includes('fullscreenchange'));
 });
