@@ -144,6 +144,14 @@ body.hud-clean #logsQuick,body.hud-clean #issueQuick,body.hud-clean #mapOverview
  #actions{top:37px!important}
 }
 </style>
+
+<style id="mobile-touch-layout-restore-sunset1">
+/* Restore the original low-corner thumb layout; keep the approved orange styling. */
+@media (pointer:coarse){
+  #stick{left:22px!important;bottom:max(22px,env(safe-area-inset-bottom))!important}
+  #fire{right:18px!important;bottom:max(24px,env(safe-area-inset-bottom))!important}
+}
+</style>
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
@@ -206,7 +214,7 @@ try{
   'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.54.3/babylonjs.loaders.min.js'
  ],'Обязательный Babylon glTF loader');
  show('Подготовка отражений и ночного освещения…','WAITING FOR VERIFIED TEXTURES AND NIGHT LIGHTING');
- await import('./engine.js?v=20261128-capturefix3-hud1');
+ await import('./engine.js?v=20261128-sunset1-touchrestore1');
 }catch(error){
  console.error('SOLO Engine bootstrap failed',error);
  const failedOverlay=document.getElementById('overlay');
