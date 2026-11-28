@@ -1489,34 +1489,50 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   // Spherical lat-long sky: a cube stretched a 2:1 gradient over six faces,
   // producing the hard seams and giant angular "ceiling" seen in the user's report.
   // A true inward-facing sphere gives one continuous horizon and no visible corners.
-  const skyTexture=new B.DynamicTexture('wet quarter blue-hour atmosphere',{width:1024,height:512},scene,false);
+  const skyTexture=new B.DynamicTexture('wet quarter vivid orange sunset atmosphere',{width:1024,height:512},scene,false);
   const skyCtx=skyTexture.getContext(),skyGradient=skyCtx.createLinearGradient(0,0,0,512);
-  skyGradient.addColorStop(0,'#071321');skyGradient.addColorStop(.34,'#10263b');skyGradient.addColorStop(.63,'#29445b');skyGradient.addColorStop(.82,'#607485');skyGradient.addColorStop(1,'#b1aaa0');
+  skyGradient.addColorStop(0,'#101a31');skyGradient.addColorStop(.25,'#26364f');skyGradient.addColorStop(.46,'#4d4b63');skyGradient.addColorStop(.62,'#875363');skyGradient.addColorStop(.78,'#c96c4b');skyGradient.addColorStop(.91,'#f08b4d');skyGradient.addColorStop(1,'#e9a875');
   skyCtx.fillStyle=skyGradient;skyCtx.fillRect(0,0,1024,512);
-  // Soft cloud banks are painted into the sky texture (no extra draw calls).
+  // Layered dusk cloud banks: cool blue-violet above, copper and apricot at the horizon.
   let cloudSeed=9137;const skyRand=()=>((cloudSeed=(cloudSeed*1664525+1013904223)>>>0)/4294967296);
-  for(let i=0;i<34;i++){
-    const x=skyRand()*1024,y=170+skyRand()*185,w=55+skyRand()*210,h=5+skyRand()*18;
+  for(let i=0;i<42;i++){
+    const x=skyRand()*1024,y=145+skyRand()*220,w=60+skyRand()*235,h=6+skyRand()*20;
+    const warm=y>265;
     const cloud=skyCtx.createRadialGradient(x,y,1,x,y,w);
-    cloud.addColorStop(0,'rgba(151,174,190,'+(.10+skyRand()*.10)+')');
-    cloud.addColorStop(1,'rgba(151,174,190,0)');
+    cloud.addColorStop(0,warm?'rgba(255,166,112,'+(.15+skyRand()*.12)+')':'rgba(137,166,196,'+(.10+skyRand()*.10)+')');
+    cloud.addColorStop(.52,warm?'rgba(190,112,105,.10)':'rgba(104,133,170,.07)');
+    cloud.addColorStop(1,'rgba(90,112,145,0)');
     skyCtx.fillStyle=cloud;skyCtx.save();skyCtx.translate(x,y);skyCtx.scale(1,h/Math.max(1,w));skyCtx.beginPath();skyCtx.arc(0,0,w,0,Math.PI*2);skyCtx.fill();skyCtx.restore();
   }
-  // A restrained moon glow gives the horizon a real light source without a flat white disc.
-  const moonGlow=skyCtx.createRadialGradient(760,150,2,760,150,92);
-  moonGlow.addColorStop(0,'rgba(218,226,231,.42)');moonGlow.addColorStop(.16,'rgba(174,198,213,.16)');moonGlow.addColorStop(1,'rgba(174,198,213,0)');
-  skyCtx.fillStyle=moonGlow;skyCtx.fillRect(660,50,200,200);
-  skyCtx.fillStyle='rgba(222,229,231,.72)';skyCtx.beginPath();skyCtx.arc(760,150,7,0,Math.PI*2);skyCtx.fill();
-  for(let i=0;i<105;i++){
-    const x=skyRand()*1024,y=skyRand()*205,r=.35+skyRand()*.9;
-    skyCtx.fillStyle='rgba(218,230,241,'+(.16+skyRand()*.38)+')';skyCtx.beginPath();skyCtx.arc(x,y,r,0,Math.PI*2);skyCtx.fill();
+  // Broad low-angle haze gives the skyline a warm atmospheric falloff.
+  const horizonHaze=skyCtx.createLinearGradient(0,205,0,420);
+  horizonHaze.addColorStop(0,'rgba(255,154,104,0)');
+  horizonHaze.addColorStop(.58,'rgba(255,135,82,.12)');
+  horizonHaze.addColorStop(1,'rgba(255,174,113,.22)');
+  skyCtx.fillStyle=horizonHaze;skyCtx.fillRect(0,205,1024,215);
+  // A large luminous orange sun sits just above the horizon, with a soft halo rather than a flat white dot.
+  const sunGlow=skyCtx.createRadialGradient(760,286,5,760,286,205);
+  sunGlow.addColorStop(0,'rgba(255,239,190,.96)');
+  sunGlow.addColorStop(.12,'rgba(255,190,112,.84)');
+  sunGlow.addColorStop(.34,'rgba(255,126,61,.40)');
+  sunGlow.addColorStop(.68,'rgba(245,104,64,.14)');
+  sunGlow.addColorStop(1,'rgba(235,112,76,0)');
+  skyCtx.fillStyle=sunGlow;skyCtx.fillRect(545,71,430,430);
+  const sunDisc=skyCtx.createRadialGradient(752,276,2,760,286,38);
+  sunDisc.addColorStop(0,'#fff1c6');sunDisc.addColorStop(.28,'#ffd28b');sunDisc.addColorStop(.72,'#ff9a45');sunDisc.addColorStop(1,'#f36a32');
+  skyCtx.fillStyle=sunDisc;skyCtx.beginPath();skyCtx.arc(760,286,35,0,Math.PI*2);skyCtx.fill();
+  skyCtx.strokeStyle='rgba(255,210,151,.42)';skyCtx.lineWidth=2;skyCtx.beginPath();skyCtx.arc(760,286,39,0,Math.PI*2);skyCtx.stroke();
+  // Only a few faint high-altitude stars remain as the blue hour begins.
+  for(let i=0;i<42;i++){
+    const x=skyRand()*1024,y=skyRand()*92,r=.3+skyRand()*.7;
+    skyCtx.fillStyle='rgba(218,226,241,'+(.08+skyRand()*.18)+')';skyCtx.beginPath();skyCtx.arc(x,y,r,0,Math.PI*2);skyCtx.fill();
   }
   skyTexture.update(false);skyTexture.coordinatesMode=B.Texture.SPHERICAL_MODE;
   skyTexture.wrapU=skyTexture.wrapV=B.Texture.WRAP_ADDRESSMODE;
-  const skyMaterial=new B.StandardMaterial('continuous spherical blue-hour sky material',scene);
+  const skyMaterial=new B.StandardMaterial('continuous spherical orange sunset sky material',scene);
   skyMaterial.backFaceCulling=false;skyMaterial.disableLighting=true;skyMaterial.emissiveTexture=skyTexture;
   skyMaterial.diffuseColor=new C(0,0,0);skyMaterial.specularColor=new C(0,0,0);
-  const skybox=B.MeshBuilder.CreateSphere('continuous blue-hour sky atmosphere',{diameter:180,segments:mobile?20:32},scene);
+  const skybox=B.MeshBuilder.CreateSphere('continuous orange sunset sky atmosphere',{diameter:180,segments:mobile?20:32},scene);
   skybox.material=skyMaterial;skybox.infiniteDistance=true;skybox.isPickable=false;skybox.checkCollisions=false;skybox.applyFog=false;skybox.renderingGroupId=0;
   skybox.computeWorldMatrix(true);skybox.freezeWorldMatrix();
 
