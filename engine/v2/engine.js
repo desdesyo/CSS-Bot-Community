@@ -811,6 +811,29 @@ function updatePlayer(dt) {
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
+async function restoreFullscreenLandscapeAfterReport(){
+  if(!mobile)return;
+  try{
+    if(!document.fullscreenElement&&document.documentElement.requestFullscreen){
+      await document.documentElement.requestFullscreen({navigationUI:'hide'});
+    }
+    if(document.fullscreenElement&&screen.orientation?.lock){
+      try{await screen.orientation.lock('landscape');gameLogEvent('report-orientation-restored',{orientation:screen.orientation.type||'landscape'});}
+      catch(error){gameLogEvent('report-orientation-restore-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
+    }
+    if(engine){engine.resize();applyRenderScale();}
+    refreshViewportAfterRotation();
+    const button=$('fullScreen');
+    if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
+    gameLogEvent('report-fullscreen-restored',{active:!!document.fullscreenElement,orientation:screen.orientation?.type||null});
+  }catch(error){
+    gameLogEvent('report-fullscreen-restore-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,160)});
+    const button=$('fullScreen');
+    if(button)button.title='Браузер заблокировал автоматический возврат. Нажми эту кнопку один раз.';
+    const status=$('mapOverviewStatus');
+    if(status){status.textContent='Отчёт отправлен. Нажми ⛶, чтобы вернуть полный экран.';status.dataset.state='warning';}
+  }
+}
 async function toggleFullscreen(){
   try{
     if(!document.fullscreenElement){
@@ -1005,7 +1028,7 @@ async function stopAndUploadGameplayLog(){
  try{
   const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO: Wet Ground gameplay diagnostics',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
   const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
-  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];await clearPersistedGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';updateLogStatus();alert('Логи успешно отправлены в GitHub: '+path);
+  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];await clearPersistedGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';updateLogStatus();alert('Логи успешно отправлены в GitHub: '+path);await restoreFullscreenLandscapeAfterReport();
  }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';updateLogStatus();console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
  finally{gameLogUploading=false;btn.disabled=false}
 }
@@ -1259,7 +1282,7 @@ async function submitMapOverviewReport(){
   const commit=jsonResult.commit?.sha||'ok';
   btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='Общий вид, 30 локальных снимков и JSON-аудит отправлены в GitHub';
   setMapOverviewStatus('Готово: 3 файла загружены. Commit '+commit.slice(0,10)+'.','success');
-  alert('Визуальный отчёт отправлен в GitHub.\n'+jsonPath+'\n'+atlasPath+'\n'+overviewPath+'\nCommit: '+commit);
+  alert('Визуальный отчёт отправлен в GitHub.\n'+jsonPath+'\n'+atlasPath+'\n'+overviewPath+'\nCommit: '+commit);await restoreFullscreenLandscapeAfterReport();
  }catch(error){
   console.error('Map overview report failed',error);
   btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Ошибка отправки: '+error.message;
@@ -1297,7 +1320,7 @@ async function submitIssueReport(){
   if(screenshot){imagePath='logs/bugs/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
   if(gameLogRecording)gameLogEvent('issue-marker',{id,description:description.trim(),jsonPath,imagePath});
   btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
-  alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));
+  alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));await restoreFullscreenLandscapeAfterReport();
  }catch(error){console.error('Issue report upload failed',error);btn.textContent='↻ ПОВТОРИТЬ ОТЧЁТ';alert('Не удалось отправить отчёт: '+error.message)}
  finally{issueReportBusy=false;btn.disabled=false;if(mapBtn){mapBtn.disabled=false;mapBtn.title='Сделать снимок всей карты сверху и отправить визуальный отчёт';setMapOverviewStatus('Готов к сбору общего вида и 30 снимков зон ботов.','info');}}
 }
