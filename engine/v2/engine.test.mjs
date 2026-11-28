@@ -669,7 +669,7 @@ test('mobile performance release invalidates cached engine and wet-map modules',
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.ok(html.includes('./engine.js?v=20261128-mapoverview6'));
-  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf3'));
+  assert.ok(engine.includes('./wet-ground-map.mjs?v=20261128-perf4'));
 });
 
 
