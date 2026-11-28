@@ -185,3 +185,15 @@
 
 - Publish SOLO Engine V2 [run 46115742091](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46115742091) — **build и deploy success**. Build log подтверждает checkout точного feature SHA `97d11a9ea24aa804c7142a2f50978537222125b2`; unit tests `# fail 0`; проверка GLB assets также успешна.
 - Опубликована версия с cache-busting: `https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-reportfix1`. Исправление опубликовано; проверка поведения на телефоне игрока ещё не получена.
+
+
+## 2026-11-28 — аудит и улучшение данных QA-кнопок (reportfix2)
+- Разделены два потока: кнопка `Отметить баг` → `logs/issues/*.json` + соседний PNG; кнопка `Логи` после ручной записи/отправки → `logs/gameplay/*-game-diagnostics.json`.
+- Issue report: добавлены build ID, номер раунда/сторона, краткая карта/field-atlas coverage, AI state/target/nav goal/path failures для каждого бота, текущие сенсорные оси/клавиши/gamepad axes+buttons, runtime/device capability snapshot, текстурные размеры/готовность, render-target/hardware-scaling details.
+- Issue report теперь всегда содержит ограниченные свежие кольцевые буферы текущей страницы: до 100 событий, 20 JS/unhandled/WebGL ошибок и до 90 секунд performance samples (1/сек). Это работает и без предварительного включения ручной записи. Средние/максимумы frame/render time считаются только для samples активной игры.
+- Управление: добавлены `movement-stick` и `look-swipe` с delta/axes/yaw/pitch/sensitivity не чаще 1 раза в 120 мс; добавлены gamepad connect/disconnect события. Глобальный input trace теперь устанавливается при загрузке меню, а не только после старта записи.
+- Убраны шумные/нецелевые данные: произвольные первые 80 коллайдеров заменены максимум 24 ближайшими к игроку в радиусе 18 м; видимые меши ограничены 40 ближайшими вместо 80. Полная геометрия карты и все кадры не отправляются.
+- Подробная ручная запись сохранена: до 1200 временных срезов и 1200 событий, до 240 frame/render samples, счётчики hitch и field atlas с маршрутами/укрытиями для AI.
+- Добавлена документация `docs/QA_REPORT_SCHEMA.md`; обновлены `docs/WORKING_INSTRUCTIONS.md`.
+- Финальный кодовый коммит `7a943af7b2600620d33ef275814aef684b3c8754`. Source checks [46116347147](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116347147) и prototype checks [46116347150](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116347150) — success. Publish [46116363140](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46116363140) — build/deploy success; checkout SHA подтверждён, unit tests `# fail 0`.
+- Новая опубликованная версия: `https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-reportfix2`. Проверка на устройстве игрока ещё ожидается.
