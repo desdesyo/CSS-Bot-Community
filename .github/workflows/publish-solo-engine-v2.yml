@@ -64,14 +64,21 @@ jobs:
           test -s engine/import.html
           test -s engine/v2/index.html
           test -s engine/v2/engine.js
+          # Preserve the verified rigged soldier models and animations from the restored Pages artifact.
           mkdir -p dist/client dist/engine/v2
-          # The restored Pages artifact already contains the verified rigged models and animations.
+          cat > dist/index.html <<'HTML'
+          <!doctype html>
+          <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./engine/v2/index.html"><title>SOLO: Wet Ground</title></head><body><p>Загрузка SOLO: Wet Ground…</p><script>location.replace("./engine/v2/index.html");</script></body></html>
+          HTML
+          cp engine/import.html dist/import.html
+          cp -R engine/client/. dist/client/
+          cp -R engine/v2/. dist/engine/v2/
           touch dist/.nojekyll
           test -s dist/index.html
           test -s dist/engine/v2/index.html
           test -s dist/engine/v2/engine.js
           echo "Pages artifact prepared."
-
+          
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
