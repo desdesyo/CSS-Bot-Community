@@ -838,7 +838,7 @@ test('map visual report captures 30 independent grid snapshots without requiring
   assert.match(engine, /function sampleBotWalkLocations\(now\)/);
   assert.match(engine, /source:'observed-bot-position'/);
   assert.match(engine, /function chooseMapSnapshotPoints\(\)/);
-  assert.match(engine, /const columns=5,rows=6,points=\[\]/);
+  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.match(engine, /source:'map-grid'/);
   assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\}\)/);
   assert.match(engine, /kind:'30-grid-based-top-down-local-snapshots'/);
@@ -860,10 +860,10 @@ test('map overview coverage is independent of bots and spans the map bounds', as
   const selector = engine.match(/function chooseMapSnapshotPoints\(\)\{[\s\S]*?\n\}/)?.[0] || '';
   assert.match(engine, /t:Date\.now\(\),source:'observed-bot-position'/);
   assert.match(selector, /const bounds=getMapOverviewBounds\(\)/);
-  assert.match(selector, /const columns=5,rows=6,points=\[\]/);
-  assert.match(selector, /source:'map-grid'/);
+  assert.match(selector, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
+  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.doesNotMatch(selector, /throw new Error|valid\.length|state\.bots\.length/);
-  assert.match(engine, /fixed 5x6 grid over actual map\/collision bounds; does not require bots or bot movement/);
+  assert.match(engine, /buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
   assert.match(engine, /nearbyBotObservation:point\.botId!==null/);
 });
 
@@ -1053,4 +1053,26 @@ test('bug reports no longer run a second top-down GPU capture while gameplay con
   assert.doesNotMatch(issueReport, /captureMapOverviewScreenshot\(/);
   assert.match(issueReport, /Top-down capture skipped in bug report/);
   assert.match(engine, /captureScale=Math\.min\(1,960\/viewportWidth,720\/viewportHeight\)/);
+});
+
+test('map report orchestration locks immediately and writes the manifest only after both images', async () => {
+  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+  const flow=engine.slice(engine.indexOf('async function submitMapOverviewReport'),engine.indexOf('async function submitIssueReport'));
+  assert.ok(flow.indexOf('issueReportBusy=true')<flow.indexOf('prompt('));
+  assert.match(flow,/contactSheet\.tiles\.length!==30/);
+  assert.ok(flow.indexOf('uploadIssueFile(atlasPath')<flow.indexOf('uploadIssueFile(jsonPath'));
+  assert.match(flow,/finally\{issueReportBusy=false/);
+  assert.match(flow,/ОТПРАВКА 1\/3/);
+  assert.match(flow,/ОТПРАВКА 2\/3/);
+  assert.match(flow,/МАНИФЕСТ/);
+});
+
+test('map report grid integration delegates validated bot-independent coverage', async () => {
+  const engine=await readFile(new URL('./engine.js',import.meta.url),'utf8');
+  const pipeline=await readFile(new URL('./map-report-pipeline.mjs',import.meta.url),'utf8');
+  assert.match(engine,/buildMapSnapshotGrid\(bounds,mapWalkSamples\)/);
+  assert.match(engine,/validateMapSnapshotPoints\(points,getMapOverviewBounds\(\)\)/);
+  assert.match(pipeline,/const columns=5,rows=6,points=\[\]/);
+  assert.match(pipeline,/source:'map-grid'/);
+  assert.match(pipeline,/points\.length!==30/);
 });
