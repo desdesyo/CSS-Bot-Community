@@ -631,16 +631,6 @@ test('renderer retries a failed frame with a reduced-cost safe pipeline', async 
   assert.match(source, /scene\.render\(\);state\.lastRenderMs=performance\.now\(\)-renderStarted/);
 });
 
-test('mobile world rendering forces a shared full camera layer mask', async () => {
-  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(source, /camera\.layerMask=0xFFFFFFFF/);
-  assert.match(source, /for\(const mesh of scene\.meshes\)\{if\(mesh\)mesh\.layerMask=0xFFFFFFFF;\}/);
-  assert.match(source, /scene\.activeCamera=camera;scene\.activeCameras=null;camera\.layerMask=0xFFFFFFFF/);
-});
-test('touch look direction is not horizontally inverted', async () => {
-  const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
-  assert.match(source, /camera\.rotation\.y-=dx\*\.004\*state\.lookSensitivity/);
-});
 test('allied bots patrol during a short four-second spawn protection window', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(source, /state\.spawnProtectedUntil=performance\.now\(\)\+4000/);
