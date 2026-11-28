@@ -30,6 +30,17 @@ test('issue report prioritizes nearby collision geometry and captures AI/gamepad
   assert.match(engine, /textures:\{count:scene\.textures\.length/);
 });
 
+
+test('issue diagnostics record touch movement and camera swipe deltas with throttling', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /gameLogEvent\('movement-stick'/);
+  assert.match(engine, /gameLogEvent\('look-swipe'/);
+  assert.match(engine, /lastStickTrace>120/);
+  assert.match(engine, /lastLookTrace>120/);
+  assert.match(engine, /gamepad-connected/);
+  assert.match(engine, /build:'2026-11-28-reportfix2'/);
+});
+
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
   const oldSession = { id:'old-session', pageId:'previous-page', startedAtEpoch:1000 };
   const attachment = buildIssueLogAttachment({
