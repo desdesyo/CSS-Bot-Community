@@ -1020,3 +1020,11 @@ test('map-authoring mode cannot auto-win or auto-restart from an empty bot roste
  assert.match(engine,/if\(!MAP_EDIT_MODE\)\{[\s\S]*?if\(state\.roundTime<=0\)endRound/);
  assert.doesNotMatch(engine,/state\.bots\.every\(b=>b\.team!=='enemy'\|\|!b\.alive\)/);
 });
+
+test('mobile menu uses modern cool-toned buttons and a taller scrollable card', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/button\{border:1px solid rgba\(139,184,190/);
+ assert.match(html,/#start\{background:linear-gradient\(180deg,#278b91,#17616d\)/);
+ assert.match(html,/#card\{max-height:min\(82dvh,760px\)!important/);
+ assert.match(html,/#overlay\{align-items:center!important/);
+});
