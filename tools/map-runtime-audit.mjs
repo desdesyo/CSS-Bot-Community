@@ -11,8 +11,10 @@ try{
   page.on('pageerror',e=>errors.push(mode+': '+String(e?.stack||e)));
   page.on('console',m=>{if(m.type()==='error')errors.push(mode+': '+m.text())});
   const url='http://127.0.0.1:4173/engine/v2/map-runtime-audit.html'+(mode==='mobile'?'?mobile=1':'');
-  await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(()=>!!window.__SOLO_MAP_AUDIT__,null,{timeout:180000});
+  await page.goto(url,{waitUntil:'commit',timeout:60000});
+  await page.waitForFunction(()=>!!window.__SOLO_MAP_AUDIT__||!!window.__SOLO_MAP_AUDIT_ERROR__,null,{timeout:180000});
+  const readiness=await page.evaluate(()=>({ready:!!window.__SOLO_MAP_AUDIT__,error:window.__SOLO_MAP_AUDIT_ERROR__||null}));
+  if(!readiness.ready)throw new Error('Map runtime initialization failed: '+readiness.error);
   await page.waitForTimeout(5000);
   const metrics=await page.evaluate(()=>window.__SOLO_MAP_AUDIT__.metrics());
   await page.screenshot({path:path.join(out,mode+'.png'),fullPage:false,animations:'disabled',timeout:90000});
