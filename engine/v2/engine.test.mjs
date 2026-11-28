@@ -1048,7 +1048,7 @@ test('graffiti-eye toggle hides diagnostic controls but keeps fullscreen and pau
 });
 test('HUD engine cache key invalidates the prior mobile page module', async () => {
  const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
- assert.match(html,/engine\.js\?v=20261128-capturefix3-hud1/);
+ assert.match(html,/engine\.js\?v=20261128-sunset1-touchrestore1/);
 });
 
 
