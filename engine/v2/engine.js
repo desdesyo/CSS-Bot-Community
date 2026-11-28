@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const canvas = $('renderCanvas');
 const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-1115-r6';
+import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, moveWithAabbCollisions, findSafePlayerSpawn, findPathAStar, TEAM_SPAWNS, BOMB_SITE, aimCandidateScore, getPlayerSpawn, advancePatrolIndex, selectNextLivingBot, buildNavigationGrid, buildCollisionSpatialIndex, queryCollisionSpatialIndex } from './engine-core.mjs?v=20261128-1200-r7';
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-1115-r6';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs?v=20261128-1115-r6';
 import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-1115-r6';
@@ -652,7 +652,7 @@ function initInput() {
   stick.addEventListener('pointerup',reset);stick.addEventListener('pointercancel',reset);
   const look=$('look');let lookId=null,last=null;
   look.addEventListener('pointerdown',e=>{lookId=e.pointerId;last={x:e.clientX,y:e.clientY};look.setPointerCapture(e.pointerId)});
-  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y+=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
+  look.addEventListener('pointermove',e=>{if(state.playerDead||e.pointerId!==lookId)return;const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};camera.rotation.y-=dx*.004*state.lookSensitivity;camera.rotation.x=Math.max(-1.3,Math.min(1.3,camera.rotation.x+dy*.004*state.lookSensitivity))});
   const stopLook=()=>{lookId=null};look.addEventListener('pointerup',stopLook);look.addEventListener('pointercancel',stopLook);
   const fireButton=$('fire'),fireNub=$('fireNub');let fireId=null,fireLast=null;
   fireButton.addEventListener('pointerdown',e=>{
@@ -810,10 +810,10 @@ function start() {
     $('health').textContent='HP 100';$('ammo').textContent=state.weaponSlot==='knife'?'MELEE':state.weaponAmmo[state.weaponSlot]+' / '+state.weaponReserve[state.weaponSlot];$('round').textContent='ROUND '+String(state.roundNumber).padStart(2,'0');$('kills').textContent='KILLS 0';$('timer').textContent='03:00';
     status.textContent='Графическое ядро готово. Запусти тестовую сцену.';startButton.textContent='ЗАПУСК';
   }
-  if(!resuming){playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0);if(!playerSpawn){status.textContent='Не удалось найти свободную точку появления. Матч не запущен.';overlay.style.display='flex';state.started=false;return;}state.spawnProtectedUntil=performance.now()+10000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='guard';bot.target=null;bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;}applyLearnedRoutesToBots();}
+  if(!resuming){playerSpawn=findSafePlayerSpawn([getPlayerSpawn(state.playerTeam)],collisionBoxes,.36,1.72,0);if(!playerSpawn){status.textContent='Не удалось найти свободную точку появления. Матч не запущен.';overlay.style.display='flex';state.started=false;return;}state.spawnProtectedUntil=performance.now()+4000;for(const bot of state.bots.filter(b=>b.team==='ally'&&b.alive)){bot.combatState='patrol';bot.target=null;bot.navPath=[];bot.navGoal=null;bot.fieldExploreGoal=null;}applyLearnedRoutesToBots();}
   state.paused=false;state.started=true;overlay.style.display='none';
   // Diagnostics are player-controlled from the LOGS button.
-  if(!resuming){camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:10000,alliesGuarding:true});}
+  if(!resuming){camera.position.set(playerSpawn.x,1.72,playerSpawn.z);camera.rotation.set(0,state.playerTeam==='CT'?Math.PI:0,0);if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));gameLogEvent('player-spawn',{team:state.playerTeam,x:playerSpawn.x,z:playerSpawn.z,protectedMs:4000,alliesGuarding:false});}
   else gameLogEvent('game-resumed',{weapon:state.weaponSlot,position:{x:camera.position.x,z:camera.position.z}});
   if(!mobile)canvas.requestPointerLock?.();
 }
@@ -1065,7 +1065,7 @@ async function boot() {
     } catch(environmentError) {
       console.warn('SOLO environment reflections unavailable; direct lighting remains active.',environmentError);
     }
-    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0x0FFFFFFF;camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
+    camera=new B.UniversalCamera('fps-camera',new B.Vector3(0,1.72,-41),scene);scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0xFFFFFFFF;camera.minZ=.08;camera.maxZ=180;camera.fov=1.04;camera.inertia=0;camera.angularSensibility=2400;camera.speed=0;camera.inputs.clear();
     // The map owns the textured skybox. A second giant solid sphere caused the
     // false black-ceiling look and competed with the horizon gradient.
     const hemi=new B.HemisphericLight('sky-fill',new B.Vector3(0,1,0),scene);hemi.intensity=.86;hemi.diffuse=new B.Color3(.42,.55,.72);hemi.groundColor=new B.Color3(.13,.16,.19);
@@ -1074,6 +1074,10 @@ async function boot() {
     shadowGen=new B.ShadowGenerator(mobile?1024:2048,sun);shadowGen.useBlurExponentialShadowMap=true;shadowGen.usePercentageCloserFiltering=true;shadowGen.blurKernel=mobile?12:22;shadowGen.bias=.0003;shadowGen.normalBias=.014;shadowGen.darkness=.22;
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     const mapBuildStats=buildWetGroundMap(B,scene,mobile,shadowGen);window.__SOLO_MAP_STATS__=mapBuildStats;
+    // Imported and merged level meshes must share the full camera layer mask. Some
+    // mobile/WebGL drivers otherwise leave the HUD visible while silently culling the world.
+    for(const mesh of scene.meshes){if(mesh)mesh.layerMask=0xFFFFFFFF;}
+    scene.activeCamera=camera;scene.activeCameras=null;
     const glowLayer=new B.GlowLayer('wet quarter emissive glow',scene,{blurKernelSize:mobile?16:32});glowLayer.intensity=mobile?.32:.48;
     window.__SOLO_GLOW_LAYER__=glowLayer;
     state.playerHitbox=B.MeshBuilder.CreateCapsule('player-hitbox',{height:1.25,radius:.34,tessellation:8},scene);state.playerHitbox.visibility=.001;state.playerHitbox.isVisible=true;state.playerHitbox.alwaysSelectAsActiveMesh=true;state.playerHitbox.isPickable=true;state.playerHitbox.position.copyFrom(camera.position).addInPlace(new B.Vector3(0,-.38,0));
@@ -1113,7 +1117,7 @@ async function boot() {
         state.frameSamples.length=0;state.sampleAt=now;
       }
       const renderStarted=performance.now();
-      try{scene.render();state.lastRenderMs=performance.now()-renderStarted;if(renderFailureActive){renderFailureActive=false;recordRuntimeDiagnostic('render-recovered',{renderMs:+state.lastRenderMs.toFixed(2)});}}
+      try{scene.activeCamera=camera;scene.activeCameras=null;camera.layerMask=0xFFFFFFFF;try{for(const mesh of scene.meshes)if(mesh&&mesh.layerMask!==0xFFFFFFFF)mesh.layerMask=0xFFFFFFFF;}catch{}scene.render();state.lastRenderMs=performance.now()-renderStarted;if(renderFailureActive){renderFailureActive=false;recordRuntimeDiagnostic('render-recovered',{renderMs:+state.lastRenderMs.toFixed(2)});}}
       catch(error){state.lastRenderMs=performance.now()-renderStarted;recordRuntimeDiagnostic('scene-render-error',{message:String(error?.message||error),stack:error?.stack||null,meshCount:scene.meshes.length,activeCamera:scene.activeCamera?.name||null});if(activateSafeRenderFallback(error)){try{scene.render();state.lastRenderMs=performance.now()-renderStarted;recordRuntimeDiagnostic('renderer-safe-fallback-rendered',{renderMs:+state.lastRenderMs.toFixed(2)});return;}catch(retryError){recordRuntimeDiagnostic('renderer-safe-fallback-failed',{message:String(retryError?.message||retryError),stack:retryError?.stack||null});}}if(!renderFailureActive){renderFailureActive=true;$('quality').textContent='RENDER ERROR · ДИАГНОСТИКА СОХРАНЕНА';$('loadState').textContent='Ошибка отрисовки сцены: '+(error?.message||error);const failedOverlay=$('overlay');failedOverlay.dataset.engineState='error';failedOverlay.classList.remove('is-loading');failedOverlay.classList.add('is-error');failedOverlay.style.display='flex';}}
     });
     $('loadState').textContent='Карта отображается. Загрузка настоящих 3D-бойцов и анимаций…';
