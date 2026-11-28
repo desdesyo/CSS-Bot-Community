@@ -338,10 +338,11 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   ground.position.y=-.08;ground.material=mat('night asphalt base','#111d2a',.96);ground.receiveShadows=true;
   const floor=(name,x,z,w,d,y=.025,material=cobble)=>{
     const m=B.MeshBuilder.CreateGround(name,{width:w,height:d,subdivisions:1},scene);
-    if(material===cobble){
-       const uv=m.getVerticesData(B.VertexBuffer.UVKind);
-       if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/2.4;uv[i+1]*=d/2.4;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
-     }
+    const tileSize=material===cobble?2.4:material===stone?3.2:0;
+    if(tileSize>0){
+      const uv=m.getVerticesData(B.VertexBuffer.UVKind);
+      if(uv){for(let i=0;i<uv.length;i+=2){uv[i]*=w/tileSize;uv[i+1]*=d/tileSize;}m.updateVerticesData(B.VertexBuffer.UVKind,uv);}
+    }
      m.position.set(x,y,z);m.material=material;m.receiveShadows=true;return m;
   };
   const box=(name,x,y,z,w,h,d,material,collide=true,cast=true)=>{
