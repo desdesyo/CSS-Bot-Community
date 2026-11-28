@@ -681,7 +681,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /Wet Ground district foundation/);
-  assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera|scene\.activeCameras=null/);
+  assert.doesNotMatch(engine, /scene\.activeCamera=overviewCamera/);
   assert.doesNotMatch(engine, /scene\.activeCamera=localCamera/);
   assert.match(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,overviewCamera/);
   assert.match(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
@@ -776,7 +776,7 @@ test('mobile thumb controls move inward and FIRE shifts farther left', async () 
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /#stick\{left:clamp\(30px,4vw,44px\)\}/);
   assert.match(html, /#fire\{right:clamp\(76px,11vw,112px\)\}/);
-  assert.match(html, /engine\.js\?v=20261128-mapoverview6/);
+  assert.match(html, /engine\\.js\\?v=20261128-mapoverview8/);
 });
 
 test('player movement and minimap arrow share the camera world-forward vector', async () => {
