@@ -927,7 +927,7 @@ async function stopAndUploadGameplayLog(){
  if(!gameLogRecords.length&&!gameLogEvents.length){$('logsQuick').textContent='● ЛОГИ';return}
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
- const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json';
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/logs/'+stamp+'-'+session+'-game-diagnostics.json';
  const payload=buildGameplayLogPayload();
  gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='ОТПРАВКА…';
  try{
@@ -1155,9 +1155,9 @@ async function submitMapOverviewReport(){
   });
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   const visualAudit=collectMapVisualAudit();
-  const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
-  const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
-  const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
+  const overviewPath='logs/30/'+stamp+'-'+id+'.png';
+  const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
+  const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
   const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview10',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
@@ -1194,15 +1194,15 @@ async function submitIssueReport(){
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot();
   const mapCapture=await captureMapOverviewScreenshot().catch(error=>({base64:null,error:String(error?.message||error)}));
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
-  const topDownPath=mapCapture?.base64?'logs/issues/'+stamp+'-'+id+'-topdown.png':null;
+  const topDownPath=mapCapture?.base64?'logs/bugs/'+stamp+'-'+id+'-topdown.png':null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-reportfix3',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/issues/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-reportfix3',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick');btn.disabled=true;btn.textContent='СБОР…';
  try{
-  const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
+  const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add player issue report '+id,token);
   let imagePath=null;
-  if(screenshot){imagePath='logs/issues/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
+  if(screenshot){imagePath='logs/bugs/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
    if(topDownPath)await uploadIssueFile(topDownPath,mapCapture.base64,'Add top-down map screenshot for '+id,token);
   if(gameLogRecording)gameLogEvent('issue-marker',{id,description:description.trim(),jsonPath,imagePath});
   btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
