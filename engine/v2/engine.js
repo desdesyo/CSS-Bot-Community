@@ -5,7 +5,7 @@ import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, mo
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-gamepad-input1';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-worldfix1';
 const MAP_EDIT_MODE=true; // Temporary map-authoring switch. Bot AI, models, routes and assets remain intact.
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, gamepadMove:{x:0,y:0}, gamepadLook:{x:0,y:0}, gamepadButtons:[], gamepadIndex:null, gamepadId:null, gamepadFire:false, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
@@ -1051,7 +1051,11 @@ function collectIssueSceneContext(){
 }
 async function captureIssueScreenshot(){
  try{
-  const size={width:Math.min(1280,Math.max(640,canvas.clientWidth)),height:Math.min(960,Math.max(360,canvas.clientHeight))};
+  // Keep issue screenshots bounded on mobile GPUs; the previous full-resolution capture
+  // was immediately followed by a second top-down render-target pass in the same report.
+  const viewportWidth=Math.max(1,canvas.clientWidth),viewportHeight=Math.max(1,canvas.clientHeight);
+  const captureScale=Math.min(1,960/viewportWidth,720/viewportHeight);
+  const size={width:Math.max(320,Math.round(viewportWidth*captureScale)),height:Math.max(320,Math.round(viewportHeight*captureScale))};
   const tools=BABYLON.Tools;
   if(typeof tools.CreateScreenshotUsingRenderTargetAsync==='function'){
    const url=await tools.CreateScreenshotUsingRenderTargetAsync(engine,camera,size,'image/png');
@@ -1278,18 +1282,19 @@ async function submitIssueReport(){
  let token=savedGameplayToken();
  if(!token){token=prompt('Для отправки отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');if(!token)return;token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен');return}}
  const context=collectIssueSceneContext(),screenshot=await captureIssueScreenshot();
-  const mapCapture=await captureMapOverviewScreenshot().catch(error=>({base64:null,error:String(error?.message||error)}));
+  // A bug marker must not trigger a second 1280x960 GPU render. Top-down and 30-zone
+  // captures belong to the dedicated map-overview action, not the lightweight bug report.
+  const mapCapture={base64:null,error:'Top-down capture skipped in bug report to keep the live render loop responsive.'};
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='issue-'+Date.now().toString(36);
-  const topDownPath=mapCapture?.base64?'logs/bugs/'+stamp+'-'+id+'-topdown.png':null;
+  const topDownPath=null;
  const playingSamples=issuePerformanceRing.filter(s=>s.playing),perfValues=playingSamples.map(s=>s.frameMs),renderValues=playingSamples.map(s=>s.renderMs);const recentPerformance={samples:issuePerformanceRing.slice(-90),sampleCount:issuePerformanceRing.length,averageFrameMs:perfValues.length?+(perfValues.reduce((a,b)=>a+b,0)/perfValues.length).toFixed(2):null,averageRenderMs:renderValues.length?+(renderValues.reduce((a,b)=>a+b,0)/renderValues.length).toFixed(2):null,maxFrameMs:perfValues.length?Math.max(...perfValues):null,maxRenderMs:renderValues.length?Math.max(...renderValues):null,hitches50:perfValues.filter(v=>v>50).length,hitches100:perfValues.filter(v=>v>100).length};
- const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-roundfix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:!!topDownPath,format:'image/png',path:topDownPath,error:mapCapture?.error||null,worldBounds:mapCapture?.bounds||null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
+ const report={app:'SOLO: Wet Ground',build:'2026-11-28-map-edit-roundfix1',format:3,type:'player-marked-visual-or-world-issue',id,createdAt:new Date().toISOString(),description:description.trim(),userAgent:navigator.userAgent,screen:{width:screen.width,height:screen.height,dpr:devicePixelRatio},game:{started:state.started,paused:state.paused??false,roundTime:+state.roundTime.toFixed(2),kills:state.kills,fps:state.fps,scale:state.scale,round:state.roundNumber,team:state.playerTeam},context,recentEvents:issueEventRing.slice(-100),runtimeErrors:issueRuntimeErrors.slice(-20),recentPerformance,screenshot:{captured:!!screenshot,format:'image/png',path:screenshot?'logs/bugs/'+stamp+'-'+id+'.png':null,error:screenshot?null:'Canvas screenshot unavailable (WebGL buffer may not be preserved)'},topDownMapScreenshot:{captured:false,format:'image/png',path:null,error:mapCapture.error,worldBounds:null},recentGameplayLog:buildIssueLogAttachment({recording:gameLogRecording,session:gameLogSession,pageId:gameLogPageId,records:gameLogRecords,events:gameLogEvents,performance:{...gameLogPerf,frameMs:gameLogFrameMs,renderMs:gameLogRenderMs}})};
  issueReportBusy=true;const btn=$('issueQuick'),mapBtn=$('mapOverviewQuick');btn.disabled=true;btn.textContent='СБОР…';if(mapBtn){mapBtn.disabled=true;mapBtn.title='Сначала дождись завершения отчёта об ошибке.';setMapOverviewStatus('Собираю отчёт об ошибке. Обзор карты временно заблокирован.','working');}
  try{
   const jsonPath='logs/bugs/'+stamp+'-'+id+'.json';
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add player issue report '+id,token);
   let imagePath=null;
   if(screenshot){imagePath='logs/bugs/'+stamp+'-'+id+'.png';await uploadIssueFile(imagePath,screenshot,'Add screenshot for '+id,token)}
-   if(topDownPath)await uploadIssueFile(topDownPath,mapCapture.base64,'Add top-down map screenshot for '+id,token);
   if(gameLogRecording)gameLogEvent('issue-marker',{id,description:description.trim(),jsonPath,imagePath});
   btn.textContent='✓ ОТПРАВЛЕНО';btn.title='Отчёт отправлен в GitHub';
   alert('Отчёт отправлен в GitHub.\n'+jsonPath+(imagePath?'\n'+imagePath:'\nСнимок экрана не удалось получить; отправлен контекст сцены.')+'\nCommit: '+(jsonResult.commit?.sha||'ok'));
