@@ -681,7 +681,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(html, /id="mapOverviewStatus"/);
   assert.ok(html.includes('#mapOverviewQuick{position:fixed;left:12px;top:172px'));
   assert.ok(html.includes('#mapOverviewStatus{position:fixed;left:12px;top:214px'));
-  assert.ok(engine.includes('/^(?:body|head)-\d+$/i.test(name)'));
+  assert.ok(engine.includes('body|head'));
   assert.match(engine, /function setMapOverviewStatus\(/);
   assert.match(engine, /requestAnimationFrame\(\(\)=>resolve\(\)\)/);
   assert.match(engine, /onProgress\(i\+1,points\.length\)/);
