@@ -1076,6 +1076,8 @@ test('orange joystick glow is a luminous underlayer visible through translucent 
 test('Wet Ground visual overhaul adds sculpted vehicle bodywork, detailed lanterns and roof architecture', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /front sculpted hood/);
+  assert.match(map, /metallic automotive paint microtexture/);
+  assert.match(map, /body\.clearCoat\.intensity=\.72/);
   assert.match(map, /horizontal grille slat/);
   assert.match(map, /wheel arch upper lip/);
   assert.match(map, /tapered cast iron lamp shaft/);
