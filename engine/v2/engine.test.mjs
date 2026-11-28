@@ -682,6 +682,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
   assert.match(engine, /Wet Ground district foundation/);
   assert.match(engine, /scene\.activeCamera=overviewCamera;scene\.activeCameras=null/);
+  assert.match(engine, /scene\.activeCamera=localCamera;scene\.activeCameras=null/);
   assert.match(engine, /scene\.activeCamera=previousCamera;scene\.activeCameras=previousCameras/);
   assert.match(engine, /2026-11-28-mapoverview6/);
   assert.match(engine, /function renderWithoutSkyAtmosphere\(render\)/);
