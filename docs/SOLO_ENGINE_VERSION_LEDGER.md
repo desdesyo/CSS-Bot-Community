@@ -244,3 +244,14 @@
 - Added regression tests for empty-roster round handling and mobile menu styling/layout.
 - Implementation commits: engine `348b81c8f8aee521c40b27e4a31896f8fe89c59e`; regression tests `91b735e1b300117425c48664197540223e2fcab1`; menu `c5547bc9a089c52d2372a747c102e13599fcf6cb`.
 - Verification and Pages deployment: pending. Device behavior must still be confirmed by the player.
+
+
+## 2026-11-28 — round-loop fix and menu release published
+
+- Final development source SHA: `f8a6ee77baf959781d7849f197f347d3c97c4f16`.
+- Source checks: [46135425523](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135425523) — success.
+- Prototype server + client checks: [46135425511](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135425511) — success.
+- Pages build and deployment: [46135445052](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46135445052) — build and deploy success. Build checked out the exact tested source SHA above.
+- Release payload merged to `main` through [PR #143](https://github.com/desdesyo/CSS-Bot-Community/pull/143), merge commit `b2413851235fa97a424658a93c1ac41d06e818c8`.
+- Published game URL: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html
+- Remaining player verification: confirm the round no longer auto-restarts in map-authoring mode and that the updated mobile menu fits the landscape viewport. No physical-device verification is claimed.
