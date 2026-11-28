@@ -1015,3 +1015,38 @@ test('mobile menu uses modern cool-toned buttons and a taller scrollable card', 
  assert.match(html,/#card\{max-height:min\(82dvh,760px\)!important/);
  assert.match(html,/#overlay\{align-items:center!important/);
 });
+
+test('mobile HUD uses the orange-lit translucent blue sticks and preserves stick hit areas', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/#stick\{border:1\.5px solid var\(--hud-orange\)!important;background:var\(--hud-blue\)!important/);
+ assert.match(html,/#nub\{background:rgba\(139,174,194/);
+ assert.match(html,/#fire\{background:rgba\(91,126,148/);
+ assert.match(html,/--hud-orange:#ff861f/);
+ assert.match(html,/width:118px;height:118px/);
+ assert.match(html,/width:46px;height:46px/);
+});
+test('compact HUD has a single-line stat row, minimap above health and armor bars, and no top-left game title', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/<div id="brand">/);
+ assert.match(html,/#stats\{display:flex!important;flex-wrap:nowrap!important/);
+ assert.match(html,/#minimap\{top:39px!important/);
+ assert.match(html,/<div id="playerBars"/);
+ assert.match(html,/<span>ЗДОРОВЬЕ<\/span>/);
+ assert.match(html,/<span>БРОНЯ<\/span>/);
+ assert.match(html,/id="hpFill"/);
+ assert.match(html,/id="armorFill"/);
+});
+test('graffiti-eye toggle hides diagnostic controls but keeps fullscreen and pause available', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/id="eyeToggle"/);
+ assert.match(html,/body\.hud-clean #logsQuick/);
+ assert.match(html,/body\.hud-clean #issueQuick/);
+ assert.match(html,/body\.hud-clean #mapOverviewQuick/);
+ assert.match(html,/id="fullScreen"/);
+ assert.match(html,/id="pause"/);
+ assert.match(html,/classList\.toggle\('hud-clean'\)/);
+});
+test('HUD engine cache key invalidates the prior mobile page module', async () => {
+ const html=await readFile(new URL('./index.html',import.meta.url),'utf8');
+ assert.match(html,/engine\.js\?v=20261128-capturefix3-hud1/);
+});
