@@ -1439,7 +1439,7 @@ async function boot() {
         camera.orthoLeft=-viewWidth/2;camera.orthoRight=viewWidth/2;camera.orthoTop=viewHeight/2;camera.orthoBottom=-viewHeight/2;
         camera.minZ=.1;camera.maxZ=altitude+Math.max(100,bounds.maxY+100);
         camera.position.set(centerX,altitude,centerZ);camera.upVector.set(0,0,1);
-        camera.setTarget(new BABYLON.Vector3(centerX,0,centerZ));camera.rotation.set(0,0,0);
+        camera.setTarget(new BABYLON.Vector3(centerX,0,centerZ));
         return {mode:'orthographic-map-overview',bots:state.bots.length,bounds:{...bounds,centerX,centerZ,viewWidth,viewHeight,altitude}};
       },
       captureOverview:async()=>{
