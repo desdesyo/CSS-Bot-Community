@@ -38,7 +38,7 @@ test('issue diagnostics record touch movement and camera swipe deltas with throt
   assert.match(engine, /lastStickTrace>120/);
   assert.match(engine, /lastLookTrace>120/);
   assert.match(engine, /gamepad-connected/);
-  assert.match(engine, /build:'2026-11-28-reportfix2'/);
+  assert.match(engine, /build:'2026-11-28-reportfix3'/);
 });
 
 test('issue report never attaches a restored gameplay segment from a previous page', () => {
@@ -631,7 +631,7 @@ test('player collision uses spatial broadphase and preserves full-array collisio
 test('rain impact rings are oriented parallel to the ground and CT sedan clears the barricade', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(map, /ring\.position\.set\(x,\.105,z\);ring\.rotation\.x=Math\.PI\/2/);
-  assert.match(map, /makeSpawnCar\(label\+' parked rain-dark sedan',8\.15,at\(1\.8\)/);
+  assert.match(map, /makeSpawnCar\(label\+' parked rain-dark sedan',22\.0,at\(1\.8\)/);
 });
 test('spectator eye is offset ahead of the bot face and issue diagnostics exclude camera-owned meshes', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
