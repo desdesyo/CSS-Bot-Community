@@ -5,7 +5,7 @@ import { adaptiveScale, moveToward, createTeamRoster, cameraRelativeMovement, mo
 import { loadHumanBotAssets, createHumanBot, animateHumanBot, stopHumanBot } from './human-bots.mjs?v=20261128-touchfix2';
 import { createWeaponViewmodel } from './weapon-viewmodel.mjs';
 import { buildIssueLogAttachment } from './gameplay-log-session.mjs';
-import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf4';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=20261128-perf5';
 const state = { started:false, paused:false, playerTeam:'CT', hp:100, ammo:30, reserve:90, fps:0, scale:mobile?.9:1, frameSamples:[], sampleAt:performance.now(), aiAccumulator:0, simTime:0, bots:[], keys:new Set(), joy:{x:0,y:0}, look:{x:0,y:0}, lastShot:0, lastHud:0, firing:false, reloading:false, playerDead:false, kills:0, roundTime:180, projectiles:[], weaponSlot:'rifle', weaponAmmo:{rifle:30,pistol:12}, weaponReserve:{rifle:90,pistol:48}, lastMove:null, lastMoveWasBlocked:false, lastRenderMs:0, lastUpdateMs:0, aimTargetId:null, fireStick:{x:0,y:0}, playerHitbox:null, spawnProtectedUntil:0, minimapAt:0, lookSensitivity:1, roundNumber:1, roundEnding:false, roundEndAt:0, spectatorBotId:null };
 const status = $('loadState'), startButton = $('start'), overlay = $('overlay');
 function mat(name, color, roughness=0.8, metallic=0) {
@@ -1086,7 +1086,7 @@ function chooseMapSnapshotPoints(){
  while(selected.length<30)selected.push({...selected[selected.length%Math.max(1,selected.length)],source:'repeat-fallback'});
  return selected.slice(0,30).map((p,index)=>({...p,index:index+1}));
 }
-async function captureBotAreaContactSheet(points){
+async function captureBotAreaContactSheet(points,onProgress=()=>{}){
  const tileWidth=320,tileHeight=240,columns=5,rows=6;
  const sheet=document.createElement('canvas');sheet.width=tileWidth*columns;sheet.height=tileHeight*rows;
  const ctx=sheet.getContext('2d');if(!ctx)throw new Error('Не удалось создать холст контактного листа');
@@ -1111,6 +1111,8 @@ async function captureBotAreaContactSheet(points){
    ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
    ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
    tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:point.t?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
+   onProgress(i+1,points.length);
+   if(i%2===1)await new Promise(resolve=>requestAnimationFrame(resolve));
   }finally{
    try{localCamera?.dispose()}catch{}
   }
@@ -1119,43 +1121,61 @@ async function captureBotAreaContactSheet(points){
  if(!data.startsWith('data:image/png;base64,')||data.length<10000)throw new Error('Контактный лист снимков пуст');
  return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles};
 }
+function setMapOverviewStatus(message,state='info'){
+ const status=$('mapOverviewStatus');
+ if(status){status.textContent=message;status.dataset.state=state;}
+ const btn=$('mapOverviewQuick');
+ if(btn)btn.setAttribute('aria-busy',state==='working'?'true':'false');
+}
+async function paintMapOverviewStatus(btn,label,message,state='working'){
+ btn.textContent=label;setMapOverviewStatus(message,state);
+ await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+}
 async function submitMapOverviewReport(){
  const btn=$('mapOverviewQuick');
- if(issueReportBusy){btn.title='Другой отчёт ещё формируется или отправляется. Дождитесь завершения.';return;}
- btn.textContent='ПОДГОТОВКА ОТЧЁТА…';btn.title='Подготовка общего вида карты и 30 снимков зон ботов.';
+ if(issueReportBusy){btn.title='Другой отчёт ещё формируется или отправляется. Дождитесь завершения.';setMapOverviewStatus('Другой отчёт ещё отправляется. Подожди завершения.','warning');return;}
+ btn.textContent='ПОДГОТОВКА…';setMapOverviewStatus('Запрашиваю доступ к GitHub и готовлю снимок карты…','working');
  let token=savedGameplayToken();
  if(!token){
   token=prompt('Для отправки визуального отчёта нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write.');
-  if(!token){btn.textContent='↻ ОБЗОР НЕ ОТПРАВЛЕН';btn.title='Отправка отменена: GitHub token не введён.';return;}
+  if(!token){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Отправка отменена: GitHub token не введён.';setMapOverviewStatus('Отменено: токен GitHub не введён.','warning');return;}
   token=token.trim();
-  if(!token){btn.textContent='↻ ОБЗОР НЕ ОТПРАВЛЕН';btn.title='Отправка отменена: GitHub token пуст.';return;}
-  try{localStorage.setItem('solo_github_log_token',token)}catch(e){btn.textContent='↻ ОШИБКА СОХРАНЕНИЯ ТОКЕНА';btn.title='Не удалось сохранить GitHub token.';alert('Не удалось сохранить токен');return;}
+  if(!token){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Отправка отменена: GitHub token пуст.';setMapOverviewStatus('Отменено: токен пуст.','warning');return;}
+  try{localStorage.setItem('solo_github_log_token',token)}catch(e){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Не удалось сохранить GitHub token.';setMapOverviewStatus('Ошибка: не удалось сохранить GitHub token.','error');alert('Не удалось сохранить токен');return;}
  }
  issueReportBusy=true;btn.disabled=true;
  try{
-  btn.textContent='ОБЩИЙ ВИД…';
+  await paintMapOverviewStatus(btn,'ОБЩИЙ ВИД…','Снимаю всю карту сверху (1280×960)…');
   const capture=await captureMapOverviewScreenshot();
-  btn.textContent='ВЫБИРАЮ 30 ЗОН БОТОВ…';
+  await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 точек по маршрутам и позициям ботов…');
   const points=chooseMapSnapshotPoints();
-  btn.textContent='СНИМКИ ЗОН '+points.length+'/30…';
-  const contactSheet=await captureBotAreaContactSheet(points);
+  const contactSheet=await captureBotAreaContactSheet(points,(done,total)=>{
+   btn.textContent='СНИМКИ '+done+'/'+total+'…';
+   setMapOverviewStatus('Снимаю зоны ботов: '+done+' из '+total+'. Не закрывай игру.','working');
+  });
   const stamp=new Date().toISOString().replace(/[:.]/g,'-'),id='map-overview-'+Date.now().toString(36);
   const visualAudit=collectMapVisualAudit();
   const overviewPath='logs/issues/'+stamp+'-'+id+'.png';
   const atlasPath='logs/issues/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/issues/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview8',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
-  btn.textContent='ОТПРАВЛЯЮ ОБЩИЙ ВИД…';
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-mapoverview9',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'spatially distributed random samples from observed bot movement, current bot positions and authored patrol routes',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
-  btn.textContent='ОТПРАВЛЯЮ 30 ЗОН…';
+  await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');
   await uploadIssueFile(atlasPath,contactSheet.base64,'Add 30 bot-area snapshots '+id,token);
-  btn.textContent='ОТПРАВЛЯЮ ОТЧЁТ…';
+  await paintMapOverviewStatus(btn,'ОТПРАВКА 3/3…','Загружаю JSON-аудит материалов, геометрии и координат…');
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add full map and bot-area visual audit '+id,token);
   if(gameLogRecording)gameLogEvent('map-overview-report',{id,jsonPath,overviewPath,atlasPath,botAreaSnapshots:contactSheet.tiles.length,meshCount:visualAudit.scene.meshCount,materialCount:visualAudit.scene.materialCount});
-  btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='Общий вид и 30 локальных снимков маршрутов ботов отправлены в GitHub';
-  alert('Отправлены общий вид и 30 локальных снимков зон ботов.\\n'+jsonPath+'\\n'+atlasPath+'\\n'+overviewPath+'\\nCommit: '+(jsonResult.commit?.sha||'ok'));
- }catch(error){console.error('Map overview report failed',error);btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';alert('Не удалось отправить обзор карты: '+error.message)}
- finally{issueReportBusy=false;btn.disabled=false}
+  const commit=jsonResult.commit?.sha||'ok';
+  btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='Общий вид, 30 локальных снимков и JSON-аудит отправлены в GitHub';
+  setMapOverviewStatus('Готово: 3 файла загружены. Commit '+commit.slice(0,10)+'.','success');
+  alert('Визуальный отчёт отправлен в GitHub.\n'+jsonPath+'\n'+atlasPath+'\n'+overviewPath+'\nCommit: '+commit);
+ }catch(error){
+  console.error('Map overview report failed',error);
+  btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Ошибка отправки: '+error.message;
+  setMapOverviewStatus('ОШИБКА: '+String(error?.message||error).slice(0,180),'error');
+  alert('Не удалось отправить обзор карты: '+error.message);
+ }finally{issueReportBusy=false;btn.disabled=false;btn.setAttribute('aria-busy','false');}
 }
 
 async function uploadIssueFile(path,content,message,token){
