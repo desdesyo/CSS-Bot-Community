@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101820"><title>WET GROUND — Map Workbench</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1218;color:#e6eeee;font:13px system-ui,sans-serif}#view{position:fixed;inset:0;width:100%;height:100%;touch-action:none;outline:0}#bar{position:fixed;z-index:5;top:10px;left:10px;right:10px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;pointer-events:none}#bar>*{pointer-events:auto}button,select{border:1px solid #526d73;border-radius:7px;background:#14252c;color:#e6eeee;padding:8px 10px;font:inherit}button:active{background:#28505a}#brand,#stats,#help{background:#0c1920df;border:1px solid #526d73;border-radius:7px;padding:8px 10px;backdrop-filter:blur(8px)}#brand{color:#d9bd89;font-weight:800;letter-spacing:1.5px}#stats{margin-left:auto;font:11px ui-monospace,monospace}#help{position:fixed;bottom:10px;left:10px;max-width:min(560px,calc(100vw - 20px));color:#b7c8c9;font-size:11px;line-height:1.45}#error{position:fixed;inset:auto 12px 76px;padding:12px;background:#351b20;border:1px solid #b96767;border-radius:8px;color:#ffe1df;display:none;white-space:pre-wrap;z-index:8}#loading{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);background:#0c1920e8;padding:18px 22px;border:1px solid #526d73;border-radius:9px;z-index:9}#loading[hidden]{display:none}@media(max-width:620px){#brand{font-size:10px}button,select{padding:7px;font-size:10px}#stats{order:9;margin-left:0;width:100%}#help{font-size:10px}}
+</style></head><body>
+<canvas id="view"></canvas><div id="bar"><span id="brand">WET GROUND / MAP WORKBENCH</span><button id="top">ВИД СВЕРХУ</button><button id="orbit">ОРБИТА</button><button id="fit">ВСЯ КАРТА</button><button id="wire">КАРКАС</button><select id="filter"><option value="all">Все объекты</option><option value="building">Здания</option><option value="street">Улицы и покрытие</option><option value="light">Освещение</option><option value="detail">Мелкие детали</option></select><span id="stats">Подготовка сцены…</span></div>
+<div id="help">ЛКМ/касание — вращение · колесо/щипок — приближение · ПКМ/два пальца — панорама. Просмотрщик загружает ту же функцию построения карты, что и игра; изменения визуализатора не меняют игровой HUD и ИИ.</div><div id="loading">Загрузка геометрии WET GROUND…</div><div id="error"></div>
+<script type="module">
+import * as BABYLON from 'https://cdn.babylonjs.com/babylon.js';
+import { buildWetGroundMap } from './wet-ground-map.mjs?v=map-workbench-1';
+const canvas=document.getElementById('view'),loading=document.getElementById('loading'),errorBox=document.getElementById('error'),stats=document.getElementById('stats');
+try{
+ const engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:false,stencil:false,antialias:true});
+ const scene=new BABYLON.Scene(engine);scene.clearColor=new BABYLON.Color4(.025,.045,.06,1);
+ const camera=new BABYLON.ArcRotateCamera('map-workbench-camera',-Math.PI/2,1.05,92,new BABYLON.Vector3(0,0,0),scene);
+ camera.attachControl(canvas,true);camera.lowerRadiusLimit=8;camera.upperRadiusLimit=180;camera.wheelDeltaPercentage=.015;camera.panningSensibility=65;camera.inertia=.78;
+ scene.activeCamera=camera;
+ const hemi=new BABYLON.HemisphericLight('workbench ambient',new BABYLON.Vector3(0,1,0),scene);hemi.intensity=.9;hemi.groundColor=new BABYLON.Color3(.16,.2,.24);
+ const sun=new BABYLON.DirectionalLight('workbench key',new BABYLON.Vector3(-.45,-1,.35),scene);sun.position=new BABYLON.Vector3(35,65,-35);sun.intensity=1.25;
+ const shadows=new BABYLON.ShadowGenerator(1024,sun);shadows.useBlurExponentialShadowMap=true;shadows.blurKernel=16;
+ const result=await buildWetGroundMap(BABYLON,scene,false,shadows);
+ scene.meshes.forEach(m=>{m.isPickable=true});
+ loading.hidden=true;
+ const top=document.getElementById('top'),orbit=document.getElementById('orbit'),fit=document.getElementById('fit'),wire=document.getElementById('wire'),filter=document.getElementById('filter');
+ let topMode=false,wireMode=false;
+ const setTop=()=>{topMode=!topMode;camera.alpha=-Math.PI/2;camera.beta=topMode?.02:1.05;camera.radius=topMode?105:92;camera.target.set(0,0,0);top.textContent=topMode?'ПЕРСПЕКТИВА':'ВИД СВЕРХУ'};
+ top.onclick=setTop;orbit.onclick=()=>{camera.useAutoRotationBehavior=!camera.useAutoRotationBehavior;if(camera.useAutoRotationBehavior){camera.autoRotationBehavior.idleRotationSpeed=.12;camera.autoRotationBehavior.idleRotationWaitTime=0;camera.autoRotationBehavior.idleRotationSpinupTime=0;}orbit.textContent=camera.useAutoRotationBehavior?'СТОП ОРБИТА':'ОРБИТА'};
+ fit.onclick=()=>{camera.target.set(0,0,0);camera.radius=105;camera.alpha=-Math.PI/2;camera.beta=topMode?.02:1.05};
+ wire.onclick=()=>{wireMode=!wireMode;scene.meshes.forEach(m=>{if(m.material)m.material.wireframe=wireMode});wire.textContent=wireMode?'ОБЫЧНЫЙ ВИД':'КАРКАС'};
+ filter.onchange=()=>{const mode=filter.value;scene.meshes.forEach(m=>{const n=(m.name||'').toLowerCase();let show=mode==='all'||(mode==='building'&&/building|tenement|facade|roof|window|door|wall|tower|arcade|biosecure|server|facility/.test(n))||(mode==='street'&&/street|road|floor|cobble|bridge|canal|puddle|curb|crosswalk|sidewalk|market court/.test(n))||(mode==='light'&&/lamp|lantern|light|glow|sconce|neon/.test(n))||(mode==='detail'&&!/building|tenement|facade|roof|window|door|wall|street|road|floor|cobble|bridge|canal|lamp|lantern/.test(n));m.setEnabled(show)})};
+ stats.textContent='Объекты: '+result.staticMeshCount+' · исходные меши: '+result.sourceMeshCount+' · группы: '+result.mergedMaterialGroups+' · текстуры: '+result.textureAudit.loaded+'/'+result.textureAudit.requested;
+ engine.runRenderLoop(()=>scene.render());
+ window.addEventListener('resize',()=>engine.resize());
+ window.__WET_GROUND_WORKBENCH__={engine,scene,camera,result};
+}catch(error){loading.hidden=true;errorBox.style.display='block';errorBox.textContent='Ошибка визуализатора: '+(error?.stack||error);console.error(error)}
+</script></body></html>
