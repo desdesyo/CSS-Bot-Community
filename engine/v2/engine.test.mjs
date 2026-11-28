@@ -904,3 +904,21 @@ test('cobblestone maps use mipmaps and anisotropic filtering to prevent oblique-
   assert.ok(map.includes('cobbleTex.anisotropicFilteringLevel=mobile?8:16'));
   assert.ok(map.includes('normalTex.anisotropicFilteringLevel=mobile?8:16'));
 });
+
+
+test('mobile landscape report controls never occupy the movement-stick safe zone', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /mobile-report-controls-safezone-v2/);
+  assert.match(html, /#mapOverviewQuick\\{top:72px!important;right:8px!important;left:auto!important/);
+  assert.match(html, /#mapOverviewStatus\\{top:101px!important;right:8px!important;left:auto!important/);
+  assert.match(html, /#stick\\{left:clamp\\(24px,4vw,40px\\)!important/);
+});
+
+test('mobile START requests fullscreen inside the trusted start gesture and unlocks orientation', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  const start = engine.slice(engine.indexOf('function start()'), engine.indexOf('function start()', engine.indexOf('function start()') + 1) > 0 ? engine.indexOf('function start()', engine.indexOf('function start()') + 1) : engine.length);
+  assert.match(start, /document\\.documentElement\\.requestFullscreen\\(\\{navigationUI:'hide'\\}\\)/);
+  assert.match(start, /screen\\.orientation\\?\\.unlock\\?\\.\\(\\)/);
+  assert.match(engine, /orientationchange/);
+  assert.match(engine, /fullscreenchange/);
+});
