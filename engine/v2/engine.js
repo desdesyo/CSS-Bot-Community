@@ -1385,6 +1385,8 @@ async function boot() {
     enemyMaterial=mat('enemy uniform','#596c64',.88);allyMaterial=mat('friendly uniform','#526a83',.88);
     $('loadState').textContent='Загрузка и проверка текстур карты…';
     const mapBuildStats=await buildWetGroundMap(B,scene,mobile,shadowGen);window.__SOLO_MAP_STATS__=mapBuildStats;
+    // Bound per-material light uniforms. The 22 local lights exceeded WebGL's 14 vertex uniform-buffer limit in CI and on lower-end GPUs.
+    for(const material of scene.materials)if(material)material.maxSimultaneousLights=6;
     await environmentReady;
     // GlowLayer performs an additional full-screen render/blur pass. The Redmi-class
     // mobile GPU is already fill/draw-call bound, so preserve emissive materials but
@@ -1401,6 +1403,8 @@ async function boot() {
       $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
       humanBotAssets=await loadHumanBotAssets(B,scene);
       buildBots();
+      // GLB materials are created after the map; apply the same safe light budget before the first frame.
+      for(const material of scene.materials)if(material)material.maxSimultaneousLights=6;
     }else{
       // Keep all six soldier GLBs, three animation clips and the original AI source in the repository.
       // Skip downloading/decoding them during map work to avoid wasting mobile RAM, VRAM and startup time.
@@ -1425,14 +1429,21 @@ async function boot() {
       start:()=>{if(!state.started)start();return {started:state.started,bots:state.bots.length};},
       setOverview:()=>{
         for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
-        camera.parent=null;camera.position.set(0,104,-.01);camera.setTarget(new BABYLON.Vector3(0,0,0));camera.rotation.set(0,0,0);
+        weaponRoot?.setEnabled(true);
+        camera.parent=null;camera.position.set(0,104,-.01);camera.upVector.set(0,0,1);camera.setTarget(new BABYLON.Vector3(0,0,0));camera.rotation.set(0,0,0);
         return {mode:'overview',bots:state.bots.length};
+      },
+      captureOverview:async()=>{
+        const shot=await captureMapOverviewScreenshot();
+        return {base64:shot.base64,bounds:shot.bounds,width:1280,height:960,mode:'orthographic-map-overview'};
       },
       setBotView:(id)=>{
         const bot=state.bots.find(b=>b.id===Number(id)&&b.alive);
         if(!bot)throw new Error('Live bot not found: '+id);
         for(const b of state.bots){for(const m of b.root.getChildMeshes?.()||[])m.isVisible=true;}
         for(const m of bot.root.getChildMeshes?.()||[])m.isVisible=false;
+        // The player's camera-mounted weapon is not part of a bot's POV; remove it from the capture.
+        weaponRoot?.setEnabled(false);
         camera.parent=bot.root;camera.position.set(0,1.58,0);camera.rotation.set(0,0,0);
         camera.minZ=.06;camera.fov=1.04;
         return {mode:'bot-first-person',botId:bot.id,team:bot.team,x:bot.root.position.x,y:bot.root.position.y,z:bot.root.position.z};
