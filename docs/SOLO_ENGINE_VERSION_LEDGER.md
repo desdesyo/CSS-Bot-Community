@@ -288,3 +288,9 @@
 - Pages publish: [run 46161865525](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46161865525) — build and deploy both succeeded from merged main SHA `21d38ce317acf0e59fd64f8002f0d877ad2c6bf5`.
 - Published test build: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-hud1
 - Player-device validation (layout, controls, actual FPS, map texture appearance) remains pending. No real-world device test is claimed.
+### Final HUD layout polish — 2026-11-28
+- Follow-up spacing fix moves map-overview controls below the action row; the eye toggle now also hides the quality overlay and the diagnostics/recording menu pane.
+- Final main source SHA: `8f1545dfac9cb95dd5eb9217ddc632073cf46ddc`.
+- Final source checks: [46162050277](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46162050277) — success; engine unit tests and map-report pipeline tests passed.
+- Final Pages publish: [46162050285](https://github.com/desdesyo/CSS-Bot-Community/actions/runs/46162050285) — build and deploy succeeded.
+- Final test URL: https://desdesyo.github.io/CSS-Bot-Community/engine/v2/index.html?v=20261128-hud2
