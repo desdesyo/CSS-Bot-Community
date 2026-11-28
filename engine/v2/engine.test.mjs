@@ -694,7 +694,7 @@ test('map overview button captures a top-down orthographic scene and uploads a p
   assert.match(engine, /2026-11-28-mapoverview11/);
   assert.match(engine, /mapOverviewQuick.*submitMapOverviewReport/);
   assert.match(engine, /function captureMapOverviewScreenshot\(\)/);
-  assert.match(engine, /function captureMapAreaContactSheet\(overviewCapture,points,onProgress=\(\)=>\{\}\)/);
+  assert.match(engine, /function captureMapAreaContactSheet\(points,onProgress=\(\)=>\{\},overviewBase64\)/);
   assert.match(engine, /ctx\.drawImage\(image,sourceLeft,sourceTop/);
   assert.match(engine, /captureSource:'independent-world-crop-from-shared-topdown-render'/);
   assert.doesNotMatch(engine, /CreateScreenshotUsingRenderTargetAsync\(engine,localCamera/);
@@ -826,9 +826,9 @@ test('wet asphalt carriageways and cobblestone pedestrian sidewalks use distinct
 
 test('cobblestone floor UVs preserve world-scale stone proportions and avoid stretched plank-like roads', async () => {
   const map = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
-  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:material===asphalt\?4\.2:0/);
+  assert.match(map, /const tileSize=material===cobble\?2\.4:material===stone\?3\.2:0/);
   assert.match(map, /uv\[i\]\*=w\/tileSize;uv\[i\+1\]\*=d\/tileSize/);
-  assert.match(map, /loadScannedPbr\(cobble,'cobblestone_pavement',1/);
+  assert.match(map, /cobblestone_pavement channels independently/);
   assert.match(map, /cobbleTex\.uScale=1;cobbleTex\.vScale=1/);
 });
 
@@ -909,7 +909,7 @@ test('mobile landscape report controls never occupy the movement-stick safe zone
   assert.ok(html.includes('mobile-report-controls-safezone-v2'));
   assert.ok(html.includes('#mapOverviewQuick{top:72px!important;right:8px!important;left:auto!important;bottom:auto!important'));
   assert.ok(html.includes('#mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important'));
-  assert.ok(html.includes('#stick{left:clamp(24px,4vw,40px)!important'));
+  assert.ok(html.includes('#stick{left:22px!important;bottom:max(22px,env(safe-area-inset-bottom))!important'));
 });
 test('mobile START requests fullscreen and attempts landscape orientation', async () => {
   const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
@@ -1118,7 +1118,7 @@ test('road and sidewalk surfaces are partitioned without overlapping texture lay
  assert.match(map,/partitionSurfaceRects/);
  assert.match(map,/Wet Ground unified asphalt road network/);
  assert.match(map,/Wet Ground unified cobblestone sidewalk network/);
- assert.match(map,/sidewalkRects,asphaltRects/);
+ assert.match(map,/buildSurfaceMesh\('Wet Ground unified cobblestone sidewalk network',sidewalkRects,cobble,asphaltRects/);
  assert.match(map,/surfaceAudit:\{horizontalSurfaceCount/);
 });
 
