@@ -14,6 +14,12 @@ const CLIPS = {
   run: "m_run_neutral_01.glb"
 };
 
+// LoadAssetContainerAsync returns an AssetContainer; AnimationGroup objects are inside animationGroups.
+export function extractAnimationGroup(container) {
+  const groups = Array.isArray(container?.animationGroups) ? container.animationGroups : [];
+  return groups.find(group => typeof group?.clone === "function") || null;
+}
+
 export async function loadHumanBotAssets(B, scene) {
   if (!B.SceneLoader || !B.SceneLoader.LoadAssetContainerAsync) {
     throw new Error("Критическая ошибка: Babylon glTF loader недоступен. Реальные 3D-модели бойцов не могут быть загружены.");
@@ -74,8 +80,12 @@ export async function loadHumanBotAssets(B, scene) {
   const clipEntries = Object.entries(CLIPS);
   const clipResults = await loadBatch(clipEntries, 2).then(results => results.map((result, index) => result.status === "fulfilled" ? { status: "fulfilled", value: [clipEntries[index][0], result.value] } : result));
   for (const result of clipResults) {
-    if (result.status === "fulfilled") animations[result.value[0]] = result.value[1];
-    else console.warn("Optional soldier animation unavailable:", result.reason);
+    if (result.status === "fulfilled") {
+      const [name, container] = result.value;
+      const group = extractAnimationGroup(container);
+      if (group) animations[name] = group;
+      else console.warn("Optional soldier animation container has no cloneable AnimationGroup:", name, container);
+    } else console.warn("Optional soldier animation unavailable:", result.reason);
   }
   if (models.length !== MODEL_FILES.length) {
     throw new Error("Загружен неполный комплект 3D-моделей бойцов.");
@@ -158,7 +168,11 @@ export function createHumanBot(B, scene, shadowGen, root, team, id, assets, isMo
   }
 
   const animationGroups = {};
-  for (const [name,sourceGroup] of Object.entries(assets.animations)) {
+  for (const [name,sourceGroup] of Object.entries(assets.animations || {})) {
+    if (typeof sourceGroup?.clone !== "function") {
+      console.warn("Skipping invalid soldier AnimationGroup:", name, sourceGroup);
+      continue;
+    }
     let mappedTargets = 0;
     const group = sourceGroup.clone(
       "soldier-" + id + "-" + name,

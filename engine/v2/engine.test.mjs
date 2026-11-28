@@ -616,3 +616,27 @@ test('HTML loads the GLB-loader-fix engine module without stale mobile cache', a
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.ok(html.includes('./engine.js?v=20261128-assetsfix1'));
 });
+
+
+test('Babylon AssetContainer is unwrapped to an AnimationGroup before cloning', async () => {
+  const { extractAnimationGroup } = await import('./human-bots.mjs');
+  const animationGroup = { clone() {} };
+  assert.equal(extractAnimationGroup({ animationGroups: [animationGroup] }), animationGroup);
+  assert.equal(extractAnimationGroup({ animationGroups: [] }), null);
+  assert.equal(extractAnimationGroup(null), null);
+  assert.equal(extractAnimationGroup({ clone() {} }), null);
+});
+
+test('soldier animation cloning rejects AssetContainers and malformed values safely', async () => {
+  const bots = await readFile(new URL('./human-bots.mjs', import.meta.url), 'utf8');
+  assert.ok(bots.includes('const group = extractAnimationGroup(container)'));
+  assert.ok(bots.includes('typeof sourceGroup?.clone !== "function"'));
+  assert.ok(bots.includes('Object.entries(assets.animations || {})'));
+});
+
+test('soldier animation fix invalidates both HTML and engine module caches', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.ok(html.includes('./engine.js?v=20261128-assetsfix2'));
+  assert.ok(engine.includes('./human-bots.mjs?v=20261128-assetsfix2'));
+});
