@@ -491,6 +491,15 @@ test('spatial collision index returns only nearby blockers without duplicates', 
 });
 
 
+test('initial street batching preserves parented and world-space sensitive meshes', async () => {
+  const source = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
+  const firstPass = source.slice(source.indexOf('const authored=scene.meshes.slice(mapStart)'), source.indexOf('const lateStaticStart=scene.meshes.length'));
+  assert.match(firstPass, /m\.parent\|\|m\.skeleton\|\|m\.hasThinInstances\|\|m\.hasInstances/);
+  assert.match(firstPass, /m\.material\.reflectionTexture/);
+  assert.match(firstPass, /m\.computeWorldMatrix\(true\)/);
+  assert.match(firstPass, /m\.material\.transparencyMode===B\.Material\.MATERIAL_ALPHABLEND/);
+});
+
 test('mobile scene batches late-authored static map details without dropping dynamic effects', async () => {
   const source = await readFile(new URL('./wet-ground-map.mjs', import.meta.url), 'utf8');
   assert.match(source, /lateStaticStart/);
