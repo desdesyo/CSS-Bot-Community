@@ -610,7 +610,8 @@ test('diagnostic and issue-report controls remain available even when scene boot
   assert.match(engine, /startup:\{engineReady:!!engine,sceneReady:!!scene,cameraReady:!!camera/);
 });
 
-\ntest('renderer retries a failed frame with a reduced-cost safe pipeline', async () => {
+
+test('renderer retries a failed frame with a reduced-cost safe pipeline', async () => {
   const source = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
   assert.match(source, /function activateSafeRenderFallback\(error\)/);
   assert.match(source, /scene\.postProcessesEnabled=false/);
