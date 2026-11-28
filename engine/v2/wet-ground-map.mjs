@@ -371,8 +371,8 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen, options={})
   }
   normalTex.update(false);normalTex.wrapU=normalTex.wrapV=B.Texture.WRAP_ADDRESSMODE;normalTex.uScale=1;normalTex.vScale=1;normalTex.gammaSpace=false;
   normalTex.anisotropicFilteringLevel=mobile?8:16;cobble.bumpTexture=normalTex;cobble.bumpTexture.level=mobile?.22:.42;cobble.useParallax=false;
-  // Keep cobblestone albedo, roughness and normal as one coherent procedural set.
-  // Independent scanned-map requests could replace only one channel and misalign the relief.
+  // Keep cobblestone_pavement albedo, roughness and normal as one coherent procedural set.
+  // Do not load cobblestone_pavement channels independently: a partial download could misalign the relief.
 
   if(cobble.metallic!==undefined)cobble.metallic=.08;
 
