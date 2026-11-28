@@ -27,7 +27,7 @@ test('issue report prioritizes nearby collision geometry and captures AI/gamepad
   assert.match(engine, /navigator\.getGamepads/);
   assert.match(engine, /fieldAtlas:fieldCoverageStats\(\)/);
   assert.match(engine, /engineCaps:\{maxTextureSize/);
-  assert.match(engine, /textures:\(\(\)=>\{/);
+  assert.match(engine, /textures:collectRuntimeTextureAudit\(\)/);
 });
 
 
