@@ -697,3 +697,12 @@ test('renderer repairs invalid sub-materials inside Babylon multi-materials', ()
   assert.equal(multi.subMaterials[1],valid);
   assert.equal(typeof multi.subMaterials[0].needAlphaBlendingForMesh,'function');
 });
+
+
+test('gameplay log upload captures and attaches a screenshot alongside the JSON report', async () => {
+  const engine = await readFile(new URL('./engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /const screenshot=scene&&camera\?await captureIssueScreenshot\(\):null/);
+  assert.match(engine, /payload\.screenshot=\{captured:!!screenshot,format:'image\/png',path:screenshot\?imagePath:null/);
+  assert.match(engine, /if\(screenshot\)await uploadIssueFile\(imagePath,screenshot/);
+  assert.match(engine, /game-screenshot\.png/);
+});
