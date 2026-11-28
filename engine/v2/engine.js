@@ -1293,9 +1293,9 @@ async function submitMapOverviewReport(){
   await paintMapOverviewStatus(btn,'МАНИФЕСТ…','Этап 6/6: публикую JSON-манифест последним — подтверждение полноты отчёта…');
   const jsonResult=await uploadIssueFile(jsonPath,encodeGameplayLog(JSON.stringify(report)),'Add complete map and independent map-area visual audit '+id,token);uploaded.push(jsonPath);
   if(gameLogRecording)gameLogEvent('map-overview-report',{id,jsonPath,overviewPath:capture.base64?overviewPath:null,atlasPath,mapAreaSnapshots:30,botCameraSnapshots:botCameraViews.length,meshCount:visualAudit.scene.meshCount,materialCount:visualAudit.scene.materialCount,complete:true});
-  const commit=jsonResult.commit?.sha||'ok';if(btn){btn.textContent='✓ 30 ЗОН ОТПРАВЛЕНО';btn.title='30 зон, атлас и манифест подтверждены в GitHub';}
-  setMapOverviewStatus((capture.base64?'Готово: 3 файла загружены. ':'Готово: 2 файла; общий снимок пропущен. ')+'30/30 зон. Commit '+String(commit).slice(0,10)+'.','success');
-  alert('Визуальный отчёт отправлен в GitHub.\n30/30 зон\n'+jsonPath+'\n'+atlasPath+'\n'+(capture.base64?overviewPath:'Общий снимок пропущен: '+capture.error)+'\nCommit: '+commit);
+  const commit=jsonResult.commit?.sha||'ok';if(btn){btn.textContent='✓ ОТЧЁТ ОТПРАВЛЕН';btn.title='30 зон, общий вид, POV ботов (если боты живы) и манифест загружены в GitHub';}
+  setMapOverviewStatus((capture.base64?'Общий вид загружен. ':'Общий вид пропущен. ')+'30/30 зон; POV ботов: '+botCameraViews.length+'. Commit '+String(commit).slice(0,10)+'.','success');
+  alert('Визуальный отчёт отправлен в GitHub.\n30/30 зон\nPOV ботов: '+botCameraViews.length+'\n'+jsonPath+'\n'+atlasPath+'\n'+(capture.base64?overviewPath:'Общий снимок пропущен: '+capture.error)+'\nCommit: '+commit);
   await restoreFullscreenLandscapeAfterReport();
  }catch(error){console.error('Map overview report failed',error);if(btn){btn.textContent='↻ ПОВТОРИТЬ ОБЗОР';btn.title='Ошибка: '+error.message;}setMapOverviewStatus('НЕ ЗАВЕРШЕНО: '+String(error?.message||error).slice(0,160)+(uploaded.length?' Уже загружено: '+uploaded.length+' файл(а).':''),'error');alert('Отчёт карты не завершён: '+error.message+(uploaded.length?'\nУже загружено: '+uploaded.join('\n'):''));}
  finally{issueReportBusy=false;if(btn){btn.disabled=false;btn.setAttribute('aria-busy','false');}if(issueBtn){issueBtn.disabled=false;issueBtn.title='Отметить баг';}}
