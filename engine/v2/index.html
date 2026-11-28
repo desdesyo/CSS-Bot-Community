@@ -81,6 +81,21 @@
  #actions button{padding:5px 7px;font-size:8px;letter-spacing:0}
 }
 </style>
+
+<style id="mobile-report-controls-safezone-v2">
+@media (pointer:coarse) and (orientation:landscape) and (max-height:560px){
+ /* The overview controls used to sit directly over the left movement stick. */
+ #mapOverviewQuick{top:72px!important;right:8px!important;left:auto!important;bottom:auto!important;padding:5px 7px!important;font-size:8px!important;line-height:1!important;z-index:19!important}
+ #mapOverviewStatus{top:101px!important;right:8px!important;left:auto!important;bottom:auto!important;width:min(210px,42vw)!important;max-width:min(210px,42vw)!important;padding:4px 6px!important;font-size:7px!important;line-height:1.2!important;text-align:right!important;z-index:19!important}
+ #stick{left:clamp(24px,4vw,40px)!important;bottom:max(18px,env(safe-area-inset-bottom))!important}
+ #actions{top:38px!important;right:8px!important;left:auto!important;gap:3px!important}
+ #actions button{padding:3px 5px!important;font-size:7px!important;min-height:21px!important;line-height:1!important}
+}
+@media (pointer:coarse) and (orientation:portrait){
+ #mapOverviewQuick{top:108px!important;left:8px!important;right:auto!important;bottom:auto!important}
+ #mapOverviewStatus{top:143px!important;left:8px!important;right:auto!important;bottom:auto!important}
+}
+</style>
 </head>
 <body>
 <canvas id="renderCanvas" touch-action="none"></canvas>
