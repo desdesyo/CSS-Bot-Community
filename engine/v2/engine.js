@@ -811,18 +811,39 @@ function updatePlayer(dt) {
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
+let landscapeLockPromise=null;
+function requestGameFullscreen(){
+  const target=document.documentElement;
+  const request=target.requestFullscreen||canvas.requestFullscreen||document.body.requestFullscreen;
+  if(typeof request!=='function')return Promise.reject(new Error('Полноэкранный режим не поддерживается этим браузером'));
+  return request.call(target.requestFullscreen?target:canvas.requestFullscreen?canvas:document.body,{navigationUI:'hide'});
+}
+async function lockGameLandscape(reason='user-action'){
+  if(!mobile||!document.fullscreenElement||!screen.orientation?.lock)return false;
+  if(landscapeLockPromise)return landscapeLockPromise;
+  landscapeLockPromise=screen.orientation.lock('landscape').then(()=>{
+    gameLogEvent('orientation-locked',{reason,orientation:screen.orientation.type||'landscape'});
+    return true;
+  }).catch(error=>{
+    gameLogEvent('orientation-lock-blocked',{reason,name:error?.name||'Error',message:String(error?.message||error).slice(0,160)});
+    return false;
+  }).finally(()=>{landscapeLockPromise=null;});
+  return landscapeLockPromise;
+}
 async function toggleFullscreen(){
   try{
+    const portrait=matchMedia('(orientation:portrait)').matches||String(screen.orientation?.type||'').startsWith('portrait');
     if(!document.fullscreenElement){
-      const request=document.documentElement.requestFullscreen?.({navigationUI:'hide'});
-      if(request)await request;
+      await requestGameFullscreen();
+      await lockGameLandscape('fullscreen-button');
+    }else if(mobile&&portrait){
+      // A portrait transition can silently release the orientation lock on mobile browsers.
+      // The fullscreen button should recover landscape, not accidentally exit fullscreen.
+      await lockGameLandscape('fullscreen-recovery-button');
     }else if(document.exitFullscreen){
       await document.exitFullscreen();
+      try{screen.orientation?.unlock?.();}catch(error){}
     }
-    if(document.fullscreenElement&&screen.orientation?.lock){
-      try{await screen.orientation.lock('landscape');gameLogEvent('orientation-locked',{orientation:screen.orientation.type||'landscape'});}
-      catch(error){gameLogEvent('orientation-lock-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
-    }else{try{screen.orientation?.unlock?.();}catch(error){}}
     if(engine){engine.resize();applyRenderScale();}
     const button=$('fullScreen');
     if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
@@ -836,6 +857,10 @@ function refreshViewportAfterRotation(){
   engine.resize();
   applyRenderScale();
   gameLogEvent('screen-orientation-changed',{orientation:screen.orientation?.type||null,width:canvas.clientWidth,height:canvas.clientHeight});
+}
+function handleGameOrientationChange(){
+  if(mobile&&document.fullscreenElement)void lockGameLandscape('orientation-change');
+  requestAnimationFrame(refreshViewportAfterRotation);
 }
 function endRound(won,reason='ROUND COMPLETE'){
   if(state.roundEnding)return;
@@ -853,9 +878,9 @@ function endRound(won,reason='ROUND COMPLETE'){
 function start() {
   // A real tap on START is the only reliable browser permission for fullscreen.
   // Request it synchronously inside this gesture; never try to force it on page load.
-  if(mobile&&!document.fullscreenElement&&document.documentElement.requestFullscreen){
-    try{const fullscreenRequest=document.documentElement.requestFullscreen({navigationUI:'hide'});fullscreenRequest?.then(async()=>{if(screen.orientation?.lock){try{await screen.orientation.lock('landscape');gameLogEvent('orientation-locked',{orientation:screen.orientation.type||'landscape'});}catch(error){gameLogEvent('orientation-lock-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}}refreshViewportAfterRotation();gameLogEvent('fullscreen-auto-start',{active:true,orientation:screen.orientation?.type||null});}).catch(error=>gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)}));}
-    catch(error){gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,140)});}
+  if(mobile&&!document.fullscreenElement){
+    try{requestGameFullscreen().then(async()=>{await lockGameLandscape('game-start');refreshViewportAfterRotation();gameLogEvent('fullscreen-auto-start',{active:true,orientation:screen.orientation?.type||null});}).catch(error=>gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,180)}));}
+    catch(error){gameLogEvent('fullscreen-auto-start-blocked',{name:error?.name||'Error',message:String(error?.message||error).slice(0,180)});}
   }
   const resuming=state.paused&&!state.playerDead;
   state.roundEnding=false;$('roundEnd').hidden=true;
@@ -1176,40 +1201,46 @@ function chooseMapSnapshotPoints(){
  }
  return selected.map((p,index)=>({...p,index:index+1}));
 }
-async function captureBotAreaContactSheet(points,onProgress=()=>{}){
+async function captureBotAreaContactSheet(overviewCapture,points,onProgress=()=>{}){
+ // Reuse the already-rendered top-down map. Thirty extra WebGL render-target
+ // captures caused mobile browsers to stall on the first tile (20 s timeout).
+ // Each tile is an independent crop in world coordinates, with no camera swaps
+ // and no additional GPU render pass.
  const tileWidth=320,tileHeight=240,columns=5,rows=6;
  const sheet=document.createElement('canvas');sheet.width=tileWidth*columns;sheet.height=tileHeight*rows;
  const ctx=sheet.getContext('2d');if(!ctx)throw new Error('Не удалось создать холст контактного листа');
- const tiles=[];
+ const image=await new Promise((resolve,reject)=>{
+  const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать общий снимок карты для зон'));
+  img.src='data:image/png;base64,'+overviewCapture.base64;
+ });
+ const bounds=overviewCapture.bounds;
+ const sourceWidth=image.naturalWidth||image.width,sourceHeight=image.naturalHeight||image.height;
+ if(!bounds||!Number.isFinite(bounds.centerX)||!Number.isFinite(bounds.centerZ)||!Number.isFinite(bounds.viewWidth)||!Number.isFinite(bounds.viewHeight)||!sourceWidth||!sourceHeight)throw new Error('Недостаточно данных общего снимка для нарезки зон');
+ const pxPerX=sourceWidth/bounds.viewWidth,pxPerZ=sourceHeight/bounds.viewHeight;
+ const spanX=30,spanZ=22.5,tiles=[];
  for(let i=0;i<points.length;i++){
-  const point=points[i];let localCamera=null;
-  try{
-   const altitude=42,spanX=30,spanY=22.5;
-   localCamera=new BABYLON.FreeCamera('bot-area-capture-'+i,new BABYLON.Vector3(point.x,altitude,point.z),scene);
-   localCamera.upVector=new BABYLON.Vector3(0,0,1);
-   localCamera.setTarget(new BABYLON.Vector3(point.x,0,point.z));
-   localCamera.mode=BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-   localCamera.orthoLeft=-spanX/2;localCamera.orthoRight=spanX/2;
-   localCamera.orthoTop=spanY/2;localCamera.orthoBottom=-spanY/2;
-   localCamera.minZ=.1;localCamera.maxZ=160;localCamera.layerMask=0x0fffffff;
-   // The render-target API uses localCamera directly; keep the gameplay camera active.
-   localCamera.computeWorldMatrix(true);
-   const url=await renderWithoutSkyAtmosphere(()=>BABYLON.Tools.CreateScreenshotUsingRenderTargetAsync(engine,localCamera,{width:tileWidth,height:tileHeight},'image/png'));
-   const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Не удалось декодировать снимок зоны '+(i+1)));img.src=url;});
-   const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
-   ctx.drawImage(image,x,y,tileWidth,tileHeight);
-   ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
-   ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
-   tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight}});
-   onProgress(i+1,points.length);
-   if(i%2===1)await new Promise(resolve=>requestAnimationFrame(resolve));
-  }finally{
-   try{localCamera?.dispose()}catch{}
+  const point=points[i],worldLeft=point.x-spanX/2,worldTop=point.z+spanZ/2;
+  const sx=(worldLeft-(bounds.centerX-bounds.viewWidth/2))*pxPerX;
+  const sy=((bounds.centerZ+bounds.viewHeight/2)-worldTop)*pxPerZ;
+  const sw=spanX*pxPerX,sh=spanZ*pxPerZ;
+  const sourceLeft=Math.max(0,sx),sourceTop=Math.max(0,sy);
+  const sourceRight=Math.min(sourceWidth,sx+sw),sourceBottom=Math.min(sourceHeight,sy+sh);
+  const x=(i%columns)*tileWidth,y=Math.floor(i/columns)*tileHeight;
+  ctx.fillStyle='#14212a';ctx.fillRect(x,y,tileWidth,tileHeight);
+  if(sourceRight>sourceLeft&&sourceBottom>sourceTop){
+   const dx=x+(sourceLeft-sx)/sw*tileWidth,dy=y+(sourceTop-sy)/sh*tileHeight;
+   const dw=(sourceRight-sourceLeft)/sw*tileWidth,dh=(sourceBottom-sourceTop)/sh*tileHeight;
+   ctx.drawImage(image,sourceLeft,sourceTop,sourceRight-sourceLeft,sourceBottom-sourceTop,dx,dy,dw,dh);
   }
+  ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x+5,y+5,104,22);
+  ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('#'+String(i+1).padStart(2,'0')+'  '+point.team+' / B'+point.botId,x+10,y+21);
+  tiles.push({index:i+1,botId:point.botId,team:point.team,world:{x:+point.x.toFixed(2),z:+point.z.toFixed(2)},source:point.source,observedAt:Number.isFinite(point.t)&&point.t>1e12?new Date(point.t).toISOString():null,tile:{x,y,width:tileWidth,height:tileHeight},worldBounds:{minX:+(point.x-spanX/2).toFixed(2),maxX:+(point.x+spanX/2).toFixed(2),minZ:+(point.z-spanZ/2).toFixed(2),maxZ:+(point.z+spanZ/2).toFixed(2)},captureSource:'independent-world-crop-from-shared-topdown-render'});
+  onProgress(i+1,points.length);
+  if(i%5===4)await new Promise(resolve=>requestAnimationFrame(resolve));
  }
  const data=sheet.toDataURL('image/png');
  if(!data.startsWith('data:image/png;base64,')||data.length<10000)throw new Error('Контактный лист снимков пуст');
- return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles};
+ return {base64:data.split(',')[1],width:sheet.width,height:sheet.height,columns,rows,tileWidth,tileHeight,tiles,captureMethod:'30 independent world-coordinate crops from one top-down render'};
 }
 function setMapOverviewStatus(message,state='info'){
  const status=$('mapOverviewStatus');
@@ -1239,7 +1270,7 @@ async function submitMapOverviewReport(){
   const capture=await captureMapOverviewScreenshot();
   await paintMapOverviewStatus(btn,'ВЫБОР ЗОН…','Распределяю 30 точек по маршрутам и позициям ботов…');
   const points=chooseMapSnapshotPoints();
-  const contactSheet=await captureBotAreaContactSheet(points,(done,total)=>{
+  const contactSheet=await captureBotAreaContactSheet(capture,points,(done,total)=>{
    btn.textContent='СНИМКИ '+done+'/'+total+'…';
    setMapOverviewStatus('Снимаю зоны ботов: '+done+' из '+total+'. Не закрывай игру.','working');
   });
@@ -1248,7 +1279,7 @@ async function submitMapOverviewReport(){
   const overviewPath='logs/30/'+stamp+'-'+id+'.png';
   const atlasPath='logs/30/'+stamp+'-'+id+'-bot-areas.png';
   const jsonPath='logs/30/'+stamp+'-'+id+'.json';
-  const report={app:'SOLO: Wet Ground',build:'2026-11-28-gamepad-input1',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-randomized-top-down-local-snapshots',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
+  const report={app:'SOLO: Wet Ground',build:'2026-11-28-capturefix1',format:3,type:'map-overview-visual-audit',id,createdAt:new Date().toISOString(),purpose:'Review full-map composition and a 30-tile atlas of bot-traversed locations for accurate local environment generation.',capture:{kind:'top-down-orthographic-render-target',width:1280,height:960,worldBounds:capture.bounds,includesHud:false},botAreaAtlas:{kind:'30-independent-world-coordinate-crops-from-top-down-overview',width:contactSheet.width,height:contactSheet.height,columns:contactSheet.columns,rows:contactSheet.rows,tileWidth:contactSheet.tileWidth,tileHeight:contactSheet.tileHeight,selection:'time-stratified samples from real observed bot movement and current bot positions; each tile is an independent crop centered on its world coordinate; authored patrol routes excluded',sampleHistoryCount:mapWalkSamples.length,tiles:contactSheet.tiles,imagePath:atlasPath},game:{started:state.started,paused:state.paused??false,round:state.roundNumber,team:state.playerTeam,fps:state.fps,scale:state.scale},visualAudit,render:{engineWidth:engine.getRenderWidth(),engineHeight:engine.getRenderHeight(),hardwareScaling:engine.getHardwareScalingLevel(),devicePixelRatio},screenshot:{captured:true,format:'image/png',path:overviewPath}};
   await paintMapOverviewStatus(btn,'ОТПРАВКА 1/3…','Загружаю общий снимок карты в GitHub…');
   await uploadIssueFile(overviewPath,capture.base64,'Add full map overview screenshot '+id,token);
   await paintMapOverviewStatus(btn,'ОТПРАВКА 2/3…','Загружаю контактный лист 30 зон ботов…');
@@ -1396,11 +1427,12 @@ async function boot() {
     }
     buildPlayerWeapon();initInput();drawMinimap();
     window.addEventListener('resize',refreshViewportAfterRotation,{passive:true});
-    window.addEventListener('orientationchange',()=>requestAnimationFrame(refreshViewportAfterRotation),{passive:true});
-    screen.orientation?.addEventListener?.('change',refreshViewportAfterRotation);
+    window.addEventListener('orientationchange',handleGameOrientationChange,{passive:true});
+    screen.orientation?.addEventListener?.('change',handleGameOrientationChange);
     document.addEventListener('fullscreenchange',()=>{
       const button=$('fullScreen');
       if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
+      if(mobile&&document.fullscreenElement)void lockGameLandscape('fullscreen-change');
       requestAnimationFrame(refreshViewportAfterRotation);
     });
     const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='РЕЖИМ РАБОТЫ НАД КАРТОЙ · БОТЫ ВРЕМЕННО ОТКЛЮЧЕНЫ';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
