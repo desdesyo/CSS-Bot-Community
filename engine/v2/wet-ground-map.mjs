@@ -1398,6 +1398,13 @@ export function buildWetGroundMap(B, scene, mobile, shadowGen) {
   for(const m of authored){
     if(m.checkCollisions){colliders.push(m);continue;}
     if(!m.material||m.getTotalVertices?.()===0)continue;
+    // Keep transformed/animated/transparent/reflection meshes intact. Merging
+    // parent-local geometry as if it were world-space can collapse the whole
+    // street into incorrect coordinates and leave only the HUD visible.
+    if(m.parent||m.skeleton||m.hasThinInstances||m.hasInstances||m.morphTargetManager||
+       m.material.alpha<.999||m.material.reflectionTexture||
+       m.material.transparencyMode===B.Material.MATERIAL_ALPHABLEND)continue;
+    m.computeWorldMatrix(true);
     const key=m.material.uniqueId;
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(m);
