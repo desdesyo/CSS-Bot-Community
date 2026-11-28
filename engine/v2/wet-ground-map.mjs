@@ -67,9 +67,10 @@ export async function buildWetGroundMap(B, scene, mobile, shadowGen) {
   const glassGlintMat=mat('rain-slick reflected sky on glazing','#7894a3',.09,.24);
   glassGlintMat.alpha=.28;glassGlintMat.transparencyMode=B.Material.MATERIAL_ALPHABLEND;
   // Window and door surfaces must remain visible from both sides of the facade.
-  glass.backFaceCulling=false;glassGlintMat.backFaceCulling=false;doorWood.backFaceCulling=false;curtain.backFaceCulling=false;
+  glass.backFaceCulling=false;glassGlintMat.backFaceCulling=false;curtain.backFaceCulling=false;
   const roof=mat('slate roofs','#202b39',.92);
   const doorWood=mat('weathered dark timber doors','#292722',.9);
+  doorWood.backFaceCulling=false;
   const tunnelCeiling=mat('rain-dark tunnel concrete ceiling','#26323b',.94);
   const amber=mat('warm lamp glass','#ffd49a',.25);
 
