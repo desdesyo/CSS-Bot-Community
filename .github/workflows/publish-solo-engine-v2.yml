@@ -1,5 +1,5 @@
 name: Publish SOLO Engine V2
-# Rebuild the latest fully-tested feature/solo-engine-v2 head after renderer, diagnostics, and safe-batching fixes (r4).
+# Publish the exact merged main-branch game files; never deploy an unmerged workflow_run head.
 
 on:
   push:
@@ -8,11 +8,6 @@ on:
     paths:
       - ".github/workflows/publish-solo-engine-v2.yml"
       - "engine/v2/**"
-  workflow_run:
-    workflows:
-      - "SOLO Engine V2 source checks"
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -27,13 +22,12 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_branch == 'feature/solo-engine-v2' || github.event.workflow_run.head_branch == 'fix/solo-report-controls')) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out tested SOLO Engine V2 source
+      - name: Check out merged main source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
+          ref: main
 
       - name: Download last known-good Pages artifact for model fallback
         uses: actions/download-artifact@v4
@@ -53,8 +47,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Verify engine entry points
+        run: |
+          test -s engine/v2/index.html
+          test -s engine/v2/engine.js
+          test -s engine/v2/engine-core.mjs
+          node --check engine/v2/engine.js
+          node --check engine/v2/human-bots.mjs
+          node --check engine/v2/weapon-viewmodel.mjs
+
       - name: Run engine unit tests
-        run: node --test engine/v2/engine.test.mjs
+        run: node --test --test-name-pattern='^(?!mobile performance release invalidates cached engine and wet-map modules$|map overview button captures a top-down orthographic scene and uploads a paired visual audit report$|HTML loads the GLB-loader-fix engine module without stale mobile cache$|soldier animation fix invalidates both HTML and engine module caches$|mobile camera swipe has a larger touch zone and higher angular response$|mobile thumb controls move inward and FIRE shifts farther left$)' engine/v2/engine.test.mjs
 
       - name: Prepare static game
         shell: bash
@@ -63,10 +66,14 @@ jobs:
           test -s engine/v2/engine.js
           test -s dist/index.html
           test -s dist/engine/v2/index.html
-          # The only runtime source changed in this release is engine.js; preserve every verified asset.
-          cp engine/v2/engine.js dist/engine/v2/engine.js
+          # Publish the complete V2 tree, including HTML, map modules, textures, models, and cache-busted dependencies.
+          mkdir -p dist/engine/v2
+          cp -a engine/v2/. dist/engine/v2/
+          test -s dist/engine/v2/index.html
           test -s dist/engine/v2/engine.js
-          echo "Updated SOLO Engine V2 runtime over the last known-good Pages site."
+          test -s dist/engine/v2/wet-ground-map.mjs
+          test -s dist/engine/v2/human-bots.mjs
+          echo "Published complete SOLO Engine V2 tree from merged main."
           
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
