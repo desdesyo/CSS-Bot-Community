@@ -767,9 +767,30 @@ function updatePlayer(dt) {
   camera.position.x=Math.max(-53,Math.min(53,camera.position.x));camera.position.z=Math.max(-42,Math.min(42,camera.position.z));
   if(state.playerHitbox)state.playerHitbox.position.copyFrom(camera.position).addInPlace(new BABYLON.Vector3(0,-.38,0));
 }
-function toggleFullscreen(){
-  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});
-  else document.exitFullscreen?.().catch(()=>{});
+async function toggleFullscreen(){
+  try{
+    if(!document.fullscreenElement){
+      const request=document.documentElement.requestFullscreen?.({navigationUI:'hide'});
+      if(request)await request;
+    }else if(document.exitFullscreen){
+      await document.exitFullscreen();
+    }
+    // Never lock the device to portrait or landscape: let Android auto-rotate
+    // while fullscreen is active, including when the game is installed as a PWA.
+    try{screen.orientation?.unlock?.();}catch(error){}
+    if(engine){engine.resize();applyRenderScale();}
+    const button=$('fullScreen');
+    if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
+    gameLogEvent('fullscreen-changed',{active:!!document.fullscreenElement,orientation:screen.orientation?.type||null});
+  }catch(error){
+    gameLogEvent('fullscreen-error',{name:error?.name||'Error',message:String(error?.message||error).slice(0,180)});
+  }
+}
+function refreshViewportAfterRotation(){
+  if(!engine)return;
+  engine.resize();
+  applyRenderScale();
+  gameLogEvent('screen-orientation-changed',{orientation:screen.orientation?.type||null,width:canvas.clientWidth,height:canvas.clientHeight});
 }
 function endRound(won,reason='ROUND COMPLETE'){
   if(state.roundEnding)return;
@@ -1271,7 +1292,14 @@ async function boot() {
     $('loadState').textContent='Загрузка настоящих 3D-бойцов и анимаций…';
     humanBotAssets=await loadHumanBotAssets(B,scene);
     buildBots();buildPlayerWeapon();initInput();drawMinimap();
-    window.addEventListener('resize',()=>engine.resize());
+    window.addEventListener('resize',refreshViewportAfterRotation,{passive:true});
+    window.addEventListener('orientationchange',()=>requestAnimationFrame(refreshViewportAfterRotation),{passive:true});
+    screen.orientation?.addEventListener?.('change',refreshViewportAfterRotation);
+    document.addEventListener('fullscreenchange',()=>{
+      const button=$('fullScreen');
+      if(button){const active=!!document.fullscreenElement;button.textContent=active?'⤢':'⛶';button.setAttribute('aria-label',active?'Выйти из полного экрана':'Полноэкранный режим');}
+      requestAnimationFrame(refreshViewportAfterRotation);
+    });
     const readyOverlay=$('overlay');if(readyOverlay){readyOverlay.dataset.engineState='ready';readyOverlay.classList.remove('is-loading','is-error');readyOverlay.style.display='flex';} $('start').disabled=false;$('loadState').textContent='Графическое ядро готово. Выбери сторону и запускай матч.';$('quality').textContent=mobile?'MOBILE PROFILE · TEXTURE QUALITY PRESERVED · PIXEL RATIO 1.25':'DESKTOP PROFILE · SHADOWS 2048';installMenuControls();
     $('selectCT').addEventListener('click',()=>setPlayerTeam('CT'));$('selectT').addEventListener('click',()=>setPlayerTeam('T'));$('start').addEventListener('click',start);$('startFullscreen').addEventListener('click',toggleFullscreen);
     let last=performance.now();
