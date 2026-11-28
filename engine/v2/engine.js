@@ -942,20 +942,24 @@ function downloadGameplayLog(){
 }
 function savedGameplayToken(){try{return localStorage.getItem('solo_github_log_token')||''}catch(e){return ''}}
 async function stopAndUploadGameplayLog(){
- if(gameLogUploading)return;
- gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();
- if(!gameLogRecords.length&&!gameLogEvents.length){$('logsQuick').textContent='● ЛОГИ';return}
- let token=savedGameplayToken();
- if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
- const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json';
- const payload=buildGameplayLogPayload();
- gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='ОТПРАВКА…';
- try{
-  const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO: Wet Ground gameplay diagnostics',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
-  const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
-  gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];await clearPersistedGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';updateLogStatus();alert('Логи успешно отправлены в GitHub: '+path);
- }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';updateLogStatus();console.error('Gameplay log upload failed',error);alert('Не удалось отправить логи: '+error.message+'\nЗапись сохранена в браузере.')}
- finally{gameLogUploading=false;btn.disabled=false}
+  if(gameLogUploading)return;
+  gameLogEvent('recording-stop',{records:gameLogRecords.length,events:gameLogEvents.length});gameLogRecording=false;persistFieldAtlas(true);void persistGameLog();
+  if(!gameLogRecords.length&&!gameLogEvents.length){$('logsQuick').textContent='● ЛОГИ';return}
+  let token=savedGameplayToken();
+  if(!token){token=prompt('Для отправки нужен Fine-grained GitHub token для desdesyo/CSS-Bot-Community с Contents: Read and write. Токен сохранится только в этом браузере.');if(!token){$('logsQuick').textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';return}token=token.trim();if(!token)return;try{localStorage.setItem('solo_github_log_token',token)}catch(e){alert('Не удалось сохранить токен в браузере');return}}
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),session='v2-'+Date.now().toString(36),path='logs/gameplay/'+stamp+'-'+session+'-game-diagnostics.json',imagePath='logs/gameplay/'+stamp+'-'+session+'-game-screenshot.png';
+  gameLogUploading=true;const btn=$('logsQuick');btn.disabled=true;btn.textContent='СБОР СКРИНШОТА…';
+  try{
+   const screenshot=scene&&camera?await captureIssueScreenshot():null;
+   const payload=buildGameplayLogPayload();
+   payload.screenshot={captured:!!screenshot,format:'image/png',path:screenshot?imagePath:null,error:screenshot?null:'Canvas/WebGL screenshot capture unavailable'};
+   btn.textContent='ОТПРАВКА В GITHUB…';
+   const response=await fetch('https://api.github.com/repos/desdesyo/CSS-Bot-Community/contents/'+path,{method:'PUT',headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify({message:'Add SOLO: Wet Ground gameplay diagnostics and screenshot',content:encodeGameplayLog(JSON.stringify(payload)),branch:GAME_LOG_BRANCH})});
+   const result=await response.json();if(!response.ok){if(response.status===401||response.status===403){try{localStorage.removeItem('solo_github_log_token')}catch(e){}throw new Error('GitHub отклонил токен или права ('+response.status+'). Токен удалён из браузера.')}throw new Error(result.message||('GitHub API HTTP '+response.status))}
+   if(screenshot)await uploadIssueFile(imagePath,screenshot,'Add gameplay screenshot '+session,token);
+   gameLogRecords=[];gameLogEvents=[];gameLogFrameMs=[];gameLogRenderMs=[];await clearPersistedGameLog();btn.textContent='● ЛОГИ';btn.title='Начать новую запись';updateLogStatus();alert('Логи отправлены в GitHub:\n'+path+(screenshot?'\nСкриншот: '+imagePath:'\nСкриншот не удалось получить; JSON сохранён.'));
+  }catch(error){btn.textContent='↻ ПОВТОРИТЬ ОТПРАВКУ';btn.title='Логи сохранены локально; нажми для повтора';updateLogStatus();console.error('Gameplay log upload failed',error);alert('Не удалось полностью отправить логи: '+error.message+'\nЛокальная запись сохранена.') }
+  finally{gameLogUploading=false;btn.disabled=false}
 }
 
 let issueReportBusy=false;
